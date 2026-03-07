@@ -195,6 +195,69 @@ RECIPE_NAMES: dict[int, str] = {
 # Freestyle / temp recipe constants
 TEMP_RECIPE_ID = 400
 FREESTYLE_NAME_ID = 401
+FREESTYLE_RECIPE_TYPE = 24  # RecipeType.FREESTYLE byte value
+
+
+class ComponentProcess(IntEnum):
+    """Process type within a recipe component (coffee, steam, water)."""
+    NONE = 0
+    COFFEE = 1
+    STEAM = 2
+    WATER = 3
+
+
+class DirectKeyCategory(IntEnum):
+    """DirectKey recipe categories per profile."""
+    ESPRESSO = 0
+    CAFE_CREME = 1
+    CAPPUCCINO = 2
+    LATTE_MACCHIATO = 3
+    MILK_FROTH = 4
+    MILK = 5
+    WATER = 6
+
+
+# DirectKey offset and multiplier
+DIRECTKEY_OFFSET = 302
+DIRECTKEY_PROFILE_MULTIPLIER = 10
+
+
+def get_directkey_id(profile_id: int, category: DirectKeyCategory) -> int:
+    """Calculate DirectKey recipe ID for a profile and category."""
+    return DIRECTKEY_OFFSET + profile_id * DIRECTKEY_PROFILE_MULTIPLIER + category
+
+
+# Map RecipeId -> DirectKeyCategory for profile-based brewing
+RECIPE_TO_DIRECTKEY: dict[int, DirectKeyCategory] = {
+    RecipeId.ESPRESSO: DirectKeyCategory.ESPRESSO,
+    RecipeId.RISTRETTO: DirectKeyCategory.ESPRESSO,
+    RecipeId.LUNGO: DirectKeyCategory.ESPRESSO,
+    RecipeId.ESPRESSO_DOPIO: DirectKeyCategory.ESPRESSO,
+    RecipeId.RISETTO_DOPIO: DirectKeyCategory.ESPRESSO,
+    RecipeId.CAFE_CREME: DirectKeyCategory.CAFE_CREME,
+    RecipeId.CAFE_CREME_DOPIO: DirectKeyCategory.CAFE_CREME,
+    RecipeId.AMERICANO: DirectKeyCategory.CAFE_CREME,
+    RecipeId.AMERICANO_EXTRA: DirectKeyCategory.CAFE_CREME,
+    RecipeId.LONG_BLACK: DirectKeyCategory.CAFE_CREME,
+    RecipeId.RED_EYE: DirectKeyCategory.CAFE_CREME,
+    RecipeId.BLACK_EYE: DirectKeyCategory.CAFE_CREME,
+    RecipeId.DEAD_EYE: DirectKeyCategory.CAFE_CREME,
+    RecipeId.CAPPUCCINO: DirectKeyCategory.CAPPUCCINO,
+    RecipeId.ESPR_MACCHIATO: DirectKeyCategory.LATTE_MACCHIATO,
+    RecipeId.CAFFE_LATTE: DirectKeyCategory.CAPPUCCINO,
+    RecipeId.CAFE_AU_LAIT: DirectKeyCategory.CAPPUCCINO,
+    RecipeId.FLAT_WHITE: DirectKeyCategory.CAPPUCCINO,
+    RecipeId.LATTE_MACCHIATO: DirectKeyCategory.LATTE_MACCHIATO,
+    RecipeId.LATTE_MACCHIATO_EXTRA: DirectKeyCategory.LATTE_MACCHIATO,
+    RecipeId.LATTE_MACCHIATO_TRIPLE: DirectKeyCategory.LATTE_MACCHIATO,
+    RecipeId.MILK: DirectKeyCategory.MILK,
+    RecipeId.MILK_FROTH: DirectKeyCategory.MILK_FROTH,
+    RecipeId.WATER: DirectKeyCategory.WATER,
+}
+
+# Profile names for select entity
+PROFILE_NAMES = {0: "My Coffee"}  # Profile 0 is default
+
 
 # User profile name IDs: 310, 320, ..., 380
 USER_NAME_IDS = {i: 310 + (i - 1) * 10 for i in range(1, 9)}
