@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
@@ -68,6 +68,7 @@ async def async_setup_entry(
         MelittaActionRequiredSensor(client, entry, name),
         MelittaConnectionSensor(client, entry, name),
         MelittaFirmwareSensor(client, entry, name),
+        MelittaTotalCupsSensor(client, entry, name),
     ]
 
     async_add_entities(entities)
@@ -240,3 +241,39 @@ class MelittaFirmwareSensor(_MelittaSensorBase):
     @property
     def native_value(self) -> str | None:
         return self._client.firmware_version
+
+
+class MelittaTotalCupsSensor(_MelittaSensorBase):
+    """Total cups brewed with per-recipe breakdown."""
+
+    _attr_name = "Total Cups"
+    _attr_icon = "mdi:coffee"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = "cups"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_total_cups"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._client.add_cups_callback(self._on_cups_update)
+
+    @callback
+    def _on_cups_update(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        return self._client.total_cups is not None
+
+    @property
+    def native_value(self) -> int | None:
+        return self._client.total_cups
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        counters = self._client.cup_counters
+        if not counters:
+            return {}
+        return {name: count for name, count in counters.items() if count > 0}
