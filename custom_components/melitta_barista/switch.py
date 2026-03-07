@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, MachineSettingId, TS_ONLY_SETTINGS
+from .const import DOMAIN, MachineSettingId, MachineType, TS_ONLY_SETTINGS
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -47,7 +47,6 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME, "Melitta Barista")
 
-    from .const import MachineType
     entities = [
         MelittaSettingSwitch(client, entry, name, defn)
         for defn in SWITCH_DEFINITIONS
