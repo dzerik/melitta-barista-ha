@@ -7,7 +7,7 @@ import logging
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, UnitOfTime
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -111,6 +111,13 @@ class MelittaSettingNumber(NumberEntity):
     @property
     def available(self) -> bool:
         return self._client.connected
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        self.async_write_ha_state()
 
     async def async_update(self) -> None:
         value = await self._client.read_setting(self._setting_id)
