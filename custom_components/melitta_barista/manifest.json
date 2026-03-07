@@ -12,6 +12,10 @@
   "documentation": "https://github.com/dzerik/melitta-barista-ha",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/dzerik/melitta-barista-ha/issues",
-  "requirements": ["bleak>=0.21.0"],
+  "requirements": [
+    "bleak>=0.21.0",
+    "bleak-retry-connector>=3.0.0",
+    "pycryptodome>=3.0.0"
+  ],
   "version": "0.6.3"
 }

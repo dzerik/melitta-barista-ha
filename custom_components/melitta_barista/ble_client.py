@@ -474,19 +474,21 @@ class MelittaBleClient:
 
 async def discover_melitta_devices(timeout: float = 10.0) -> list[BLEDevice]:
     """Discover Melitta Barista devices via BLE scan."""
-    devices = []
+    devices: dict[str, BLEDevice] = {}
 
     def detection_callback(device: BLEDevice, adv_data) -> None:
+        if device.address in devices:
+            return
         if adv_data.service_uuids and MELITTA_SERVICE_UUID in adv_data.service_uuids:
-            devices.append(device)
+            devices[device.address] = device
         elif device.name and any(
             device.name.startswith(p) for p in BLE_PREFIXES_ALL
         ):
-            devices.append(device)
+            devices[device.address] = device
 
     scanner = BleakScanner(detection_callback=detection_callback)
     await scanner.start()
     await asyncio.sleep(timeout)
     await scanner.stop()
 
-    return devices
+    return list(devices.values())
