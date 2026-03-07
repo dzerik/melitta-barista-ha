@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Válassza ki kávégépét a felismert eszközök közül",
+        "data": {
+          "address": "Eszköz"
+        }
+      },
+      "manual": {
+        "title": "Kézi beállítás",
+        "description": "Adja meg a Melitta Barista Smart Bluetooth MAC-címét",
+        "data": {
+          "address": "Bluetooth MAC-cím",
+          "name": "Eszköz neve"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Eszköz megerősítése",
+        "description": "Melitta Barista Smart megtalálva: {name}. Szeretné beállítani?"
+      },
+      "pair": {
+        "title": "Párosítás: {name}",
+        "description": "Kapcsolja be a Bluetooth párosítási módot a kávégépen (a beállítások menüben), majd nyomja meg a Küldés gombot.\n\nEszköz: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Érvénytelen Bluetooth MAC-cím",
+      "cannot_connect": "Nem sikerült csatlakozni az eszközhöz",
+      "unknown": "Váratlan hiba",
+      "pairing_failed": "Párosítás sikertelen. Győződjön meg róla, hogy a gép párosítási módban van.",
+      "pairing_timeout": "Párosítás időtúllépés. Kapcsolja be a párosítási módot és próbálja újra."
+    },
+    "abort": {
+      "already_configured": "Az eszköz már konfigurálva van",
+      "no_devices_found": "Nem található Melitta eszköz"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Állapot",
+        "state": {
+          "ready": "Kész",
+          "brewing": "Főzés",
+          "cleaning": "Tisztítás",
+          "descaling": "Vízkőmentesítés",
+          "filter_insert": "Szűrő behelyezése",
+          "filter_replace": "Szűrő cseréje",
+          "filter_remove": "Szűrő eltávolítása",
+          "off": "Ki",
+          "easy_clean": "Gyorstisztítás",
+          "intensive_clean": "Intenzív tisztítás",
+          "evaporating": "Párologtatás",
+          "busy": "Foglalt",
+          "unavailable": "Nem elérhető",
+          "unknown": "Ismeretlen"
+        }
+      },
+      "activity": {
+        "name": "Tevékenység",
+        "state": {
+          "idle": "Üresjárat",
+          "grinding": "Őrlés",
+          "extracting": "Extrakció",
+          "steaming": "Tejhabosítás",
+          "dispensing_water": "Vízadagolás",
+          "preparing": "Előkészítés"
+        }
+      },
+      "progress": {
+        "name": "Folyamat"
+      },
+      "action_required": {
+        "name": "Beavatkozás szükséges",
+        "state": {
+          "none": "Nincs",
+          "brew_unit_removed": "Főzőegység eltávolítva",
+          "trays_missing": "Tálcák hiányoznak",
+          "empty_trays": "Ürítse ki a tálcákat",
+          "fill_water": "Töltse fel a vizet",
+          "close_powder_lid": "Zárja le a fedelet",
+          "fill_powder": "Töltse fel a kávét"
+        }
+      },
+      "connection": {
+        "name": "Kapcsolat",
+        "state": {
+          "connected": "Csatlakozva",
+          "disconnected": "Leválasztva"
+        }
+      },
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Főzés"
+      },
+      "cancel": {
+        "name": "Mégse"
+      },
+      "easy_clean": {
+        "name": "Gyors tisztítás"
+      },
+      "intensive_clean": {
+        "name": "Intenzív tisztítás"
+      },
+      "descaling": {
+        "name": "Vízkőtelenítés"
+      },
+      "switch_off": {
+        "name": "Kikapcsolás"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recept",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Tej",
+          "milk_froth": "Tejhab",
+          "hot_water": "Forró víz"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Vízkeménység"
+      },
+      "auto_off_after": {
+        "name": "Auto ki ennyi után"
+      },
+      "brew_temperature": {
+        "name": "Főzési hőmérséklet"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energiatakarékos"
+      },
+      "auto_bean_select": {
+        "name": "Auto babválasztás"
+      },
+      "rinsing_disabled": {
+        "name": "Öblítés kikapcsolva"
+      }
+    }
+  }
+}

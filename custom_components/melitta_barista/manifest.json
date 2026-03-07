@@ -1,0 +1,16 @@
+{
+  "domain": "melitta_barista",
+  "name": "Melitta Barista Smart",
+  "codeowners": ["@dzerik"],
+  "config_flow": true,
+  "dependencies": ["bluetooth"],
+  "documentation": "https://github.com/dzerik/melitta-barista-ha",
+  "bluetooth": [
+    {
+      "service_uuid": "0000ad00-b35c-11e4-9813-0002a5d5c51b"
+    }
+  ],
+  "iot_class": "local_push",
+  "requirements": ["bleak>=0.21.0"],
+  "version": "0.6.2"
+}

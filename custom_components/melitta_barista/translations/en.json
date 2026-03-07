@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Select your coffee machine from discovered devices",
+        "data": {
+          "address": "Device"
+        }
+      },
+      "manual": {
+        "title": "Manual Configuration",
+        "description": "Enter the Bluetooth MAC address of your Melitta Barista Smart",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Confirm Device",
+        "description": "Found Melitta Barista Smart: {name}. Do you want to set it up?"
+      },
+      "pair": {
+        "title": "Pair with {name}",
+        "description": "Enable Bluetooth pairing mode on your coffee machine (check machine settings menu), then press Submit to pair.\n\nDevice: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Invalid Bluetooth MAC address",
+      "cannot_connect": "Could not connect to the device. Make sure the machine is powered on and within Bluetooth range.",
+      "pairing_failed": "Pairing failed. Make sure the machine is in pairing mode and try again.",
+      "pairing_timeout": "Pairing timed out. Enable pairing mode on the machine and try again.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "no_devices_found": "No Melitta devices found"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "State",
+        "state": {
+          "ready": "Ready",
+          "brewing": "Brewing",
+          "cleaning": "Cleaning",
+          "descaling": "Descaling",
+          "filter_insert": "Filter Insert",
+          "filter_replace": "Filter Replace",
+          "filter_remove": "Filter Remove",
+          "off": "Off",
+          "easy_clean": "Easy Clean",
+          "intensive_clean": "Intensive Clean",
+          "evaporating": "Evaporating",
+          "busy": "Busy",
+          "unavailable": "Unavailable",
+          "unknown": "Unknown"
+        }
+      },
+      "activity": {
+        "name": "Activity",
+        "state": {
+          "idle": "Idle",
+          "grinding": "Grinding",
+          "extracting": "Extracting",
+          "steaming": "Steaming",
+          "dispensing_water": "Dispensing Water",
+          "preparing": "Preparing"
+        }
+      },
+      "progress": {
+        "name": "Progress"
+      },
+      "action_required": {
+        "name": "Action Required",
+        "state": {
+          "none": "None",
+          "brew_unit_removed": "Brew Unit Removed",
+          "trays_missing": "Trays Missing",
+          "empty_trays": "Empty Trays",
+          "fill_water": "Fill Water",
+          "close_powder_lid": "Close Powder Lid",
+          "fill_powder": "Fill Powder"
+        }
+      },
+      "connection": {
+        "name": "Connection",
+        "state": {
+          "connected": "Connected",
+          "disconnected": "Disconnected"
+        }
+      },
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Brew"
+      },
+      "cancel": {
+        "name": "Cancel"
+      },
+      "easy_clean": {
+        "name": "Easy Clean"
+      },
+      "intensive_clean": {
+        "name": "Intensive Clean"
+      },
+      "descaling": {
+        "name": "Descaling"
+      },
+      "switch_off": {
+        "name": "Switch Off"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recipe",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Milk",
+          "milk_froth": "Milk Froth",
+          "hot_water": "Hot Water"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Water Hardness"
+      },
+      "auto_off_after": {
+        "name": "Auto Off After"
+      },
+      "brew_temperature": {
+        "name": "Brew Temperature"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energy Saving"
+      },
+      "auto_bean_select": {
+        "name": "Auto Bean Select"
+      },
+      "rinsing_disabled": {
+        "name": "Rinsing Disabled"
+      }
+    }
+  }
+}

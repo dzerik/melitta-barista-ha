@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Pasirinkite kavos aparatą iš aptiktų įrenginių",
+        "data": {
+          "address": "Įrenginys"
+        }
+      },
+      "manual": {
+        "title": "Rankinis nustatymas",
+        "description": "Įveskite Melitta Barista Smart Bluetooth MAC adresą",
+        "data": {
+          "address": "Bluetooth MAC adresas",
+          "name": "Įrenginio pavadinimas"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Patvirtinti įrenginį",
+        "description": "Rastas Melitta Barista Smart: {name}. Ar norite jį nustatyti?"
+      },
+      "pair": {
+        "title": "Susiejimas su {name}",
+        "description": "Įjunkite Bluetooth susiejimo režimą kavos aparate (nustatymų meniu), tada paspauskite Siųsti.\n\nĮrenginys: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Neteisingas Bluetooth MAC adresas",
+      "cannot_connect": "Nepavyko prisijungti prie įrenginio",
+      "unknown": "Netikėta klaida",
+      "pairing_failed": "Susiejimas nepavyko. Įsitikinkite, kad aparatas yra susiejimo režime.",
+      "pairing_timeout": "Susiejimo laikas baigėsi. Įjunkite susiejimo režimą ir bandykite dar kartą."
+    },
+    "abort": {
+      "already_configured": "Įrenginys jau sukonfigūruotas",
+      "no_devices_found": "Melitta įrenginių nerasta"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Būsena",
+        "state": {
+          "ready": "Paruoštas",
+          "brewing": "Ruošimas",
+          "cleaning": "Valymas",
+          "descaling": "Kalkių šalinimas",
+          "filter_insert": "Filtro įdėjimas",
+          "filter_replace": "Filtro keitimas",
+          "filter_remove": "Filtro išėmimas",
+          "off": "Išjungtas",
+          "easy_clean": "Greitas valymas",
+          "intensive_clean": "Intensyvus valymas",
+          "evaporating": "Garinimas",
+          "busy": "Užimtas",
+          "unavailable": "Nepasiekiamas",
+          "unknown": "Nežinomas"
+        }
+      },
+      "activity": {
+        "name": "Veikla",
+        "state": {
+          "idle": "Laukimas",
+          "grinding": "Malimas",
+          "extracting": "Ekstrakcija",
+          "steaming": "Pieno putojimas",
+          "dispensing_water": "Vandens tiekimas",
+          "preparing": "Paruošimas"
+        }
+      },
+      "progress": {
+        "name": "Eiga"
+      },
+      "action_required": {
+        "name": "Reikalingas veiksmas",
+        "state": {
+          "none": "Nėra",
+          "brew_unit_removed": "Virimo blokas išimtas",
+          "trays_missing": "Padėklai trūksta",
+          "empty_trays": "Ištuštinkite padėklus",
+          "fill_water": "Pripilkite vandens",
+          "close_powder_lid": "Uždarykite dangtį",
+          "fill_powder": "Įpilkite kavos"
+        }
+      },
+      "connection": {
+        "name": "Ryšys",
+        "state": {
+          "connected": "Prisijungta",
+          "disconnected": "Atjungta"
+        }
+      },
+      "firmware": {
+        "name": "Programinė įranga"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Paruošti"
+      },
+      "cancel": {
+        "name": "Atšaukti"
+      },
+      "easy_clean": {
+        "name": "Greitas valymas"
+      },
+      "intensive_clean": {
+        "name": "Intensyvus valymas"
+      },
+      "descaling": {
+        "name": "Kalkių šalinimas"
+      },
+      "switch_off": {
+        "name": "Išjungti"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Receptas",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Pienas",
+          "milk_froth": "Pieno puta",
+          "hot_water": "Karštas vanduo"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Vandens kietumas"
+      },
+      "auto_off_after": {
+        "name": "Auto išjungimas po"
+      },
+      "brew_temperature": {
+        "name": "Ruošimo temperatūra"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energijos taupymas"
+      },
+      "auto_bean_select": {
+        "name": "Automatinis pupelių pasirinkimas"
+      },
+      "rinsing_disabled": {
+        "name": "Skalavimas išjungtas"
+      }
+    }
+  }
+}

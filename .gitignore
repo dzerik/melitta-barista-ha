@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# IDE
+*.iml
+.idea/
+.vscode/
+
+
+
+*.zip
+
+
+
+# Debug scripts
+brew_espresso.py
+debug_brew.py

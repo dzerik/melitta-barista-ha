@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Выберите кофемашину из обнаруженных устройств",
+        "data": {
+          "address": "Устройство"
+        }
+      },
+      "manual": {
+        "title": "Ручная настройка",
+        "description": "Введите Bluetooth MAC-адрес вашей Melitta Barista Smart",
+        "data": {
+          "address": "Bluetooth MAC-адрес",
+          "name": "Имя устройства"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Подтверждение устройства",
+        "description": "Найдена Melitta Barista Smart: {name}. Хотите настроить?"
+      },
+      "pair": {
+        "title": "Сопряжение с {name}",
+        "description": "Включите режим сопряжения Bluetooth на кофемашине (в меню настроек машины), затем нажмите Отправить.\n\nУстройство: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Неверный Bluetooth MAC-адрес",
+      "cannot_connect": "Не удалось подключиться. Убедитесь, что машина включена и находится в зоне действия Bluetooth.",
+      "pairing_failed": "Сопряжение не удалось. Убедитесь, что машина в режиме сопряжения, и попробуйте снова.",
+      "pairing_timeout": "Время сопряжения истекло. Включите режим сопряжения на машине и попробуйте снова.",
+      "unknown": "Непредвиденная ошибка"
+    },
+    "abort": {
+      "already_configured": "Устройство уже настроено",
+      "no_devices_found": "Устройства Melitta не найдены"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Состояние",
+        "state": {
+          "ready": "Готова",
+          "brewing": "Приготовление",
+          "cleaning": "Очистка",
+          "descaling": "Декальцинация",
+          "filter_insert": "Установка фильтра",
+          "filter_replace": "Замена фильтра",
+          "filter_remove": "Извлечение фильтра",
+          "off": "Выключена",
+          "easy_clean": "Быстрая очистка",
+          "intensive_clean": "Интенсивная очистка",
+          "evaporating": "Выпаривание",
+          "busy": "Занята",
+          "unavailable": "Недоступна",
+          "unknown": "Неизвестно"
+        }
+      },
+      "activity": {
+        "name": "Активность",
+        "state": {
+          "idle": "Ожидание",
+          "grinding": "Помол",
+          "extracting": "Экстракция",
+          "steaming": "Взбивание молока",
+          "dispensing_water": "Подача воды",
+          "preparing": "Подготовка"
+        }
+      },
+      "progress": {
+        "name": "Прогресс"
+      },
+      "action_required": {
+        "name": "Требуется действие",
+        "state": {
+          "none": "Нет",
+          "brew_unit_removed": "Заварочный блок извлечён",
+          "trays_missing": "Поддоны отсутствуют",
+          "empty_trays": "Опустошите поддоны",
+          "fill_water": "Долейте воду",
+          "close_powder_lid": "Закройте крышку",
+          "fill_powder": "Засыпьте кофе"
+        }
+      },
+      "connection": {
+        "name": "Подключение",
+        "state": {
+          "connected": "Подключено",
+          "disconnected": "Отключено"
+        }
+      },
+      "firmware": {
+        "name": "Прошивка"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Приготовить"
+      },
+      "cancel": {
+        "name": "Отмена"
+      },
+      "easy_clean": {
+        "name": "Быстрая очистка"
+      },
+      "intensive_clean": {
+        "name": "Интенсивная очистка"
+      },
+      "descaling": {
+        "name": "Декальцинация"
+      },
+      "switch_off": {
+        "name": "Выключить"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Рецепт",
+        "state": {
+          "espresso": "Эспрессо",
+          "ristretto": "Ристретто",
+          "lungo": "Лунго",
+          "espresso_doppio": "Эспрессо Доппио",
+          "ristretto_doppio": "Ристретто Доппио",
+          "cafe_creme": "Кафе Крема",
+          "cafe_creme_doppio": "Кафе Крема Доппио",
+          "americano": "Американо",
+          "americano_extra": "Американо Экстра",
+          "long_black": "Лонг Блэк",
+          "red_eye": "Ред Ай",
+          "black_eye": "Блэк Ай",
+          "dead_eye": "Дэд Ай",
+          "cappuccino": "Капучино",
+          "espresso_macchiato": "Эспрессо Макиато",
+          "caffe_latte": "Кафе Латте",
+          "cafe_au_lait": "Кафе о Ле",
+          "flat_white": "Флэт Уайт",
+          "latte_macchiato": "Латте Макиато",
+          "latte_macchiato_extra": "Латте Макиато Экстра",
+          "latte_macchiato_triple": "Латте Макиато Трипл",
+          "milk": "Молоко",
+          "milk_froth": "Молочная пенка",
+          "hot_water": "Горячая вода"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Жёсткость воды"
+      },
+      "auto_off_after": {
+        "name": "Автоотключение через"
+      },
+      "brew_temperature": {
+        "name": "Температура"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Энергосбережение"
+      },
+      "auto_bean_select": {
+        "name": "Автовыбор зёрен"
+      },
+      "rinsing_disabled": {
+        "name": "Ополаскивание отключено"
+      }
+    }
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Vælg din kaffemaskine fra fundne enheder",
+        "data": {
+          "address": "Enhed"
+        }
+      },
+      "manual": {
+        "title": "Manuel konfiguration",
+        "description": "Indtast Bluetooth MAC-adressen på din Melitta Barista Smart",
+        "data": {
+          "address": "Bluetooth MAC-adresse",
+          "name": "Enhedsnavn"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Bekræft enhed",
+        "description": "Melitta Barista Smart fundet: {name}. Vil du konfigurere den?"
+      },
+      "pair": {
+        "title": "Parring med {name}",
+        "description": "Aktivér Bluetooth-parringstilstand på din kaffemaskine (i indstillingsmenuen), tryk derefter på Send.\n\nEnhed: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Ugyldig Bluetooth MAC-adresse",
+      "cannot_connect": "Kunne ikke oprette forbindelse til enheden",
+      "unknown": "Uventet fejl",
+      "pairing_failed": "Parring mislykkedes. Sørg for, at maskinen er i parringstilstand.",
+      "pairing_timeout": "Timeout for parring. Aktivér parringstilstand og prøv igen."
+    },
+    "abort": {
+      "already_configured": "Enheden er allerede konfigureret",
+      "no_devices_found": "Ingen Melitta-enheder fundet"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Status",
+        "state": {
+          "ready": "Klar",
+          "brewing": "Brygning",
+          "cleaning": "Rengøring",
+          "descaling": "Afkalkning",
+          "filter_insert": "Indsæt filter",
+          "filter_replace": "Udskift filter",
+          "filter_remove": "Fjern filter",
+          "off": "Slukket",
+          "easy_clean": "Hurtig rengøring",
+          "intensive_clean": "Intensiv rengøring",
+          "evaporating": "Fordampning",
+          "busy": "Optaget",
+          "unavailable": "Utilgængelig",
+          "unknown": "Ukendt"
+        }
+      },
+      "activity": {
+        "name": "Aktivitet",
+        "state": {
+          "idle": "Inaktiv",
+          "grinding": "Formaling",
+          "extracting": "Ekstraktion",
+          "steaming": "Mælkeskumning",
+          "dispensing_water": "Vandudgivelse",
+          "preparing": "Forberedelse"
+        }
+      },
+      "progress": {
+        "name": "Fremskridt"
+      },
+      "action_required": {
+        "name": "Handling påkrævet",
+        "state": {
+          "none": "Ingen",
+          "brew_unit_removed": "Bryggeenhed fjernet",
+          "trays_missing": "Bakker mangler",
+          "empty_trays": "Tøm bakkerne",
+          "fill_water": "Fyld vand på",
+          "close_powder_lid": "Luk låget",
+          "fill_powder": "Fyld kaffe på"
+        }
+      },
+      "connection": {
+        "name": "Forbindelse",
+        "state": {
+          "connected": "Tilsluttet",
+          "disconnected": "Afbrudt"
+        }
+      },
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Bryg"
+      },
+      "cancel": {
+        "name": "Annuller"
+      },
+      "easy_clean": {
+        "name": "Hurtig rengøring"
+      },
+      "intensive_clean": {
+        "name": "Intensiv rengøring"
+      },
+      "descaling": {
+        "name": "Afkalkning"
+      },
+      "switch_off": {
+        "name": "Sluk"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Opskrift",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Mælk",
+          "milk_froth": "Mælkeskum",
+          "hot_water": "Varmt vand"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Vandhårdhed"
+      },
+      "auto_off_after": {
+        "name": "Auto sluk efter"
+      },
+      "brew_temperature": {
+        "name": "Bryggetemperatur"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energibesparelse"
+      },
+      "auto_bean_select": {
+        "name": "Auto bønnevalg"
+      },
+      "rinsing_disabled": {
+        "name": "Skylning deaktiveret"
+      }
+    }
+  }
+}

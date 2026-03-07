@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Изберете кафемашината си от откритите устройства",
+        "data": {
+          "address": "Устройство"
+        }
+      },
+      "manual": {
+        "title": "Ръчна конфигурация",
+        "description": "Въведете Bluetooth MAC адреса на вашата Melitta Barista Smart",
+        "data": {
+          "address": "Bluetooth MAC адрес",
+          "name": "Име на устройството"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Потвърждение на устройство",
+        "description": "Намерена Melitta Barista Smart: {name}. Искате ли да я настроите?"
+      },
+      "pair": {
+        "title": "Сдвояване с {name}",
+        "description": "Включете режим на сдвояване по Bluetooth на кафемашината (в менюто с настройки), след което натиснете Изпрати.\n\nУстройство: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Невалиден Bluetooth MAC адрес",
+      "cannot_connect": "Неуспешно свързване с устройството",
+      "unknown": "Неочаквана грешка",
+      "pairing_failed": "Сдвояването е неуспешно. Уверете се, че машината е в режим на сдвояване.",
+      "pairing_timeout": "Изтичане на времето за сдвояване. Включете режим на сдвояване и опитайте отново."
+    },
+    "abort": {
+      "already_configured": "Устройството вече е конфигурирано",
+      "no_devices_found": "Не са намерени устройства Melitta"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Състояние",
+        "state": {
+          "ready": "Готова",
+          "brewing": "Приготвяне",
+          "cleaning": "Почистване",
+          "descaling": "Декалциране",
+          "filter_insert": "Поставяне на филтър",
+          "filter_replace": "Смяна на филтър",
+          "filter_remove": "Премахване на филтър",
+          "off": "Изключена",
+          "easy_clean": "Бързо почистване",
+          "intensive_clean": "Интензивно почистване",
+          "evaporating": "Изпаряване",
+          "busy": "Заета",
+          "unavailable": "Недостъпна",
+          "unknown": "Неизвестно"
+        }
+      },
+      "activity": {
+        "name": "Дейност",
+        "state": {
+          "idle": "В покой",
+          "grinding": "Смилане",
+          "extracting": "Екстракция",
+          "steaming": "Разпенване на мляко",
+          "dispensing_water": "Подаване на вода",
+          "preparing": "Подготовка"
+        }
+      },
+      "progress": {
+        "name": "Напредък"
+      },
+      "action_required": {
+        "name": "Необходимо действие",
+        "state": {
+          "none": "Няма",
+          "brew_unit_removed": "Заварочният блок е извален",
+          "trays_missing": "Тавите липсват",
+          "empty_trays": "Изпразнете тавите",
+          "fill_water": "Долейте вода",
+          "close_powder_lid": "Затворете капака",
+          "fill_powder": "Добавете кафе"
+        }
+      },
+      "connection": {
+        "name": "Връзка",
+        "state": {
+          "connected": "Свързано",
+          "disconnected": "Прекъснато"
+        }
+      },
+      "firmware": {
+        "name": "Фърмуер"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Приготви"
+      },
+      "cancel": {
+        "name": "Отказ"
+      },
+      "easy_clean": {
+        "name": "Бързо почистване"
+      },
+      "intensive_clean": {
+        "name": "Интензивно почистване"
+      },
+      "descaling": {
+        "name": "Декалциране"
+      },
+      "switch_off": {
+        "name": "Изключи"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Рецепта",
+        "state": {
+          "espresso": "Еспресо",
+          "ristretto": "Ристрето",
+          "lungo": "Лунго",
+          "espresso_doppio": "Еспресо Допио",
+          "ristretto_doppio": "Ристрето Допио",
+          "cafe_creme": "Кафе Крема",
+          "cafe_creme_doppio": "Кафе Крема Допио",
+          "americano": "Американо",
+          "americano_extra": "Американо Екстра",
+          "long_black": "Лонг Блек",
+          "red_eye": "Ред Ай",
+          "black_eye": "Блек Ай",
+          "dead_eye": "Дед Ай",
+          "cappuccino": "Капучино",
+          "espresso_macchiato": "Еспресо Макиато",
+          "caffe_latte": "Кафе Лате",
+          "cafe_au_lait": "Кафе о Ле",
+          "flat_white": "Флет Уайт",
+          "latte_macchiato": "Лате Макиато",
+          "latte_macchiato_extra": "Лате Макиато Екстра",
+          "latte_macchiato_triple": "Лате Макиато Трипъл",
+          "milk": "Мляко",
+          "milk_froth": "Млечна пяна",
+          "hot_water": "Гореща вода"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Твърдост на водата"
+      },
+      "auto_off_after": {
+        "name": "Автоизключване след"
+      },
+      "brew_temperature": {
+        "name": "Температура на приготвяне"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Енергоспестяване"
+      },
+      "auto_bean_select": {
+        "name": "Автоматичен избор на зърна"
+      },
+      "rinsing_disabled": {
+        "name": "Изплакването изключено"
+      }
+    }
+  }
+}

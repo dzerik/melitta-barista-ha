@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Bulunan cihazlardan kahve makinenizi seçin",
+        "data": {
+          "address": "Cihaz"
+        }
+      },
+      "manual": {
+        "title": "Manuel yapılandırma",
+        "description": "Melitta Barista Smart'ınızın Bluetooth MAC adresini girin",
+        "data": {
+          "address": "Bluetooth MAC adresi",
+          "name": "Cihaz adı"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Cihazı onayla",
+        "description": "Melitta Barista Smart bulundu: {name}. Kurmak ister misiniz?"
+      },
+      "pair": {
+        "title": "{name} ile eşleştir",
+        "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsünde), ardından Gönder'e basın.\n\nCihaz: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Geçersiz Bluetooth MAC adresi",
+      "cannot_connect": "Cihaza bağlanılamadı",
+      "unknown": "Beklenmeyen hata",
+      "pairing_failed": "Eşleştirme başarısız. Makinenin eşleştirme modunda olduğundan emin olun.",
+      "pairing_timeout": "Eşleştirme zaman aşımı. Eşleştirme modunu etkinleştirip tekrar deneyin."
+    },
+    "abort": {
+      "already_configured": "Cihaz zaten yapılandırılmış",
+      "no_devices_found": "Melitta cihazı bulunamadı"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Durum",
+        "state": {
+          "ready": "Hazır",
+          "brewing": "Demleme",
+          "cleaning": "Temizlik",
+          "descaling": "Kireç çözme",
+          "filter_insert": "Filtre takma",
+          "filter_replace": "Filtre değiştirme",
+          "filter_remove": "Filtre çıkarma",
+          "off": "Kapalı",
+          "easy_clean": "Hızlı temizlik",
+          "intensive_clean": "Yoğun temizlik",
+          "evaporating": "Buharlaştırma",
+          "busy": "Meşgul",
+          "unavailable": "Kullanılamaz",
+          "unknown": "Bilinmiyor"
+        }
+      },
+      "activity": {
+        "name": "Etkinlik",
+        "state": {
+          "idle": "Boşta",
+          "grinding": "Öğütme",
+          "extracting": "Ekstraksiyon",
+          "steaming": "Süt köpürtme",
+          "dispensing_water": "Su verme",
+          "preparing": "Hazırlık"
+        }
+      },
+      "progress": {
+        "name": "İlerleme"
+      },
+      "action_required": {
+        "name": "İşlem gerekli",
+        "state": {
+          "none": "Yok",
+          "brew_unit_removed": "Demleme ünitesi çıkarılmış",
+          "trays_missing": "Tepsiler eksik",
+          "empty_trays": "Tepsileri boşaltın",
+          "fill_water": "Su doldurun",
+          "close_powder_lid": "Kapağı kapatın",
+          "fill_powder": "Kahve ekleyin"
+        }
+      },
+      "connection": {
+        "name": "Bağlantı",
+        "state": {
+          "connected": "Bağlı",
+          "disconnected": "Bağlantı kesildi"
+        }
+      },
+      "firmware": {
+        "name": "Yazılım"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Demle"
+      },
+      "cancel": {
+        "name": "İptal"
+      },
+      "easy_clean": {
+        "name": "Hızlı temizlik"
+      },
+      "intensive_clean": {
+        "name": "Yoğun temizlik"
+      },
+      "descaling": {
+        "name": "Kireç çözme"
+      },
+      "switch_off": {
+        "name": "Kapat"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Tarif",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Süt",
+          "milk_froth": "Süt köpüğü",
+          "hot_water": "Sıcak su"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Su sertliği"
+      },
+      "auto_off_after": {
+        "name": "Otomatik kapanma süresi"
+      },
+      "brew_temperature": {
+        "name": "Demleme sıcaklığı"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Enerji tasarrufu"
+      },
+      "auto_bean_select": {
+        "name": "Otomatik çekirdek seçimi"
+      },
+      "rinsing_disabled": {
+        "name": "Durulama kapalı"
+      }
+    }
+  }
+}

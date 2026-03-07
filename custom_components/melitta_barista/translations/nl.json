@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Selecteer uw koffiezetapparaat uit de gevonden apparaten",
+        "data": {
+          "address": "Apparaat"
+        }
+      },
+      "manual": {
+        "title": "Handmatige configuratie",
+        "description": "Voer het Bluetooth MAC-adres van uw Melitta Barista Smart in",
+        "data": {
+          "address": "Bluetooth MAC-adres",
+          "name": "Apparaatnaam"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Apparaat bevestigen",
+        "description": "Melitta Barista Smart gevonden: {name}. Wilt u deze instellen?"
+      },
+      "pair": {
+        "title": "Koppelen met {name}",
+        "description": "Schakel de Bluetooth-koppelingsmodus in op uw koffiemachine (in het instellingenmenu), druk daarna op Verzenden.\n\nApparaat: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Ongeldig Bluetooth MAC-adres",
+      "cannot_connect": "Kan niet verbinden met het apparaat",
+      "unknown": "Onverwachte fout",
+      "pairing_failed": "Koppeling mislukt. Zorg dat de machine in koppelingsmodus staat.",
+      "pairing_timeout": "Time-out bij koppeling. Schakel de koppelingsmodus in en probeer opnieuw."
+    },
+    "abort": {
+      "already_configured": "Apparaat is al geconfigureerd",
+      "no_devices_found": "Geen Melitta-apparaten gevonden"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Status",
+        "state": {
+          "ready": "Gereed",
+          "brewing": "Zetten",
+          "cleaning": "Reiniging",
+          "descaling": "Ontkalking",
+          "filter_insert": "Filter plaatsen",
+          "filter_replace": "Filter vervangen",
+          "filter_remove": "Filter verwijderen",
+          "off": "Uit",
+          "easy_clean": "Snelle reiniging",
+          "intensive_clean": "Intensieve reiniging",
+          "evaporating": "Verdampen",
+          "busy": "Bezig",
+          "unavailable": "Niet beschikbaar",
+          "unknown": "Onbekend"
+        }
+      },
+      "activity": {
+        "name": "Activiteit",
+        "state": {
+          "idle": "Inactief",
+          "grinding": "Malen",
+          "extracting": "Extraheren",
+          "steaming": "Melk opschuimen",
+          "dispensing_water": "Water afgeven",
+          "preparing": "Voorbereiden"
+        }
+      },
+      "progress": {
+        "name": "Voortgang"
+      },
+      "action_required": {
+        "name": "Actie vereist",
+        "state": {
+          "none": "Geen",
+          "brew_unit_removed": "Zetgroep verwijderd",
+          "trays_missing": "Lekbakken ontbreken",
+          "empty_trays": "Lekbakken legen",
+          "fill_water": "Water bijvullen",
+          "close_powder_lid": "Deksel sluiten",
+          "fill_powder": "Koffie bijvullen"
+        }
+      },
+      "connection": {
+        "name": "Verbinding",
+        "state": {
+          "connected": "Verbonden",
+          "disconnected": "Verbroken"
+        }
+      },
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Zetten"
+      },
+      "cancel": {
+        "name": "Annuleren"
+      },
+      "easy_clean": {
+        "name": "Snelle reiniging"
+      },
+      "intensive_clean": {
+        "name": "Intensieve reiniging"
+      },
+      "descaling": {
+        "name": "Ontkalking"
+      },
+      "switch_off": {
+        "name": "Uitschakelen"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recept",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Melk",
+          "milk_froth": "Melkschuim",
+          "hot_water": "Heet water"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Waterhardheid"
+      },
+      "auto_off_after": {
+        "name": "Auto uit na"
+      },
+      "brew_temperature": {
+        "name": "Zettemperatuur"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energiebesparing"
+      },
+      "auto_bean_select": {
+        "name": "Auto bonenselectie"
+      },
+      "rinsing_disabled": {
+        "name": "Spoeling uitgeschakeld"
+      }
+    }
+  }
+}

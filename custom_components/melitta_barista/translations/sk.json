@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Vyberte kávovar z nájdených zariadení",
+        "data": {
+          "address": "Zariadenie"
+        }
+      },
+      "manual": {
+        "title": "Ručná konfigurácia",
+        "description": "Zadajte Bluetooth MAC adresu vášho Melitta Barista Smart",
+        "data": {
+          "address": "Bluetooth MAC adresa",
+          "name": "Názov zariadenia"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Potvrdiť zariadenie",
+        "description": "Nájdený Melitta Barista Smart: {name}. Chcete ho nastaviť?"
+      },
+      "pair": {
+        "title": "Párovanie s {name}",
+        "description": "Zapnite režim párovania Bluetooth na kávovare (v menu nastavení), potom stlačte Odoslať.\n\nZariadenie: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Neplatná Bluetooth MAC adresa",
+      "cannot_connect": "Nepodarilo sa pripojiť k zariadeniu",
+      "unknown": "Neočakávaná chyba",
+      "pairing_failed": "Párovanie zlyhalo. Uistite sa, že je stroj v režime párovania.",
+      "pairing_timeout": "Časový limit párovania. Zapnite režim párovania a skúste znova."
+    },
+    "abort": {
+      "already_configured": "Zariadenie je už nakonfigurované",
+      "no_devices_found": "Nenašli sa žiadne zariadenia Melitta"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Stav",
+        "state": {
+          "ready": "Pripravený",
+          "brewing": "Príprava",
+          "cleaning": "Čistenie",
+          "descaling": "Odvápňovanie",
+          "filter_insert": "Vloženie filtra",
+          "filter_replace": "Výmena filtra",
+          "filter_remove": "Odobratie filtra",
+          "off": "Vypnuté",
+          "easy_clean": "Rýchle čistenie",
+          "intensive_clean": "Intenzívne čistenie",
+          "evaporating": "Odparovanie",
+          "busy": "Zaneprázdnený",
+          "unavailable": "Nedostupný",
+          "unknown": "Neznámy"
+        }
+      },
+      "activity": {
+        "name": "Aktivita",
+        "state": {
+          "idle": "Nečinný",
+          "grinding": "Mletie",
+          "extracting": "Extrakcia",
+          "steaming": "Napenenie mlieka",
+          "dispensing_water": "Výdaj vody",
+          "preparing": "Príprava"
+        }
+      },
+      "progress": {
+        "name": "Priebeh"
+      },
+      "action_required": {
+        "name": "Vyžadovaná akcia",
+        "state": {
+          "none": "Žiadna",
+          "brew_unit_removed": "Vybraná sparovacia jednotka",
+          "trays_missing": "Chýba odkvapkávacia miska",
+          "empty_trays": "Vyprázdnite misku",
+          "fill_water": "Doplňte vodu",
+          "close_powder_lid": "Zatvorte veko",
+          "fill_powder": "Doplňte kávu"
+        }
+      },
+      "connection": {
+        "name": "Pripojenie",
+        "state": {
+          "connected": "Pripojené",
+          "disconnected": "Odpojené"
+        }
+      },
+      "firmware": {
+        "name": "Firmvér"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Pripraviť"
+      },
+      "cancel": {
+        "name": "Zrušiť"
+      },
+      "easy_clean": {
+        "name": "Rýchle čistenie"
+      },
+      "intensive_clean": {
+        "name": "Intenzívne čistenie"
+      },
+      "descaling": {
+        "name": "Odvápnenie"
+      },
+      "switch_off": {
+        "name": "Vypnúť"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recept",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Mlieko",
+          "milk_froth": "Mliečna pena",
+          "hot_water": "Horúca voda"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Tvrdosť vody"
+      },
+      "auto_off_after": {
+        "name": "Auto vypnutie po"
+      },
+      "brew_temperature": {
+        "name": "Teplota prípravy"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Úspora energie"
+      },
+      "auto_bean_select": {
+        "name": "Automatický výber zŕn"
+      },
+      "rinsing_disabled": {
+        "name": "Oplach vypnutý"
+      }
+    }
+  }
+}

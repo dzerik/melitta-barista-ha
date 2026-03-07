@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Επιλέξτε τη μηχανή καφέ σας από τις ανιχνευμένες συσκευές",
+        "data": {
+          "address": "Συσκευή"
+        }
+      },
+      "manual": {
+        "title": "Χειροκίνητη ρύθμιση",
+        "description": "Εισάγετε τη διεύθυνση Bluetooth MAC της Melitta Barista Smart",
+        "data": {
+          "address": "Διεύθυνση Bluetooth MAC",
+          "name": "Όνομα συσκευής"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Επιβεβαίωση συσκευής",
+        "description": "Βρέθηκε Melitta Barista Smart: {name}. Θέλετε να τη ρυθμίσετε;"
+      },
+      "pair": {
+        "title": "Σύζευξη με {name}",
+        "description": "Ενεργοποιήστε τη λειτουργία σύζευξης Bluetooth στην καφετιέρα (στο μενού ρυθμίσεων), μετά πατήστε Αποστολή.\n\nΣυσκευή: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Μη έγκυρη διεύθυνση Bluetooth MAC",
+      "cannot_connect": "Αποτυχία σύνδεσης στη συσκευή",
+      "unknown": "Μη αναμενόμενο σφάλμα",
+      "pairing_failed": "Η σύζευξη απέτυχε. Βεβαιωθείτε ότι η μηχανή είναι σε λειτουργία σύζευξης.",
+      "pairing_timeout": "Λήξη χρόνου σύζευξης. Ενεργοποιήστε τη λειτουργία σύζευξης και δοκιμάστε ξανά."
+    },
+    "abort": {
+      "already_configured": "Η συσκευή έχει ήδη ρυθμιστεί",
+      "no_devices_found": "Δεν βρέθηκαν συσκευές Melitta"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Κατάσταση",
+        "state": {
+          "ready": "Έτοιμο",
+          "brewing": "Παρασκευή",
+          "cleaning": "Καθαρισμός",
+          "descaling": "Αφαλάτωση",
+          "filter_insert": "Τοποθέτηση φίλτρου",
+          "filter_replace": "Αντικατάσταση φίλτρου",
+          "filter_remove": "Αφαίρεση φίλτρου",
+          "off": "Σβηστό",
+          "easy_clean": "Γρήγορος καθαρισμός",
+          "intensive_clean": "Εντατικός καθαρισμός",
+          "evaporating": "Εξάτμιση",
+          "busy": "Απασχολημένο",
+          "unavailable": "Μη διαθέσιμο",
+          "unknown": "Άγνωστο"
+        }
+      },
+      "activity": {
+        "name": "Δραστηριότητα",
+        "state": {
+          "idle": "Αδρανές",
+          "grinding": "Άλεσμα",
+          "extracting": "Εκχύλιση",
+          "steaming": "Αφρόγαλα",
+          "dispensing_water": "Παροχή νερού",
+          "preparing": "Προετοιμασία"
+        }
+      },
+      "progress": {
+        "name": "Πρόοδος"
+      },
+      "action_required": {
+        "name": "Απαιτείται ενέργεια",
+        "state": {
+          "none": "Καμία",
+          "brew_unit_removed": "Μονάδα παρασκευής αφαιρέθηκε",
+          "trays_missing": "Δίσκοι λείπουν",
+          "empty_trays": "Αδειάστε τους δίσκους",
+          "fill_water": "Γεμίστε νερό",
+          "close_powder_lid": "Κλείστε το καπάκι",
+          "fill_powder": "Προσθέστε καφέ"
+        }
+      },
+      "connection": {
+        "name": "Σύνδεση",
+        "state": {
+          "connected": "Συνδεδεμένο",
+          "disconnected": "Αποσυνδεδεμένο"
+        }
+      },
+      "firmware": {
+        "name": "Υλικολογισμικό"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Παρασκευή"
+      },
+      "cancel": {
+        "name": "Ακύρωση"
+      },
+      "easy_clean": {
+        "name": "Γρήγορος καθαρισμός"
+      },
+      "intensive_clean": {
+        "name": "Εντατικός καθαρισμός"
+      },
+      "descaling": {
+        "name": "Αφαλάτωση"
+      },
+      "switch_off": {
+        "name": "Απενεργοποίηση"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Συνταγή",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Γάλα",
+          "milk_froth": "Αφρόγαλα",
+          "hot_water": "Ζεστό νερό"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Σκληρότητα νερού"
+      },
+      "auto_off_after": {
+        "name": "Αυτόματη απενεργοποίηση μετά"
+      },
+      "brew_temperature": {
+        "name": "Θερμοκρασία παρασκευής"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Εξοικονόμηση ενέργειας"
+      },
+      "auto_bean_select": {
+        "name": "Αυτόματη επιλογή κόκκων"
+      },
+      "rinsing_disabled": {
+        "name": "Ξέπλυμα απενεργοποιημένο"
+      }
+    }
+  }
+}

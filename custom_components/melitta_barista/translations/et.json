@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Valige kohvimasin leitud seadmete hulgast",
+        "data": {
+          "address": "Seade"
+        }
+      },
+      "manual": {
+        "title": "Käsitsi seadistamine",
+        "description": "Sisestage oma Melitta Barista Smart Bluetooth MAC-aadress",
+        "data": {
+          "address": "Bluetooth MAC-aadress",
+          "name": "Seadme nimi"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Kinnita seade",
+        "description": "Leitud Melitta Barista Smart: {name}. Kas soovite selle seadistada?"
+      },
+      "pair": {
+        "title": "Sidumine seadmega {name}",
+        "description": "Lülitage kohvimasinal Bluetooth sidumisrežiim sisse (seadete menüüs), seejärel vajutage Saada.\n\nSeade: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Vigane Bluetooth MAC-aadress",
+      "cannot_connect": "Seadmega ühendamine ebaõnnestus",
+      "unknown": "Ootamatu viga",
+      "pairing_failed": "Sidumine ebaõnnestus. Veenduge, et masin on sidumisrežiimis.",
+      "pairing_timeout": "Sidumise ajalõpp. Lülitage sidumisrežiim sisse ja proovige uuesti."
+    },
+    "abort": {
+      "already_configured": "Seade on juba seadistatud",
+      "no_devices_found": "Melitta seadmeid ei leitud"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Olek",
+        "state": {
+          "ready": "Valmis",
+          "brewing": "Valmistamine",
+          "cleaning": "Puhastus",
+          "descaling": "Katlakivi eemaldamine",
+          "filter_insert": "Filtri sisestamine",
+          "filter_replace": "Filtri vahetus",
+          "filter_remove": "Filtri eemaldamine",
+          "off": "Väljas",
+          "easy_clean": "Kiirpuhastus",
+          "intensive_clean": "Intensiivne puhastus",
+          "evaporating": "Aurustumine",
+          "busy": "Hõivatud",
+          "unavailable": "Pole saadaval",
+          "unknown": "Tundmatu"
+        }
+      },
+      "activity": {
+        "name": "Tegevus",
+        "state": {
+          "idle": "Ootel",
+          "grinding": "Jahvatamine",
+          "extracting": "Ekstraheerimine",
+          "steaming": "Piima vahustamine",
+          "dispensing_water": "Vee väljastamine",
+          "preparing": "Ettevalmistus"
+        }
+      },
+      "progress": {
+        "name": "Edenemine"
+      },
+      "action_required": {
+        "name": "Nõutav toiming",
+        "state": {
+          "none": "Puudub",
+          "brew_unit_removed": "Keeduplokk eemaldatud",
+          "trays_missing": "Alused puuduvad",
+          "empty_trays": "Tühjendage alused",
+          "fill_water": "Täitke vesi",
+          "close_powder_lid": "Sulgege kaas",
+          "fill_powder": "Lisage kohvi"
+        }
+      },
+      "connection": {
+        "name": "Ühendus",
+        "state": {
+          "connected": "Ühendatud",
+          "disconnected": "Lahti ühendatud"
+        }
+      },
+      "firmware": {
+        "name": "Püsivara"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Valmista"
+      },
+      "cancel": {
+        "name": "Tühista"
+      },
+      "easy_clean": {
+        "name": "Kiirpuhastus"
+      },
+      "intensive_clean": {
+        "name": "Intensiivne puhastus"
+      },
+      "descaling": {
+        "name": "Katlakivi eemaldamine"
+      },
+      "switch_off": {
+        "name": "Lülita välja"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Retsept",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Piim",
+          "milk_froth": "Piimavaht",
+          "hot_water": "Kuum vesi"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Vee karedus"
+      },
+      "auto_off_after": {
+        "name": "Automaatne väljalülitus pärast"
+      },
+      "brew_temperature": {
+        "name": "Valmistustemperatuur"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energiasääst"
+      },
+      "auto_bean_select": {
+        "name": "Automaatne ubade valik"
+      },
+      "rinsing_disabled": {
+        "name": "Loputus keelatud"
+      }
+    }
+  }
+}
