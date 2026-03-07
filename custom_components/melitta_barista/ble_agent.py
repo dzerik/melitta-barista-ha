@@ -161,7 +161,7 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
             )
         except asyncio.TimeoutError:
             _LOGGER.error("Pairing timeout for %s", address)
-            return "pairing_failed"
+            return "pairing_timeout"
         except Exception as ex:
             if "AlreadyExists" in str(ex):
                 _LOGGER.info("Device %s already paired", address)

@@ -163,7 +163,17 @@ class MelittaMaintenanceButton(_MelittaButtonBase):
 
     async def async_press(self) -> None:
         _LOGGER.info("Starting %s", self._attr_name)
-        success = await self._client._protocol.start_process(
-            self._client._write_ble, self._process)
+        method_map = {
+            MachineProcess.EASY_CLEAN: self._client.start_easy_clean,
+            MachineProcess.INTENSIVE_CLEAN: self._client.start_intensive_clean,
+            MachineProcess.DESCALING: self._client.start_descaling,
+            MachineProcess.SWITCH_OFF: self._client.switch_off,
+        }
+        method = method_map.get(self._process)
+        if method:
+            success = await method()
+        else:
+            _LOGGER.error("Unknown process %s", self._process)
+            return
         if not success:
             _LOGGER.error("Failed to start %s", self._attr_name)

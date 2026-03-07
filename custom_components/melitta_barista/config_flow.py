@@ -6,7 +6,10 @@ from typing import Any
 
 import voluptuous as vol
 from bleak import BleakScanner
-from homeassistant.components.bluetooth import async_discovered_service_info
+from homeassistant.components.bluetooth import (
+    BluetoothServiceInfoBleak,
+    async_discovered_service_info,
+)
 from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
@@ -131,7 +134,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_bluetooth(
-        self, discovery_info: Any
+        self, discovery_info: BluetoothServiceInfoBleak
     ) -> FlowResult:
         """Handle bluetooth discovery."""
         address = discovery_info.address
