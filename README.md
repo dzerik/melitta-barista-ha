@@ -22,7 +22,7 @@ The machine model is automatically detected from the BLE device name and confirm
 
 - **Multi-model support** -- automatic detection of Barista T and Barista TS with model-specific entity filtering
 - **Real-time status monitoring** -- machine state, brewing activity, progress percentage, and required user actions via BLE push notifications
-- **21/24 built-in recipes** -- brew any drink with a single button press or via the recipe selector (3 extra recipes on TS model)
+- **21/24 built-in recipes** -- select a recipe from the dropdown and brew with one tap (3 extra recipes on TS model)
 - **Machine settings control** -- water hardness, brew temperature, auto-off timer, energy saving, and more
 - **Maintenance operations** -- easy clean, intensive clean, descaling, and power off
 - **BLE auto-discovery** -- the integration detects your Melitta machine automatically during setup
@@ -137,22 +137,22 @@ Once configured, the integration creates a device with all available entities fi
 | Connection | BLE connection status: Connected or Disconnected (diagnostic) |
 | Firmware | Firmware version reported by the machine (diagnostic) |
 
+### Select
+
+| Entity | Description |
+|--------|-------------|
+| Recipe | Dropdown selector for all available recipes (21 on T, 24 on TS). |
+
 ### Buttons
 
 | Entity | Description |
 |--------|-------------|
-| Brew [Recipe Name] | One button per available recipe (21 on T, 24 on TS). Press to brew. |
+| Brew | Brew the recipe selected in the Recipe dropdown. Available when machine is Ready and a recipe is selected. |
 | Cancel | Cancel the currently running operation. |
 | Easy Clean | Start the easy clean cycle (configuration). |
 | Intensive Clean | Start the intensive clean cycle (configuration). |
 | Descaling | Start the descaling process (configuration). |
 | Switch Off | Power off the machine (configuration). |
-
-### Select
-
-| Entity | Description |
-|--------|-------------|
-| Recipe | Dropdown selector for all available recipes. Selecting a recipe starts brewing. |
 
 ### Numbers
 

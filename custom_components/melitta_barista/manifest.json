@@ -5,6 +5,7 @@
   "config_flow": true,
   "dependencies": ["bluetooth"],
   "documentation": "https://github.com/dzerik/melitta-barista-ha",
+  "issue_tracker": "https://github.com/dzerik/melitta-barista-ha/issues",
   "bluetooth": [
     {
       "service_uuid": "0000ad00-b35c-11e4-9813-0002a5d5c51b"
