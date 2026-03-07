@@ -64,7 +64,7 @@ def _async_cleanup_legacy_recipe_buttons(
         if (
             ent.domain == "button"
             and "_brew_" in (ent.unique_id or "")
-            and ent.unique_id != f"{address}_brew"
+            and ent.unique_id not in (f"{address}_brew", f"{address}_brew_freestyle")
         ):
             registry.async_remove(ent.entity_id)
             removed += 1

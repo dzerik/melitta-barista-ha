@@ -72,6 +72,19 @@ class MelittaBleClient:
         self.selected_recipe: RecipeId | None = None
         self.active_profile: int = 0  # 0 = default "My Coffee"
 
+        # Freestyle recipe state (used by freestyle entities)
+        self.freestyle_name: str = "Custom"
+        self.freestyle_process1: str = "coffee"
+        self.freestyle_intensity1: str = "medium"
+        self.freestyle_portion1_ml: int = 40
+        self.freestyle_temperature1: str = "normal"
+        self.freestyle_shots1: str = "one"
+        self.freestyle_process2: str = "none"
+        self.freestyle_intensity2: str = "medium"
+        self.freestyle_portion2_ml: int = 0
+        self.freestyle_temperature2: str = "normal"
+        self.freestyle_shots2: str = "none"
+
         # Pre-detect machine type from BLE device name if available
         if device_name:
             self._machine_type = detect_machine_type_from_name(device_name)

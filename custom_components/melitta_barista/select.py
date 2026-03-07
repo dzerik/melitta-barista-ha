@@ -14,6 +14,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .ble_client import MelittaBleClient
 from .const import DOMAIN, PROFILE_NAMES, RECIPE_NAMES, RecipeId, get_available_recipes, get_user_profile_count
 
+# Freestyle option lists
+_PROCESS_OPTIONS = ["coffee", "steam", "water"]
+_PROCESS_OPTIONS_WITH_NONE = ["none", "coffee", "steam", "water"]
+_INTENSITY_OPTIONS = ["very_mild", "mild", "medium", "strong", "very_strong"]
+_TEMPERATURE_OPTIONS = ["cold", "normal", "high"]
+_SHOTS_OPTIONS = ["none", "one", "two", "three"]
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 # Reverse lookup: name -> RecipeId
@@ -34,6 +41,15 @@ async def async_setup_entry(
     async_add_entities([
         MelittaRecipeSelect(client, entry, name),
         MelittaProfileSelect(client, entry, name),
+        # Freestyle parameter selects
+        MelittaFreestyleSelect(client, entry, name, "process_1", "Process 1", "mdi:coffee", _PROCESS_OPTIONS, "freestyle_process1"),
+        MelittaFreestyleSelect(client, entry, name, "intensity_1", "Intensity 1", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity1"),
+        MelittaFreestyleSelect(client, entry, name, "temperature_1", "Temperature 1", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature1"),
+        MelittaFreestyleSelect(client, entry, name, "shots_1", "Shots 1", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots1"),
+        MelittaFreestyleSelect(client, entry, name, "process_2", "Process 2", "mdi:coffee-outline", _PROCESS_OPTIONS_WITH_NONE, "freestyle_process2"),
+        MelittaFreestyleSelect(client, entry, name, "intensity_2", "Intensity 2", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity2"),
+        MelittaFreestyleSelect(client, entry, name, "temperature_2", "Temperature 2", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature2"),
+        MelittaFreestyleSelect(client, entry, name, "shots_2", "Shots 2", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots2"),
     ])
 
 
@@ -169,4 +185,62 @@ class MelittaProfileSelect(SelectEntity):
             idx = 0
         self._client.active_profile = idx
         _LOGGER.info("Active profile set to %d (%s)", idx, option)
+        self.async_write_ha_state()
+
+
+class MelittaFreestyleSelect(SelectEntity):
+    """Select entity for a freestyle recipe parameter."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        client: MelittaBleClient,
+        entry: ConfigEntry,
+        machine_name: str,
+        key: str,
+        label: str,
+        icon: str,
+        options: list[str],
+        client_attr: str,
+    ) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+        self._key = key
+        self._client_attr = client_attr
+        self._attr_name = f"Freestyle {label}"
+        self._attr_icon = icon
+        self._attr_options = list(options)
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_freestyle_{self._key}"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._client.address)},
+            name=self._machine_name,
+            manufacturer="Melitta",
+            model=self._client.model_name,
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        return getattr(self._client, self._client_attr, self._attr_options[0])
+
+    @property
+    def available(self) -> bool:
+        return self._client.connected
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        self.async_write_ha_state()
+
+    async def async_select_option(self, option: str) -> None:
+        setattr(self._client, self._client_attr, option)
         self.async_write_ha_state()
