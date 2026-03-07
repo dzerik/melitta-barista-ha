@@ -6,8 +6,8 @@ import asyncio
 import logging
 import os
 import struct
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from Crypto.Cipher import AES
 
@@ -423,7 +423,7 @@ class MelittaProtocol:
 
     async def perform_handshake(
         self,
-        write_func: Callable[[bytes], asyncio.coroutine],
+        write_func: Callable[[bytes], Awaitable[None]],
     ) -> bool:
         """Perform HU challenge-response handshake."""
         self._handshake_done.clear()
@@ -451,7 +451,7 @@ class MelittaProtocol:
         self,
         command: str,
         payload: bytes | None,
-        write_func: Callable[[bytes], asyncio.coroutine],
+        write_func: Callable[[bytes], Awaitable[None]],
     ) -> bool:
         """Send a write command and wait for ACK."""
         async with self._lock:
@@ -475,7 +475,7 @@ class MelittaProtocol:
         self,
         command: str,
         payload: bytes | None,
-        write_func: Callable[[bytes], asyncio.coroutine],
+        write_func: Callable[[bytes], Awaitable[None]],
     ) -> bytes | None:
         """Send a read command and wait for response frame."""
         async with self._lock:
@@ -557,11 +557,6 @@ class MelittaProtocol:
         he_data = bytearray(16)
         struct.pack_into(">h", he_data, 0, 2)  # fixed value 2
         payload = struct.pack(">h", process_value) + bytes(he_data)
-        return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
-
-    async def start_recipe(self, write_func, process_value: int, data: bytes) -> bool:
-        """Legacy: start process with raw data."""
-        payload = struct.pack(">h", process_value) + data.ljust(16, b"\x00")
         return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
 
     async def cancel_process(self, write_func, process_value: int) -> bool:

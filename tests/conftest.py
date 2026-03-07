@@ -1,65 +1,46 @@
-"""Configure test environment — mock homeassistant and bleak modules."""
+"""Fixtures for Melitta Barista Smart integration tests."""
 
-import sys
-from types import ModuleType
-from unittest.mock import MagicMock
+from __future__ import annotations
 
-# Mock homeassistant and its submodules so const.py / protocol.py can be imported
-# without a full HA installation.
-_HA_MODULES = [
-    "homeassistant",
-    "homeassistant.config_entries",
-    "homeassistant.const",
-    "homeassistant.core",
-    "homeassistant.components",
-    "homeassistant.components.bluetooth",
-    "homeassistant.components.sensor",
-    "homeassistant.components.button",
-    "homeassistant.components.select",
-    "homeassistant.components.number",
-    "homeassistant.components.switch",
-    "homeassistant.components.text",
-    "homeassistant.data_entry_flow",
-    "homeassistant.helpers",
-    "homeassistant.helpers.entity",
-    "homeassistant.helpers.entity_platform",
-]
+from unittest.mock import AsyncMock, MagicMock, patch
 
-for mod_name in _HA_MODULES:
-    if mod_name not in sys.modules:
-        mock_mod = ModuleType(mod_name)
-        # Add common attributes that imports expect
-        mock_mod.__dict__.setdefault("ConfigEntry", MagicMock())
-        mock_mod.__dict__.setdefault("ConfigFlow", MagicMock())
-        mock_mod.__dict__.setdefault("FlowResult", MagicMock())
-        mock_mod.__dict__.setdefault("HomeAssistant", MagicMock())
-        mock_mod.__dict__.setdefault("callback", lambda f: f)
-        mock_mod.__dict__.setdefault("Platform", MagicMock())
-        mock_mod.__dict__.setdefault("SensorEntity", MagicMock())
-        mock_mod.__dict__.setdefault("ButtonEntity", MagicMock())
-        mock_mod.__dict__.setdefault("SelectEntity", MagicMock())
-        mock_mod.__dict__.setdefault("NumberEntity", MagicMock())
-        mock_mod.__dict__.setdefault("NumberMode", MagicMock())
-        mock_mod.__dict__.setdefault("SwitchEntity", MagicMock())
-        mock_mod.__dict__.setdefault("TextEntity", MagicMock())
-        mock_mod.__dict__.setdefault("DeviceInfo", MagicMock())
-        mock_mod.__dict__.setdefault("EntityCategory", MagicMock())
-        mock_mod.__dict__.setdefault("AddEntitiesCallback", MagicMock())
-        mock_mod.__dict__.setdefault("BleakClient", MagicMock())
-        mock_mod.__dict__.setdefault("BleakScanner", MagicMock())
-        mock_mod.__dict__.setdefault("async_discovered_service_info", MagicMock(return_value=[]))
-        mock_mod.__dict__.setdefault("async_ble_device_from_address", MagicMock(return_value=None))
-        mock_mod.__dict__.setdefault("async_register_callback", MagicMock(return_value=lambda: None))
-        mock_mod.__dict__.setdefault("BluetoothCallbackMatcher", MagicMock())
-        mock_mod.__dict__.setdefault("BluetoothScanningMode", MagicMock())
-        mock_mod.__dict__.setdefault("BluetoothServiceInfoBleak", MagicMock())
-        mock_mod.__dict__.setdefault("BluetoothChange", MagicMock())
-        mock_mod.__dict__.setdefault("UnitOfTime", MagicMock())
-        mock_mod.__dict__.setdefault("CONF_ADDRESS", "address")
-        mock_mod.__dict__.setdefault("CONF_NAME", "name")
-        mock_mod.__dict__.setdefault("vol", MagicMock())
-        sys.modules[mod_name] = mock_mod
+import pytest
+from bleak.backends.device import BLEDevice
 
-# Mock voluptuous
-if "voluptuous" not in sys.modules:
-    sys.modules["voluptuous"] = ModuleType("voluptuous")
+from custom_components.melitta_barista.const import DOMAIN
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Enable custom integrations for all tests."""
+    yield
+
+
+@pytest.fixture(autouse=True)
+async def auto_enable_bluetooth(enable_bluetooth):
+    """Enable bluetooth for all tests (required by melitta_barista dependency)."""
+    yield
+
+
+@pytest.fixture
+def mock_ble_device() -> BLEDevice:
+    """Return a mock BLEDevice."""
+    return BLEDevice(
+        address="AA:BB:CC:DD:EE:FF",
+        name="8601ABCD1234",
+        details={},
+    )
+
+
+@pytest.fixture
+def mock_bleak_client():
+    """Return a mock BleakClient that simulates a connected device."""
+    client = MagicMock()
+    client.is_connected = True
+    client.connect = AsyncMock()
+    client.disconnect = AsyncMock()
+    client.start_notify = AsyncMock()
+    client.stop_notify = AsyncMock()
+    client.write_gatt_char = AsyncMock()
+    client.services = MagicMock()
+    return client

@@ -90,12 +90,6 @@ ENCRYPTED_RC4_KEY = bytes([
     123, -9 & 0xFF, -66 & 0xFF, -30 & 0xFF, -87 & 0xFF, 5, -113 & 0xFF, -47 & 0xFF,
 ])
 
-# Frame definitions: command -> (payload_size, encrypted)
-FRAME_DEFS: dict[str, tuple[int, bool]] = {
-    # Registered in EFComLib (AbstractC0940a.f9052e, f9053f)
-    # These are hex string IDs mapped to actual commands with sizes
-}
-
 
 class MachineProcess(IntEnum):
     """Machine process states."""
