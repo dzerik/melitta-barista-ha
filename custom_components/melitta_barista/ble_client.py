@@ -101,7 +101,8 @@ class MelittaBleClient:
 
     @property
     def connected(self) -> bool:
-        return self._connected and self._client is not None and self._client.is_connected
+        client = self._client
+        return self._connected and client is not None and client.is_connected
 
     @property
     def status(self) -> MachineStatus | None:
@@ -155,12 +156,21 @@ class MelittaBleClient:
             and prev.process == MachineProcess.PRODUCT
             and status.process == MachineProcess.READY
         ):
-            asyncio.ensure_future(self.read_cup_counters())
+            task = asyncio.ensure_future(self.read_cup_counters())
+            task.add_done_callback(self._on_cup_refresh_done)
         for cb in self._status_callbacks:
             try:
                 cb(status)
             except Exception:
                 _LOGGER.exception("Error in status callback")
+
+    @staticmethod
+    def _on_cup_refresh_done(task: asyncio.Task) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            _LOGGER.debug("Cup counter refresh failed: %s", exc)
 
     def _on_disconnect(self, client: BleakClient) -> None:
         _LOGGER.info("Disconnected from %s", self._address)
@@ -178,10 +188,11 @@ class MelittaBleClient:
         self._protocol.on_ble_data(bytes(data))
 
     async def _write_ble(self, data: bytes) -> None:
-        if not self._client or not self._client.is_connected:
+        client = self._client
+        if not client or not client.is_connected:
             raise BleakError("Not connected")
         try:
-            await self._client.write_gatt_char(CHAR_WRITE, data, response=False)
+            await client.write_gatt_char(CHAR_WRITE, data, response=False)
         except AssertionError:
             # bleak internal: assert self._bus — D-Bus connection lost
             _LOGGER.error("D-Bus connection lost during write (assert self._bus)")
@@ -380,18 +391,19 @@ class MelittaBleClient:
         if self._reconnect_task and not self._reconnect_task.done():
             self._reconnect_task.cancel()
             self._reconnect_task = None
-        if self._client:
+        client = self._client
+        self._client = None
+        self._connected = False
+        if client:
             try:
-                if self._client.is_connected:
+                if client.is_connected:
                     try:
-                        await self._client.stop_notify(CHAR_NOTIFY)
+                        await client.stop_notify(CHAR_NOTIFY)
                     except Exception:
                         _LOGGER.debug("stop_notify during disconnect failed", exc_info=True)
-                await self._client.disconnect()
+                await client.disconnect()
             except Exception:
                 _LOGGER.debug("Error during disconnect", exc_info=True)
-        self._connected = False
-        self._client = None
 
     async def poll_status(self) -> MachineStatus | None:
         if not self.connected:
