@@ -15,8 +15,8 @@ from .ble_client import MelittaBleClient
 from .const import DOMAIN, PROFILE_NAMES, RECIPE_NAMES, RecipeId, get_available_recipes, get_user_profile_count
 
 # Freestyle option lists
-_PROCESS_OPTIONS = ["coffee", "steam", "water"]
-_PROCESS_OPTIONS_WITH_NONE = ["none", "coffee", "steam", "water"]
+_PROCESS_OPTIONS = ["coffee", "milk", "water"]
+_PROCESS_OPTIONS_WITH_NONE = ["none", "coffee", "milk", "water"]
 _INTENSITY_OPTIONS = ["very_mild", "mild", "medium", "strong", "very_strong"]
 _TEMPERATURE_OPTIONS = ["cold", "normal", "high"]
 _SHOTS_OPTIONS = ["none", "one", "two", "three"]
