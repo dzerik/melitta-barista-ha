@@ -124,7 +124,7 @@ class MelittaRecipeSelect(SelectEntity):
         self._entry = entry
         self._machine_name = machine_name
         self._selected: str | None = None
-        self._recipe_attrs: dict[str, str | int] = {}
+        self._all_recipes: dict[str, dict[str, str | int]] = {}
         available = get_available_recipes(client.machine_type)
         self._attr_options = [
             RECIPE_NAMES[r] for r in available if r in RECIPE_NAMES
@@ -152,26 +152,58 @@ class MelittaRecipeSelect(SelectEntity):
         return self._client.connected
 
     @property
-    def extra_state_attributes(self) -> dict[str, str | int]:
-        return self._recipe_attrs
+    def extra_state_attributes(self) -> dict:
+        attrs: dict = {}
+        # Include details of the selected recipe at top level (backward compat)
+        if self._selected and self._selected in self._all_recipes:
+            attrs.update(self._all_recipes[self._selected])
+        # All preloaded recipes as nested dict
+        if self._all_recipes:
+            attrs["recipes"] = self._all_recipes
+        return attrs
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
+        if connected:
+            self.hass.async_create_task(self._preload_recipes())
+        self.async_write_ha_state()
+
+    async def _preload_recipes(self) -> None:
+        """Read all recipe details from the machine on connect."""
+        _LOGGER.debug("Preloading all recipes...")
+        for option in self._attr_options:
+            recipe_id = _NAME_TO_RECIPE.get(option)
+            if recipe_id is None:
+                continue
+            read_id = int(recipe_id)
+            if self._client.active_profile > 0:
+                dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
+                if dk_cat is not None:
+                    read_id = get_directkey_id(self._client.active_profile, dk_cat)
+            try:
+                recipe = await self._client.read_recipe(read_id)
+                if recipe:
+                    attrs: dict[str, str | int] = {}
+                    attrs.update(_component_attrs(recipe.component1, "c1"))
+                    attrs.update(_component_attrs(recipe.component2, "c2"))
+                    self._all_recipes[option] = attrs
+            except Exception:
+                _LOGGER.debug("Failed to preload recipe %s", option)
+        _LOGGER.debug("Preloaded %d recipes", len(self._all_recipes))
         self.async_write_ha_state()
 
     async def async_select_option(self, option: str) -> None:
-        """Select a recipe and read its details from the machine."""
+        """Select a recipe."""
         self._selected = option
         recipe_id = _NAME_TO_RECIPE.get(option)
         self._client.selected_recipe = recipe_id
-        self._recipe_attrs = {}
         self.async_write_ha_state()
 
-        if recipe_id is not None and self._client.connected:
-            # Read the actual recipe from the machine (respecting active profile)
+        # If recipe not in cache, read it now
+        if option not in self._all_recipes and recipe_id is not None and self._client.connected:
             read_id = int(recipe_id)
             if self._client.active_profile > 0:
                 dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
@@ -183,8 +215,7 @@ class MelittaRecipeSelect(SelectEntity):
                 attrs: dict[str, str | int] = {}
                 attrs.update(_component_attrs(recipe.component1, "c1"))
                 attrs.update(_component_attrs(recipe.component2, "c2"))
-                self._recipe_attrs = attrs
-                _LOGGER.debug("Recipe %s attrs: %s", option, attrs)
+                self._all_recipes[option] = attrs
                 self.async_write_ha_state()
 
 
