@@ -122,7 +122,7 @@ class MelittaBrewButton(_MelittaButtonBase):
             _LOGGER.error("Failed to start brewing %s", recipe_name)
 
 
-_PROCESS_MAP = {"none": 0, "coffee": 1, "steam": 2, "water": 3}
+_PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 _INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
 _TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
 _SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
