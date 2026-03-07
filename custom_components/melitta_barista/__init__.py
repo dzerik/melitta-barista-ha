@@ -64,7 +64,7 @@ def _async_cleanup_legacy_recipe_buttons(
         if (
             ent.domain == "button"
             and "_brew_" in (ent.unique_id or "")
-            and ent.unique_id != f"{address}_brew"
+            and ent.unique_id not in (f"{address}_brew", f"{address}_brew_freestyle")
         ):
             registry.async_remove(ent.entity_id)
             removed += 1
@@ -172,7 +172,7 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
 
 SERVICE_BREW_FREESTYLE = "brew_freestyle"
 
-_PROCESS_MAP = {"none": 0, "coffee": 1, "steam": 2, "water": 3}
+_PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 _INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
 _TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
 _SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
