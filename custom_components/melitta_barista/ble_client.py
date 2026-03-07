@@ -70,6 +70,7 @@ class MelittaBleClient:
         self._reconnect_task: asyncio.Task | None = None
         self._auto_reconnect = True
         self.selected_recipe: RecipeId | None = None
+        self.active_profile: int = 0  # 0 = default "My Coffee"
 
         # Pre-detect machine type from BLE device name if available
         if device_name:
@@ -372,22 +373,42 @@ class MelittaBleClient:
     # High-level API
 
     async def brew_recipe(self, recipe_id: RecipeId) -> bool:
-        """Brew a recipe using the 3-step protocol: HJ -> HB -> HE."""
+        """Brew a recipe using the 3-step protocol: HJ -> HB -> HE.
+
+        If active_profile > 0, reads the profile-customized recipe via DirectKey.
+        """
         if not self.connected:
             return False
         if self._status and not self._status.is_ready:
             _LOGGER.warning("Machine not ready: %s", self._status)
             return False
 
-        from .const import RECIPE_NAMES
+        from .const import (
+            RECIPE_NAMES,
+            RECIPE_TO_DIRECTKEY,
+            TEMP_RECIPE_ID,
+            FREESTYLE_NAME_ID,
+            get_directkey_id,
+        )
 
-        recipe = await self._protocol.read_recipe(self._write_ble, recipe_id)
+        # Determine which recipe ID to read
+        read_id = recipe_id
+        if self.active_profile > 0:
+            dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
+            if dk_cat is not None:
+                read_id = get_directkey_id(self.active_profile, dk_cat)
+                _LOGGER.debug(
+                    "Using DirectKey %d for profile %d, category %s",
+                    read_id, self.active_profile, dk_cat.name,
+                )
+
+        recipe = await self._protocol.read_recipe(self._write_ble, read_id)
         if not recipe:
-            _LOGGER.error("Failed to read recipe %d", recipe_id)
+            _LOGGER.error("Failed to read recipe %d", read_id)
             return False
 
         if not await self._protocol.write_recipe(
-            self._write_ble, 400, recipe.recipe_type, 0,
+            self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type, 0,
             recipe.component1, recipe.component2,
         ):
             _LOGGER.error("Failed to write recipe to temp slot")
@@ -396,8 +417,47 @@ class MelittaBleClient:
         await asyncio.sleep(0.2)
 
         name = RECIPE_NAMES.get(recipe_id, str(recipe_id))
-        if not await self._protocol.write_alphanumeric(self._write_ble, 401, name):
+        if not await self._protocol.write_alphanumeric(
+            self._write_ble, FREESTYLE_NAME_ID, name,
+        ):
             _LOGGER.error("Failed to write recipe name")
+            return False
+
+        await asyncio.sleep(0.2)
+
+        return await self._protocol.start_process(
+            self._write_ble, MachineProcess.PRODUCT,
+        )
+
+    async def brew_freestyle(
+        self,
+        name: str,
+        recipe_type: int,
+        component1: "RecipeComponent",
+        component2: "RecipeComponent",
+    ) -> bool:
+        """Brew a freestyle (custom) recipe."""
+        if not self.connected:
+            return False
+        if self._status and not self._status.is_ready:
+            _LOGGER.warning("Machine not ready: %s", self._status)
+            return False
+
+        from .const import TEMP_RECIPE_ID, FREESTYLE_NAME_ID
+
+        if not await self._protocol.write_recipe(
+            self._write_ble, TEMP_RECIPE_ID, recipe_type, 0,
+            component1, component2,
+        ):
+            _LOGGER.error("Failed to write freestyle recipe")
+            return False
+
+        await asyncio.sleep(0.2)
+
+        if not await self._protocol.write_alphanumeric(
+            self._write_ble, FREESTYLE_NAME_ID, name,
+        ):
+            _LOGGER.error("Failed to write freestyle name")
             return False
 
         await asyncio.sleep(0.2)
