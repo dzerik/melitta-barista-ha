@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, RECIPE_NAMES, MachineProcess
+from .const import DOMAIN, FREESTYLE_RECIPE_TYPE, RECIPE_NAMES, MachineProcess
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -30,6 +30,9 @@ async def async_setup_entry(
 
     # Brew button (works with Recipe select entity)
     entities.append(MelittaBrewButton(client, entry, name))
+
+    # Brew Freestyle button
+    entities.append(MelittaBrewFreestyleButton(client, entry, name))
 
     # Cancel button
     entities.append(MelittaCancelButton(client, entry, name))
@@ -117,6 +120,64 @@ class MelittaBrewButton(_MelittaButtonBase):
         success = await self._client.brew_recipe(recipe_id)
         if not success:
             _LOGGER.error("Failed to start brewing %s", recipe_name)
+
+
+_PROCESS_MAP = {"none": 0, "coffee": 1, "steam": 2, "water": 3}
+_INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
+_TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
+_SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
+
+
+class MelittaBrewFreestyleButton(_MelittaButtonBase):
+    """Button to brew a freestyle recipe using current freestyle entity values."""
+
+    _attr_name = "Brew Freestyle"
+    _attr_icon = "mdi:coffee-maker-outline"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_brew_freestyle"
+
+    @property
+    def available(self) -> bool:
+        return (
+            self._client.connected
+            and self._client.status is not None
+            and self._client.status.is_ready
+        )
+
+    async def async_press(self) -> None:
+        from .protocol import RecipeComponent  # noqa: PLC0415
+
+        c = self._client
+        comp1 = RecipeComponent(
+            process=_PROCESS_MAP.get(c.freestyle_process1, 1),
+            shots=_SHOTS_MAP.get(c.freestyle_shots1, 1),
+            blend=1,
+            intensity=_INTENSITY_MAP.get(c.freestyle_intensity1, 2),
+            aroma=0,
+            temperature=_TEMPERATURE_MAP.get(c.freestyle_temperature1, 1),
+            portion=c.freestyle_portion1_ml // 5,
+        )
+        comp2 = RecipeComponent(
+            process=_PROCESS_MAP.get(c.freestyle_process2, 0),
+            shots=_SHOTS_MAP.get(c.freestyle_shots2, 0),
+            blend=0,
+            intensity=_INTENSITY_MAP.get(c.freestyle_intensity2, 2),
+            aroma=0,
+            temperature=_TEMPERATURE_MAP.get(c.freestyle_temperature2, 1),
+            portion=c.freestyle_portion2_ml // 5,
+        )
+
+        _LOGGER.info("Brewing freestyle: %s", c.freestyle_name)
+        success = await c.brew_freestyle(
+            name=c.freestyle_name,
+            recipe_type=FREESTYLE_RECIPE_TYPE,
+            component1=comp1,
+            component2=comp2,
+        )
+        if not success:
+            _LOGGER.error("Failed to brew freestyle recipe")
 
 
 class MelittaCancelButton(_MelittaButtonBase):

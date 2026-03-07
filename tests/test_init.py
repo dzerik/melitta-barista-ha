@@ -25,6 +25,18 @@ def _mock_client():
     client.machine_type = None
     client.model_name = "Melitta Barista"
     client.selected_recipe = None
+    client.active_profile = 0
+    client.freestyle_name = "Custom"
+    client.freestyle_process1 = "coffee"
+    client.freestyle_intensity1 = "medium"
+    client.freestyle_portion1_ml = 40
+    client.freestyle_temperature1 = "normal"
+    client.freestyle_shots1 = "one"
+    client.freestyle_process2 = "none"
+    client.freestyle_intensity2 = "medium"
+    client.freestyle_portion2_ml = 0
+    client.freestyle_temperature2 = "normal"
+    client.freestyle_shots2 = "none"
     client.set_ble_device = MagicMock()
     client.add_status_callback = MagicMock()
     client.add_connection_callback = MagicMock()
@@ -175,6 +187,6 @@ async def test_legacy_cleanup_removes_named_entities(
 
     remaining = [
         e for e in er.async_entries_for_config_entry(registry, mock_entry.entry_id)
-        if "_brew_" in e.unique_id
+        if "_brew_" in e.unique_id and "_brew_freestyle" not in e.unique_id
     ]
     assert len(remaining) == 0
