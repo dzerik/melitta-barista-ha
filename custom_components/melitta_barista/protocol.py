@@ -194,7 +194,10 @@ class RecipeComponent:
         )
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> RecipeComponent:
+    def from_bytes(cls, data: bytes) -> RecipeComponent | None:
+        if len(data) < 8:
+            _LOGGER.debug("RecipeComponent data too short: %d bytes", len(data))
+            return None
         p, s, b, i, a, t, por, r = struct.unpack("BBBBBBBB", data[:8])
         return cls(p, s, b, i, a, t, por, r)
 
@@ -208,11 +211,16 @@ class MachineRecipe:
     component2: RecipeComponent = field(default_factory=RecipeComponent)
 
     @classmethod
-    def from_payload(cls, data: bytes) -> MachineRecipe:
+    def from_payload(cls, data: bytes) -> MachineRecipe | None:
+        if len(data) < 19:
+            _LOGGER.debug("MachineRecipe payload too short: %d bytes", len(data))
+            return None
         recipe_id = struct.unpack(">h", data[0:2])[0]
         recipe_type = data[2]
         comp1 = RecipeComponent.from_bytes(data[3:11])
         comp2 = RecipeComponent.from_bytes(data[11:19])
+        if comp1 is None or comp2 is None:
+            return None
         return cls(recipe_id, recipe_type, comp1, comp2)
 
 
@@ -223,7 +231,10 @@ class NumericalValue:
     value: int = 0
 
     @classmethod
-    def from_payload(cls, data: bytes) -> NumericalValue:
+    def from_payload(cls, data: bytes) -> NumericalValue | None:
+        if len(data) < 6:
+            _LOGGER.debug("NumericalValue payload too short: %d bytes", len(data))
+            return None
         vid = struct.unpack(">h", data[0:2])[0]
         val = struct.unpack(">i", data[2:6])[0]
         return cls(vid, val)
@@ -236,7 +247,10 @@ class AlphanumericValue:
     value: str = ""
 
     @classmethod
-    def from_payload(cls, data: bytes) -> AlphanumericValue:
+    def from_payload(cls, data: bytes) -> AlphanumericValue | None:
+        if len(data) < 2:
+            _LOGGER.debug("AlphanumericValue payload too short: %d bytes", len(data))
+            return None
         vid = struct.unpack(">h", data[0:2])[0]
         val = data[2:].rstrip(b"\x00").decode("utf-8", errors="replace")
         return cls(vid, val)
@@ -513,21 +527,24 @@ class MelittaProtocol:
         payload = struct.pack(">h", value_id)
         data = await self.send_and_wait_response(CMD_READ_NUMERICAL, payload, write_func)
         if data:
-            return NumericalValue.from_payload(data).value
+            nv = NumericalValue.from_payload(data)
+            return nv.value if nv else None
         return None
 
     async def read_alphanumeric(self, write_func, value_id: int) -> str | None:
         payload = struct.pack(">h", value_id)
         data = await self.send_and_wait_response(CMD_READ_ALPHA, payload, write_func)
         if data:
-            return AlphanumericValue.from_payload(data).value
+            av = AlphanumericValue.from_payload(data)
+            return av.value if av else None
         return None
 
     async def read_recipe(self, write_func, recipe_id: int) -> MachineRecipe | None:
         payload = struct.pack(">h", recipe_id)
         data = await self.send_and_wait_response(CMD_READ_RECIPE, payload, write_func)
         if data:
-            return MachineRecipe.from_payload(data)
+            result = MachineRecipe.from_payload(data)
+            return result
         return None
 
     async def write_numerical(self, write_func, value_id: int, value: int) -> bool:
