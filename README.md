@@ -28,7 +28,9 @@ The machine model is automatically detected from the BLE device name and confirm
 - **BLE auto-discovery** -- the integration detects your Melitta machine automatically during setup
 - **Encrypted BLE protocol** -- full AES/RC4 encrypted communication as used by the official Melitta app
 - **User profiles** -- read and edit user profile names on the machine
+- **Freestyle recipes** -- build custom drinks with two configurable components (coffee/milk/water), adjustable intensity, temperature, shots, and portion sizes
 - **Custom Lovelace card** -- dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
+- **Standalone PWA** -- full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
 - **29 languages** -- full localization for all European and Slavic languages
 
 ## Supported Recipes
@@ -80,6 +82,19 @@ The machine model is automatically detected from the BLE device name and confirm
 A dedicated Lovelace card with recipe buttons, status display, and progress bar is available as a separate repository:
 
 **[melitta-barista-card](https://github.com/dzerik/melitta-barista-card)** -- install via HACS (Frontend > Custom repositories) or manually.
+
+## Standalone PWA (Tablet / Kiosk)
+
+A standalone React PWA for controlling the coffee machine is available as a separate project:
+
+**[melitta-barista-app](https://github.com/dzerik/melitta-barista-app)** -- a full-screen progressive web app designed for wall-mounted tablets and kiosk displays.
+
+- Connects to Home Assistant via WebSocket API using a long-lived access token
+- Auto-detects the Melitta machine from HA entities
+- Three tabs: **Brew** (recipe grid with SVG icons), **Freestyle** (custom drink builder), **Settings** (machine configuration)
+- Real-time brewing progress with cancel support
+- Installable as a PWA on any device (Android, iOS, desktop)
+- Dark coffee-themed UI optimized for touch
 
 ## Configuration
 
@@ -142,12 +157,22 @@ Once configured, the integration creates a device with all available entities fi
 | Entity | Description |
 |--------|-------------|
 | Recipe | Dropdown selector for all available recipes (21 on T, 24 on TS). |
+| Profile | Active user profile selector. |
+| Freestyle Process 1 | Component 1 process: coffee, milk, or water. |
+| Freestyle Intensity 1 | Component 1 brew intensity. |
+| Freestyle Temperature 1 | Component 1 temperature level. |
+| Freestyle Shots 1 | Component 1 number of shots. |
+| Freestyle Process 2 | Component 2 process: none, coffee, milk, or water. |
+| Freestyle Intensity 2 | Component 2 brew intensity. |
+| Freestyle Temperature 2 | Component 2 temperature level. |
+| Freestyle Shots 2 | Component 2 number of shots. |
 
 ### Buttons
 
 | Entity | Description |
 |--------|-------------|
 | Brew | Brew the recipe selected in the Recipe dropdown. Available when machine is Ready and a recipe is selected. |
+| Brew Freestyle | Brew the custom freestyle recipe using current freestyle parameters. |
 | Cancel | Cancel the currently running operation. |
 | Easy Clean | Start the easy clean cycle (configuration). |
 | Intensive Clean | Start the intensive clean cycle (configuration). |
@@ -161,6 +186,8 @@ Once configured, the integration creates a device with all available entities fi
 | Water Hardness | 1 -- 4 | Water hardness level for descaling schedule (configuration). |
 | Auto Off After | 15 -- 240 min | Idle time before automatic power off (configuration). |
 | Brew Temperature | 0 -- 2 | Brew temperature level: 0 = Cold, 1 = Normal, 2 = High (configuration). |
+| Freestyle Portion 1 | 5 -- 250 ml | Component 1 portion size in milliliters. |
+| Freestyle Portion 2 | 0 -- 250 ml | Component 2 portion size in milliliters (0 = disabled). |
 
 ### Switches
 
@@ -176,6 +203,7 @@ Once configured, the integration creates a device with all available entities fi
 |--------|-------|-------------|
 | Profile 1-4 Name | T | User profile names (read/write, configuration). |
 | Profile 1-8 Name | TS | User profile names (read/write, configuration). |
+| Freestyle Name | T, TS | Custom name for the freestyle recipe. |
 
 ## Localization
 
@@ -189,7 +217,7 @@ English, Russian, Ukrainian, German, Polish, Czech, Slovak, French, Italian, Spa
 - **Single connection**: The machine supports only one active BLE connection at a time. If the official Melitta app is connected, the integration will not be able to connect, and vice versa.
 - **Single BLE client**: The integration operates as a single BLE client. User profile names can be read and edited, but per-profile recipe customizations are not yet exposed.
 - **Polling interval**: Machine status is polled every 5 seconds while connected. There may be a brief delay between a physical action and the state update in Home Assistant.
-- **Recipe parameters**: The integration brews recipes with the machine's stored default parameters (intensity, volume, temperature). Custom per-brew parameter adjustment is not yet exposed.
+- **Recipe parameters**: Built-in recipes use the machine's stored default parameters. For full customization, use the Freestyle recipe builder with adjustable process, intensity, temperature, shots, and portion for each component.
 
 ## Troubleshooting
 
