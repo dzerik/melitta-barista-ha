@@ -95,9 +95,14 @@ class _MelittaSensorBase(SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         self._client.add_status_callback(self._on_status_update)
+        self._client.add_connection_callback(self._on_connection_change)
 
     @callback
     def _on_status_update(self, status: MachineStatus) -> None:
+        self.async_write_ha_state()
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
         self.async_write_ha_state()
 
 
@@ -208,10 +213,6 @@ class MelittaConnectionSensor(_MelittaSensorBase):
     _attr_icon = "mdi:bluetooth-connect"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        self._client.add_connection_callback(self._on_connection_change)
-
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_connection"
@@ -223,10 +224,6 @@ class MelittaConnectionSensor(_MelittaSensorBase):
     @property
     def icon(self) -> str:
         return "mdi:bluetooth-connect" if self._client.connected else "mdi:bluetooth-off"
-
-    @callback
-    def _on_connection_change(self, connected: bool) -> None:
-        self.async_write_ha_state()
 
 
 class MelittaFirmwareSensor(_MelittaSensorBase):
