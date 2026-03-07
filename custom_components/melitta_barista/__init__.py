@@ -6,10 +6,12 @@ import asyncio
 import logging
 
 from homeassistant.components import bluetooth
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, Platform
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .ble_client import MelittaBleClient
 from .const import DOMAIN
@@ -133,6 +135,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug("Platforms forwarded")
 
+    # Register freestyle service (once per integration)
+    _async_register_services(hass)
+
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     # Connect in background so we don't block HA setup
@@ -163,6 +168,94 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
         _LOGGER.exception(
             "Unexpected error connecting to %s", client.address
         )
+
+
+SERVICE_BREW_FREESTYLE = "brew_freestyle"
+
+_PROCESS_MAP = {"none": 0, "coffee": 1, "steam": 2, "water": 3}
+_INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
+_TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
+_SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
+
+BREW_FREESTYLE_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Required("name", default="Custom"): cv.string,
+    vol.Required("process1", default="coffee"): vol.In(_PROCESS_MAP),
+    vol.Optional("intensity1", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("portion1_ml", default=40): vol.All(int, vol.Range(min=5, max=250)),
+    vol.Optional("temperature1", default="normal"): vol.In(_TEMPERATURE_MAP),
+    vol.Optional("shots1", default="one"): vol.In(_SHOTS_MAP),
+    vol.Optional("process2", default="none"): vol.In(_PROCESS_MAP),
+    vol.Optional("intensity2", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("portion2_ml", default=0): vol.All(int, vol.Range(min=0, max=250)),
+    vol.Optional("temperature2", default="normal"): vol.In(_TEMPERATURE_MAP),
+    vol.Optional("shots2", default="none"): vol.In(_SHOTS_MAP),
+})
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register integration services (idempotent)."""
+    if hass.services.has_service(DOMAIN, SERVICE_BREW_FREESTYLE):
+        return
+
+    from .protocol import RecipeComponent  # noqa: PLC0415
+
+    async def _handle_brew_freestyle(call: ServiceCall) -> None:
+        """Handle brew_freestyle service call."""
+        entity_id = call.data["entity_id"]
+
+        # Find the client from config entries
+        client: MelittaBleClient | None = None
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if hasattr(entry, "runtime_data") and entry.runtime_data:
+                c: MelittaBleClient = entry.runtime_data
+                registry = er.async_get(hass)
+                ent = registry.async_get(entity_id)
+                if ent and c.address in (ent.unique_id or ""):
+                    client = c
+                    break
+                # Fallback: use first available client
+                if client is None:
+                    client = c
+
+        if client is None:
+            _LOGGER.error("No Melitta machine found for %s", entity_id)
+            return
+
+        comp1 = RecipeComponent(
+            process=_PROCESS_MAP[call.data["process1"]],
+            shots=_SHOTS_MAP[call.data.get("shots1", "one")],
+            blend=1,  # BLEND_1
+            intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
+            aroma=0,  # STANDARD
+            temperature=_TEMPERATURE_MAP[call.data.get("temperature1", "normal")],
+            portion=call.data.get("portion1_ml", 40) // 5,
+        )
+
+        comp2 = RecipeComponent(
+            process=_PROCESS_MAP[call.data.get("process2", "none")],
+            shots=_SHOTS_MAP[call.data.get("shots2", "none")],
+            blend=0,  # BARISTA_T
+            intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
+            aroma=0,
+            temperature=_TEMPERATURE_MAP[call.data.get("temperature2", "normal")],
+            portion=call.data.get("portion2_ml", 0) // 5,
+        )
+
+        from .const import FREESTYLE_RECIPE_TYPE  # noqa: PLC0415
+        success = await client.brew_freestyle(
+            name=call.data["name"],
+            recipe_type=FREESTYLE_RECIPE_TYPE,
+            component1=comp1,
+            component2=comp2,
+        )
+        if not success:
+            _LOGGER.error("Failed to brew freestyle recipe")
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_BREW_FREESTYLE, _handle_brew_freestyle,
+        schema=BREW_FREESTYLE_SCHEMA,
+    )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
