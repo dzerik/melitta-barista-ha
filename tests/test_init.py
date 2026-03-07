@@ -136,3 +136,45 @@ async def test_legacy_cleanup_removes_old_entities(
         if "_brew_2" in e.unique_id  # legacy pattern: _brew_200, _brew_201, ...
     ]
     assert len(remaining) == 0
+
+
+async def test_legacy_cleanup_removes_named_entities(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Test that legacy named recipe button entities are cleaned up."""
+    mock_entry.add_to_hass(hass)
+
+    registry = er.async_get(hass)
+    # Create legacy entities with named unique_ids
+    for name in ("espresso", "americano", "cappuccino"):
+        registry.async_get_or_create(
+            "button",
+            DOMAIN,
+            f"{MOCK_ADDRESS}_brew_{name}",
+            config_entry=mock_entry,
+        )
+
+    assert len(er.async_entries_for_config_entry(registry, mock_entry.entry_id)) == 3
+
+    with (
+        patch(
+            "custom_components.melitta_barista.MelittaBleClient",
+            return_value=_mock_client(),
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_ble_device_from_address",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_register_callback",
+            return_value=lambda: None,
+        ),
+    ):
+        assert await hass.config_entries.async_setup(mock_entry.entry_id)
+        await hass.async_block_till_done()
+
+    remaining = [
+        e for e in er.async_entries_for_config_entry(registry, mock_entry.entry_id)
+        if "_brew_" in e.unique_id
+    ]
+    assert len(remaining) == 0
