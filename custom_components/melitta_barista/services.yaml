@@ -18,14 +18,14 @@ brew_freestyle:
         text:
     process1:
       name: Component 1 Process
-      description: "Process type: coffee, steam, water"
+      description: "Process type: coffee, milk, water"
       required: true
       default: "coffee"
       selector:
         select:
           options:
             - "coffee"
-            - "steam"
+            - "milk"
             - "water"
     intensity1:
       name: Component 1 Intensity
@@ -76,7 +76,7 @@ brew_freestyle:
             - "three"
     process2:
       name: Component 2 Process
-      description: "Process type for second component: none, coffee, steam, water"
+      description: "Process type for second component: none, coffee, milk, water"
       required: false
       default: "none"
       selector:
@@ -84,7 +84,7 @@ brew_freestyle:
           options:
             - "none"
             - "coffee"
-            - "steam"
+            - "milk"
             - "water"
     intensity2:
       name: Component 2 Intensity
