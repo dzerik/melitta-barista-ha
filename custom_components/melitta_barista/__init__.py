@@ -32,18 +32,41 @@ def _async_cleanup_legacy_recipe_buttons(
 ) -> None:
     """Remove old per-recipe button entities left from versions before v0.6.0.
 
-    Previously each recipe had its own button (unique_id = {address}_brew_{200..223}).
+    Previously each recipe had its own button. Two unique_id formats existed:
+    - Numeric: {address}_brew_{200..223}
+    - Named:  {address}_brew_{recipe_name} (e.g. _brew_americano)
     Now there is a single Brew button + Recipe select entity.
     """
     registry = er.async_get(hass)
-    # Old recipe button unique_ids: {address}_brew_200 .. {address}_brew_223
     removed = 0
+
+    # Format 1: numeric IDs {address}_brew_200 .. {address}_brew_223
     for recipe_value in range(200, 224):
         unique_id = f"{address}_brew_{recipe_value}"
         entity_id = registry.async_get_entity_id("button", DOMAIN, unique_id)
         if entity_id:
             registry.async_remove(entity_id)
             removed += 1
+
+    # Format 2: named IDs {address}_brew_{enum_name}
+    from .const import RecipeId  # noqa: PLC0415
+    for recipe in RecipeId:
+        unique_id = f"{address}_brew_{recipe.name.lower()}"
+        entity_id = registry.async_get_entity_id("button", DOMAIN, unique_id)
+        if entity_id:
+            registry.async_remove(entity_id)
+            removed += 1
+
+    # Format 3: any remaining button entities with _brew_ pattern in unique_id
+    for ent in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if (
+            ent.domain == "button"
+            and "_brew_" in (ent.unique_id or "")
+            and ent.unique_id != f"{address}_brew"
+        ):
+            registry.async_remove(ent.entity_id)
+            removed += 1
+
     if removed:
         _LOGGER.info("Cleaned up %d legacy recipe button entities", removed)
 
