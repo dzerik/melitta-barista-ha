@@ -32,6 +32,7 @@ async def async_setup_entry(
         MelittaProfileNameText(client, entry, name, profile_num)
         for profile_num in range(1, profile_count + 1)
     ]
+    entities.append(MelittaFreestyleNameText(client, entry, name))
     async_add_entities(entities)
 
 
@@ -91,3 +92,54 @@ class MelittaProfileNameText(TextEntity):
         if await self._client.write_alpha(self._name_id, value):
             self._attr_native_value = value
             self.async_write_ha_state()
+
+
+class MelittaFreestyleNameText(TextEntity):
+    """Text entity for the freestyle recipe name."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Freestyle Name"
+    _attr_icon = "mdi:label-outline"
+    _attr_native_max = 30
+
+    def __init__(
+        self,
+        client: MelittaBleClient,
+        entry: ConfigEntry,
+        machine_name: str,
+    ) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_freestyle_name"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._client.address)},
+            name=self._machine_name,
+            manufacturer="Melitta",
+            model=self._client.model_name,
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        return self._client.freestyle_name
+
+    @property
+    def available(self) -> bool:
+        return self._client.connected
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        self.async_write_ha_state()
+
+    async def async_set_value(self, value: str) -> None:
+        self._client.freestyle_name = value
+        self.async_write_ha_state()
