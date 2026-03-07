@@ -338,12 +338,13 @@ class MelittaBleClient:
         except Exception:
             _LOGGER.exception("Connection failed for %s", self._address)
             self._connected = False
-            if self._client:
+            client = self._client
+            self._client = None
+            if client:
                 try:
-                    await self._client.disconnect()
+                    await client.disconnect()
                 except Exception:
                     pass
-                self._client = None
             return False
 
     def _schedule_reconnect(self) -> None:
@@ -568,14 +569,21 @@ class MelittaBleClient:
             return False
         counters: dict[str, int] = {}
         for offset, name in CUP_COUNTER_RECIPES.items():
-            val = await self._protocol.read_numerical(
-                self._write_ble, CUP_COUNTER_BASE_ID + offset,
+            try:
+                val = await self._protocol.read_numerical(
+                    self._write_ble, CUP_COUNTER_BASE_ID + offset,
+                )
+                if val is not None:
+                    counters[name] = val
+            except Exception:
+                _LOGGER.debug("Failed to read cup counter for %s (id=%d)",
+                              name, CUP_COUNTER_BASE_ID + offset)
+        try:
+            total = await self._protocol.read_numerical(
+                self._write_ble, TOTAL_CUPS_ID,
             )
-            if val is not None:
-                counters[name] = val
-        total = await self._protocol.read_numerical(
-            self._write_ble, TOTAL_CUPS_ID,
-        )
+        except Exception:
+            total = None
         self._cup_counters = counters
         self._total_cups = total
         _LOGGER.debug("Cup counters: total=%s, per_recipe=%s", total, counters)
