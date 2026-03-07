@@ -559,11 +559,6 @@ class MelittaProtocol:
         payload = struct.pack(">h", process_value) + bytes(he_data)
         return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
 
-    async def start_recipe(self, write_func, process_value: int, data: bytes) -> bool:
-        """Legacy: start process with raw data."""
-        payload = struct.pack(">h", process_value) + data.ljust(16, b"\x00")
-        return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
-
     async def cancel_process(self, write_func, process_value: int) -> bool:
         payload = struct.pack(">h", process_value) + b"\x00\x00"
         return await self.send_and_wait_ack(CMD_CANCEL_PROCESS, payload, write_func)
