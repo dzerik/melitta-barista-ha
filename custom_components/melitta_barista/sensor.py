@@ -1,0 +1,245 @@
+"""Sensor platform for Melitta Barista Smart."""
+
+from __future__ import annotations
+
+import logging
+
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_NAME, PERCENTAGE
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .ble_client import MelittaBleClient
+from .const import DOMAIN, InfoMessage, MachineProcess, Manipulation, SubProcess
+from .protocol import MachineStatus
+
+_LOGGER = logging.getLogger("melitta_barista")
+
+
+PROCESS_LABELS: dict[MachineProcess, str] = {
+    MachineProcess.READY: "Ready",
+    MachineProcess.PRODUCT: "Brewing",
+    MachineProcess.CLEANING: "Cleaning",
+    MachineProcess.DESCALING: "Descaling",
+    MachineProcess.FILTER_INSERT: "Filter Insert",
+    MachineProcess.FILTER_REPLACE: "Filter Replace",
+    MachineProcess.FILTER_REMOVE: "Filter Remove",
+    MachineProcess.SWITCH_OFF: "Off",
+    MachineProcess.EASY_CLEAN: "Easy Clean",
+    MachineProcess.INTENSIVE_CLEAN: "Intensive Clean",
+    MachineProcess.EVAPORATING: "Evaporating",
+    MachineProcess.BUSY: "Busy",
+}
+
+SUBPROCESS_LABELS: dict[SubProcess, str] = {
+    SubProcess.GRINDING: "Grinding",
+    SubProcess.COFFEE: "Extracting",
+    SubProcess.STEAM: "Steaming",
+    SubProcess.WATER: "Dispensing Water",
+    SubProcess.PREPARE: "Preparing",
+}
+
+MANIPULATION_LABELS: dict[Manipulation, str] = {
+    Manipulation.NONE: "None",
+    Manipulation.BU_REMOVED: "Brew Unit Removed",
+    Manipulation.TRAYS_MISSING: "Trays Missing",
+    Manipulation.EMPTY_TRAYS: "Empty Trays",
+    Manipulation.FILL_WATER: "Fill Water",
+    Manipulation.CLOSE_POWDER_LID: "Close Powder Lid",
+    Manipulation.FILL_POWDER: "Fill Powder",
+}
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Melitta Barista sensors."""
+    client: MelittaBleClient = entry.runtime_data
+    name = entry.data.get(CONF_NAME, "Melitta Barista")
+
+    entities = [
+        MelittaStateSensor(client, entry, name),
+        MelittaActivitySensor(client, entry, name),
+        MelittaProgressSensor(client, entry, name),
+        MelittaActionRequiredSensor(client, entry, name),
+        MelittaConnectionSensor(client, entry, name),
+    ]
+
+    if client.firmware_version:
+        entities.append(MelittaFirmwareSensor(client, entry, name))
+
+    async_add_entities(entities)
+
+
+class _MelittaSensorBase(SensorEntity):
+    """Base class for Melitta sensors."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, client: MelittaBleClient, entry: ConfigEntry, name: str) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = name
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._client.address)},
+            name=self._machine_name,
+            manufacturer="Melitta",
+            model=self._client.model_name,
+            sw_version=self._client.firmware_version,
+        )
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_status_callback(self._on_status_update)
+
+    @callback
+    def _on_status_update(self, status: MachineStatus) -> None:
+        self.async_write_ha_state()
+
+
+class MelittaStateSensor(_MelittaSensorBase):
+    """Machine state (Ready, Brewing, Cleaning, etc.)."""
+
+    _attr_name = "State"
+    _attr_icon = "mdi:coffee-maker"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_state"
+
+    @property
+    def native_value(self) -> str | None:
+        status = self._client.status
+        if status is None:
+            return "unavailable"
+        if status.process is None:
+            return "unknown"
+        return PROCESS_LABELS.get(status.process, status.process.name)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        status = self._client.status
+        if status is None:
+            return {}
+        attrs = {}
+        if status.process is not None:
+            attrs["process_id"] = status.process.value
+        if status.info_messages:
+            flags = [m.name for m in InfoMessage if status.info_messages & m]
+            if flags:
+                attrs["info_messages"] = flags
+        return attrs
+
+
+class MelittaActivitySensor(_MelittaSensorBase):
+    """Current sub-activity (Grinding, Extracting, Steaming, etc.)."""
+
+    _attr_name = "Activity"
+    _attr_icon = "mdi:coffee"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_activity"
+
+    @property
+    def native_value(self) -> str | None:
+        status = self._client.status
+        if status is None or status.sub_process is None:
+            return "Idle"
+        return SUBPROCESS_LABELS.get(status.sub_process, status.sub_process.name)
+
+
+class MelittaProgressSensor(_MelittaSensorBase):
+    """Progress percentage during brewing/cleaning."""
+
+    _attr_name = "Progress"
+    _attr_icon = "mdi:progress-clock"
+    _attr_native_unit_of_measurement = PERCENTAGE
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_progress"
+
+    @property
+    def native_value(self) -> int | None:
+        status = self._client.status
+        if status is None:
+            return None
+        if status.process in (MachineProcess.READY, None):
+            return None
+        return status.progress
+
+
+class MelittaActionRequiredSensor(_MelittaSensorBase):
+    """Required user action (Fill Water, Empty Trays, etc.)."""
+
+    _attr_name = "Action Required"
+    _attr_icon = "mdi:alert-circle"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_manipulation"
+
+    @property
+    def native_value(self) -> str | None:
+        status = self._client.status
+        if status is None:
+            return None
+        return MANIPULATION_LABELS.get(status.manipulation, "None")
+
+    @property
+    def icon(self) -> str:
+        status = self._client.status
+        if status and status.manipulation != Manipulation.NONE:
+            return "mdi:alert-circle"
+        return "mdi:check-circle"
+
+
+class MelittaConnectionSensor(_MelittaSensorBase):
+    """BLE connection state."""
+
+    _attr_name = "Connection"
+    _attr_icon = "mdi:bluetooth-connect"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, client, entry, name):
+        super().__init__(client, entry, name)
+        self._client.add_connection_callback(self._on_connection_change)
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_connection"
+
+    @property
+    def native_value(self) -> str:
+        return "Connected" if self._client.connected else "Disconnected"
+
+    @property
+    def icon(self) -> str:
+        return "mdi:bluetooth-connect" if self._client.connected else "mdi:bluetooth-off"
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        self.async_write_ha_state()
+
+
+class MelittaFirmwareSensor(_MelittaSensorBase):
+    """Firmware version."""
+
+    _attr_name = "Firmware"
+    _attr_icon = "mdi:chip"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_firmware"
+
+    @property
+    def native_value(self) -> str | None:
+        return self._client.firmware_version

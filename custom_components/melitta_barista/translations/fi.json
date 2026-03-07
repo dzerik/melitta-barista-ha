@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Valitse kahvikoneesi löydetyistä laitteista",
+        "data": {
+          "address": "Laite"
+        }
+      },
+      "manual": {
+        "title": "Manuaalinen määritys",
+        "description": "Anna Melitta Barista Smartin Bluetooth MAC-osoite",
+        "data": {
+          "address": "Bluetooth MAC-osoite",
+          "name": "Laitteen nimi"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Vahvista laite",
+        "description": "Melitta Barista Smart löydetty: {name}. Haluatko määrittää sen?"
+      },
+      "pair": {
+        "title": "Pariliitos laitteeseen {name}",
+        "description": "Ota Bluetooth-pariliitostila käyttöön kahvikoneessasi (asetusvalikossa), paina sitten Lähetä.\n\nLaite: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Virheellinen Bluetooth MAC-osoite",
+      "cannot_connect": "Laitteeseen ei voitu yhdistää",
+      "unknown": "Odottamaton virhe",
+      "pairing_failed": "Pariliitos epäonnistui. Varmista, että kone on pariliitostilassa.",
+      "pairing_timeout": "Pariliitoksen aikakatkaisu. Ota pariliitostila käyttöön ja yritä uudelleen."
+    },
+    "abort": {
+      "already_configured": "Laite on jo määritetty",
+      "no_devices_found": "Melitta-laitteita ei löytynyt"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Tila",
+        "state": {
+          "ready": "Valmis",
+          "brewing": "Keittäminen",
+          "cleaning": "Puhdistus",
+          "descaling": "Kalkinpoisto",
+          "filter_insert": "Suodattimen asetus",
+          "filter_replace": "Suodattimen vaihto",
+          "filter_remove": "Suodattimen poisto",
+          "off": "Pois",
+          "easy_clean": "Pikapuhdistus",
+          "intensive_clean": "Tehopuhdistus",
+          "evaporating": "Höyrystys",
+          "busy": "Varattu",
+          "unavailable": "Ei saatavilla",
+          "unknown": "Tuntematon"
+        }
+      },
+      "activity": {
+        "name": "Toiminta",
+        "state": {
+          "idle": "Odottaa",
+          "grinding": "Jauhaminen",
+          "extracting": "Uuttaminen",
+          "steaming": "Maidon vaahdotus",
+          "dispensing_water": "Veden annostelu",
+          "preparing": "Valmistelu"
+        }
+      },
+      "progress": {
+        "name": "Edistyminen"
+      },
+      "action_required": {
+        "name": "Toimenpide vaaditaan",
+        "state": {
+          "none": "Ei mitään",
+          "brew_unit_removed": "Keittoyksikkö poistettu",
+          "trays_missing": "Alustat puuttuvat",
+          "empty_trays": "Tyhjennä alustat",
+          "fill_water": "Täytä vesi",
+          "close_powder_lid": "Sulje kansi",
+          "fill_powder": "Lisää kahvia"
+        }
+      },
+      "connection": {
+        "name": "Yhteys",
+        "state": {
+          "connected": "Yhdistetty",
+          "disconnected": "Katkaistu"
+        }
+      },
+      "firmware": {
+        "name": "Laiteohjelmisto"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Valmista"
+      },
+      "cancel": {
+        "name": "Peruuta"
+      },
+      "easy_clean": {
+        "name": "Pikapesu"
+      },
+      "intensive_clean": {
+        "name": "Tehopesu"
+      },
+      "descaling": {
+        "name": "Kalkinpoisto"
+      },
+      "switch_off": {
+        "name": "Sammuta"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Resepti",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Maito",
+          "milk_froth": "Maitovaahto",
+          "hot_water": "Kuuma vesi"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Veden kovuus"
+      },
+      "auto_off_after": {
+        "name": "Auto pois jälkeen"
+      },
+      "brew_temperature": {
+        "name": "Keittolämpötila"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Energiansäästö"
+      },
+      "auto_bean_select": {
+        "name": "Auto papuvalinta"
+      },
+      "rinsing_disabled": {
+        "name": "Huuhtelu pois käytöstä"
+      }
+    }
+  }
+}

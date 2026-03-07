@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# IDE
+*.iml
+.idea/
+.vscode/
+
+# APK / decompilation artifacts
+*.apk
+*.zip
+decompiled/
+jadx/
+
+# Debug scripts
+brew_espresso.py
+debug_brew.py

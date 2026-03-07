@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Izvēlieties savu kafijas automātu no atrastajām ierīcēm",
+        "data": {
+          "address": "Ierīce"
+        }
+      },
+      "manual": {
+        "title": "Manuāla konfigurācija",
+        "description": "Ievadiet Melitta Barista Smart Bluetooth MAC adresi",
+        "data": {
+          "address": "Bluetooth MAC adrese",
+          "name": "Ierīces nosaukums"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Apstiprināt ierīci",
+        "description": "Atrasts Melitta Barista Smart: {name}. Vai vēlaties to iestatīt?"
+      },
+      "pair": {
+        "title": "Savienošana ar {name}",
+        "description": "Ieslēdziet Bluetooth savienošanas režīmu kafijas automātā (iestatījumu izvēlnē), tad nospiediet Nosūtīt.\n\nIerīce: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Nederīga Bluetooth MAC adrese",
+      "cannot_connect": "Neizdevās savienoties ar ierīci",
+      "unknown": "Neparedzēta kļūda",
+      "pairing_failed": "Savienošana neizdevās. Pārliecinieties, ka iekārta ir savienošanas režīmā.",
+      "pairing_timeout": "Savienošanas noildze. Ieslēdziet savienošanas režīmu un mēģiniet vēlreiz."
+    },
+    "abort": {
+      "already_configured": "Ierīce jau ir konfigurēta",
+      "no_devices_found": "Melitta ierīces nav atrastas"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Stāvoklis",
+        "state": {
+          "ready": "Gatavs",
+          "brewing": "Gatavošana",
+          "cleaning": "Tīrīšana",
+          "descaling": "Atkaļķošana",
+          "filter_insert": "Filtra ievietošana",
+          "filter_replace": "Filtra nomaiņa",
+          "filter_remove": "Filtra izņemšana",
+          "off": "Izslēgts",
+          "easy_clean": "Ātrā tīrīšana",
+          "intensive_clean": "Intensīvā tīrīšana",
+          "evaporating": "Iztvaikošana",
+          "busy": "Aizņemts",
+          "unavailable": "Nav pieejams",
+          "unknown": "Nezināms"
+        }
+      },
+      "activity": {
+        "name": "Darbība",
+        "state": {
+          "idle": "Gaidīšana",
+          "grinding": "Malšana",
+          "extracting": "Ekstrakcija",
+          "steaming": "Piena putošana",
+          "dispensing_water": "Ūdens padeve",
+          "preparing": "Sagatavošana"
+        }
+      },
+      "progress": {
+        "name": "Progress"
+      },
+      "action_required": {
+        "name": "Nepieciešama darbība",
+        "state": {
+          "none": "Nav",
+          "brew_unit_removed": "Brūvēšanas bloks izņemts",
+          "trays_missing": "Paplātes trūkst",
+          "empty_trays": "Iztukšojiet paplātes",
+          "fill_water": "Piepildiet ūdeni",
+          "close_powder_lid": "Aizveriet vāciņu",
+          "fill_powder": "Pievienojiet kafiju"
+        }
+      },
+      "connection": {
+        "name": "Savienojums",
+        "state": {
+          "connected": "Savienots",
+          "disconnected": "Atvienots"
+        }
+      },
+      "firmware": {
+        "name": "Programmaparatūra"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Pagatavot"
+      },
+      "cancel": {
+        "name": "Atcelt"
+      },
+      "easy_clean": {
+        "name": "Ātrā tīrīšana"
+      },
+      "intensive_clean": {
+        "name": "Intensīvā tīrīšana"
+      },
+      "descaling": {
+        "name": "Atkaļķošana"
+      },
+      "switch_off": {
+        "name": "Izslēgt"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recepte",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Piens",
+          "milk_froth": "Piena putas",
+          "hot_water": "Karsts ūdens"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Ūdens cietība"
+      },
+      "auto_off_after": {
+        "name": "Auto izslēgšana pēc"
+      },
+      "brew_temperature": {
+        "name": "Brūvēšanas temperatūra"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Enerģijas taupīšana"
+      },
+      "auto_bean_select": {
+        "name": "Automātiska pupiņu izvēle"
+      },
+      "rinsing_disabled": {
+        "name": "Skalošana izslēgta"
+      }
+    }
+  }
+}

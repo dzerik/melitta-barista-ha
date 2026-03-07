@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Izberite kavni aparat iz odkritih naprav",
+        "data": {
+          "address": "Naprava"
+        }
+      },
+      "manual": {
+        "title": "Ročna nastavitev",
+        "description": "Vnesite Bluetooth MAC naslov vaše Melitta Barista Smart",
+        "data": {
+          "address": "Bluetooth MAC naslov",
+          "name": "Ime naprave"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Potrdi napravo",
+        "description": "Najden Melitta Barista Smart: {name}. Želite nastaviti?"
+      },
+      "pair": {
+        "title": "Povezovanje z {name}",
+        "description": "Vklopite Bluetooth način povezovanja na kavnem aparatu (v meniju nastavitev), nato pritisnite Pošlji.\n\nNaprava: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Neveljaven Bluetooth MAC naslov",
+      "cannot_connect": "Povezava z napravo ni uspela",
+      "unknown": "Nepričakovana napaka",
+      "pairing_failed": "Povezovanje ni uspelo. Prepričajte se, da je aparat v načinu povezovanja.",
+      "pairing_timeout": "Časovna omejitev povezovanja. Vklopite način povezovanja in poskusite znova."
+    },
+    "abort": {
+      "already_configured": "Naprava je že nastavljena",
+      "no_devices_found": "Naprave Melitta niso bile najdene"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Stanje",
+        "state": {
+          "ready": "Pripravljen",
+          "brewing": "Priprava",
+          "cleaning": "Čiščenje",
+          "descaling": "Razapnjevanje",
+          "filter_insert": "Vstavljanje filtra",
+          "filter_replace": "Zamenjava filtra",
+          "filter_remove": "Odstranitev filtra",
+          "off": "Izklopljeno",
+          "easy_clean": "Hitro čiščenje",
+          "intensive_clean": "Intenzivno čiščenje",
+          "evaporating": "Izhlapevanje",
+          "busy": "Zaseden",
+          "unavailable": "Nedostopen",
+          "unknown": "Neznano"
+        }
+      },
+      "activity": {
+        "name": "Dejavnost",
+        "state": {
+          "idle": "Nedejavno",
+          "grinding": "Mletje",
+          "extracting": "Ekstrakcija",
+          "steaming": "Penjenje mleka",
+          "dispensing_water": "Izdaja vode",
+          "preparing": "Priprava"
+        }
+      },
+      "progress": {
+        "name": "Napredek"
+      },
+      "action_required": {
+        "name": "Zahtevano dejanje",
+        "state": {
+          "none": "Brez",
+          "brew_unit_removed": "Kuhalna enota odstranjena",
+          "trays_missing": "Pladnji manjkajo",
+          "empty_trays": "Izpraznite pladnje",
+          "fill_water": "Napolnite vodo",
+          "close_powder_lid": "Zaprite pokrov",
+          "fill_powder": "Dodajte kavo"
+        }
+      },
+      "connection": {
+        "name": "Povezava",
+        "state": {
+          "connected": "Povezano",
+          "disconnected": "Prekinjeno"
+        }
+      },
+      "firmware": {
+        "name": "Programska oprema"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Pripravi"
+      },
+      "cancel": {
+        "name": "Prekliči"
+      },
+      "easy_clean": {
+        "name": "Hitro čiščenje"
+      },
+      "intensive_clean": {
+        "name": "Intenzivno čiščenje"
+      },
+      "descaling": {
+        "name": "Razapnjevanje"
+      },
+      "switch_off": {
+        "name": "Izklopi"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recept",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Mleko",
+          "milk_froth": "Mlečna pena",
+          "hot_water": "Vroča voda"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Trdota vode"
+      },
+      "auto_off_after": {
+        "name": "Samodejni izklop po"
+      },
+      "brew_temperature": {
+        "name": "Temperatura priprave"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Varčevanje z energijo"
+      },
+      "auto_bean_select": {
+        "name": "Samodejni izbor zrn"
+      },
+      "rinsing_disabled": {
+        "name": "Izpiranje izklopljeno"
+      }
+    }
+  }
+}

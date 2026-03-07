@@ -1,0 +1,172 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Melitta Barista Smart",
+        "description": "Selectați aparatul de cafea din dispozitivele descoperite",
+        "data": {
+          "address": "Dispozitiv"
+        }
+      },
+      "manual": {
+        "title": "Configurare manuală",
+        "description": "Introduceți adresa Bluetooth MAC a Melitta Barista Smart",
+        "data": {
+          "address": "Adresă Bluetooth MAC",
+          "name": "Numele dispozitivului"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Confirmare dispozitiv",
+        "description": "Melitta Barista Smart găsit: {name}. Doriți să îl configurați?"
+      },
+      "pair": {
+        "title": "Împerechere cu {name}",
+        "description": "Activați modul de împerechere Bluetooth pe aparatul de cafea (în meniul de setări), apoi apăsați Trimite.\n\nDispozitiv: **{name}** ({address})"
+      }
+    },
+    "error": {
+      "invalid_address": "Adresă Bluetooth MAC invalidă",
+      "cannot_connect": "Nu s-a putut conecta la dispozitiv",
+      "unknown": "Eroare neașteptată",
+      "pairing_failed": "Împerecherea a eșuat. Asigurați-vă că aparatul este în modul de împerechere.",
+      "pairing_timeout": "Timpul de împerechere a expirat. Activați modul de împerechere și încercați din nou."
+    },
+    "abort": {
+      "already_configured": "Dispozitivul este deja configurat",
+      "no_devices_found": "Nu s-au găsit dispozitive Melitta"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Stare",
+        "state": {
+          "ready": "Pregătit",
+          "brewing": "Preparare",
+          "cleaning": "Curățare",
+          "descaling": "Decalcifiere",
+          "filter_insert": "Inserare filtru",
+          "filter_replace": "Înlocuire filtru",
+          "filter_remove": "Eliminare filtru",
+          "off": "Oprit",
+          "easy_clean": "Curățare rapidă",
+          "intensive_clean": "Curățare intensivă",
+          "evaporating": "Evaporare",
+          "busy": "Ocupat",
+          "unavailable": "Indisponibil",
+          "unknown": "Necunoscut"
+        }
+      },
+      "activity": {
+        "name": "Activitate",
+        "state": {
+          "idle": "Inactiv",
+          "grinding": "Măcinare",
+          "extracting": "Extracție",
+          "steaming": "Spumare lapte",
+          "dispensing_water": "Distribuire apă",
+          "preparing": "Pregătire"
+        }
+      },
+      "progress": {
+        "name": "Progres"
+      },
+      "action_required": {
+        "name": "Acțiune necesară",
+        "state": {
+          "none": "Niciuna",
+          "brew_unit_removed": "Unitate de preparare scoasă",
+          "trays_missing": "Tăvile lipsesc",
+          "empty_trays": "Goliți tăvile",
+          "fill_water": "Umpleți apa",
+          "close_powder_lid": "Închideți capacul",
+          "fill_powder": "Adăugați cafea"
+        }
+      },
+      "connection": {
+        "name": "Conexiune",
+        "state": {
+          "connected": "Conectat",
+          "disconnected": "Deconectat"
+        }
+      },
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "button": {
+      "brew": {
+        "name": "Prepară"
+      },
+      "cancel": {
+        "name": "Anulare"
+      },
+      "easy_clean": {
+        "name": "Curățare rapidă"
+      },
+      "intensive_clean": {
+        "name": "Curățare intensivă"
+      },
+      "descaling": {
+        "name": "Detartrare"
+      },
+      "switch_off": {
+        "name": "Oprire"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Rețetă",
+        "state": {
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "milk": "Lapte",
+          "milk_froth": "Spumă de lapte",
+          "hot_water": "Apă fierbinte"
+        }
+      }
+    },
+    "number": {
+      "water_hardness": {
+        "name": "Duritate apă"
+      },
+      "auto_off_after": {
+        "name": "Oprire auto după"
+      },
+      "brew_temperature": {
+        "name": "Temperatură preparare"
+      }
+    },
+    "switch": {
+      "energy_saving": {
+        "name": "Economie energie"
+      },
+      "auto_bean_select": {
+        "name": "Selectare auto boabe"
+      },
+      "rinsing_disabled": {
+        "name": "Clătire dezactivată"
+      }
+    }
+  }
+}
