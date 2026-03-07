@@ -21,11 +21,14 @@ from .const import (
     BLE_PREFIXES_ALL,
     CHAR_NOTIFY,
     CHAR_WRITE,
+    CUP_COUNTER_BASE_ID,
+    CUP_COUNTER_RECIPES,
     MACHINE_MODEL_NAMES,
     MACHINE_TYPE_SETTING_ID,
     MachineProcess,
     MachineType,
     RecipeId,
+    TOTAL_CUPS_ID,
     detect_machine_type_from_name,
 )
 from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
@@ -71,6 +74,9 @@ class MelittaBleClient:
         self._auto_reconnect = True
         self.selected_recipe: RecipeId | None = None
         self.active_profile: int = 0  # 0 = default "My Coffee"
+        self._cup_counters: dict[str, int] = {}  # recipe_name -> count
+        self._total_cups: int | None = None
+        self._cups_callbacks: list[Callable[[], None]] = []
 
         # Freestyle recipe state (used by freestyle entities)
         self.freestyle_name: str = "Custom"
@@ -115,6 +121,17 @@ class MelittaBleClient:
             return MACHINE_MODEL_NAMES.get(self._machine_type, "Melitta Barista")
         return "Melitta Barista"
 
+    @property
+    def total_cups(self) -> int | None:
+        return self._total_cups
+
+    @property
+    def cup_counters(self) -> dict[str, int]:
+        return self._cup_counters
+
+    def add_cups_callback(self, callback: Callable[[], None]) -> None:
+        self._cups_callbacks.append(callback)
+
     def set_ble_device(self, ble_device: BLEDevice) -> None:
         """Update BLEDevice reference from advertisement callback.
 
@@ -130,7 +147,15 @@ class MelittaBleClient:
         self._connection_callbacks.append(callback)
 
     def _on_status(self, status: MachineStatus) -> None:
+        prev = self._status
         self._status = status
+        # Refresh cup counters when brew finishes (PRODUCT → READY)
+        if (
+            prev is not None
+            and prev.process == MachineProcess.PRODUCT
+            and status.process == MachineProcess.READY
+        ):
+            asyncio.ensure_future(self.read_cup_counters())
         for cb in self._status_callbacks:
             try:
                 cb(status)
@@ -297,6 +322,9 @@ class MelittaBleClient:
                 except ValueError:
                     _LOGGER.warning("Unknown machine type ID: %d", type_id)
             _LOGGER.debug("Machine type: %s", self._machine_type)
+
+            # Read cup counters
+            await self.read_cup_counters()
 
             # Notify connection callbacks
             for cb in self._connection_callbacks:
@@ -533,6 +561,30 @@ class MelittaBleClient:
         return await self._protocol.write_numerical(self._write_ble, setting_id, value)
 
     # Alphanumeric operations
+
+    async def read_cup_counters(self) -> bool:
+        """Read cup counters from the machine (HR IDs 100-123 + 150)."""
+        if not self.connected:
+            return False
+        counters: dict[str, int] = {}
+        for offset, name in CUP_COUNTER_RECIPES.items():
+            val = await self._protocol.read_numerical(
+                self._write_ble, CUP_COUNTER_BASE_ID + offset,
+            )
+            if val is not None:
+                counters[name] = val
+        total = await self._protocol.read_numerical(
+            self._write_ble, TOTAL_CUPS_ID,
+        )
+        self._cup_counters = counters
+        self._total_cups = total
+        _LOGGER.debug("Cup counters: total=%s, per_recipe=%s", total, counters)
+        for cb in self._cups_callbacks:
+            try:
+                cb()
+            except Exception:
+                _LOGGER.exception("Error in cups callback")
+        return True
 
     async def read_alpha(self, value_id: int) -> str | None:
         if not self.connected:

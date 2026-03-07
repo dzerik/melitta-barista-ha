@@ -387,3 +387,41 @@ class MachineSettingId(IntEnum):
 TS_ONLY_SETTINGS: set[int] = {
     MachineSettingId.AUTO_BEAN_SELECT,
 }
+
+
+# ---------------------------------------------------------------------------
+# Cup counters (discovered via BLE ID scan)
+# ---------------------------------------------------------------------------
+
+# Per-recipe cup counter: HR ID = CUP_COUNTER_BASE + RecipeType
+# e.g. Espresso (type 0) → ID 100, Cappuccino (type 13) → ID 113
+CUP_COUNTER_BASE_ID = 100
+TOTAL_CUPS_ID = 150
+
+# Map RecipeType offset → recipe name for cup counters
+CUP_COUNTER_RECIPES: dict[int, str] = {
+    0: "Espresso",
+    1: "Ristretto",
+    2: "Lungo",
+    3: "Espresso Doppio",
+    4: "Ristretto Doppio",
+    5: "Café Crème",
+    6: "Café Crème Doppio",
+    7: "Americano",
+    8: "Americano Extra",
+    9: "Long Black",
+    10: "Red Eye",
+    11: "Black Eye",
+    12: "Dead Eye",
+    13: "Cappuccino",
+    14: "Espresso Macchiato",
+    15: "Caffè Latte",
+    16: "Café au Lait",
+    17: "Flat White",
+    18: "Latte Macchiato",
+    19: "Latte Macchiato Extra",
+    20: "Latte Macchiato Triple",
+    21: "Milk",
+    22: "Milk Froth",
+    23: "Hot Water",
+}
