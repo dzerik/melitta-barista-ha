@@ -1,0 +1,131 @@
+brew_freestyle:
+  name: Brew Freestyle
+  description: Brew a custom freestyle recipe with specified components.
+  fields:
+    entity_id:
+      name: Entity
+      description: The brew button entity of the machine.
+      required: true
+      selector:
+        entity:
+          domain: button
+    name:
+      name: Recipe Name
+      description: Display name for the custom recipe.
+      required: true
+      default: "Custom"
+      selector:
+        text:
+    process1:
+      name: Component 1 Process
+      description: "Process type: coffee, steam, water"
+      required: true
+      default: "coffee"
+      selector:
+        select:
+          options:
+            - "coffee"
+            - "steam"
+            - "water"
+    intensity1:
+      name: Component 1 Intensity
+      description: "Intensity: very_mild, mild, medium, strong, very_strong"
+      required: false
+      default: "medium"
+      selector:
+        select:
+          options:
+            - "very_mild"
+            - "mild"
+            - "medium"
+            - "strong"
+            - "very_strong"
+    portion1_ml:
+      name: Component 1 Portion (ml)
+      description: Portion size in ml (multiples of 5).
+      required: false
+      default: 40
+      selector:
+        number:
+          min: 5
+          max: 250
+          step: 5
+          unit_of_measurement: ml
+    temperature1:
+      name: Component 1 Temperature
+      description: "Temperature: cold, normal, high"
+      required: false
+      default: "normal"
+      selector:
+        select:
+          options:
+            - "cold"
+            - "normal"
+            - "high"
+    shots1:
+      name: Component 1 Shots
+      description: "Shots: none, one, two, three"
+      required: false
+      default: "one"
+      selector:
+        select:
+          options:
+            - "none"
+            - "one"
+            - "two"
+            - "three"
+    process2:
+      name: Component 2 Process
+      description: "Process type for second component: none, coffee, steam, water"
+      required: false
+      default: "none"
+      selector:
+        select:
+          options:
+            - "none"
+            - "coffee"
+            - "steam"
+            - "water"
+    intensity2:
+      name: Component 2 Intensity
+      required: false
+      default: "medium"
+      selector:
+        select:
+          options:
+            - "very_mild"
+            - "mild"
+            - "medium"
+            - "strong"
+            - "very_strong"
+    portion2_ml:
+      name: Component 2 Portion (ml)
+      required: false
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 250
+          step: 5
+          unit_of_measurement: ml
+    temperature2:
+      name: Component 2 Temperature
+      required: false
+      default: "normal"
+      selector:
+        select:
+          options:
+            - "cold"
+            - "normal"
+            - "high"
+    shots2:
+      name: Component 2 Shots
+      required: false
+      default: "none"
+      selector:
+        select:
+          options:
+            - "none"
+            - "one"
+            - "two"
+            - "three"
