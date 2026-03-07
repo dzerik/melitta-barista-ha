@@ -12,7 +12,21 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, PROFILE_NAMES, RECIPE_NAMES, RecipeId, get_available_recipes, get_user_profile_count
+from .const import (
+    DOMAIN,
+    PROFILE_NAMES,
+    RECIPE_NAMES,
+    RECIPE_TO_DIRECTKEY,
+    RecipeId,
+    ComponentProcess,
+    Intensity,
+    Temperature,
+    Shots,
+    get_available_recipes,
+    get_directkey_id,
+    get_user_profile_count,
+)
+from .protocol import RecipeComponent
 
 # Freestyle option lists
 _PROCESS_OPTIONS = ["coffee", "milk", "water"]
@@ -22,6 +36,46 @@ _TEMPERATURE_OPTIONS = ["cold", "normal", "high"]
 _SHOTS_OPTIONS = ["none", "one", "two", "three"]
 
 _LOGGER = logging.getLogger("melitta_barista")
+
+_PROCESS_NAMES = {
+    ComponentProcess.NONE: "none",
+    ComponentProcess.COFFEE: "coffee",
+    ComponentProcess.STEAM: "milk",
+    ComponentProcess.WATER: "water",
+}
+
+_INTENSITY_NAMES = {
+    Intensity.VERY_MILD: "very_mild",
+    Intensity.MILD: "mild",
+    Intensity.MEDIUM: "medium",
+    Intensity.STRONG: "strong",
+    Intensity.VERY_STRONG: "very_strong",
+}
+
+_TEMPERATURE_NAMES = {
+    Temperature.COLD: "low",
+    Temperature.NORMAL: "normal",
+    Temperature.HIGH: "high",
+}
+
+_SHOTS_NAMES = {
+    Shots.NONE: 0,
+    Shots.ONE: 1,
+    Shots.TWO: 2,
+    Shots.THREE: 3,
+}
+
+
+def _component_attrs(comp: RecipeComponent, prefix: str) -> dict[str, str | int]:
+    """Convert a RecipeComponent to entity attribute dict."""
+    return {
+        f"{prefix}_process": _PROCESS_NAMES.get(comp.process, str(comp.process)),
+        f"{prefix}_intensity": _INTENSITY_NAMES.get(comp.intensity, str(comp.intensity)),
+        f"{prefix}_temperature": _TEMPERATURE_NAMES.get(comp.temperature, str(comp.temperature)),
+        f"{prefix}_shots": _SHOTS_NAMES.get(comp.shots, comp.shots),
+        f"{prefix}_portion_ml": comp.portion_ml,
+    }
+
 
 # Reverse lookup: name -> RecipeId
 _NAME_TO_RECIPE: dict[str, RecipeId] = {
@@ -70,6 +124,7 @@ class MelittaRecipeSelect(SelectEntity):
         self._entry = entry
         self._machine_name = machine_name
         self._selected: str | None = None
+        self._recipe_attrs: dict[str, str | int] = {}
         available = get_available_recipes(client.machine_type)
         self._attr_options = [
             RECIPE_NAMES[r] for r in available if r in RECIPE_NAMES
@@ -96,6 +151,10 @@ class MelittaRecipeSelect(SelectEntity):
     def available(self) -> bool:
         return self._client.connected
 
+    @property
+    def extra_state_attributes(self) -> dict[str, str | int]:
+        return self._recipe_attrs
+
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
 
@@ -104,10 +163,29 @@ class MelittaRecipeSelect(SelectEntity):
         self.async_write_ha_state()
 
     async def async_select_option(self, option: str) -> None:
-        """Select a recipe (does not brew — use the Brew button)."""
+        """Select a recipe and read its details from the machine."""
         self._selected = option
-        self._client.selected_recipe = _NAME_TO_RECIPE.get(option)
+        recipe_id = _NAME_TO_RECIPE.get(option)
+        self._client.selected_recipe = recipe_id
+        self._recipe_attrs = {}
         self.async_write_ha_state()
+
+        if recipe_id is not None and self._client.connected:
+            # Read the actual recipe from the machine (respecting active profile)
+            read_id = int(recipe_id)
+            if self._client.active_profile > 0:
+                dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
+                if dk_cat is not None:
+                    read_id = get_directkey_id(self._client.active_profile, dk_cat)
+
+            recipe = await self._client.read_recipe(read_id)
+            if recipe:
+                attrs: dict[str, str | int] = {}
+                attrs.update(_component_attrs(recipe.component1, "c1"))
+                attrs.update(_component_attrs(recipe.component2, "c2"))
+                self._recipe_attrs = attrs
+                _LOGGER.debug("Recipe %s attrs: %s", option, attrs)
+                self.async_write_ha_state()
 
 
 class MelittaProfileSelect(SelectEntity):
