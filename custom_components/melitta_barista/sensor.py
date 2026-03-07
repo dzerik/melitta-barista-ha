@@ -67,10 +67,8 @@ async def async_setup_entry(
         MelittaProgressSensor(client, entry, name),
         MelittaActionRequiredSensor(client, entry, name),
         MelittaConnectionSensor(client, entry, name),
+        MelittaFirmwareSensor(client, entry, name),
     ]
-
-    if client.firmware_version:
-        entities.append(MelittaFirmwareSensor(client, entry, name))
 
     async_add_entities(entities)
 
@@ -114,12 +112,14 @@ class MelittaStateSensor(_MelittaSensorBase):
         return f"{self._client.address}_state"
 
     @property
+    def available(self) -> bool:
+        return self._client.connected and self._client.status is not None
+
+    @property
     def native_value(self) -> str | None:
         status = self._client.status
-        if status is None:
-            return "unavailable"
-        if status.process is None:
-            return "unknown"
+        if status is None or status.process is None:
+            return None
         return PROCESS_LABELS.get(status.process, status.process.name)
 
     @property
@@ -208,8 +208,8 @@ class MelittaConnectionSensor(_MelittaSensorBase):
     _attr_icon = "mdi:bluetooth-connect"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, client, entry, name):
-        super().__init__(client, entry, name)
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
         self._client.add_connection_callback(self._on_connection_change)
 
     @property

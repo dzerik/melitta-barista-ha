@@ -6,8 +6,8 @@ import asyncio
 import logging
 import os
 import struct
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from Crypto.Cipher import AES
 
@@ -423,7 +423,7 @@ class MelittaProtocol:
 
     async def perform_handshake(
         self,
-        write_func: Callable[[bytes], asyncio.coroutine],
+        write_func: Callable[[bytes], Awaitable[None]],
     ) -> bool:
         """Perform HU challenge-response handshake."""
         self._handshake_done.clear()
@@ -451,7 +451,7 @@ class MelittaProtocol:
         self,
         command: str,
         payload: bytes | None,
-        write_func: Callable[[bytes], asyncio.coroutine],
+        write_func: Callable[[bytes], Awaitable[None]],
     ) -> bool:
         """Send a write command and wait for ACK."""
         async with self._lock:
@@ -475,7 +475,7 @@ class MelittaProtocol:
         self,
         command: str,
         payload: bytes | None,
-        write_func: Callable[[bytes], asyncio.coroutine],
+        write_func: Callable[[bytes], Awaitable[None]],
     ) -> bytes | None:
         """Send a read command and wait for response frame."""
         async with self._lock:
