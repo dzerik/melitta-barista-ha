@@ -30,6 +30,17 @@ def _mock_client(status=None, selected_recipe=None):
     client.model_name = "Melitta Barista"
     client.selected_recipe = selected_recipe
     client.active_profile = 0
+    client.freestyle_name = "Custom"
+    client.freestyle_process1 = "coffee"
+    client.freestyle_intensity1 = "medium"
+    client.freestyle_portion1_ml = 40
+    client.freestyle_temperature1 = "normal"
+    client.freestyle_shots1 = "one"
+    client.freestyle_process2 = "none"
+    client.freestyle_intensity2 = "medium"
+    client.freestyle_portion2_ml = 0
+    client.freestyle_temperature2 = "normal"
+    client.freestyle_shots2 = "none"
     client.set_ble_device = MagicMock()
     client.add_status_callback = MagicMock()
     client.add_connection_callback = MagicMock()

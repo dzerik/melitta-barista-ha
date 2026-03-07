@@ -65,6 +65,15 @@ async def async_setup_entry(
         MelittaSettingNumber(client, entry, name, defn)
         for defn in SETTING_DEFINITIONS
     ]
+    # Freestyle portion entities
+    entities.append(MelittaFreestyleNumber(
+        client, entry, name, "portion_1", "Freestyle Portion 1",
+        "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
+    ))
+    entities.append(MelittaFreestyleNumber(
+        client, entry, name, "portion_2", "Freestyle Portion 2",
+        "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
+    ))
     async_add_entities(entities)
 
 
@@ -128,3 +137,67 @@ class MelittaSettingNumber(NumberEntity):
         if await self._client.write_setting(self._setting_id, int(value)):
             self._attr_native_value = value
             self.async_write_ha_state()
+
+
+class MelittaFreestyleNumber(NumberEntity):
+    """Number entity for a freestyle recipe portion parameter."""
+
+    _attr_has_entity_name = True
+    _attr_mode = NumberMode.BOX
+    _attr_native_unit_of_measurement = "ml"
+
+    def __init__(
+        self,
+        client: MelittaBleClient,
+        entry: ConfigEntry,
+        machine_name: str,
+        key: str,
+        label: str,
+        icon: str,
+        min_val: int,
+        max_val: int,
+        step: int,
+        client_attr: str,
+    ) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+        self._key = key
+        self._client_attr = client_attr
+        self._attr_name = label
+        self._attr_icon = icon
+        self._attr_native_min_value = min_val
+        self._attr_native_max_value = max_val
+        self._attr_native_step = step
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_freestyle_{self._key}"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._client.address)},
+            name=self._machine_name,
+            manufacturer="Melitta",
+            model=self._client.model_name,
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        return float(getattr(self._client, self._client_attr, 0))
+
+    @property
+    def available(self) -> bool:
+        return self._client.connected
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        self.async_write_ha_state()
+
+    async def async_set_native_value(self, value: float) -> None:
+        setattr(self._client, self._client_attr, int(value))
+        self.async_write_ha_state()
