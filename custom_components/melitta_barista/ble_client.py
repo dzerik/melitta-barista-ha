@@ -302,7 +302,10 @@ class MelittaBleClient:
             # Perform HU handshake to get key_prefix
             if not await self._protocol.perform_handshake(self._write_ble):
                 _LOGGER.error("HU handshake failed")
-                await self._client.disconnect()
+                try:
+                    await self._client.disconnect()
+                except Exception:
+                    pass
                 return False
 
             self._connected = True
