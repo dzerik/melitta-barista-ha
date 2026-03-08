@@ -89,13 +89,20 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
     try:
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
 
-        # Check if BlueZ adapter exists — if not, we're likely using
-        # an ESPHome BLE proxy which handles pairing on the ESP32 side.
+        # Check if BlueZ adapter exists AND has Adapter1 interface.
+        # When using ESPHome BLE proxy, either hci0 path doesn't exist
+        # or it exists without the Adapter1 interface (adapter was removed).
         try:
-            await bus.introspect("org.bluez", "/org/bluez/hci0")
+            adapter_introspection = await bus.introspect(
+                "org.bluez", "/org/bluez/hci0"
+            )
+            adapter_proxy = bus.get_proxy_object(
+                "org.bluez", "/org/bluez/hci0", adapter_introspection
+            )
+            adapter = adapter_proxy.get_interface("org.bluez.Adapter1")
         except Exception:
             _LOGGER.info(
-                "No local BlueZ adapter (hci0) found. "
+                "No functional BlueZ adapter (hci0) found. "
                 "Assuming ESPHome BLE proxy — skipping D-Bus pairing for %s",
                 address,
             )
@@ -116,15 +123,6 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
             await agent_mgr.call_request_default_agent(_AGENT_PATH)
         except Exception:
             _LOGGER.debug("RequestDefaultAgent failed (non-critical)")
-
-        # Get adapter interface
-        adapter_introspection = await bus.introspect(
-            "org.bluez", "/org/bluez/hci0"
-        )
-        adapter_proxy = bus.get_proxy_object(
-            "org.bluez", "/org/bluez/hci0", adapter_introspection
-        )
-        adapter = adapter_proxy.get_interface("org.bluez.Adapter1")
 
         # Check if device is known to BlueZ
         device_known = False
