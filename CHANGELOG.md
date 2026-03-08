@@ -2,6 +2,22 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.11.0] — 2026-03-08
+
+### Added
+- Automatic BLE pairing via Bleak's `pair=True` — works with both local BlueZ adapter and ESPHome BLE proxy
+- Config flow gracefully skips D-Bus pairing when unavailable (pairing handled on connect)
+
+### Changed
+- ESPHome proxy config: removed aggressive scan parameters (1100ms/1100ms) — use defaults for stable single-core ESP32-C6 operation
+- `establish_connection()` and fallback `BleakClient` now pass `pair=True` for cross-platform bonding
+
+## [0.10.2] — 2026-03-08
+
+### Fixed
+- Check `Adapter1` interface existence (not just D-Bus path) when detecting local BlueZ adapter
+- Added CHANGELOG.md
+
 ## [0.10.1] — 2026-03-08
 
 ### Fixed

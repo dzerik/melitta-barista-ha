@@ -203,6 +203,8 @@ class MelittaBleClient:
 
         Uses BleakClientWithServiceCache + establish_connection() with
         ble_device_callback for fresh device reference on each retry.
+        Passes pair=True so Bleak handles bonding via any backend
+        (BlueZ D-Bus or ESPHome BLE proxy).
         """
         if self._ble_device is not None:
             try:
@@ -224,6 +226,7 @@ class MelittaBleClient:
                     use_services_cache=True,
                     ble_device_callback=lambda: self._ble_device,
                     max_attempts=3,
+                    pair=True,
                 )
                 return client
             except ImportError:
@@ -242,6 +245,7 @@ class MelittaBleClient:
             self._ble_device or self._address,
             disconnected_callback=self._on_disconnect,
             timeout=15.0,
+            pair=True,
         )
         await client.connect()
         return client
@@ -285,8 +289,9 @@ class MelittaBleClient:
     async def connect(self) -> bool:
         """Connect to the coffee machine.
 
-        Flow: BLE connect -> subscribe notify -> HU handshake -> read version.
-        Bonding must be done beforehand via config_flow or bluetoothctl.
+        Flow: BLE connect (with auto-pair) -> subscribe notify -> HU handshake -> read version.
+        Pairing is handled automatically by Bleak via pair=True (works with both
+        local BlueZ adapter and ESPHome BLE proxy).
         """
         async with self._connect_lock:
             return await self._connect_impl()

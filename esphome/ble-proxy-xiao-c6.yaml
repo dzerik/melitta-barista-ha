@@ -1,0 +1,164 @@
+# ESPHome BLE Proxy — Seeed Studio XIAO ESP32-C6
+#
+# Full active Bluetooth proxy for Home Assistant.
+# Replaces unstable USB BT adapter with a reliable WiFi-based BLE bridge.
+#
+# Hardware: Seeed Studio XIAO ESP32-C6
+#   - RISC-V single-core @ 160MHz
+#   - BLE 5.0 + WiFi 6 (802.11ax) 2.4GHz
+#   - Onboard antenna + U.FL connector for external antenna
+#   - User LED on GPIO15
+#
+# Flash:
+#   1. First time (USB): esphome run ble-proxy-xiao-c6.yaml
+#   2. Subsequent: OTA from HA ESPHome dashboard
+#
+# After flashing, HA auto-discovers the proxy.
+# Remove the old USB BT adapter — it's no longer needed.
+# ---------------------------------------------------------------
+
+substitutions:
+  name: "ble-proxy-melitta"
+  friendly_name: "BLE Proxy Melitta"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: false
+  # Toggle antenna RF switch pins on boot (FM8625H on XIAO C6)
+  on_boot:
+    priority: 600
+    then:
+      - output.turn_on: rf_switch_enable
+      # LOW = onboard antenna, HIGH = external U.FL antenna
+      # Change to turn_on if using external antenna
+      - output.turn_off: rf_antenna_select
+
+esp32:
+  board: seeed_xiao_esp32c6
+  variant: esp32c6
+  framework:
+    type: esp-idf
+
+# ---------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: NONE          # Max performance for BLE proxy
+  # enable_btm: true             # Uncomment for 802.11k/v roaming
+  # enable_rrm: true
+
+  # Fallback AP in case WiFi fails (for recovery)
+  ap:
+    ssid: "${name}-fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+# ---------------------------------------------------------------
+# Home Assistant API + OTA
+# ---------------------------------------------------------------
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ---------------------------------------------------------------
+# Logging — reduce noise, keep useful info
+# ---------------------------------------------------------------
+logger:
+  level: INFO
+  hardware_uart: USB_SERIAL_JTAG   # XIAO C6 uses USB-JTAG for serial
+  logs:
+    bluetooth_proxy: INFO
+    esp32_ble_tracker: WARN        # Suppress per-advertisement spam
+    component: ERROR
+
+# ---------------------------------------------------------------
+# Bluetooth — core proxy functionality
+#
+# ESP32-C6 is single-core RISC-V. Aggressive scan parameters
+# (1100ms/1100ms) cause CPU contention between WiFi and BLE.
+# Use defaults and on-demand scanning for stable operation.
+# See: https://esphome.io/components/bluetooth_proxy/
+# ---------------------------------------------------------------
+esp32_ble_tracker:
+  scan_parameters:
+    # Use ESPHome defaults (interval=320ms, window=30ms).
+    # Aggressive scanning provides no benefit on WiFi proxies
+    # while increasing CPU usage on single-core chips.
+    active: true        # Active scan for full device names
+
+bluetooth_proxy:
+  active: true           # REQUIRED for GATT connections (Melitta needs this)
+  cache_services: true   # Cache BLE service discovery — faster reconnects
+  connection_slots: 3    # 3 is safe for C6 RAM; max recommended 5
+
+# ---------------------------------------------------------------
+# Antenna control — FM8625H RF switch on XIAO ESP32-C6
+# ---------------------------------------------------------------
+output:
+  - platform: gpio
+    id: rf_switch_enable
+    pin: GPIO3              # RF_SWITCH_EN — enables the RF switch IC
+
+  - platform: gpio
+    id: rf_antenna_select
+    pin: GPIO14             # RF_ANT_SELECT — LOW=onboard, HIGH=external
+
+switch:
+  - platform: template
+    name: "External Antenna"
+    id: external_antenna
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - output.turn_on: rf_antenna_select
+    turn_off_action:
+      - output.turn_off: rf_antenna_select
+
+# ---------------------------------------------------------------
+# Status LED — GPIO15 (active LOW on XIAO C6)
+# ---------------------------------------------------------------
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: board_status_led
+    pin:
+      number: GPIO15
+      inverted: true
+      ignore_strapping_warning: true
+    internal: true         # Don't expose to HA, just for visual status
+
+# ---------------------------------------------------------------
+# Diagnostic sensors — monitor proxy health in HA
+# ---------------------------------------------------------------
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 300s
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "WiFi SSID"
+      entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: "Restart"
+    entity_category: config
