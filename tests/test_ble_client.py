@@ -17,9 +17,14 @@ from custom_components.melitta_barista.ble_client import (
 from custom_components.melitta_barista.const import (
     CHAR_NOTIFY,
     CHAR_WRITE,
+    DirectKeyCategory,
     MachineProcess,
     MachineType,
+    PROFILE_NAMES,
     RecipeId,
+    USER_ACTIVITY_IDS,
+    USER_NAME_IDS,
+    get_directkey_id,
 )
 from custom_components.melitta_barista.protocol import MachineRecipe, MachineStatus, RecipeComponent
 
@@ -1572,3 +1577,525 @@ class TestPolling:
         await asyncio.sleep(0.05)
         client._stop_polling()
         assert client._poll_task is None
+
+
+# ---------------------------------------------------------------------------
+# Profile management
+# ---------------------------------------------------------------------------
+
+class TestProfileManagement:
+    """Tests for profile name CRUD operations."""
+
+    @pytest.fixture()
+    def client(self):
+        mock_bleak = MagicMock(is_connected=True)
+        return _make_connected_client(mock_bleak)
+
+    @pytest.mark.asyncio
+    async def test_read_profile_name_zero_returns_my_coffee(self, client):
+        result = await client.read_profile_name(0)
+        assert result == PROFILE_NAMES[0]
+        # Should NOT call protocol
+        client._protocol.read_alphanumeric.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_read_profile_name_valid(self, client):
+        client._protocol.read_alphanumeric = AsyncMock(return_value="Alice")
+        result = await client.read_profile_name(1)
+        assert result == "Alice"
+        client._protocol.read_alphanumeric.assert_awaited_once_with(
+            client._write_ble, USER_NAME_IDS[1],
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_profile_name_invalid_id(self, client):
+        result = await client.read_profile_name(99)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_read_profile_name_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.read_profile_name(1)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_read_all_profile_names(self, client):
+        client._machine_type = MachineType.BARISTA_T  # 4 user profiles
+        names = {
+            USER_NAME_IDS[1]: "Alice",
+            USER_NAME_IDS[2]: "Bob",
+            USER_NAME_IDS[3]: None,  # empty name
+            USER_NAME_IDS[4]: "Diana",
+        }
+
+        async def mock_read_alpha(write_func, value_id):
+            return names.get(value_id)
+
+        client._protocol.read_alphanumeric = AsyncMock(side_effect=mock_read_alpha)
+        result = await client.read_all_profile_names()
+        assert result[0] == PROFILE_NAMES[0]
+        assert result[1] == "Alice"
+        assert result[2] == "Bob"
+        assert result[3] == "Profile 3"  # fallback for None
+        assert result[4] == "Diana"
+
+    @pytest.mark.asyncio
+    async def test_read_all_profile_names_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.read_all_profile_names()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_read_all_profile_names_ble_error(self, client):
+        client._machine_type = MachineType.BARISTA_T
+        client._protocol.read_alphanumeric = AsyncMock(
+            side_effect=BleakError("timeout"),
+        )
+        result = await client.read_all_profile_names()
+        # Should fallback to "Profile N" for all
+        assert result[0] == PROFILE_NAMES[0]
+        for i in range(1, 5):
+            assert result[i] == f"Profile {i}"
+
+    @pytest.mark.asyncio
+    async def test_write_profile_name_valid(self, client):
+        client._protocol.write_alphanumeric = AsyncMock(return_value=True)
+        result = await client.write_profile_name(2, "Bob")
+        assert result is True
+        client._protocol.write_alphanumeric.assert_awaited_once_with(
+            client._write_ble, USER_NAME_IDS[2], "Bob",
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_profile_name_zero_rejected(self, client):
+        result = await client.write_profile_name(0, "Nope")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_write_profile_name_invalid_id(self, client):
+        result = await client.write_profile_name(99, "Nope")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_write_profile_name_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.write_profile_name(1, "Alice")
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Profile recipe management
+# ---------------------------------------------------------------------------
+
+class TestProfileRecipeManagement:
+    """Tests for profile recipe CRUD operations."""
+
+    @pytest.fixture()
+    def client(self):
+        mock_bleak = MagicMock(is_connected=True)
+        return _make_connected_client(mock_bleak)
+
+    def _make_recipe(self, recipe_id=302, recipe_type=0):
+        return MachineRecipe(
+            recipe_id=recipe_id,
+            recipe_type=recipe_type,
+            component1=RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0),
+            component2=RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0),
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_profile_recipe(self, client):
+        expected = self._make_recipe()
+        client._protocol.read_recipe = AsyncMock(return_value=expected)
+        result = await client.read_profile_recipe(1, DirectKeyCategory.ESPRESSO)
+        assert result is expected
+        expected_id = get_directkey_id(1, DirectKeyCategory.ESPRESSO)
+        client._protocol.read_recipe.assert_awaited_once_with(
+            client._write_ble, expected_id,
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_profile_recipe_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.read_profile_recipe(1, DirectKeyCategory.ESPRESSO)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_read_all_profile_recipes(self, client):
+        recipe = self._make_recipe()
+        client._protocol.read_recipe = AsyncMock(return_value=recipe)
+        result = await client.read_all_profile_recipes(0)
+        assert len(result) == len(DirectKeyCategory)
+        for cat in DirectKeyCategory:
+            assert cat in result
+
+    @pytest.mark.asyncio
+    async def test_read_all_profile_recipes_partial_failure(self, client):
+        recipe = self._make_recipe()
+        call_count = 0
+
+        async def mock_read(write_func, rid):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 3:
+                raise BleakError("timeout")
+            return recipe
+
+        client._protocol.read_recipe = AsyncMock(side_effect=mock_read)
+        result = await client.read_all_profile_recipes(0)
+        # 7 categories, 1 failed -> 6 recipes
+        assert len(result) == 6
+
+    @pytest.mark.asyncio
+    async def test_read_all_profile_recipes_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.read_all_profile_recipes(0)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_write_profile_recipe(self, client):
+        current = self._make_recipe(recipe_type=5)
+        client._protocol.read_recipe = AsyncMock(return_value=current)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        comp1 = RecipeComponent(1, 2, 1, 3, 0, 2, 10, 0)
+        comp2 = RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0)
+        result = await client.write_profile_recipe(
+            2, DirectKeyCategory.CAPPUCCINO, comp1, comp2,
+        )
+        assert result is True
+        expected_id = get_directkey_id(2, DirectKeyCategory.CAPPUCCINO)
+        # Should read current recipe first
+        client._protocol.read_recipe.assert_awaited_once_with(
+            client._write_ble, expected_id,
+        )
+        # Should write with preserved recipe_type=5
+        client._protocol.write_recipe.assert_awaited_once_with(
+            client._write_ble, expected_id, 5, 0, comp1, comp2,
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_profile_recipe_read_fails(self, client):
+        client._protocol.read_recipe = AsyncMock(return_value=None)
+        comp1 = RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0)
+        comp2 = RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0)
+        result = await client.write_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO, comp1, comp2,
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_write_profile_recipe_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        comp1 = RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0)
+        comp2 = RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0)
+        result = await client.write_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO, comp1, comp2,
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_reset_profile_recipe(self, client):
+        default_recipe = self._make_recipe(recipe_type=0)
+        client._protocol.read_recipe = AsyncMock(return_value=default_recipe)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.reset_profile_recipe(
+            3, DirectKeyCategory.LATTE_MACCHIATO,
+        )
+        assert result is True
+        default_id = get_directkey_id(0, DirectKeyCategory.LATTE_MACCHIATO)
+        target_id = get_directkey_id(3, DirectKeyCategory.LATTE_MACCHIATO)
+        # Should read from profile 0
+        client._protocol.read_recipe.assert_awaited_once_with(
+            client._write_ble, default_id,
+        )
+        # Should write to target profile
+        client._protocol.write_recipe.assert_awaited_once_with(
+            client._write_ble, target_id, default_recipe.recipe_type, 0,
+            default_recipe.component1, default_recipe.component2,
+        )
+
+    @pytest.mark.asyncio
+    async def test_reset_profile_recipe_zero_rejected(self, client):
+        result = await client.reset_profile_recipe(0, DirectKeyCategory.ESPRESSO)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_reset_profile_recipe_default_read_fails(self, client):
+        client._protocol.read_recipe = AsyncMock(return_value=None)
+        result = await client.reset_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO,
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_reset_profile_recipe_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.reset_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO,
+        )
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Profile activity
+# ---------------------------------------------------------------------------
+
+class TestProfileActivity:
+    """Tests for profile activity read/write."""
+
+    @pytest.fixture()
+    def client(self):
+        mock_bleak = MagicMock(is_connected=True)
+        return _make_connected_client(mock_bleak)
+
+    @pytest.mark.asyncio
+    async def test_read_activity_valid(self, client):
+        client._protocol.read_numerical = AsyncMock(return_value=1)
+        result = await client.read_profile_activity(1)
+        assert result == 1
+        client._protocol.read_numerical.assert_awaited_once_with(
+            client._write_ble, USER_ACTIVITY_IDS[1],
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_activity_profile_zero(self, client):
+        result = await client.read_profile_activity(0)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_read_activity_invalid_id(self, client):
+        result = await client.read_profile_activity(99)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_read_activity_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.read_profile_activity(1)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_write_activity_valid(self, client):
+        client._protocol.write_numerical = AsyncMock(return_value=True)
+        result = await client.write_profile_activity(2, 1)
+        assert result is True
+        client._protocol.write_numerical.assert_awaited_once_with(
+            client._write_ble, USER_ACTIVITY_IDS[2], 1,
+        )
+
+    @pytest.mark.asyncio
+    async def test_write_activity_profile_zero(self, client):
+        result = await client.write_profile_activity(0, 1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_write_activity_invalid_id(self, client):
+        result = await client.write_profile_activity(99, 1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_write_activity_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.write_profile_activity(1, 1)
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Update profile recipe (partial)
+# ---------------------------------------------------------------------------
+
+class TestUpdateProfileRecipe:
+    """Tests for partial update of profile recipe parameters."""
+
+    @pytest.fixture()
+    def client(self):
+        mock_bleak = MagicMock(is_connected=True)
+        return _make_connected_client(mock_bleak)
+
+    def _make_recipe(self, recipe_type=0):
+        return MachineRecipe(
+            recipe_id=302,
+            recipe_type=recipe_type,
+            component1=RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0),
+            component2=RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0),
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_intensity_only(self, client):
+        current = self._make_recipe(recipe_type=5)
+        client._protocol.read_recipe = AsyncMock(return_value=current)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.update_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO, intensity=4,
+        )
+        assert result is True
+        # Verify the written component has intensity=4, rest unchanged
+        call_args = client._protocol.write_recipe.call_args
+        written_comp1 = call_args[0][4]  # comp1 (5th positional arg)
+        assert written_comp1.intensity == 4
+        assert written_comp1.process == 1  # unchanged
+        assert written_comp1.shots == 1    # unchanged
+        assert written_comp1.portion == 8  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_update_portion_ml(self, client):
+        current = self._make_recipe()
+        client._protocol.read_recipe = AsyncMock(return_value=current)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.update_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO, portion_ml=100,
+        )
+        assert result is True
+        call_args = client._protocol.write_recipe.call_args
+        written_comp1 = call_args[0][4]  # comp1 (5th positional arg)
+        assert written_comp1.portion == 20  # 100 // 5
+
+    @pytest.mark.asyncio
+    async def test_update_multiple_params(self, client):
+        current = self._make_recipe()
+        client._protocol.read_recipe = AsyncMock(return_value=current)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.update_profile_recipe(
+            2, DirectKeyCategory.CAPPUCCINO,
+            intensity=3, temperature=2, shots=2,
+        )
+        assert result is True
+        call_args = client._protocol.write_recipe.call_args
+        written_comp1 = call_args[0][4]  # comp1 (5th positional arg)
+        assert written_comp1.intensity == 3
+        assert written_comp1.temperature == 2
+        assert written_comp1.shots == 2
+        assert written_comp1.process == 1  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_update_preserves_component2(self, client):
+        comp2 = RecipeComponent(2, 0, 0, 1, 0, 1, 6, 0)
+        current = MachineRecipe(302, 5,
+            RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0), comp2)
+        client._protocol.read_recipe = AsyncMock(return_value=current)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        await client.update_profile_recipe(
+            1, DirectKeyCategory.CAPPUCCINO, intensity=4,
+        )
+        call_args = client._protocol.write_recipe.call_args
+        written_comp2 = call_args[0][5]  # comp2 (6th positional arg)
+        assert written_comp2 is comp2
+
+    @pytest.mark.asyncio
+    async def test_update_read_fails(self, client):
+        client._protocol.read_recipe = AsyncMock(return_value=None)
+        result = await client.update_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO, intensity=4,
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_update_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.update_profile_recipe(
+            1, DirectKeyCategory.ESPRESSO, intensity=4,
+        )
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Copy and reset all profile recipes
+# ---------------------------------------------------------------------------
+
+class TestCopyAndResetAllRecipes:
+    """Tests for copy_profile_recipe and reset_all_profile_recipes."""
+
+    @pytest.fixture()
+    def client(self):
+        mock_bleak = MagicMock(is_connected=True)
+        return _make_connected_client(mock_bleak)
+
+    def _make_recipe(self, recipe_id=302, recipe_type=0):
+        return MachineRecipe(
+            recipe_id=recipe_id,
+            recipe_type=recipe_type,
+            component1=RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0),
+            component2=RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0),
+        )
+
+    @pytest.mark.asyncio
+    async def test_copy_recipe_between_profiles(self, client):
+        source = self._make_recipe(recipe_type=5)
+        client._protocol.read_recipe = AsyncMock(return_value=source)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.copy_profile_recipe(
+            1, 3, DirectKeyCategory.ESPRESSO,
+        )
+        assert result is True
+        source_id = get_directkey_id(1, DirectKeyCategory.ESPRESSO)
+        target_id = get_directkey_id(3, DirectKeyCategory.ESPRESSO)
+        client._protocol.read_recipe.assert_awaited_once_with(
+            client._write_ble, source_id,
+        )
+        client._protocol.write_recipe.assert_awaited_once_with(
+            client._write_ble, target_id, 5, 0,
+            source.component1, source.component2,
+        )
+
+    @pytest.mark.asyncio
+    async def test_copy_recipe_source_fails(self, client):
+        client._protocol.read_recipe = AsyncMock(return_value=None)
+        result = await client.copy_profile_recipe(
+            1, 3, DirectKeyCategory.ESPRESSO,
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_copy_recipe_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.copy_profile_recipe(
+            1, 3, DirectKeyCategory.ESPRESSO,
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_reset_all_recipes(self, client):
+        default = self._make_recipe()
+        client._protocol.read_recipe = AsyncMock(return_value=default)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.reset_all_profile_recipes(2)
+        assert result is True
+        # 7 categories = 7 reads + 7 writes
+        assert client._protocol.read_recipe.await_count == 7
+        assert client._protocol.write_recipe.await_count == 7
+
+    @pytest.mark.asyncio
+    async def test_reset_all_recipes_profile_zero(self, client):
+        result = await client.reset_all_profile_recipes(0)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_reset_all_recipes_partial_failure(self, client):
+        default = self._make_recipe()
+        call_count = 0
+
+        async def mock_read(write_func, rid):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 5:
+                raise BleakError("timeout")
+            return default
+
+        client._protocol.read_recipe = AsyncMock(side_effect=mock_read)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+
+        result = await client.reset_all_profile_recipes(3)
+        assert result is False  # partial failure => False
+
+    @pytest.mark.asyncio
+    async def test_reset_all_recipes_disconnected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.reset_all_profile_recipes(1)
+        assert result is False
