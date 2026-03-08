@@ -5,6 +5,7 @@ from typing import Any
 
 import voluptuous as vol
 from bleak import BleakScanner
+from bleak.exc import BleakError
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
@@ -52,35 +53,9 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_pair()
 
         # Scan for devices
-        self._discovered_devices = {}
-
-        # Try HA bluetooth integration first
-        try:
-            for info in async_discovered_service_info(self.hass):
-                for uuid in info.service_uuids:
-                    if MELITTA_SERVICE_UUID in uuid.lower():
-                        self._discovered_devices[info.address] = (
-                            info.name or f"Melitta ({info.address})"
-                        )
-        except Exception:
-            _LOGGER.debug("HA bluetooth not available, falling back to direct scan")
-
-        # Fallback: direct BLE scan
-        if not self._discovered_devices:
-            try:
-                devices = await BleakScanner.discover(timeout=10.0)
-                for device in devices:
-                    if device.name and (
-                        any(device.name.startswith(p) for p in BLE_PREFIXES_ALL)
-                        or "melitta" in device.name.lower()
-                        or "barista" in device.name.lower()
-                    ):
-                        self._discovered_devices[device.address] = device.name
-            except Exception:
-                _LOGGER.exception("BLE scan failed")
+        await self._async_discover_devices()
 
         if not self._discovered_devices:
-            # No devices found — offer manual entry
             return await self.async_step_manual()
 
         # Add manual option
@@ -97,6 +72,35 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
         )
+
+    async def _async_discover_devices(self) -> None:
+        """Discover Melitta devices via HA bluetooth and BLE scan."""
+        self._discovered_devices = {}
+
+        # Try HA bluetooth integration first
+        try:
+            for info in async_discovered_service_info(self.hass):
+                for uuid in info.service_uuids:
+                    if MELITTA_SERVICE_UUID in uuid.lower():
+                        self._discovered_devices[info.address] = (
+                            info.name or f"Melitta ({info.address})"
+                        )
+        except (AttributeError, ValueError):
+            _LOGGER.debug("HA bluetooth not available, falling back to direct scan")
+
+        # Fallback: direct BLE scan
+        if not self._discovered_devices:
+            try:
+                devices = await BleakScanner.discover(timeout=10.0)
+                for device in devices:
+                    if device.name and (
+                        any(device.name.startswith(p) for p in BLE_PREFIXES_ALL)
+                        or "melitta" in device.name.lower()
+                        or "barista" in device.name.lower()
+                    ):
+                        self._discovered_devices[device.address] = device.name
+            except (OSError, BleakError):
+                _LOGGER.exception("BLE scan failed")
 
     async def async_step_manual(
         self, user_input: dict[str, Any] | None = None

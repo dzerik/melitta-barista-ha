@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.11.3] — 2026-03-08
+
+### Changed
+- Narrow 30 broad `except Exception` to specific types (`BleakError`, `OSError`, `asyncio.TimeoutError`) across ble_client, __init__, config_flow, select, protocol
+- Refactor `async_pair_device` (154→6 helper functions, CC 17→5) in ble_agent.py
+- Extract `_async_discover_devices()` from `async_step_user` (CC 18→8) in config_flow.py
+
+### Added
+- 51 new tests: config_flow (100% coverage), ble_agent (93% coverage)
+- Total: 174 tests, 82% coverage (was 123 tests, 71%)
+
 ## [0.11.2] — 2026-03-08
 
 ### Fixed

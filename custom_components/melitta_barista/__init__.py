@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 import voluptuous as vol
 
@@ -93,7 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass, address, connectable=True
             )
         _LOGGER.debug("Initial BLEDevice from cache: %s", ble_device)
-    except Exception:
+    except (AttributeError, ValueError):
         _LOGGER.debug("Could not get BLEDevice from cache", exc_info=True)
 
     client = MelittaBleClient(
@@ -119,7 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         )
         _LOGGER.debug("Bluetooth callback registered for %s", address)
-    except Exception:
+    except (AttributeError, ValueError, KeyError):
         _LOGGER.warning(
             "Could not register bluetooth callback for %s, "
             "BLEDevice updates from advertisements won't work",
@@ -164,7 +165,7 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
                 "Initial connection to %s failed, will retry in background",
                 client.address,
             )
-    except Exception:
+    except (BleakError, OSError, asyncio.TimeoutError):
         _LOGGER.exception(
             "Unexpected error connecting to %s", client.address
         )
