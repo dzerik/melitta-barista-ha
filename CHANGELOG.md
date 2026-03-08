@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.11.1] — 2026-03-08
+
+### Added
+- ESPHome `.gitignore` and `secrets.yaml.example` for easy proxy setup
+- Test scripts for BLE connection verification (local adapter and ESPHome proxy)
+
 ## [0.11.0] — 2026-03-08
 
 ### Added
