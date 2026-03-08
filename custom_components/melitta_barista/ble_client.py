@@ -62,6 +62,7 @@ class MelittaBleClient:
         self._connected = False
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
+        self._brew_lock = asyncio.Lock()
         self._status: MachineStatus | None = None
         self._firmware: str | None = None
         self._machine_type: MachineType | None = None
@@ -131,6 +132,12 @@ class MelittaBleClient:
     def add_cups_callback(self, callback: Callable[[], None]) -> None:
         self._cups_callbacks.append(callback)
 
+    def remove_cups_callback(self, callback: Callable[[], None]) -> None:
+        try:
+            self._cups_callbacks.remove(callback)
+        except ValueError:
+            pass
+
     def set_ble_device(self, ble_device: BLEDevice) -> None:
         """Update BLEDevice reference from advertisement callback.
 
@@ -142,8 +149,20 @@ class MelittaBleClient:
     def add_status_callback(self, callback: Callable[[MachineStatus], None]) -> None:
         self._status_callbacks.append(callback)
 
+    def remove_status_callback(self, callback: Callable[[MachineStatus], None]) -> None:
+        try:
+            self._status_callbacks.remove(callback)
+        except ValueError:
+            pass
+
     def add_connection_callback(self, callback: Callable[[bool], None]) -> None:
         self._connection_callbacks.append(callback)
+
+    def remove_connection_callback(self, callback: Callable[[bool], None]) -> None:
+        try:
+            self._connection_callbacks.remove(callback)
+        except ValueError:
+            pass
 
     def _on_status(self, status: MachineStatus) -> None:
         prev = self._status
@@ -437,7 +456,13 @@ class MelittaBleClient:
         """Brew a recipe using the 3-step protocol: HJ -> HB -> HE.
 
         If active_profile > 0, reads the profile-customized recipe via DirectKey.
+        Uses _brew_lock to prevent concurrent brew operations.
+        Pauses polling during brew to avoid BLE contention.
         """
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew already in progress, ignoring")
+            return False
+
         if not self.connected:
             return False
         if self._status and not self._status.is_ready:
@@ -452,43 +477,49 @@ class MelittaBleClient:
             get_directkey_id,
         )
 
-        # Determine which recipe ID to read
-        read_id = recipe_id
-        if self.active_profile > 0:
-            dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
-            if dk_cat is not None:
-                read_id = get_directkey_id(self.active_profile, dk_cat)
-                _LOGGER.debug(
-                    "Using DirectKey %d for profile %d, category %s",
-                    read_id, self.active_profile, dk_cat.name,
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                # Determine which recipe ID to read
+                read_id = recipe_id
+                if self.active_profile > 0:
+                    dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
+                    if dk_cat is not None:
+                        read_id = get_directkey_id(self.active_profile, dk_cat)
+                        _LOGGER.debug(
+                            "Using DirectKey %d for profile %d, category %s",
+                            read_id, self.active_profile, dk_cat.name,
+                        )
+
+                recipe = await self._protocol.read_recipe(self._write_ble, read_id)
+                if not recipe:
+                    _LOGGER.error("Failed to read recipe %d", read_id)
+                    return False
+
+                if not await self._protocol.write_recipe(
+                    self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type, 0,
+                    recipe.component1, recipe.component2,
+                ):
+                    _LOGGER.error("Failed to write recipe to temp slot")
+                    return False
+
+                await asyncio.sleep(0.2)
+
+                name = RECIPE_NAMES.get(recipe_id, str(recipe_id))
+                if not await self._protocol.write_alphanumeric(
+                    self._write_ble, FREESTYLE_NAME_ID, name,
+                ):
+                    _LOGGER.error("Failed to write recipe name")
+                    return False
+
+                await asyncio.sleep(0.2)
+
+                return await self._protocol.start_process(
+                    self._write_ble, MachineProcess.PRODUCT,
                 )
-
-        recipe = await self._protocol.read_recipe(self._write_ble, read_id)
-        if not recipe:
-            _LOGGER.error("Failed to read recipe %d", read_id)
-            return False
-
-        if not await self._protocol.write_recipe(
-            self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type, 0,
-            recipe.component1, recipe.component2,
-        ):
-            _LOGGER.error("Failed to write recipe to temp slot")
-            return False
-
-        await asyncio.sleep(0.2)
-
-        name = RECIPE_NAMES.get(recipe_id, str(recipe_id))
-        if not await self._protocol.write_alphanumeric(
-            self._write_ble, FREESTYLE_NAME_ID, name,
-        ):
-            _LOGGER.error("Failed to write recipe name")
-            return False
-
-        await asyncio.sleep(0.2)
-
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.PRODUCT,
-        )
+            finally:
+                if self.connected:
+                    self.start_polling(interval=5.0)
 
     async def brew_freestyle(
         self,
@@ -497,7 +528,15 @@ class MelittaBleClient:
         component1: RecipeComponent,
         component2: RecipeComponent,
     ) -> bool:
-        """Brew a freestyle (custom) recipe."""
+        """Brew a freestyle (custom) recipe.
+
+        Uses _brew_lock to prevent concurrent brew operations.
+        Pauses polling during brew to avoid BLE contention.
+        """
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew already in progress, ignoring")
+            return False
+
         if not self.connected:
             return False
         if self._status and not self._status.is_ready:
@@ -506,26 +545,32 @@ class MelittaBleClient:
 
         from .const import TEMP_RECIPE_ID, FREESTYLE_NAME_ID
 
-        if not await self._protocol.write_recipe(
-            self._write_ble, TEMP_RECIPE_ID, recipe_type, 0,
-            component1, component2,
-        ):
-            _LOGGER.error("Failed to write freestyle recipe")
-            return False
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                if not await self._protocol.write_recipe(
+                    self._write_ble, TEMP_RECIPE_ID, recipe_type, 0,
+                    component1, component2,
+                ):
+                    _LOGGER.error("Failed to write freestyle recipe")
+                    return False
 
-        await asyncio.sleep(0.2)
+                await asyncio.sleep(0.2)
 
-        if not await self._protocol.write_alphanumeric(
-            self._write_ble, FREESTYLE_NAME_ID, name,
-        ):
-            _LOGGER.error("Failed to write freestyle name")
-            return False
+                if not await self._protocol.write_alphanumeric(
+                    self._write_ble, FREESTYLE_NAME_ID, name,
+                ):
+                    _LOGGER.error("Failed to write freestyle name")
+                    return False
 
-        await asyncio.sleep(0.2)
+                await asyncio.sleep(0.2)
 
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.PRODUCT,
-        )
+                return await self._protocol.start_process(
+                    self._write_ble, MachineProcess.PRODUCT,
+                )
+            finally:
+                if self.connected:
+                    self.start_polling(interval=5.0)
 
     async def cancel_process(self, process: MachineProcess = MachineProcess.PRODUCT) -> bool:
         if not self.connected:

@@ -34,6 +34,8 @@ def _make_connected_client(mock_bleak_client) -> MelittaBleClient:
     client._connected = True
     client._client = mock_bleak_client
     client._protocol = MagicMock()
+    # Ensure read_status is awaitable (needed for poll_loop after brew)
+    client._protocol.read_status = AsyncMock(return_value=None)
     return client
 
 
@@ -1008,6 +1010,7 @@ class TestHighLevelAPI:
         client._connected = True
         client._client = MagicMock(is_connected=True)
         client._status = MachineStatus(process=MachineProcess.PRODUCT)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_recipe(RecipeId.ESPRESSO)
         assert result is False
@@ -1026,6 +1029,7 @@ class TestHighLevelAPI:
         client._protocol.write_recipe = AsyncMock(return_value=True)
         client._protocol.write_alphanumeric = AsyncMock(return_value=True)
         client._protocol.start_process = AsyncMock(return_value=True)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_recipe(RecipeId.ESPRESSO)
         assert result is True
@@ -1033,19 +1037,20 @@ class TestHighLevelAPI:
         client._protocol.start_process.assert_awaited_once()
 
     async def test_brew_recipe_read_fails(self):
-        """brew_recipe returns False when read_recipe returns None (lines 468-469)."""
+        """brew_recipe returns False when read_recipe returns None."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
         client._client = MagicMock(is_connected=True)
         client._status = MachineStatus(process=MachineProcess.READY)
 
         client._protocol.read_recipe = AsyncMock(return_value=None)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_recipe(RecipeId.ESPRESSO)
         assert result is False
 
     async def test_brew_recipe_write_recipe_fails(self):
-        """brew_recipe returns False when write_recipe fails (lines 475-476)."""
+        """brew_recipe returns False when write_recipe fails."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
         client._client = MagicMock(is_connected=True)
@@ -1057,12 +1062,13 @@ class TestHighLevelAPI:
         )
         client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
         client._protocol.write_recipe = AsyncMock(return_value=False)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_recipe(RecipeId.ESPRESSO)
         assert result is False
 
     async def test_brew_recipe_write_name_fails(self):
-        """brew_recipe returns False when write_alphanumeric fails (lines 484-485)."""
+        """brew_recipe returns False when write_alphanumeric fails."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
         client._client = MagicMock(is_connected=True)
@@ -1075,12 +1081,13 @@ class TestHighLevelAPI:
         client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
         client._protocol.write_recipe = AsyncMock(return_value=True)
         client._protocol.write_alphanumeric = AsyncMock(return_value=False)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_recipe(RecipeId.ESPRESSO)
         assert result is False
 
     async def test_brew_recipe_with_active_profile(self):
-        """brew_recipe uses DirectKey for active_profile > 0 (lines 458-464)."""
+        """brew_recipe uses DirectKey for active_profile > 0."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
         client._client = MagicMock(is_connected=True)
@@ -1095,9 +1102,24 @@ class TestHighLevelAPI:
         client._protocol.write_recipe = AsyncMock(return_value=True)
         client._protocol.write_alphanumeric = AsyncMock(return_value=True)
         client._protocol.start_process = AsyncMock(return_value=True)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_recipe(RecipeId.ESPRESSO)
         assert result is True
+
+    async def test_brew_recipe_double_brew_rejected(self):
+        """Second brew is rejected while first is in progress."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._status = MachineStatus(process=MachineProcess.READY)
+        client._protocol.read_status = AsyncMock(return_value=None)
+
+        # Simulate locked brew
+        await client._brew_lock.acquire()
+        result = await client.brew_recipe(RecipeId.ESPRESSO)
+        assert result is False
+        client._brew_lock.release()
 
     async def test_cancel_not_connected(self):
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
@@ -1264,6 +1286,7 @@ class TestBrewFreestyle:
         client._connected = True
         client._client = MagicMock(is_connected=True)
         client._status = MachineStatus(process=MachineProcess.PRODUCT)
+        client._protocol.read_status = AsyncMock(return_value=None)
 
         result = await client.brew_freestyle(
             "Custom", 0, RecipeComponent(), RecipeComponent(),

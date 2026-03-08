@@ -389,6 +389,18 @@ class MelittaProtocol:
         if encrypted_part and self._rc4_key:
             decrypted = _rc4_crypt(encrypted_part, self._rc4_key)
             payload = decrypted[:-1]  # last byte is checksum
+            received_cs = decrypted[-1]
+
+            # Verify checksum: ~(sum of cmd_bytes + payload) & 0xFF
+            # Log mismatch but still process frame (BLE is lossy, prefer
+            # resilience over strict rejection)
+            cs_data = buf[1:1 + cmd_len] + payload
+            expected_cs = (~sum(cs_data) & 0xFF)
+            if received_cs != expected_cs:
+                _LOGGER.warning(
+                    "Checksum mismatch for cmd=%s: got 0x%02X, expected 0x%02X",
+                    cmd, received_cs, expected_cs,
+                )
         else:
             payload = buf[encrypt_start:-2]
 

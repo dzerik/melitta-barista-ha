@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
+from bleak.exc import BleakError
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
@@ -117,9 +119,12 @@ class MelittaBrewButton(_MelittaButtonBase):
             return
         recipe_name = RECIPE_NAMES.get(recipe_id, recipe_id.name)
         _LOGGER.info("Brewing %s", recipe_name)
-        success = await self._client.brew_recipe(recipe_id)
-        if not success:
-            _LOGGER.error("Failed to start brewing %s", recipe_name)
+        try:
+            success = await self._client.brew_recipe(recipe_id)
+            if not success:
+                _LOGGER.error("Failed to start brewing %s", recipe_name)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error while brewing %s", recipe_name)
 
 
 _PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
@@ -170,14 +175,17 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
         )
 
         _LOGGER.info("Brewing freestyle: %s", c.freestyle_name)
-        success = await c.brew_freestyle(
-            name=c.freestyle_name,
-            recipe_type=FREESTYLE_RECIPE_TYPE,
-            component1=comp1,
-            component2=comp2,
-        )
-        if not success:
-            _LOGGER.error("Failed to brew freestyle recipe")
+        try:
+            success = await c.brew_freestyle(
+                name=c.freestyle_name,
+                recipe_type=FREESTYLE_RECIPE_TYPE,
+                component1=comp1,
+                component2=comp2,
+            )
+            if not success:
+                _LOGGER.error("Failed to brew freestyle recipe")
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error while brewing freestyle")
 
 
 class MelittaCancelButton(_MelittaButtonBase):
@@ -200,7 +208,10 @@ class MelittaCancelButton(_MelittaButtonBase):
         status = self._client.status
         if status and status.process:
             _LOGGER.info("Cancelling process %s", status.process)
-            await self._client.cancel_process(status.process)
+            try:
+                await self._client.cancel_process(status.process)
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.exception("BLE error while cancelling")
 
 
 class MelittaMaintenanceButton(_MelittaButtonBase):
@@ -238,10 +249,12 @@ class MelittaMaintenanceButton(_MelittaButtonBase):
             MachineProcess.SWITCH_OFF: self._client.switch_off,
         }
         method = method_map.get(self._process)
-        if method:
-            success = await method()
-        else:
+        if not method:
             _LOGGER.error("Unknown process %s", self._process)
             return
-        if not success:
-            _LOGGER.error("Failed to start %s", self._attr_name)
+        try:
+            success = await method()
+            if not success:
+                _LOGGER.error("Failed to start %s", self._attr_name)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error while starting %s", self._attr_name)

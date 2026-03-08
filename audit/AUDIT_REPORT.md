@@ -1,7 +1,7 @@
 # Аудит кодовой базы Melitta Barista HA Integration
 
 - **Дата**: 2026-03-08
-- **Версия**: 0.11.3
+- **Версия**: 0.11.5
 - **Аудитор**: Claude Code (автоматизированный аудит)
 - **Инструменты**: ruff 0.15.5, bandit 1.9.4, radon 6.0.1, vulture 2.15, pytest 9.0.0, gitleaks, pip-audit
 
@@ -16,12 +16,12 @@
 | BLE Lifecycle | **A-** | 0 | 0 | 1 |
 | HA Integration Patterns | **A-** | 0 | 0 | 1 |
 | Архитектура / SOLID | **A-** | 0 | 0 | 2 |
-| Тесты | **B+** | 0 | 1 | 1 |
+| Тесты | **A-** | 0 | 0 | 1 |
 | Error Handling | **B+** | 0 | 0 | 2 |
 | Код: размер / сложность | **B+** | 0 | 0 | 2 |
 | Документация | **A** | 0 | 0 | 1 |
 | Git / CI | **A** | 0 | 0 | 0 |
-| **ОБЩАЯ** | **B+** | **0** | **3** | **12** |
+| **ОБЩАЯ** | **A-** | **0** | **2** | **12** |
 
 ---
 
@@ -30,23 +30,24 @@
 | Метрика | Значение |
 |---------|----------|
 | **Security Score** | **87/100 (B+)** |
-| **TDI** | (0×10 + 3×3 + 12×1) / 100 × 100 = **2.1 (LOW)** |
-| **Test Coverage** | **82% (B+)** |
+| **TDI** | (0x10 + 2x3 + 12x1) / 100 x 100 = **1.8 (LOW)** |
+| **Test Coverage** | **89% (A-)** |
 | **HA Quality** | **9/10 checks passed** |
 | **HACS Ready** | **YES** |
 
-### Сравнение с предыдущим аудитом (v0.11.1)
+### Эволюция проекта
 
-| Метрика | v0.11.1 | v0.11.3 | Изменение |
-|---------|---------|---------|-----------|
-| Ruff errors | 18 | 0 | **ALL FIXED** |
-| Bandit findings | 3 | 2 | B413 suppressed (false positive) |
-| Failing tests | 1 | 0 | **FIXED** |
-| Test count | 123 | 174 | **+51** |
-| Coverage | 71% | 82% | **+11%** |
-| Broad `except Exception` | 30 | 3 | **-27** (только callbacks) |
-| CC > 15 functions | 2 | 0 | **FIXED** (max CC=14) |
-| TDI | 5.1 (MODERATE) | 2.1 (LOW) | **Улучшение** |
+| Метрика | v0.11.1 | v0.11.3 | v0.11.5 |
+|---------|---------|---------|---------|
+| Ruff errors | 18 | 0 | 0 |
+| Bandit (High) | 1 | 0 | 0 |
+| Failing tests | 1 | 0 | 0 |
+| Test count | 123 | 174 | **249** |
+| Coverage | 71% | 82% | **89%** |
+| Broad `except Exception` | 30 | 3 | 3 (callbacks only) |
+| CC > 15 functions | 2 | 0 | 0 |
+| TDI | 5.1 (MODERATE) | 2.1 (LOW) | **1.8 (LOW)** |
+| Общая оценка | B | B+ | **A-** |
 
 ---
 
@@ -57,7 +58,7 @@
 **Статус: OK**
 
 - Нет hardcoded паролей, API ключей, PSK в production коде
-- `gitleaks`: 0 leaks found (65 коммитов просканировано)
+- `gitleaks`: 0 leaks found (67 коммитов просканировано)
 - `.gitignore` покрывает `esphome/secrets.yaml`, `decompiled/`, `jadx/`
 - BLE адреса есть только в `scripts/` (тестовые утилиты), не в production коде
 
@@ -75,7 +76,7 @@
 
 > **Контекст**: AES key и IV hardcoded потому что это reverse-engineered протокол Melitta. Ключи одинаковые для всех машин — это design решение производителя, не баг интеграции.
 
-- **ВАЖНАЯ**: Bandit B413 — `pyCrypto` deprecated. Используется `pycryptodome` (fork), который активно поддерживается. Bandit не различает оригинальный pyCrypto и pycryptodome. **False positive** — стоит добавить `# nosec B413`.
+- **ВАЖНАЯ**: Bandit B413 — `pyCrypto` deprecated. Используется `pycryptodome` (fork), который активно поддерживается. **False positive** — подавлен `# nosec B413`.
 
 ### 1.3 BLE Payload Validation
 
@@ -83,11 +84,11 @@
 
 | Parser | Guard |
 |--------|-------|
-| `MachineStatus.from_payload` | `len(data) < 8` → return default |
-| `RecipeComponent.from_bytes` | `len(data) < 8` → return None + log |
-| `MachineRecipe.from_payload` | `len(data) < 19` → return None + log |
-| `NumericalValue.from_payload` | `len(data) < 6` → return None + log |
-| `AlphanumericValue.from_payload` | `len(data) < 2` → return None + log |
+| `MachineStatus.from_payload` | `len(data) < 8` -> return default |
+| `RecipeComponent.from_bytes` | `len(data) < 8` -> return None + log |
+| `MachineRecipe.from_payload` | `len(data) < 19` -> return None + log |
+| `NumericalValue.from_payload` | `len(data) < 6` -> return None + log |
+| `AlphanumericValue.from_payload` | `len(data) < 2` -> return None + log |
 
 UTF-8 decode: `errors="replace"` — корректно.
 
@@ -155,14 +156,15 @@ UTF-8 decode: `errors="replace"` — корректно.
 
 | Проверка | Статус |
 |----------|--------|
-| Connect → discover → subscribe → ready | OK |
-| Disconnect callback → reconnect | OK |
+| Connect -> discover -> subscribe -> ready | OK |
+| Disconnect callback -> reconnect | OK |
 | `pair=True` на обоих путях | OK |
 | `establish_connection` + fallback `BleakClient` | OK |
 | `self._client` захват в local var | OK (5 мест) |
 | `asyncio.Lock` для connect | OK (`_connect_lock`) |
 | `asyncio.Lock` для write | OK (`_write_lock`) |
 | Service caching | OK (`use_services_cache=True`) |
+| Status polling | OK (5s interval, оптимально для BLE) |
 
 - **Мелкая**: BLE disconnect during brew — reconnect работает, но brew state может потеряться
 
@@ -173,54 +175,50 @@ UTF-8 decode: `errors="replace"` — корректно.
 - **L**: Entity наследование от HA base classes корректное
 - **D**: `ble_client` инжектится в entities через `__init__.py` setup — OK
 
-`ble_agent.py:async_pair_device()` разбит на 6 helpers (было 154 строк, CC=17 → стало ~30 строк, CC=5) — **FIXED в v0.11.3**
-
 ### 2.4 DRY
 
-Vulture (dead code): 4 находки (все допустимые)
+Vulture (dead code): 4 находки (все false positives — сигнатуры интерфейсов D-Bus/HA)
 
 | Файл | Dead code | Тип |
 |------|-----------|-----|
-| `__init__.py:110` | `change` unused var | **мелкая** (HA track callback pattern) |
-| `ble_agent.py:53` | `entered` unused var | **мелкая** (D-Bus method signature) |
-| `switch.py:111,116` | `kwargs` unused | **мелкая** (HA interface contract) |
-
-> Все 4 — false positives: переменные требуются для сигнатуры интерфейсов (D-Bus, HA).
+| `__init__.py:110` | `change` unused var | HA track callback pattern |
+| `ble_agent.py:53` | `entered` unused var | D-Bus method signature |
+| `switch.py:111,116` | `kwargs` unused | HA interface contract |
 
 ---
 
 ## 3. Тесты и Runtime
 
-### 3.1 Test Coverage: 82% (B+)
+### 3.1 Test Coverage: 89% (A-)
 
 ```
-174 passed, 0 failed, 3 warnings
+249 passed, 0 failed, 3 warnings
 ```
 
-| Модуль | Coverage | Оценка | Изменение |
-|--------|----------|--------|-----------|
-| `const.py` | 100% | Excellent | — |
-| `config_flow.py` | 100% | Excellent | **23% → 100%** |
-| `sensor.py` | 94% | Excellent | — |
-| `ble_agent.py` | 93% | Excellent | **0% → 93%** |
-| `number.py` | 89% | Good | — |
-| `text.py` | 88% | Good | — |
-| `protocol.py` | 82% | Good | — |
-| `button.py` | 82% | Good | — |
-| `switch.py` | 81% | Good | — |
-| `select.py` | 77% | Good | +1% |
-| `__init__.py` | 72% | OK | +1% |
-| `ble_client.py` | 62% | Needs work | — |
+| Модуль | Coverage | Оценка |
+|--------|----------|--------|
+| `const.py` | 100% | Excellent |
+| `config_flow.py` | 100% | Excellent |
+| `ble_client.py` | 100% | Excellent |
+| `sensor.py` | 94% | Excellent |
+| `ble_agent.py` | 93% | Excellent |
+| `number.py` | 89% | Good |
+| `text.py` | 88% | Good |
+| `protocol.py` | 82% | Good |
+| `button.py` | 82% | Good |
+| `switch.py` | 81% | Good |
+| `select.py` | 77% | Good |
+| `__init__.py` | 72% | OK |
 
-- **Важная**: `ble_client.py` покрытие 62% — основной BLE модуль, нужно больше тестов (connect flows, reconnect, brew sequences)
+Три модуля с 100% покрытием. Минимум 72% (`__init__.py` — HA lifecycle, сложно тестировать без полного HA runtime).
 
 ### 3.2 Test Warnings
 
-3 RuntimeWarning в `test_ble_agent.py` — unawaited coroutines в mock chain. Не влияют на корректность, но стоит почистить mock setup.
+3 RuntimeWarning в `test_ble_agent.py` — unawaited coroutines в mock chain. Не влияют на корректность.
 
 ### 3.3 Error Handling
 
-**Статус: B+** (было C+)
+**Статус: B+**
 
 | Паттерн | Количество | Оценка |
 |---------|-----------|--------|
@@ -230,8 +228,6 @@ Vulture (dead code): 4 находки (все допустимые)
 | Все exceptions логируются | ~95% | Good |
 | Единый логгер `melitta_barista` | OK (все 11 файлов) |
 | `print()` в production | 0 | OK |
-
-Оставшиеся 3 `except Exception` — в callback dispatchers (корректный паттерн: изоляция user-code ошибок).
 
 ### 3.4 Code Complexity
 
@@ -244,25 +240,22 @@ Radon CC (Cyclomatic Complexity >= C):
 | `ble_client._connect_impl` | **11** | C — приемлемо (connection flow) |
 | `__init__._async_cleanup_legacy` | **11** | C — приемлемо (migration cleanup) |
 
-Radon MI (Maintainability Index): все модули A или B — нет проблем.
-
-> **Прогресс**: было 2 функции с CC>15 (D-уровень), теперь 0. Максимум CC=14.
+Radon MI (Maintainability Index): все модули A или B.
 
 ### 3.5 Ruff Linter
 
 **0 errors** — all checks passed.
 
-> **Прогресс**: было 18 errors (v0.11.1) → 14 в тестах (v0.11.3) → 0 (текущий).
-
 ### 3.6 Bandit Security
 
-2 findings (Low severity, acceptable):
+2 findings (Low severity, cleanup code — acceptable):
 
-| ID | Severity | Файл | Описание | Статус |
-|----|----------|------|----------|--------|
-| ~~B413~~ | ~~High~~ | ~~`protocol.py:12`~~ | ~~pyCrypto deprecated~~ | **Suppressed** (`# nosec B413`) |
-| B110 | Low | `ble_agent.py:170` | try/except/pass | Cleanup code — допустимо |
-| B110 | Low | `ble_agent.py:177` | try/except/pass | Cleanup code — допустимо |
+| ID | Severity | Файл | Описание |
+|----|----------|------|----------|
+| B110 | Low | `ble_agent.py:170` | try/except/pass in cleanup |
+| B110 | Low | `ble_agent.py:177` | try/except/pass in cleanup |
+
+B413 (pycryptodome) — suppressed with `# nosec B413`.
 
 ---
 
@@ -272,15 +265,13 @@ Radon MI (Maintainability Index): все модули A или B — нет пр
 
 Интеграция реализует:
 
-1. **Brew Flow**: выбор рецепта → формирование BLE команды → отправка → мониторинг
+1. **Brew Flow**: выбор рецепта -> формирование BLE команды -> отправка -> мониторинг
 2. **Freestyle Brew**: кастомный рецепт с параметрами (intensity, temperature, shots, portion)
 3. **Profile Management**: переключение профилей, DirectKey расчёт
-4. **Machine Monitoring**: состояние, прогресс, необходимые действия
+4. **Machine Monitoring**: состояние, прогресс, необходимые действия (polling 5s)
 5. **Cup Counting**: счётчики по рецептам + общий, auto-refresh после brew
 6. **Configuration**: hardness воды, auto-off, brew temperature
 7. **Maintenance**: очистка, промывка, декальцинация
-
-Бизнес-логика хорошо структурирована и понятна из кода.
 
 ### 4.2 BLE Protocol
 
@@ -295,11 +286,11 @@ sequenceDiagram
     BLE->>Machine: GATT Connect + Discover Services
     BLE->>Machine: Subscribe Notify (ad02)
     BLE->>Proto: build_frame(CMD_HANDSHAKE)
-    Proto->>Proto: AES-CBC decrypt → RC4 key
+    Proto->>Proto: AES-CBC decrypt -> RC4 key
     Proto-->>BLE: handshake frame
     BLE->>Machine: Write (ad01)
     Machine-->>BLE: Notify (ad02) — handshake response
-    BLE->>Proto: on_data() → RC4 init
+    BLE->>Proto: on_data() -> RC4 init
     Proto-->>BLE: connected + state
 
     Note over HA,Machine: Ready for commands
@@ -311,17 +302,10 @@ sequenceDiagram
     BLE->>Machine: Write (ad01)
     Machine-->>BLE: Notify — state updates
     BLE->>Proto: parse frame
-    Proto-->>HA: state callback → entity update
+    Proto-->>HA: state callback -> entity update
 ```
 
-### 4.3 Качество именования
-
-- Enum names понятны: `MachineProcess.BREWING`, `MachineState.READY`
-- BLE characteristics именованы: `CHAR_WRITE (ad01)`, `CHAR_NOTIFY (ad02)`
-- Methods self-documenting: `brew_recipe`, `read_recipe_details`, `refresh_cup_counters`
-- Constants в `const.py` хорошо организованы (recipes, DirectKey, translations)
-
-### 4.4 Граничные случаи
+### 4.3 Граничные случаи
 
 | Кейс | Обработан? |
 |------|-----------|
@@ -330,66 +314,48 @@ sequenceDiagram
 | Concurrent GATT writes | Да — `_write_lock` (asyncio.Lock) |
 | Machine powered off mid-command | Да — disconnect callback |
 | ESPHome proxy restart | Да — reconnect через HA bluetooth |
-| Invalid recipe ID | Нет — no validation before BLE write |
+| Invalid recipe ID | Нет — no validation before BLE write (low risk) |
 | Two HA instances | Нет — BLE single connection, second will fail to connect |
 
 ---
 
-## TOP 10 Findings
+## Findings Tracker
 
-| # | Уровень | Проблема | Статус |
-|---|---------|----------|--------|
-| 1 | ~~Важная~~ | ~~Failing test `test_recipe_select_option`~~ | **FIXED v0.11.2** |
-| 2 | ~~Важная~~ | ~~`config_flow.py` test coverage 23%~~ | **FIXED v0.11.3** (100%) |
-| 3 | ~~Важная~~ | ~~`ble_agent.py` test coverage 0%~~ | **FIXED v0.11.3** (93%) |
-| 4 | ~~Важная~~ | ~~30 broad `except Exception` catches~~ | **FIXED v0.11.3** (3 remain, callbacks only) |
-| 5 | ~~Важная~~ | ~~`async_step_user` CC=18~~ | **FIXED v0.11.3** (extracted `_async_discover_devices`) |
-| 6 | ~~Важная~~ | ~~`async_pair_device` 154 lines, CC=17~~ | **FIXED v0.11.3** (6 helpers, CC=5) |
-| 7 | ~~Важная~~ | ~~Нет `_write_lock` для GATT writes~~ | **FIXED v0.11.2** |
-| 8 | ~~Важная~~ | ~~Bandit B413 — pycryptodome flagged as pyCrypto~~ | **FIXED** (`# nosec B413`) |
-| 9 | Важная | `ble_client.py` coverage 62% | Open |
-| 10 | ~~Важная~~ | ~~14 ruff errors в тестах (unused imports/vars)~~ | **FIXED** (0 errors) |
+### Resolved (10/10)
 
-### Новые findings (v0.11.3)
+| # | Проблема | Версия |
+|---|----------|--------|
+| 1 | Failing test `test_recipe_select_option` | v0.11.2 |
+| 2 | `config_flow.py` coverage 23% -> 100% | v0.11.3 |
+| 3 | `ble_agent.py` coverage 0% -> 93% | v0.11.3 |
+| 4 | 30 broad `except Exception` -> 3 (callbacks) | v0.11.3 |
+| 5 | `async_step_user` CC=18 -> extracted helper | v0.11.3 |
+| 6 | `async_pair_device` 154 lines -> 6 helpers | v0.11.3 |
+| 7 | No `_write_lock` for GATT writes | v0.11.2 |
+| 8 | Bandit B413 false positive | v0.11.4 |
+| 9 | `ble_client.py` coverage 62% -> 100% | v0.11.5 |
+| 10 | 14 ruff errors in tests | v0.11.4 |
 
-| # | Уровень | Проблема | Файл |
-|---|---------|----------|------|
-| 11 | Мелкая | 3 RuntimeWarning в test_ble_agent (unawaited coroutines) | `tests/test_ble_agent.py` |
-| 12 | Мелкая | `async_will_remove_from_hass` не реализован | entities |
-| 13 | Мелкая | `_async_discover_devices` CC=14 (borderline) | `config_flow.py` |
-| 14 | Мелкая | No recipe ID validation before BLE write | `ble_client.py` |
-| 15 | Мелкая | CVEs в transitive deps (pillow, pip) | venv |
+### Open (minor only)
 
----
-
-## План действий
-
-### Немедленно
-
-1. ~~**Исправить 14 ruff errors в тестах**~~ — **DONE**
-2. ~~**Добавить `# nosec B413`**~~ — **DONE**
-
-### В течение спринта
-
-3. **Поднять coverage `ble_client.py`** (62% → 80%+) — тесты для connect flows, reconnect, brew sequences
-4. **Почистить RuntimeWarning** в test_ble_agent.py (unawaited mock coroutines)
-
-### Плановый рефакторинг
-
-5. **Рассмотреть `async_will_remove_from_hass`** для cleanup callbacks
-6. **Recipe ID validation** перед BLE write
-7. **Обновить transitive deps** (pillow, pip) при следующем обновлении HA
+| # | Уровень | Проблема |
+|---|---------|----------|
+| 1 | Мелкая | 3 RuntimeWarning в test_ble_agent (unawaited coroutines) |
+| 2 | Мелкая | `async_will_remove_from_hass` не реализован |
+| 3 | Мелкая | `_async_discover_devices` CC=14 (borderline) |
+| 4 | Мелкая | No recipe ID validation before BLE write |
+| 5 | Мелкая | CVEs в transitive deps (pillow, pip) — не наши |
 
 ---
 
 ## ФИНАЛЬНАЯ ОЦЕНКА
 
-| Метрика | v0.11.1 | v0.11.3 |
+| Метрика | v0.11.1 | v0.11.5 |
 |---------|---------|---------|
-| **Общая оценка** | **B** | **B+** |
+| **Общая оценка** | **B** | **A-** |
 | **HACS Ready** | YES | YES |
 | **Security Risk** | LOW | LOW |
-| **Refactor Required** | MINOR | MINIMAL |
+| **Refactor Required** | MINOR | **NONE** |
 | **Production Ready** | YES (с оговоркой) | **YES** |
 
 ### Сильные стороны
@@ -399,14 +365,13 @@ sequenceDiagram
 - Хорошая защита от race conditions (connect_lock, write_lock, local var capture)
 - Единообразный логгер, чистые translations (29 языков)
 - Gitleaks clean, no hardcoded secrets
-- 174 теста, 82% coverage, 0 failures
-- Exception handling сужен до конкретных типов (BleakError, OSError, TimeoutError)
-- Все функции CC < 15 (максимум 14)
-- 0 ruff errors в production коде
+- 249 тестов, 89% coverage, 0 failures, 3 модуля со 100% покрытием
+- Exception handling сужен до конкретных типов
+- Все функции CC < 15, 0 ruff errors, 0 bandit High
+- CI: все GitHub Actions runs passing
 
 ### Области для улучшения
 
-- `ble_client.py` coverage 62% — основной модуль
-- `ble_client.py` coverage 62% — основной BLE модуль
-- `async_will_remove_from_hass` не реализован
-- 3 RuntimeWarning в тестах (unawaited mock coroutines)
+- `__init__.py` coverage 72% (HA lifecycle — сложно тестировать)
+- `async_will_remove_from_hass` не реализован (low risk)
+- 3 RuntimeWarning в тестах (cosmetic)
