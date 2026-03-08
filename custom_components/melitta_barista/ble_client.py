@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
@@ -31,10 +31,7 @@ from .const import (
     TOTAL_CUPS_ID,
     detect_machine_type_from_name,
 )
-from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
-
-if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
+from .protocol import MachineRecipe, MachineStatus, MelittaProtocol, RecipeComponent
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -64,6 +61,7 @@ class MelittaBleClient:
         self._protocol = MelittaProtocol()
         self._connected = False
         self._connect_lock = asyncio.Lock()
+        self._write_lock = asyncio.Lock()
         self._status: MachineStatus | None = None
         self._firmware: str | None = None
         self._machine_type: MachineType | None = None
@@ -188,15 +186,16 @@ class MelittaBleClient:
         self._protocol.on_ble_data(bytes(data))
 
     async def _write_ble(self, data: bytes) -> None:
-        client = self._client
-        if not client or not client.is_connected:
-            raise BleakError("Not connected")
-        try:
-            await client.write_gatt_char(CHAR_WRITE, data, response=False)
-        except AssertionError:
-            # bleak internal: assert self._bus — D-Bus connection lost
-            _LOGGER.error("D-Bus connection lost during write (assert self._bus)")
-            raise BleakError("D-Bus connection lost")
+        async with self._write_lock:
+            client = self._client
+            if not client or not client.is_connected:
+                raise BleakError("Not connected")
+            try:
+                await client.write_gatt_char(CHAR_WRITE, data, response=False)
+            except AssertionError:
+                # bleak internal: assert self._bus — D-Bus connection lost
+                _LOGGER.error("D-Bus connection lost during write (assert self._bus)")
+                raise BleakError("D-Bus connection lost")
 
     async def _establish_connection(self) -> BleakClient:
         """Establish BLE connection following the switchbot/led_ble pattern.
@@ -495,8 +494,8 @@ class MelittaBleClient:
         self,
         name: str,
         recipe_type: int,
-        component1: "RecipeComponent",
-        component2: "RecipeComponent",
+        component1: RecipeComponent,
+        component2: RecipeComponent,
     ) -> bool:
         """Brew a freestyle (custom) recipe."""
         if not self.connected:

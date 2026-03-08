@@ -18,3 +18,5 @@ __pycache__/
 # Debug scripts
 brew_espresso.py
 debug_brew.py
+CLAUDE.md
+./audit/

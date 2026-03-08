@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.11.2] — 2026-03-08
+
+### Fixed
+- Fix failing test `test_recipe_select_option` — mock missing `active_profile` and `read_recipe`
+- Remove unused imports (`asyncio` in config_flow, `TYPE_CHECKING`/`HomeAssistant` in ble_client)
+- Fix undefined `RecipeComponent` type annotation — add proper import
+- Add `# noqa: F821` to D-Bus type signature annotations in ble_agent.py
+- Sync `strings.json` accent characters with `translations/en.json` (Café, Crème, Caffè)
+- Add `_write_lock` to BLE client for serialized GATT writes (prevents concurrent write races)
+- Ruff: 18 errors → 0 errors
+
 ## [0.11.1] — 2026-03-08
 
 ### Added
