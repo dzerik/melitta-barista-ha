@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from bleak.backends.device import BLEDevice
 
-from custom_components.melitta_barista.const import DOMAIN
 
 
 @pytest.fixture(autouse=True)
