@@ -23,13 +23,19 @@ from .const import (
     CHAR_WRITE,
     CUP_COUNTER_BASE_ID,
     CUP_COUNTER_RECIPES,
+    DirectKeyCategory,
     MACHINE_MODEL_NAMES,
     MACHINE_TYPE_SETTING_ID,
     MachineProcess,
     MachineType,
+    PROFILE_NAMES,
     RecipeId,
     TOTAL_CUPS_ID,
+    USER_ACTIVITY_IDS,
+    USER_NAME_IDS,
     detect_machine_type_from_name,
+    get_directkey_id,
+    get_user_profile_count,
 )
 from .protocol import MachineRecipe, MachineStatus, MelittaProtocol, RecipeComponent
 
@@ -612,6 +618,257 @@ class MelittaBleClient:
         if not self.connected:
             return None
         return await self._protocol.read_recipe(self._write_ble, recipe_id)
+
+    # Profile management
+
+    async def read_profile_name(self, profile_id: int) -> str | None:
+        """Read profile name by ID. Profile 0 is always 'My Coffee'."""
+        if profile_id == 0:
+            return PROFILE_NAMES[0]
+        if profile_id not in USER_NAME_IDS:
+            _LOGGER.warning("Invalid profile_id %d", profile_id)
+            return None
+        if not self.connected:
+            return None
+        return await self._protocol.read_alphanumeric(
+            self._write_ble, USER_NAME_IDS[profile_id],
+        )
+
+    async def read_all_profile_names(self) -> dict[int, str]:
+        """Read all profile names. Returns {profile_id: name}."""
+        if not self.connected:
+            return {}
+        count = get_user_profile_count(self._machine_type)
+        result: dict[int, str] = {0: PROFILE_NAMES[0]}
+        for i in range(1, count + 1):
+            if i not in USER_NAME_IDS:
+                continue
+            try:
+                name = await self._protocol.read_alphanumeric(
+                    self._write_ble, USER_NAME_IDS[i],
+                )
+                if name:
+                    result[i] = name
+                else:
+                    result[i] = f"Profile {i}"
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.debug("Failed to read name for profile %d", i)
+                result[i] = f"Profile {i}"
+        return result
+
+    async def write_profile_name(self, profile_id: int, name: str) -> bool:
+        """Write profile name. Profile 0 cannot be renamed."""
+        if profile_id == 0:
+            _LOGGER.warning("Cannot rename default profile 0")
+            return False
+        if profile_id not in USER_NAME_IDS:
+            _LOGGER.warning("Invalid profile_id %d", profile_id)
+            return False
+        if not self.connected:
+            return False
+        return await self._protocol.write_alphanumeric(
+            self._write_ble, USER_NAME_IDS[profile_id], name,
+        )
+
+    # Profile activity
+
+    async def read_profile_activity(self, profile_id: int) -> int | None:
+        """Read profile activity value (numerical)."""
+        if profile_id == 0:
+            return None  # default profile has no activity ID
+        if profile_id not in USER_ACTIVITY_IDS:
+            _LOGGER.warning("Invalid profile_id %d for activity", profile_id)
+            return None
+        if not self.connected:
+            return None
+        return await self._protocol.read_numerical(
+            self._write_ble, USER_ACTIVITY_IDS[profile_id],
+        )
+
+    async def write_profile_activity(self, profile_id: int, value: int) -> bool:
+        """Write profile activity value (numerical)."""
+        if profile_id == 0:
+            _LOGGER.warning("Cannot write activity for default profile 0")
+            return False
+        if profile_id not in USER_ACTIVITY_IDS:
+            _LOGGER.warning("Invalid profile_id %d for activity", profile_id)
+            return False
+        if not self.connected:
+            return False
+        return await self._protocol.write_numerical(
+            self._write_ble, USER_ACTIVITY_IDS[profile_id], value,
+        )
+
+    # Profile recipe management
+
+    async def read_profile_recipe(
+        self, profile_id: int, category: DirectKeyCategory,
+    ) -> MachineRecipe | None:
+        """Read recipe for a profile and category via DirectKey."""
+        if not self.connected:
+            return None
+        recipe_id = get_directkey_id(profile_id, category)
+        return await self._protocol.read_recipe(self._write_ble, recipe_id)
+
+    async def read_all_profile_recipes(
+        self, profile_id: int,
+    ) -> dict[DirectKeyCategory, MachineRecipe]:
+        """Read all recipes for a profile via DirectKey."""
+        if not self.connected:
+            return {}
+        result: dict[DirectKeyCategory, MachineRecipe] = {}
+        for cat in DirectKeyCategory:
+            recipe_id = get_directkey_id(profile_id, cat)
+            try:
+                recipe = await self._protocol.read_recipe(
+                    self._write_ble, recipe_id,
+                )
+                if recipe:
+                    result[cat] = recipe
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.debug(
+                    "Failed to read recipe for profile %d, category %s",
+                    profile_id, cat.name,
+                )
+        return result
+
+    async def write_profile_recipe(
+        self,
+        profile_id: int,
+        category: DirectKeyCategory,
+        component1: RecipeComponent,
+        component2: RecipeComponent,
+    ) -> bool:
+        """Write recipe for a profile and category via DirectKey.
+
+        Reads the current recipe first to preserve recipe_type,
+        then writes back with updated components.
+        """
+        if not self.connected:
+            return False
+        recipe_id = get_directkey_id(profile_id, category)
+        current = await self._protocol.read_recipe(self._write_ble, recipe_id)
+        if not current:
+            _LOGGER.error(
+                "Cannot read current recipe for profile %d, category %s",
+                profile_id, category.name,
+            )
+            return False
+        return await self._protocol.write_recipe(
+            self._write_ble, recipe_id, current.recipe_type, 0,
+            component1, component2,
+        )
+
+    async def reset_profile_recipe(
+        self, profile_id: int, category: DirectKeyCategory,
+    ) -> bool:
+        """Reset profile recipe to default (copy from profile 0)."""
+        if profile_id == 0:
+            _LOGGER.warning("Cannot reset default profile 0 recipe")
+            return False
+        if not self.connected:
+            return False
+        default_id = get_directkey_id(0, category)
+        default_recipe = await self._protocol.read_recipe(
+            self._write_ble, default_id,
+        )
+        if not default_recipe:
+            _LOGGER.error(
+                "Cannot read default recipe for category %s", category.name,
+            )
+            return False
+        target_id = get_directkey_id(profile_id, category)
+        return await self._protocol.write_recipe(
+            self._write_ble, target_id, default_recipe.recipe_type, 0,
+            default_recipe.component1, default_recipe.component2,
+        )
+
+    async def update_profile_recipe(
+        self,
+        profile_id: int,
+        category: DirectKeyCategory,
+        *,
+        process: int | None = None,
+        shots: int | None = None,
+        blend: int | None = None,
+        intensity: int | None = None,
+        aroma: int | None = None,
+        temperature: int | None = None,
+        portion_ml: int | None = None,
+    ) -> bool:
+        """Update individual parameters of a profile recipe (component 1).
+
+        Reads the current recipe, merges provided parameters, writes back.
+        Only component 1 is updated (the primary drink component).
+        """
+        if not self.connected:
+            return False
+        recipe_id = get_directkey_id(profile_id, category)
+        current = await self._protocol.read_recipe(self._write_ble, recipe_id)
+        if not current:
+            _LOGGER.error(
+                "Cannot read current recipe for profile %d, category %s",
+                profile_id, category.name,
+            )
+            return False
+        c = current.component1
+        updated = RecipeComponent(
+            process=process if process is not None else c.process,
+            shots=shots if shots is not None else c.shots,
+            blend=blend if blend is not None else c.blend,
+            intensity=intensity if intensity is not None else c.intensity,
+            aroma=aroma if aroma is not None else c.aroma,
+            temperature=temperature if temperature is not None else c.temperature,
+            portion=portion_ml // 5 if portion_ml is not None else c.portion,
+            reserve=c.reserve,
+        )
+        return await self._protocol.write_recipe(
+            self._write_ble, recipe_id, current.recipe_type, 0,
+            updated, current.component2,
+        )
+
+    async def copy_profile_recipe(
+        self,
+        from_profile: int,
+        to_profile: int,
+        category: DirectKeyCategory,
+    ) -> bool:
+        """Copy a recipe from one profile to another."""
+        if not self.connected:
+            return False
+        source_id = get_directkey_id(from_profile, category)
+        source = await self._protocol.read_recipe(self._write_ble, source_id)
+        if not source:
+            _LOGGER.error(
+                "Cannot read source recipe from profile %d, category %s",
+                from_profile, category.name,
+            )
+            return False
+        target_id = get_directkey_id(to_profile, category)
+        return await self._protocol.write_recipe(
+            self._write_ble, target_id, source.recipe_type, 0,
+            source.component1, source.component2,
+        )
+
+    async def reset_all_profile_recipes(self, profile_id: int) -> bool:
+        """Reset all recipes of a profile to defaults (from profile 0)."""
+        if profile_id == 0:
+            _LOGGER.warning("Cannot reset default profile 0 recipes")
+            return False
+        if not self.connected:
+            return False
+        all_ok = True
+        for cat in DirectKeyCategory:
+            try:
+                if not await self.reset_profile_recipe(profile_id, cat):
+                    all_ok = False
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.debug(
+                    "Failed to reset recipe for profile %d, category %s",
+                    profile_id, cat.name,
+                )
+                all_ok = False
+        return all_ok
 
     # Settings (numerical) operations
 
