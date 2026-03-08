@@ -8,8 +8,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.melitta_barista.const import DOMAIN, RECIPE_NAMES, RecipeId
-from custom_components.melitta_barista.protocol import MachineStatus
+from custom_components.melitta_barista.const import DOMAIN, RecipeId
 
 from . import MOCK_ADDRESS, MOCK_CONFIG_DATA
 

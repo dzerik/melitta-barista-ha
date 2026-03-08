@@ -2,7 +2,6 @@
 
 import struct
 
-import pytest
 from custom_components.melitta_barista.const import (
     InfoMessage,
     MachineProcess,
