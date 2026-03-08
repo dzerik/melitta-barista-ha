@@ -23,11 +23,13 @@ def _mock_client():
     client.machine_type = None
     client.model_name = "Melitta Barista"
     client.selected_recipe = None
+    client.active_profile = 0
     client.set_ble_device = MagicMock()
     client.add_status_callback = MagicMock()
     client.add_connection_callback = MagicMock()
     client.connect = AsyncMock(return_value=True)
     client.disconnect = AsyncMock()
+    client.read_recipe = AsyncMock(return_value=None)
     client.start_polling = MagicMock()
     return client
 

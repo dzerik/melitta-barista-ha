@@ -28,33 +28,33 @@ class _NoInputOutputAgent(ServiceInterface):
         _LOGGER.debug("Agent1.Release")
 
     @dbus_method()
-    def RequestConfirmation(self, device: "o", passkey: "u") -> None:
+    def RequestConfirmation(self, device: "o", passkey: "u") -> None:  # noqa: F821
         _LOGGER.debug("Agent1.RequestConfirmation %s passkey=%s", device, passkey)
 
     @dbus_method()
-    def RequestAuthorization(self, device: "o") -> None:
+    def RequestAuthorization(self, device: "o") -> None:  # noqa: F821
         _LOGGER.debug("Agent1.RequestAuthorization %s", device)
 
     @dbus_method()
-    def AuthorizeService(self, device: "o", uuid: "s") -> None:
+    def AuthorizeService(self, device: "o", uuid: "s") -> None:  # noqa: F821
         _LOGGER.debug("Agent1.AuthorizeService %s uuid=%s", device, uuid)
 
     @dbus_method()
-    def RequestPasskey(self, device: "o") -> "u":
+    def RequestPasskey(self, device: "o") -> "u":  # noqa: F821
         _LOGGER.debug("Agent1.RequestPasskey %s", device)
         return 0
 
     @dbus_method()
-    def RequestPinCode(self, device: "o") -> "s":
+    def RequestPinCode(self, device: "o") -> "s":  # noqa: F821
         _LOGGER.debug("Agent1.RequestPinCode %s", device)
         return "0000"
 
     @dbus_method()
-    def DisplayPasskey(self, device: "o", passkey: "u", entered: "q") -> None:
+    def DisplayPasskey(self, device: "o", passkey: "u", entered: "q") -> None:  # noqa: F821
         _LOGGER.debug("Agent1.DisplayPasskey %s passkey=%s", device, passkey)
 
     @dbus_method()
-    def DisplayPinCode(self, device: "o", pincode: "s") -> None:
+    def DisplayPinCode(self, device: "o", pincode: "s") -> None:  # noqa: F821
         _LOGGER.debug("Agent1.DisplayPinCode %s pin=%s", device, pincode)
 
     @dbus_method()
