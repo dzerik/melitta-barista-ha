@@ -73,34 +73,130 @@ async def _wait_for_device(bus, device_path: str, timeout: float = 15.0) -> bool
     return False
 
 
+async def _get_adapter(bus):
+    """Get BlueZ Adapter1 interface, or None if not available."""
+    try:
+        introspection = await bus.introspect("org.bluez", "/org/bluez/hci0")
+        proxy = bus.get_proxy_object("org.bluez", "/org/bluez/hci0", introspection)
+        return proxy.get_interface("org.bluez.Adapter1")
+    except Exception:
+        return None
+
+
+async def _register_agent(bus, agent):
+    """Export agent and register it with BlueZ AgentManager1."""
+    bus.export(_AGENT_PATH, agent)
+    introspection = await bus.introspect("org.bluez", "/org/bluez")
+    proxy = bus.get_proxy_object("org.bluez", "/org/bluez", introspection)
+    agent_mgr = proxy.get_interface("org.bluez.AgentManager1")
+    await agent_mgr.call_register_agent(_AGENT_PATH, "NoInputNoOutput")
+    _LOGGER.debug("Agent registered at %s", _AGENT_PATH)
+    try:
+        await agent_mgr.call_request_default_agent(_AGENT_PATH)
+    except Exception:
+        _LOGGER.debug("RequestDefaultAgent failed (non-critical)")
+    return agent_mgr
+
+
+async def _check_already_paired(bus, device_path: str, address: str) -> bool | None:
+    """Check if device is already paired. Returns True/False or None if unknown."""
+    try:
+        introspection = await bus.introspect("org.bluez", device_path)
+        proxy = bus.get_proxy_object("org.bluez", device_path, introspection)
+        props = proxy.get_interface("org.freedesktop.DBus.Properties")
+        paired_var = await props.call_get("org.bluez.Device1", "Paired")
+        if paired_var.value:
+            _LOGGER.info("Device %s is already paired", address)
+            return True
+        return False
+    except Exception:
+        _LOGGER.debug("Device %s not known to BlueZ", address)
+        return None
+
+
+async def _discover_device(adapter, bus, device_path: str, address: str) -> bool:
+    """Start discovery and wait for device to appear."""
+    try:
+        await adapter.call_start_discovery()
+        _LOGGER.debug("Discovery started, waiting for %s", address)
+    except Exception as ex:
+        _LOGGER.debug("StartDiscovery failed: %s", ex)
+
+    if not await _wait_for_device(bus, device_path, timeout=15.0):
+        _LOGGER.error(
+            "Device %s not found after discovery. "
+            "Make sure it is powered on and in range.",
+            address,
+        )
+        return False
+    return True
+
+
+async def _pair_and_trust(bus, device_path: str, address: str, timeout: float) -> str:
+    """Perform pairing and set device as trusted. Returns result string."""
+    introspection = await bus.introspect("org.bluez", device_path)
+    proxy = bus.get_proxy_object("org.bluez", device_path, introspection)
+    device_iface = proxy.get_interface("org.bluez.Device1")
+
+    try:
+        await asyncio.wait_for(device_iface.call_pair(), timeout=timeout)
+    except asyncio.TimeoutError:
+        _LOGGER.error("Pairing timeout for %s", address)
+        return "pairing_timeout"
+    except Exception as ex:
+        if "AlreadyExists" in str(ex):
+            _LOGGER.info("Device %s already paired", address)
+        else:
+            _LOGGER.error("Pairing failed for %s: %s", address, ex)
+            return "pairing_failed"
+
+    # Trust the device
+    try:
+        props = proxy.get_interface("org.freedesktop.DBus.Properties")
+        await props.call_set("org.bluez.Device1", "Trusted", Variant("b", True))
+        _LOGGER.debug("Device %s set as trusted", address)
+    except Exception:
+        _LOGGER.warning("Failed to set Trusted for %s", address)
+
+    _LOGGER.info("Pairing with %s succeeded", address)
+    return "ok"
+
+
+async def _cleanup(bus, adapter, discovery_started: bool) -> None:
+    """Clean up: stop discovery and unregister agent."""
+    if discovery_started and adapter:
+        try:
+            await adapter.call_stop_discovery()
+        except Exception:
+            pass
+    try:
+        introspection = await bus.introspect("org.bluez", "/org/bluez")
+        proxy = bus.get_proxy_object("org.bluez", "/org/bluez", introspection)
+        agent_mgr = proxy.get_interface("org.bluez.AgentManager1")
+        await agent_mgr.call_unregister_agent(_AGENT_PATH)
+    except Exception:
+        pass
+    bus.disconnect()
+
+
 async def async_pair_device(address: str, timeout: float = 30.0) -> str:
     """Pair a BLE device via D-Bus BlueZ API with a registered Agent1.
 
     When no local BlueZ adapter is available (e.g. using ESPHome BLE proxy),
     pairing is skipped — the proxy handles BLE bonding at the ESP32 level.
 
-    Returns: "ok", "pairing_failed", or "cannot_connect".
+    Returns: "ok", "pairing_failed", "pairing_timeout", or "cannot_connect".
     """
     device_path = "/org/bluez/hci0/dev_" + address.upper().replace(":", "_")
     bus = None
-    agent = _NoInputOutputAgent()
     discovery_started = False
+    adapter = None
 
     try:
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
 
-        # Check if BlueZ adapter exists AND has Adapter1 interface.
-        # When using ESPHome BLE proxy, either hci0 path doesn't exist
-        # or it exists without the Adapter1 interface (adapter was removed).
-        try:
-            adapter_introspection = await bus.introspect(
-                "org.bluez", "/org/bluez/hci0"
-            )
-            adapter_proxy = bus.get_proxy_object(
-                "org.bluez", "/org/bluez/hci0", adapter_introspection
-            )
-            adapter = adapter_proxy.get_interface("org.bluez.Adapter1")
-        except Exception:
+        adapter = await _get_adapter(bus)
+        if adapter is None:
             _LOGGER.info(
                 "No functional BlueZ adapter (hci0) found. "
                 "Assuming ESPHome BLE proxy — skipping D-Bus pairing for %s",
@@ -109,121 +205,27 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
             bus.disconnect()
             return "ok"
 
-        # Export agent and register it with BlueZ
-        bus.export(_AGENT_PATH, agent)
+        agent = _NoInputOutputAgent()
+        await _register_agent(bus, agent)
 
-        introspection = await bus.introspect("org.bluez", "/org/bluez")
-        proxy = bus.get_proxy_object("org.bluez", "/org/bluez", introspection)
-        agent_mgr = proxy.get_interface("org.bluez.AgentManager1")
+        # Check if already paired
+        paired = await _check_already_paired(bus, device_path, address)
+        if paired is True:
+            return "ok"
 
-        await agent_mgr.call_register_agent(_AGENT_PATH, "NoInputNoOutput")
-        _LOGGER.debug("Agent registered at %s", _AGENT_PATH)
-
-        try:
-            await agent_mgr.call_request_default_agent(_AGENT_PATH)
-        except Exception:
-            _LOGGER.debug("RequestDefaultAgent failed (non-critical)")
-
-        # Check if device is known to BlueZ
-        device_known = False
-        try:
-            dev_introspection = await bus.introspect("org.bluez", device_path)
-            dev_proxy = bus.get_proxy_object(
-                "org.bluez", device_path, dev_introspection
-            )
-            dev_props = dev_proxy.get_interface(
-                "org.freedesktop.DBus.Properties"
-            )
-            paired_var = await dev_props.call_get(
-                "org.bluez.Device1", "Paired"
-            )
-            if paired_var.value:
-                _LOGGER.info("Device %s is already paired", address)
-                return "ok"
-            device_known = True
-        except Exception:
-            _LOGGER.debug("Device %s not known to BlueZ, starting discovery", address)
-
-        # If device not known, start discovery and wait for it
-        if not device_known:
-            try:
-                await adapter.call_start_discovery()
-                discovery_started = True
-                _LOGGER.debug("Discovery started, waiting for %s", address)
-            except Exception as ex:
-                _LOGGER.debug("StartDiscovery failed: %s", ex)
-
-            if not await _wait_for_device(bus, device_path, timeout=15.0):
-                _LOGGER.error(
-                    "Device %s not found after discovery. "
-                    "Make sure it is powered on and in range.",
-                    address,
-                )
+        # If device not known, discover it
+        if paired is None:
+            if not await _discover_device(adapter, bus, device_path, address):
                 return "cannot_connect"
+            discovery_started = True
 
-        # Pair
+        # Pair and trust
         _LOGGER.info("Initiating D-Bus pairing with %s", address)
-        dev_introspection = await bus.introspect("org.bluez", device_path)
-        dev_proxy = bus.get_proxy_object(
-            "org.bluez", device_path, dev_introspection
-        )
-        device_iface = dev_proxy.get_interface("org.bluez.Device1")
-
-        try:
-            await asyncio.wait_for(
-                device_iface.call_pair(), timeout=timeout
-            )
-        except asyncio.TimeoutError:
-            _LOGGER.error("Pairing timeout for %s", address)
-            return "pairing_timeout"
-        except Exception as ex:
-            if "AlreadyExists" in str(ex):
-                _LOGGER.info("Device %s already paired", address)
-            else:
-                _LOGGER.error("Pairing failed for %s: %s", address, ex)
-                return "pairing_failed"
-
-        # Trust
-        try:
-            dev_props = dev_proxy.get_interface(
-                "org.freedesktop.DBus.Properties"
-            )
-            await dev_props.call_set(
-                "org.bluez.Device1", "Trusted", Variant("b", True)
-            )
-            _LOGGER.debug("Device %s set as trusted", address)
-        except Exception:
-            _LOGGER.warning("Failed to set Trusted for %s", address)
-
-        _LOGGER.info("Pairing with %s succeeded", address)
-        return "ok"
+        return await _pair_and_trust(bus, device_path, address, timeout)
 
     except Exception:
         _LOGGER.exception("D-Bus pairing error for %s", address)
         return "pairing_failed"
     finally:
         if bus:
-            if discovery_started:
-                try:
-                    adapter_introspection = await bus.introspect(
-                        "org.bluez", "/org/bluez/hci0"
-                    )
-                    adapter_proxy = bus.get_proxy_object(
-                        "org.bluez", "/org/bluez/hci0", adapter_introspection
-                    )
-                    adapter = adapter_proxy.get_interface("org.bluez.Adapter1")
-                    await adapter.call_stop_discovery()
-                except Exception:
-                    pass
-            try:
-                introspection = await bus.introspect(
-                    "org.bluez", "/org/bluez"
-                )
-                proxy = bus.get_proxy_object(
-                    "org.bluez", "/org/bluez", introspection
-                )
-                agent_mgr = proxy.get_interface("org.bluez.AgentManager1")
-                await agent_mgr.call_unregister_agent(_AGENT_PATH)
-            except Exception:
-                pass
-            bus.disconnect()
+            await _cleanup(bus, adapter, discovery_started)

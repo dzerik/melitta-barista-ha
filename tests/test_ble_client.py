@@ -283,6 +283,8 @@ class TestPolling:
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
         client._client = MagicMock(is_connected=True)
+        client._protocol = MagicMock()
+        client._protocol.read_status = AsyncMock(return_value=None)
         client.start_polling(interval=0.01)
         await asyncio.sleep(0.05)
         client._stop_polling()

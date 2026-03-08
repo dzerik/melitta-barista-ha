@@ -159,7 +159,7 @@ class MelittaBleClient:
         for cb in self._status_callbacks:
             try:
                 cb(status)
-            except Exception:
+            except Exception:  # noqa: BLE900 — callback from user code
                 _LOGGER.exception("Error in status callback")
 
     @staticmethod
@@ -177,7 +177,7 @@ class MelittaBleClient:
         for cb in self._connection_callbacks:
             try:
                 cb(False)
-            except Exception:
+            except Exception:  # noqa: BLE900 — callback from user code
                 _LOGGER.exception("Error in connection callback")
         if self._auto_reconnect:
             self._schedule_reconnect()
@@ -232,7 +232,7 @@ class MelittaBleClient:
                 _LOGGER.warning(
                     "bleak_retry_connector not available, using raw BleakClient"
                 )
-            except Exception:
+            except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug(
                     "establish_connection failed, falling back to raw BleakClient",
                     exc_info=True,
@@ -319,7 +319,7 @@ class MelittaBleClient:
                 _LOGGER.error("HU handshake failed")
                 try:
                     await self._client.disconnect()
-                except Exception:
+                except (BleakError, OSError):
                     pass
                 return False
 
@@ -348,12 +348,12 @@ class MelittaBleClient:
             for cb in self._connection_callbacks:
                 try:
                     cb(True)
-                except Exception:
+                except Exception:  # noqa: BLE900 — callback from user code
                     _LOGGER.exception("Error in connection callback")
 
             return True
 
-        except Exception:
+        except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("Connection failed for %s", self._address)
             self._connected = False
             client = self._client
@@ -361,7 +361,7 @@ class MelittaBleClient:
             if client:
                 try:
                     await client.disconnect()
-                except Exception:
+                except (BleakError, OSError):
                     pass
             return False
 
@@ -385,7 +385,7 @@ class MelittaBleClient:
                     _LOGGER.info("Reconnected to %s", self._address)
                     self.start_polling(interval=5.0)
                     return
-            except Exception:
+            except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Reconnect attempt failed", exc_info=True)
             delay = min(delay * 2, max_delay)
 
@@ -403,10 +403,10 @@ class MelittaBleClient:
                 if client.is_connected:
                     try:
                         await client.stop_notify(CHAR_NOTIFY)
-                    except Exception:
+                    except (BleakError, OSError):
                         _LOGGER.debug("stop_notify during disconnect failed", exc_info=True)
                 await client.disconnect()
-            except Exception:
+            except (BleakError, OSError):
                 _LOGGER.debug("Error during disconnect", exc_info=True)
 
     async def poll_status(self) -> MachineStatus | None:
@@ -427,7 +427,7 @@ class MelittaBleClient:
         while self.connected:
             try:
                 await self.poll_status()
-            except Exception:
+            except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Poll error", exc_info=True)
             await asyncio.sleep(interval)
 
@@ -594,14 +594,14 @@ class MelittaBleClient:
                 )
                 if val is not None:
                     counters[name] = val
-            except Exception:
+            except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Failed to read cup counter for %s (id=%d)",
                               name, CUP_COUNTER_BASE_ID + offset)
         try:
             total = await self._protocol.read_numerical(
                 self._write_ble, TOTAL_CUPS_ID,
             )
-        except Exception:
+        except (BleakError, OSError, asyncio.TimeoutError):
             total = None
         self._cup_counters = counters
         self._total_cups = total
@@ -609,7 +609,7 @@ class MelittaBleClient:
         for cb in self._cups_callbacks:
             try:
                 cb()
-            except Exception:
+            except Exception:  # noqa: BLE900 — callback from user code
                 _LOGGER.exception("Error in cups callback")
         return True
 
