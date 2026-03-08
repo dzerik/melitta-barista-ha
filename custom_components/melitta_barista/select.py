@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+
+from bleak.exc import BleakError
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -190,7 +193,7 @@ class MelittaRecipeSelect(SelectEntity):
                     attrs.update(_component_attrs(recipe.component1, "c1"))
                     attrs.update(_component_attrs(recipe.component2, "c2"))
                     self._all_recipes[option] = attrs
-            except Exception:
+            except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Failed to preload recipe %s", option)
         _LOGGER.debug("Preloaded %d recipes", len(self._all_recipes))
         self.async_write_ha_state()

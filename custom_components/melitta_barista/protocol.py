@@ -285,7 +285,7 @@ class MelittaProtocol:
         try:
             self._rc4_key = _derive_rc4_key()
             _LOGGER.debug("RC4 key derived (%d bytes)", len(self._rc4_key))
-        except Exception:
+        except (ValueError, KeyError):
             _LOGGER.exception("Failed to derive RC4 key")
             self._rc4_key = None
 
