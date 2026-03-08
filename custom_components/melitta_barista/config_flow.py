@@ -193,10 +193,12 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def _async_try_pair(self) -> str:
-        """Pair with the device via D-Bus BlueZ API.
+        """Attempt pre-pairing with the device.
 
-        Lazily imports ble_agent to avoid breaking module load if
-        dbus-fast is unavailable (e.g. on non-Linux or older HA).
+        Tries D-Bus BlueZ Agent1 pairing first (works with local BT adapter).
+        If D-Bus is unavailable (ESPHome proxy, non-Linux, container),
+        returns "ok" — pairing will be handled automatically by Bleak's
+        pair=True parameter during the actual BLE connection.
         """
         if not self._address:
             return "cannot_connect"
@@ -204,11 +206,10 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             from .ble_agent import async_pair_device
         except ImportError:
-            _LOGGER.error(
-                "dbus-fast not available, cannot pair via D-Bus. "
-                "Pair manually: bluetoothctl pair %s && bluetoothctl trust %s",
-                self._address, self._address,
+            _LOGGER.info(
+                "dbus-fast not available — pairing will be handled "
+                "automatically by Bleak on connect (pair=True)"
             )
-            return "pairing_failed"
+            return "ok"
 
         return await async_pair_device(self._address, timeout=PAIR_TIMEOUT)
