@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.11.4] — 2026-03-08
+
+### Fixed
+- Fix 14 ruff errors in tests (unused imports, unused variables)
+- Suppress Bandit B413 false positive for pycryptodome (`# nosec B413`)
+- Update audit report with fresh results (ruff 0→0, 174 tests, 82% coverage)
+
 ## [0.11.3] — 2026-03-08
 
 ### Changed

@@ -9,7 +9,7 @@ import struct
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES  # nosec B413 — pycryptodome (actively maintained fork)
 
 from .const import (
     AES_IV,

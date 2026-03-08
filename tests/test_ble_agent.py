@@ -276,7 +276,6 @@ def _make_mock_bus(
     introspect_map[("/org/bluez",)] = bluez_introspection
 
     async def mock_introspect(service, path):
-        key = (path,)
         if path == "/org/bluez/hci0":
             if not adapter_exists:
                 raise Exception("No adapter")
@@ -363,8 +362,6 @@ class TestAsyncPairDevice:
         device_iface.call_pair = AsyncMock(side_effect=asyncio.TimeoutError)
 
         # We need to also patch asyncio.wait_for to raise TimeoutError
-        original_wait_for = asyncio.wait_for
-
         async def mock_wait_for(coro, timeout):
             try:
                 return await coro
@@ -496,8 +493,6 @@ class TestAsyncPairDevice:
         """Verify the device path is correctly formed from MAC address."""
         mod = _import_ble_agent()
         bus, constructor = _make_mock_bus(adapter_exists=False)
-
-        expected_path = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"
 
         with patch.object(mod, "MessageBus", constructor):
             await mod.async_pair_device(MOCK_ADDRESS, timeout=5.0)

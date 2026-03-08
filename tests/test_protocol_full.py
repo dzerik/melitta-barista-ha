@@ -4,24 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import struct
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from custom_components.melitta_barista.const import (
     BLE_MTU,
-    CMD_ACK,
     CMD_HANDSHAKE,
-    CMD_NACK,
     CMD_READ_NUMERICAL,
-    CMD_READ_STATUS,
     CMD_WRITE_NUMERICAL,
     FRAME_END,
     FRAME_START,
     MachineProcess,
 )
 from custom_components.melitta_barista.protocol import (
-    MachineStatus,
     MelittaProtocol,
     NumericalValue,
     _derive_rc4_key,
