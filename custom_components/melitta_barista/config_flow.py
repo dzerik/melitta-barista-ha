@@ -1,6 +1,5 @@
 """Config flow for Melitta Barista Smart."""
 
-import asyncio
 import logging
 from typing import Any
 
