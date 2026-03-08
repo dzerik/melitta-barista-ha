@@ -152,23 +152,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_connect_and_poll(client: MelittaBleClient) -> None:
-    """Connect to the machine in background -- does not block setup."""
-    try:
-        # Wait for the machine to release any prior BLE connection (e.g. from pairing)
-        await asyncio.sleep(3)
-        _LOGGER.debug("Background connect starting for %s", client.address)
-        if await client.connect():
-            _LOGGER.info("Connected to %s, starting polling", client.address)
-            client.start_polling(interval=5.0)
-        else:
+    """Connect to the machine in background -- does not block setup.
+
+    Retries with exponential backoff if initial connection fails.
+    """
+    delay = 5.0
+    max_delay = 300.0
+
+    # Wait for the machine to release any prior BLE connection (e.g. from pairing)
+    await asyncio.sleep(3)
+
+    while True:
+        try:
+            _LOGGER.debug("Background connect starting for %s", client.address)
+            if await client.connect():
+                _LOGGER.info("Connected to %s, starting polling", client.address)
+                client.start_polling(interval=5.0)
+                return
             _LOGGER.warning(
-                "Initial connection to %s failed, will retry in background",
-                client.address,
+                "Connection to %s failed, retrying in %.0fs",
+                client.address, delay,
             )
-    except (BleakError, OSError, asyncio.TimeoutError):
-        _LOGGER.exception(
-            "Unexpected error connecting to %s", client.address
-        )
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug(
+                "Connection error for %s, retrying in %.0fs",
+                client.address, delay, exc_info=True,
+            )
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, max_delay)
 
 
 SERVICE_BREW_FREESTYLE = "brew_freestyle"
@@ -205,19 +216,16 @@ def _async_register_services(hass: HomeAssistant) -> None:
         """Handle brew_freestyle service call."""
         entity_id = call.data["entity_id"]
 
-        # Find the client from config entries
+        # Find the client by matching entity_id to a config entry's address
         client: MelittaBleClient | None = None
+        registry = er.async_get(hass)
+        ent = registry.async_get(entity_id)
         for entry in hass.config_entries.async_entries(DOMAIN):
             if hasattr(entry, "runtime_data") and entry.runtime_data:
                 c: MelittaBleClient = entry.runtime_data
-                registry = er.async_get(hass)
-                ent = registry.async_get(entity_id)
                 if ent and c.address in (ent.unique_id or ""):
                     client = c
                     break
-                # Fallback: use first available client
-                if client is None:
-                    client = c
 
         if client is None:
             _LOGGER.error("No Melitta machine found for %s", entity_id)
