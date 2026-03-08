@@ -76,6 +76,9 @@ async def _wait_for_device(bus, device_path: str, timeout: float = 15.0) -> bool
 async def async_pair_device(address: str, timeout: float = 30.0) -> str:
     """Pair a BLE device via D-Bus BlueZ API with a registered Agent1.
 
+    When no local BlueZ adapter is available (e.g. using ESPHome BLE proxy),
+    pairing is skipped — the proxy handles BLE bonding at the ESP32 level.
+
     Returns: "ok", "pairing_failed", or "cannot_connect".
     """
     device_path = "/org/bluez/hci0/dev_" + address.upper().replace(":", "_")
@@ -85,6 +88,19 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
 
     try:
         bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+
+        # Check if BlueZ adapter exists — if not, we're likely using
+        # an ESPHome BLE proxy which handles pairing on the ESP32 side.
+        try:
+            await bus.introspect("org.bluez", "/org/bluez/hci0")
+        except Exception:
+            _LOGGER.info(
+                "No local BlueZ adapter (hci0) found. "
+                "Assuming ESPHome BLE proxy — skipping D-Bus pairing for %s",
+                address,
+            )
+            bus.disconnect()
+            return "ok"
 
         # Export agent and register it with BlueZ
         bus.export(_AGENT_PATH, agent)
