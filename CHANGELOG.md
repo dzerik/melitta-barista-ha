@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.11.5] — 2026-03-08
+
+### Added
+- 75 new tests for ble_client.py (26→101), covering connect/disconnect, reconnect, BLE write, notifications, brew, maintenance, cup counters, discovery
+- Total: 249 tests, 89% coverage (was 174 tests, 82%)
+- `ble_client.py` coverage: 62% → 100%
+
 ## [0.11.4] — 2026-03-08
 
 ### Fixed
