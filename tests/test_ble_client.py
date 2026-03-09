@@ -1783,14 +1783,20 @@ class TestProfileRecipeManagement:
         )
 
     @pytest.mark.asyncio
-    async def test_write_profile_recipe_read_fails(self, client):
+    async def test_write_profile_recipe_read_fails_uses_default_type(self, client):
+        """When read_recipe fails, fallback to default recipe_type for the category."""
         client._protocol.read_recipe = AsyncMock(return_value=None)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
         comp1 = RecipeComponent(1, 1, 1, 2, 0, 1, 8, 0)
         comp2 = RecipeComponent(0, 0, 0, 0, 0, 0, 0, 0)
         result = await client.write_profile_recipe(
             1, DirectKeyCategory.ESPRESSO, comp1, comp2,
         )
-        assert result is False
+        assert result is True
+        # Default recipe_type for ESPRESSO = 0, recipe_key = 0
+        client._protocol.write_recipe.assert_called_once()
+        call_args = client._protocol.write_recipe.call_args
+        assert call_args.kwargs.get("recipe_key") == 0
 
     @pytest.mark.asyncio
     async def test_write_profile_recipe_disconnected(self):
