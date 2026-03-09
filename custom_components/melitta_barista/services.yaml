@@ -88,6 +88,16 @@ save_directkey:
             - "medium"
             - "strong"
             - "very_strong"
+    aroma1:
+      name: Component 1 Aroma
+      description: "Aroma: standard, intense"
+      required: false
+      default: "standard"
+      selector:
+        select:
+          options:
+            - "standard"
+            - "intense"
     portion1_ml:
       name: Component 1 Portion (ml)
       description: Portion size in ml (multiples of 5).
@@ -146,6 +156,15 @@ save_directkey:
             - "medium"
             - "strong"
             - "very_strong"
+    aroma2:
+      name: Component 2 Aroma
+      required: false
+      default: "standard"
+      selector:
+        select:
+          options:
+            - "standard"
+            - "intense"
     portion2_ml:
       name: Component 2 Portion (ml)
       required: false
@@ -227,6 +246,16 @@ brew_freestyle:
             - "medium"
             - "strong"
             - "very_strong"
+    aroma1:
+      name: Component 1 Aroma
+      description: "Aroma: standard, intense"
+      required: false
+      default: "standard"
+      selector:
+        select:
+          options:
+            - "standard"
+            - "intense"
     portion1_ml:
       name: Component 1 Portion (ml)
       description: Portion size in ml (multiples of 5).
@@ -285,6 +314,15 @@ brew_freestyle:
             - "medium"
             - "strong"
             - "very_strong"
+    aroma2:
+      name: Component 2 Aroma
+      required: false
+      default: "standard"
+      selector:
+        select:
+          options:
+            - "standard"
+            - "intense"
     portion2_ml:
       name: Component 2 Portion (ml)
       required: false

@@ -134,6 +134,7 @@ class MelittaProfileActivitySwitch(SwitchEntity):
     _attr_has_entity_name = True
     _attr_icon = "mdi:account-check"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_should_poll = False
 
     def __init__(
         self,
@@ -171,13 +172,17 @@ class MelittaProfileActivitySwitch(SwitchEntity):
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
+        if connected:
+            self.hass.async_create_task(self._async_read_value())
         self.async_write_ha_state()
 
-    async def async_update(self) -> None:
+    async def _async_read_value(self) -> None:
+        """Read profile activity from the machine (once on connect)."""
         try:
             value = await self._client.read_profile_activity(self._profile_id)
             if value is not None:
                 self._attr_is_on = value != 0
+                self.async_write_ha_state()
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.debug("Failed to read activity for profile %d", self._profile_id)
 

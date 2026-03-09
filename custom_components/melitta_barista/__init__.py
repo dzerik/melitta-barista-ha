@@ -188,6 +188,7 @@ SERVICE_SAVE_DIRECTKEY = "save_directkey"
 
 _PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 _INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
+_AROMA_MAP = {"standard": 0, "intense": 1}
 _TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
 _SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
 
@@ -208,11 +209,13 @@ SAVE_DIRECTKEY_SCHEMA = vol.Schema({
     vol.Optional("profile_id"): vol.All(int, vol.Range(min=0, max=8)),
     vol.Required("process1", default="coffee"): vol.In(_PROCESS_MAP),
     vol.Optional("intensity1", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("aroma1", default="standard"): vol.In(_AROMA_MAP),
     vol.Optional("portion1_ml", default=40): vol.All(int, vol.Range(min=5, max=250)),
     vol.Optional("temperature1", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots1", default="one"): vol.In(_SHOTS_MAP),
     vol.Optional("process2", default="none"): vol.In(_PROCESS_MAP),
     vol.Optional("intensity2", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("aroma2", default="standard"): vol.In(_AROMA_MAP),
     vol.Optional("portion2_ml", default=0): vol.All(int, vol.Range(min=0, max=250)),
     vol.Optional("temperature2", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots2", default="none"): vol.In(_SHOTS_MAP),
@@ -223,11 +226,13 @@ BREW_FREESTYLE_SCHEMA = vol.Schema({
     vol.Required("name", default="Custom"): cv.string,
     vol.Required("process1", default="coffee"): vol.In(_PROCESS_MAP),
     vol.Optional("intensity1", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("aroma1", default="standard"): vol.In(_AROMA_MAP),
     vol.Optional("portion1_ml", default=40): vol.All(int, vol.Range(min=5, max=250)),
     vol.Optional("temperature1", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots1", default="one"): vol.In(_SHOTS_MAP),
     vol.Optional("process2", default="none"): vol.In(_PROCESS_MAP),
     vol.Optional("intensity2", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("aroma2", default="standard"): vol.In(_AROMA_MAP),
     vol.Optional("portion2_ml", default=0): vol.All(int, vol.Range(min=0, max=250)),
     vol.Optional("temperature2", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots2", default="none"): vol.In(_SHOTS_MAP),
@@ -265,7 +270,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             shots=_SHOTS_MAP[call.data.get("shots1", "one")],
             blend=1,  # BLEND_1
             intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
-            aroma=0,  # STANDARD
+            aroma=_AROMA_MAP[call.data.get("aroma1", "standard")],
             temperature=_TEMPERATURE_MAP[call.data.get("temperature1", "normal")],
             portion=call.data.get("portion1_ml", 40) // 5,
         )
@@ -275,7 +280,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             shots=_SHOTS_MAP[call.data.get("shots2", "none")],
             blend=0,  # BARISTA_T
             intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
-            aroma=0,
+            aroma=_AROMA_MAP[call.data.get("aroma2", "standard")],
             temperature=_TEMPERATURE_MAP[call.data.get("temperature2", "normal")],
             portion=call.data.get("portion2_ml", 0) // 5,
         )
@@ -337,7 +342,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             shots=_SHOTS_MAP[call.data.get("shots1", "one")],
             blend=1,
             intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
-            aroma=0,
+            aroma=_AROMA_MAP[call.data.get("aroma1", "standard")],
             temperature=_TEMPERATURE_MAP[call.data.get("temperature1", "normal")],
             portion=call.data.get("portion1_ml", 40) // 5,
         )
@@ -347,7 +352,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             shots=_SHOTS_MAP[call.data.get("shots2", "none")],
             blend=0,
             intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
-            aroma=0,
+            aroma=_AROMA_MAP[call.data.get("aroma2", "standard")],
             temperature=_TEMPERATURE_MAP[call.data.get("temperature2", "normal")],
             portion=call.data.get("portion2_ml", 0) // 5,
         )

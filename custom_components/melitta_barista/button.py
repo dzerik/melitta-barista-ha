@@ -153,6 +153,7 @@ class MelittaBrewButton(_MelittaButtonBase):
 
 _PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 _INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
+_AROMA_MAP = {"standard": 0, "intense": 1}
 _TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
 _SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
 
@@ -184,7 +185,7 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
             shots=_SHOTS_MAP.get(c.freestyle_shots1, 1),
             blend=1,
             intensity=_INTENSITY_MAP.get(c.freestyle_intensity1, 2),
-            aroma=0,
+            aroma=_AROMA_MAP.get(c.freestyle_aroma1, 0),
             temperature=_TEMPERATURE_MAP.get(c.freestyle_temperature1, 1),
             portion=c.freestyle_portion1_ml // 5,
         )
@@ -193,7 +194,7 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
             shots=_SHOTS_MAP.get(c.freestyle_shots2, 0),
             blend=0,
             intensity=_INTENSITY_MAP.get(c.freestyle_intensity2, 2),
-            aroma=0,
+            aroma=_AROMA_MAP.get(c.freestyle_aroma2, 0),
             temperature=_TEMPERATURE_MAP.get(c.freestyle_temperature2, 1),
             portion=c.freestyle_portion2_ml // 5,
         )

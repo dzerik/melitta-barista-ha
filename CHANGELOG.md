@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.21.0] — 2026-03-09
+
+### Added
+- Aroma parameter (standard/intense) for freestyle entities, services, and recipe attributes
+- Freestyle Aroma select entities (aroma_1, aroma_2)
+- Aroma fields in brew_freestyle and save_directkey services
+
+### Fixed
+- Profile Activity switches no longer poll periodically (was causing "update taking over 10 seconds" warnings); values are now read once on connect
+
 ## [0.20.0] — 2026-03-09
 
 ### Fixed
