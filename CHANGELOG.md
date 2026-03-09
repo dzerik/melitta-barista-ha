@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.17.1] — 2026-03-09
+
+### Fixed
+- HC response parsing: remove incorrect recipe_key byte skip — HC payload is `id(2)+type(1)+comp1(8)+comp2(8)`, no recipe_key (verified via decompiled `MachineRecipe.fromPayload`)
+- HJ write payload: pass correct `recipe_key` per RecipeType→RecipeKey mapping (from decompiled `RecipeKey.java` + `E3/Z.java`)
+- Fix `RECIPE_KEY_MAP`: Espresso Macchiato → CAPPUCCINO(2), not MACCHIATO(3)
+- Add `RECIPE_TYPE_TO_KEY` mapping and `get_recipe_key()` helper for all 25 recipe types
+- All `write_recipe` call sites now pass correct `recipe_key` (brew, DirectKey, freestyle, profile edit, copy, reset)
+
 ## [0.17.0] — 2026-03-09
 
 ### Added
@@ -15,8 +24,6 @@ All notable changes to the Melitta Barista Smart HA Integration.
 - Drop corrupted BLE frames, retry read_recipe on checksum mismatch
 - Stop polling during BLE writes to prevent command conflicts
 - Eliminate BLE reads from text entity polling, retry ACK on timeout
-- HC response `recipe_key` byte at offset 3 now correctly skipped in `from_payload`
-- Remove spurious `recipe_key=0` from HJ write payload
 
 ## [0.11.5] — 2026-03-08
 

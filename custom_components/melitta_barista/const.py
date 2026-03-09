@@ -303,12 +303,31 @@ RECIPE_KEY_MAP: dict[int, int] = {
     RecipeId.AMERICANO: 1, RecipeId.AMERICANO_EXTRA: 1,
     RecipeId.LONG_BLACK: 1, RecipeId.RED_EYE: 1,
     RecipeId.BLACK_EYE: 1, RecipeId.DEAD_EYE: 1,
-    RecipeId.CAPPUCCINO: 2, RecipeId.ESPR_MACCHIATO: 3,
+    RecipeId.CAPPUCCINO: 2, RecipeId.ESPR_MACCHIATO: 2,
     RecipeId.CAFFE_LATTE: 2, RecipeId.CAFE_AU_LAIT: 2,
     RecipeId.FLAT_WHITE: 2, RecipeId.LATTE_MACCHIATO: 3,
     RecipeId.LATTE_MACCHIATO_EXTRA: 3, RecipeId.LATTE_MACCHIATO_TRIPLE: 3,
     RecipeId.MILK: 5, RecipeId.MILK_FROTH: 4, RecipeId.WATER: 6,
 }
+
+# RecipeType byte → RecipeKey byte (for HJ write payload)
+# From decompiled E3/Z.java: each RecipeType maps to a RecipeKey category
+RECIPE_TYPE_TO_KEY: dict[int, int] = {
+    0: 0, 1: 0, 2: 0, 3: 0, 4: 0,          # Espresso family → ESPRESSO(0)
+    5: 1, 6: 1, 7: 1, 8: 1, 9: 1,          # Café Crème family → COFFEE(1)
+    10: 1, 11: 1, 12: 1,                     # Red/Black/Dead Eye → COFFEE(1)
+    13: 2, 14: 2, 15: 2, 16: 2, 17: 2,      # Cappuccino family → CAPPUCCINO(2)
+    18: 3, 19: 3, 20: 3,                     # Latte Macchiato → MACCHIATO(3)
+    21: 5,                                    # Milk → MILK(5)
+    22: 4,                                    # Milk Froth → MILK_FROTH(4)
+    23: 6,                                    # Water → WATER(6)
+    24: 7,                                    # Freestyle → MENU(7)
+}
+
+
+def get_recipe_key(recipe_type: int) -> int:
+    """Get RecipeKey byte value for a given RecipeType byte value."""
+    return RECIPE_TYPE_TO_KEY.get(recipe_type, 7)  # default MENU(7) for unknown
 
 
 # TS-only recipes

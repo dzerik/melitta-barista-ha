@@ -1776,9 +1776,10 @@ class TestProfileRecipeManagement:
         client._protocol.read_recipe.assert_any_await(
             client._write_ble, expected_id,
         )
-        # Should write with preserved recipe_type=5
+        # Should write with preserved recipe_type=5 and correct recipe_key=1 (COFFEE)
         client._protocol.write_recipe.assert_awaited_once_with(
             client._write_ble, expected_id, 5, comp1, comp2,
+            recipe_key=1,
         )
 
     @pytest.mark.asyncio
@@ -1817,10 +1818,11 @@ class TestProfileRecipeManagement:
         client._protocol.read_recipe.assert_awaited_once_with(
             client._write_ble, default_id,
         )
-        # Should write to target profile
+        # Should write to target profile with recipe_key=0 (ESPRESSO for type=0)
         client._protocol.write_recipe.assert_awaited_once_with(
             client._write_ble, target_id, default_recipe.recipe_type,
             default_recipe.component1, default_recipe.component2,
+            recipe_key=0,
         )
 
     @pytest.mark.asyncio
@@ -2048,6 +2050,7 @@ class TestCopyAndResetAllRecipes:
         client._protocol.write_recipe.assert_awaited_once_with(
             client._write_ble, target_id, 5,
             source.component1, source.component2,
+            recipe_key=1,
         )
 
     @pytest.mark.asyncio
