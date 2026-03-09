@@ -11,7 +11,7 @@ brew_directkey:
           domain: button
     category:
       name: Category
-      description: "DirectKey category: espresso, cafe_creme, cappuccino, latte_macchiato, milk_froth, milk, water"
+      description: "DirectKey category: espresso, cafe_creme, cappuccino, latte_macchiato, milk_froth, water"
       required: true
       selector:
         select:
@@ -21,8 +21,14 @@ brew_directkey:
             - "cappuccino"
             - "latte_macchiato"
             - "milk_froth"
-            - "milk"
             - "water"
+    two_cups:
+      name: Two Cups
+      description: "Brew two cups (2x mode)"
+      required: false
+      default: false
+      selector:
+        boolean:
 
 save_directkey:
   name: Save DirectKey Recipe
@@ -171,6 +177,13 @@ save_directkey:
             - "one"
             - "two"
             - "three"
+    two_cups:
+      name: Two Cups
+      description: "Brew two cups (2x mode)"
+      required: false
+      default: false
+      selector:
+        boolean:
 
 brew_freestyle:
   name: Brew Freestyle
@@ -303,3 +316,10 @@ brew_freestyle:
             - "one"
             - "two"
             - "three"
+    two_cups:
+      name: Two Cups
+      description: "Brew two cups (2x mode)"
+      required: false
+      default: false
+      selector:
+        boolean:

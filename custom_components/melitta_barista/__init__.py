@@ -199,6 +199,7 @@ _DIRECTKEY_CATEGORIES = [
 BREW_DIRECTKEY_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
     vol.Required("category"): vol.In(_DIRECTKEY_CATEGORIES),
+    vol.Optional("two_cups", default=False): cv.boolean,
 })
 
 SAVE_DIRECTKEY_SCHEMA = vol.Schema({
@@ -230,6 +231,7 @@ BREW_FREESTYLE_SCHEMA = vol.Schema({
     vol.Optional("portion2_ml", default=0): vol.All(int, vol.Range(min=0, max=250)),
     vol.Optional("temperature2", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots2", default="none"): vol.In(_SHOTS_MAP),
+    vol.Optional("two_cups", default=False): cv.boolean,
 })
 
 
@@ -279,11 +281,13 @@ def _async_register_services(hass: HomeAssistant) -> None:
         )
 
         from .const import FREESTYLE_RECIPE_TYPE  # noqa: PLC0415
+        two_cups = call.data.get("two_cups", False)
         success = await client.brew_freestyle(
             name=call.data["name"],
             recipe_type=FREESTYLE_RECIPE_TYPE,
             component1=comp1,
             component2=comp2,
+            two_cups=two_cups,
         )
         if not success:
             _LOGGER.error("Failed to brew freestyle recipe")
@@ -313,7 +317,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
 
         category = _CATEGORY_MAP[call.data["category"]]
-        success = await client.brew_directkey(category)
+        two_cups = call.data.get("two_cups", False)
+        success = await client.brew_directkey(category, two_cups=two_cups)
         if not success:
             _LOGGER.error("Failed to brew DirectKey recipe %s", call.data["category"])
 

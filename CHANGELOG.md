@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.18.0] — 2026-03-09
+
+### Added
+- Two cups (2x) mode: `two_cups` flag in HE startProcess payload at offset 6 (from decompiled `G3/m.java`)
+- `two_cups` parameter in `brew_recipe`, `brew_directkey`, `brew_freestyle` methods
+- `two_cups` field in `brew_directkey` and `brew_freestyle` service schemas
+
 ## [0.17.1] — 2026-03-09
 
 ### Fixed
