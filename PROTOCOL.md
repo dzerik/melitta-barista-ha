@@ -8,7 +8,7 @@ Reverse-engineered from Melitta Connect APK v1.7-183397 (de.atino.melitta.connec
 |---|---|
 | **Service UUID** | `0000ad00-b35c-11e4-9813-0002a5d5c51b` |
 | **Notify Characteristic** | `0000ad02-b35c-11e4-9813-0002a5d5c51b` |
-| **Write Characteristic** | `0000ad03-b35c-11e4-9813-0002a5d5c51b` |
+| **Write Characteristic** | `0000ad01-b35c-11e4-9813-0002a5d5c51b` |
 | **Max Write Size (MTU)** | 20 bytes (frames > 20 bytes must be chunked) |
 | **BLE Library (app)** | SweetBlue (com.idevicesinc.sweetblue) |
 | **Device Name Pattern** | Starts with `8604` (e.g. `860400E250429374203-`) |
@@ -170,7 +170,7 @@ These are the sizes the frame parser uses to detect frame boundaries.
 | `N` | NACK (failure) | 0 bytes | No | — |
 | `HU` | Handshake response | 8 bytes | Yes | 8 bytes |
 | `HA` | Alphanumeric value | 66 bytes | Yes | 66 bytes |
-| `HC` | Recipe data | 66 bytes | Yes | 19 bytes (rest is padding) |
+| `HC` | Recipe data | 66 bytes | Yes | 19 bytes (rest padding) |
 | `HF` | Unknown | 16 bytes | Yes | — |
 | `HL` | Unknown | 20 bytes | Yes | — |
 | `HP` | Unknown | 14 bytes | Yes | — |
@@ -179,8 +179,14 @@ These are the sizes the frame parser uses to detect frame boundaries.
 | `HV` | Firmware version | 11 bytes | Yes | 11 bytes |
 | `HX` | Machine status | 8 bytes | Yes | 8 bytes |
 
-> **Note**: HC carries 66 bytes in the frame but only 19 bytes contain actual recipe data
-> (`id(2) + type(1) + component1(8) + component2(8)`); the remaining 47 bytes are padding.
+> **IMPORTANT — HC vs HJ format difference:**
+>
+> **HC response** (read recipe) payload: `recipe_id(2) + recipe_type(1) + comp1(8) + comp2(8)` = 19 bytes.
+> **No recipe_key byte!** Verified via decompiled `MachineRecipe.Companion.fromPayload()`.
+>
+> **HJ request** (write recipe) payload: `recipe_id(2) + recipe_type(1) + recipe_key(1) + comp1(8) + comp2(8)` = 20+ bytes.
+> **recipe_key is mandatory** and must match the RecipeType→RecipeKey mapping below.
+>
 > HB, HE, HJ, HW, HZ are **write-only** — machine responds with `A`/`N`, not with the same command.
 
 ## Brewing Protocol
@@ -197,8 +203,19 @@ HC (read recipe) → HJ (write to temp slot 400) → HB (write name, id=401) →
 
 Read the built-in recipe parameters from the machine.
 
-- **Payload**: `struct.pack(">h", recipe_id)` (e.g., 200 for Espresso)
-- **Response**: 66 bytes frame payload — first 19 bytes contain `recipe_id(2) + type(1) + comp1(8) + comp2(8)`, rest is padding
+- **Request payload**: `struct.pack(">h", recipe_id)` (e.g., 200 for Espresso)
+- **Response payload** (66 bytes total, 19 significant):
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 2 | recipe_id (big-endian short) |
+| 2 | 1 | recipe_type |
+| 3 | 8 | component1 |
+| 11 | 8 | component2 |
+| 19 | 47 | padding (zeros) |
+
+> **No recipe_key in HC response!** The HJ write format has recipe_key at offset 3,
+> but the HC read response goes directly from recipe_type to component1.
 
 ### Step 2: Write Recipe to Temp Slot (HJ)
 
@@ -293,6 +310,29 @@ Timeline: Grinding (sub=1) 0→9% → Coffee (sub=2) 9→100% → Ready (~48s to
 | MILK | 5 |
 | WATER | 6 |
 | MENU | 7 |
+
+### RecipeType → RecipeKey Mapping (from `E3/Z.java`)
+
+Each RecipeType must be paired with the correct RecipeKey when writing via HJ:
+
+| RecipeType | Name | RecipeKey |
+|---|---|---|
+| 0–4 | Espresso, Ristretto, Lungo, Dopio variants | ESPRESSO (0) |
+| 5–9 | Café Crème, Americano, Long Black | COFFEE (1) |
+| 10–12 | Red Eye, Black Eye, Dead Eye | COFFEE (1) |
+| 13 | Cappuccino | CAPPUCCINO (2) |
+| 14 | Espresso Macchiato | CAPPUCCINO (2) |
+| 15 | Caffè Latte | CAPPUCCINO (2) |
+| 16 | Café au Lait | CAPPUCCINO (2) |
+| 17 | Flat White | CAPPUCCINO (2) |
+| 18–20 | Latte Macchiato, Extra, Triple | MACCHIATO (3) |
+| 21 | Milk | MILK (5) |
+| 22 | Milk Froth | MILK_FROTH (4) |
+| 23 | Water | WATER (6) |
+| 24 | Freestyle | MENU (7) |
+
+> **Note**: Espresso Macchiato (14) maps to CAPPUCCINO (2), **not** MACCHIATO (3).
+> MACCHIATO key is only for Latte Macchiato variants (18–20).
 
 ## Status (HX) Payload — 8 bytes
 
