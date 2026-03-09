@@ -36,6 +36,8 @@ def _mock_client(status=None, selected_recipe=None):
     client.start_intensive_clean = AsyncMock(return_value=True)
     client.start_descaling = AsyncMock(return_value=True)
     client.switch_off = AsyncMock(return_value=True)
+    client.profile_names = {0: "My Coffee"}
+    client.directkey_recipes = {}
     return client
 
 

@@ -183,11 +183,39 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
 
 
 SERVICE_BREW_FREESTYLE = "brew_freestyle"
+SERVICE_BREW_DIRECTKEY = "brew_directkey"
+SERVICE_SAVE_DIRECTKEY = "save_directkey"
 
 _PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 _INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
 _TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
 _SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
+
+_DIRECTKEY_CATEGORIES = [
+    "espresso", "cafe_creme", "cappuccino",
+    "latte_macchiato", "milk_froth", "milk", "water",
+]
+
+BREW_DIRECTKEY_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Required("category"): vol.In(_DIRECTKEY_CATEGORIES),
+})
+
+SAVE_DIRECTKEY_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Required("category"): vol.In(_DIRECTKEY_CATEGORIES),
+    vol.Optional("profile_id"): vol.All(int, vol.Range(min=0, max=8)),
+    vol.Required("process1", default="coffee"): vol.In(_PROCESS_MAP),
+    vol.Optional("intensity1", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("portion1_ml", default=40): vol.All(int, vol.Range(min=5, max=250)),
+    vol.Optional("temperature1", default="normal"): vol.In(_TEMPERATURE_MAP),
+    vol.Optional("shots1", default="one"): vol.In(_SHOTS_MAP),
+    vol.Optional("process2", default="none"): vol.In(_PROCESS_MAP),
+    vol.Optional("intensity2", default="medium"): vol.In(_INTENSITY_MAP),
+    vol.Optional("portion2_ml", default=0): vol.All(int, vol.Range(min=0, max=250)),
+    vol.Optional("temperature2", default="normal"): vol.In(_TEMPERATURE_MAP),
+    vol.Optional("shots2", default="none"): vol.In(_SHOTS_MAP),
+})
 
 BREW_FREESTYLE_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
@@ -212,23 +240,22 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     from .protocol import RecipeComponent  # noqa: PLC0415
 
-    async def _handle_brew_freestyle(call: ServiceCall) -> None:
-        """Handle brew_freestyle service call."""
-        entity_id = call.data["entity_id"]
-
-        # Find the client by matching entity_id to a config entry's address
-        client: MelittaBleClient | None = None
+    def _find_client(entity_id: str) -> MelittaBleClient | None:
+        """Find the MelittaBleClient for a given entity_id."""
         registry = er.async_get(hass)
         ent = registry.async_get(entity_id)
         for entry in hass.config_entries.async_entries(DOMAIN):
             if hasattr(entry, "runtime_data") and entry.runtime_data:
                 c: MelittaBleClient = entry.runtime_data
                 if ent and c.address in (ent.unique_id or ""):
-                    client = c
-                    break
+                    return c
+        return None
 
+    async def _handle_brew_freestyle(call: ServiceCall) -> None:
+        """Handle brew_freestyle service call."""
+        client = _find_client(call.data["entity_id"])
         if client is None:
-            _LOGGER.error("No Melitta machine found for %s", entity_id)
+            _LOGGER.error("No Melitta machine found for %s", call.data["entity_id"])
             return
 
         comp1 = RecipeComponent(
@@ -264,6 +291,83 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_BREW_FREESTYLE, _handle_brew_freestyle,
         schema=BREW_FREESTYLE_SCHEMA,
+    )
+
+    from .const import DirectKeyCategory  # noqa: PLC0415
+
+    _CATEGORY_MAP = {
+        "espresso": DirectKeyCategory.ESPRESSO,
+        "cafe_creme": DirectKeyCategory.CAFE_CREME,
+        "cappuccino": DirectKeyCategory.CAPPUCCINO,
+        "latte_macchiato": DirectKeyCategory.LATTE_MACCHIATO,
+        "milk_froth": DirectKeyCategory.MILK_FROTH,
+        "milk": DirectKeyCategory.MILK,
+        "water": DirectKeyCategory.WATER,
+    }
+
+    async def _handle_brew_directkey(call: ServiceCall) -> None:
+        """Handle brew_directkey service call."""
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            _LOGGER.error("No Melitta machine found for %s", call.data["entity_id"])
+            return
+
+        category = _CATEGORY_MAP[call.data["category"]]
+        success = await client.brew_directkey(category)
+        if not success:
+            _LOGGER.error("Failed to brew DirectKey recipe %s", call.data["category"])
+
+    async def _handle_save_directkey(call: ServiceCall) -> None:
+        """Handle save_directkey service call."""
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            _LOGGER.error("No Melitta machine found for %s", call.data["entity_id"])
+            return
+
+        category = _CATEGORY_MAP[call.data["category"]]
+        profile_id = call.data.get("profile_id", client.active_profile)
+
+        comp1 = RecipeComponent(
+            process=_PROCESS_MAP[call.data["process1"]],
+            shots=_SHOTS_MAP[call.data.get("shots1", "one")],
+            blend=1,
+            intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
+            aroma=0,
+            temperature=_TEMPERATURE_MAP[call.data.get("temperature1", "normal")],
+            portion=call.data.get("portion1_ml", 40) // 5,
+        )
+
+        comp2 = RecipeComponent(
+            process=_PROCESS_MAP[call.data.get("process2", "none")],
+            shots=_SHOTS_MAP[call.data.get("shots2", "none")],
+            blend=0,
+            intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
+            aroma=0,
+            temperature=_TEMPERATURE_MAP[call.data.get("temperature2", "normal")],
+            portion=call.data.get("portion2_ml", 0) // 5,
+        )
+
+        success = await client.write_profile_recipe(
+            profile_id, category, comp1, comp2,
+        )
+        if success:
+            _LOGGER.info(
+                "Saved DirectKey recipe: profile=%d, category=%s",
+                profile_id, call.data["category"],
+            )
+        else:
+            _LOGGER.error(
+                "Failed to save DirectKey recipe: profile=%d, category=%s",
+                profile_id, call.data["category"],
+            )
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_BREW_DIRECTKEY, _handle_brew_directkey,
+        schema=BREW_DIRECTKEY_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SAVE_DIRECTKEY, _handle_save_directkey,
+        schema=SAVE_DIRECTKEY_SCHEMA,
     )
 
 
