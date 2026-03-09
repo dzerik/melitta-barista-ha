@@ -859,11 +859,28 @@ class MelittaBleClient:
                         recipe_id, recipe_type, category.name,
                     )
 
-                result = await self._protocol.write_recipe(
-                    self._write_ble, recipe_id, recipe_type,
-                    component1, component2,
-                    recipe_key=get_recipe_key(recipe_type),
+                rk = get_recipe_key(recipe_type)
+                _LOGGER.debug(
+                    "Writing DK recipe id=%d type=%d key=%d (profile=%d, %s)",
+                    recipe_id, recipe_type, rk, profile_id, category.name,
                 )
+
+                # Write with retry
+                result = False
+                for attempt in range(3):
+                    result = await self._protocol.write_recipe(
+                        self._write_ble, recipe_id, recipe_type,
+                        component1, component2,
+                        recipe_key=rk,
+                    )
+                    if result:
+                        break
+                    _LOGGER.warning(
+                        "Write recipe %d attempt %d failed (ACK timeout)",
+                        recipe_id, attempt + 1,
+                    )
+                    await asyncio.sleep(0.5)
+
                 if result:
                     _LOGGER.debug(
                         "Written DirectKey recipe id=%d (profile=%d, %s)",
@@ -879,6 +896,11 @@ class MelittaBleClient:
                             self._directkey_recipes[profile_id] = {}
                         self._directkey_recipes[profile_id][category] = updated
                         self._notify_profile_callbacks()
+                else:
+                    _LOGGER.error(
+                        "Write recipe %d failed after 3 attempts (profile=%d, %s)",
+                        recipe_id, profile_id, category.name,
+                    )
                 return result
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.exception(

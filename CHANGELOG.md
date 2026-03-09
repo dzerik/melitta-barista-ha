@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.18.2] — 2026-03-09
+
+### Fixed
+- `write_profile_recipe` now retries write_recipe up to 3 times on ACK timeout
+- Added detailed debug logging for DirectKey recipe write (recipe_id, type, key)
+
 ## [0.18.1] — 2026-03-09
 
 ### Fixed
