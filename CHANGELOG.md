@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.18.1] — 2026-03-09
+
+### Fixed
+- `write_profile_recipe` no longer fails when `read_recipe` returns None — falls back to default `recipe_type` per DirectKey category
+- Added `DIRECTKEY_DEFAULT_RECIPE_TYPE` mapping for all 7 categories
+
 ## [0.18.0] — 2026-03-09
 
 ### Added

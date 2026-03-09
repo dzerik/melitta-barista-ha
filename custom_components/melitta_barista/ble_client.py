@@ -838,7 +838,7 @@ class MelittaBleClient:
         async with self._brew_lock:
             self._stop_polling()
             try:
-                # Read current recipe with retry (BLE checksums may fail)
+                # Read current recipe to get recipe_type (with retry)
                 current = None
                 for attempt in range(3):
                     current = await self._protocol.read_recipe(self._write_ble, recipe_id)
@@ -847,18 +847,22 @@ class MelittaBleClient:
                     _LOGGER.debug("Read recipe %d attempt %d failed, retrying", recipe_id, attempt + 1)
                     await asyncio.sleep(0.3)
 
-                if not current:
-                    _LOGGER.error(
-                        "Cannot read current recipe for profile %d, category %s",
-                        profile_id, category.name,
-                    )
-                    return False
+                from .const import get_recipe_key, DIRECTKEY_DEFAULT_RECIPE_TYPE
 
-                from .const import get_recipe_key
+                if current:
+                    recipe_type = current.recipe_type
+                else:
+                    # Fallback: use default recipe_type for the category
+                    recipe_type = DIRECTKEY_DEFAULT_RECIPE_TYPE.get(category, 0)
+                    _LOGGER.warning(
+                        "Cannot read recipe %d, using default recipe_type=%d for %s",
+                        recipe_id, recipe_type, category.name,
+                    )
+
                 result = await self._protocol.write_recipe(
-                    self._write_ble, recipe_id, current.recipe_type,
+                    self._write_ble, recipe_id, recipe_type,
                     component1, component2,
-                    recipe_key=get_recipe_key(current.recipe_type),
+                    recipe_key=get_recipe_key(recipe_type),
                 )
                 if result:
                     _LOGGER.debug(
