@@ -55,7 +55,7 @@ _INTENSITY_NAMES = {
 }
 
 _TEMPERATURE_NAMES = {
-    Temperature.COLD: "normal",   # 0 = standard brew temperature
+    Temperature.COLD: "cold",
     Temperature.NORMAL: "normal",
     Temperature.HIGH: "high",
 }
