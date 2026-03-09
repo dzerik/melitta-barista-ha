@@ -490,7 +490,9 @@ class MelittaBleClient:
 
     # High-level API
 
-    async def brew_recipe(self, recipe_id: RecipeId) -> bool:
+    async def brew_recipe(
+        self, recipe_id: RecipeId, *, two_cups: bool = False,
+    ) -> bool:
         """Brew a base recipe (always from default profile 0).
 
         Uses _brew_lock to prevent concurrent brew operations.
@@ -540,12 +542,13 @@ class MelittaBleClient:
 
                 return await self._protocol.start_process(
                     self._write_ble, MachineProcess.PRODUCT,
+                    two_cups=two_cups,
                 )
             finally:
                 if self.connected:
                     self.start_polling(interval=5.0)
 
-    async def brew_directkey(self, category: DirectKeyCategory) -> bool:
+    async def brew_directkey(self, category: DirectKeyCategory, *, two_cups: bool = False) -> bool:
         """Brew from a DirectKey slot of the active profile.
 
         Reads the DirectKey recipe for the active profile and category,
@@ -595,6 +598,7 @@ class MelittaBleClient:
 
                 return await self._protocol.start_process(
                     self._write_ble, MachineProcess.PRODUCT,
+                    two_cups=two_cups,
                 )
             finally:
                 if self.connected:
@@ -606,6 +610,8 @@ class MelittaBleClient:
         recipe_type: int,
         component1: RecipeComponent,
         component2: RecipeComponent,
+        *,
+        two_cups: bool = False,
     ) -> bool:
         """Brew a freestyle (custom) recipe.
 
@@ -648,6 +654,7 @@ class MelittaBleClient:
 
                 return await self._protocol.start_process(
                     self._write_ble, MachineProcess.PRODUCT,
+                    two_cups=two_cups,
                 )
             finally:
                 if self.connected:

@@ -677,10 +677,18 @@ class MelittaProtocol:
             payload[offset:offset + 8] = comp3.to_bytes()
         return await self.send_and_wait_ack(CMD_WRITE_RECIPE, bytes(payload), write_func)
 
-    async def start_process(self, write_func, process_value: int) -> bool:
-        """Start process via HE command."""
+    async def start_process(
+        self, write_func, process_value: int, *, two_cups: bool = False,
+    ) -> bool:
+        """Start process via HE command.
+
+        Layout: process_value(2) + fixed(2) + zeros(4) + two_cups_flag(2) + zeros(8) = 18 bytes.
+        two_cups flag at he_data offset 6 tells the machine to brew twice.
+        """
         he_data = bytearray(16)
         struct.pack_into(">h", he_data, 0, 2)  # fixed value 2
+        if two_cups:
+            struct.pack_into(">h", he_data, 6, 1)  # two cups flag
         payload = struct.pack(">h", process_value) + bytes(he_data)
         return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
 
