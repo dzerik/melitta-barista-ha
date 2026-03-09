@@ -30,6 +30,8 @@ def _mock_client():
     client.disconnect = AsyncMock()
     client.read_recipe = AsyncMock(return_value=None)
     client.start_polling = MagicMock()
+    client.profile_names = {0: "My Coffee"}
+    client.directkey_recipes = {}
     return client
 
 
