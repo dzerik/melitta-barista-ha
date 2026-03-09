@@ -56,6 +56,30 @@ async def async_setup_entry(
         icon="mdi:water-sync", process=MachineProcess.DESCALING,
     ))
 
+    # Filter operations
+    entities.append(MelittaMaintenanceButton(
+        client, entry, name,
+        key="filter_insert", label="Filter Insert",
+        icon="mdi:filter-plus", process=MachineProcess.FILTER_INSERT,
+    ))
+    entities.append(MelittaMaintenanceButton(
+        client, entry, name,
+        key="filter_replace", label="Filter Replace",
+        icon="mdi:filter-cog", process=MachineProcess.FILTER_REPLACE,
+    ))
+    entities.append(MelittaMaintenanceButton(
+        client, entry, name,
+        key="filter_remove", label="Filter Remove",
+        icon="mdi:filter-remove", process=MachineProcess.FILTER_REMOVE,
+    ))
+
+    # Evaporating
+    entities.append(MelittaMaintenanceButton(
+        client, entry, name,
+        key="evaporating", label="Evaporating",
+        icon="mdi:air-humidifier", process=MachineProcess.EVAPORATING,
+    ))
+
     # Power off
     entities.append(MelittaMaintenanceButton(
         client, entry, name,
@@ -246,6 +270,10 @@ class MelittaMaintenanceButton(_MelittaButtonBase):
             MachineProcess.EASY_CLEAN: self._client.start_easy_clean,
             MachineProcess.INTENSIVE_CLEAN: self._client.start_intensive_clean,
             MachineProcess.DESCALING: self._client.start_descaling,
+            MachineProcess.FILTER_INSERT: self._client.start_filter_insert,
+            MachineProcess.FILTER_REPLACE: self._client.start_filter_replace,
+            MachineProcess.FILTER_REMOVE: self._client.start_filter_remove,
+            MachineProcess.EVAPORATING: self._client.start_evaporating,
             MachineProcess.SWITCH_OFF: self._client.switch_off,
         }
         method = method_map.get(self._process)

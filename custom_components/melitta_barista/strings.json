@@ -113,6 +113,18 @@
       },
       "switch_off": {
         "name": "Switch Off"
+      },
+      "filter_insert": {
+        "name": "Filter Insert"
+      },
+      "filter_replace": {
+        "name": "Filter Replace"
+      },
+      "filter_remove": {
+        "name": "Filter Remove"
+      },
+      "evaporating": {
+        "name": "Evaporating"
       }
     },
     "select": {
@@ -155,6 +167,18 @@
       },
       "brew_temperature": {
         "name": "Brew Temperature"
+      },
+      "language": {
+        "name": "Language"
+      },
+      "clock": {
+        "name": "Clock"
+      },
+      "clock_send": {
+        "name": "Clock Send"
+      },
+      "filter": {
+        "name": "Filter"
       }
     },
     "switch": {
@@ -166,6 +190,9 @@
       },
       "rinsing_disabled": {
         "name": "Rinsing Disabled"
+      },
+      "profile_activity": {
+        "name": "Profile {profile_id} Active"
       }
     }
   }
