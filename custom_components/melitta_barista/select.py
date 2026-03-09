@@ -21,6 +21,7 @@ from .const import (
     PROFILE_NAMES,
     RECIPE_NAMES,
     RecipeId,
+    Aroma,
     ComponentProcess,
     Intensity,
     Temperature,
@@ -34,6 +35,7 @@ from .protocol import RecipeComponent
 _PROCESS_OPTIONS = ["coffee", "milk", "water"]
 _PROCESS_OPTIONS_WITH_NONE = ["none", "coffee", "milk", "water"]
 _INTENSITY_OPTIONS = ["very_mild", "mild", "medium", "strong", "very_strong"]
+_AROMA_OPTIONS = ["standard", "intense"]
 _TEMPERATURE_OPTIONS = ["cold", "normal", "high"]
 _SHOTS_OPTIONS = ["none", "one", "two", "three"]
 
@@ -52,6 +54,11 @@ _INTENSITY_NAMES = {
     Intensity.MEDIUM: "medium",
     Intensity.STRONG: "strong",
     Intensity.VERY_STRONG: "very_strong",
+}
+
+_AROMA_NAMES = {
+    Aroma.STANDARD: "standard",
+    Aroma.INTENSE: "intense",
 }
 
 _TEMPERATURE_NAMES = {
@@ -73,6 +80,7 @@ def _component_attrs(comp: RecipeComponent, prefix: str) -> dict[str, str | int]
     return {
         f"{prefix}_process": _PROCESS_NAMES.get(comp.process, str(comp.process)),
         f"{prefix}_intensity": _INTENSITY_NAMES.get(comp.intensity, str(comp.intensity)),
+        f"{prefix}_aroma": _AROMA_NAMES.get(comp.aroma, str(comp.aroma)),
         f"{prefix}_temperature": _TEMPERATURE_NAMES.get(comp.temperature, str(comp.temperature)),
         f"{prefix}_shots": _SHOTS_NAMES.get(comp.shots, comp.shots),
         f"{prefix}_portion_ml": comp.portion_ml,
@@ -100,10 +108,12 @@ async def async_setup_entry(
         # Freestyle parameter selects
         MelittaFreestyleSelect(client, entry, name, "process_1", "Process 1", "mdi:coffee", _PROCESS_OPTIONS, "freestyle_process1"),
         MelittaFreestyleSelect(client, entry, name, "intensity_1", "Intensity 1", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity1"),
+        MelittaFreestyleSelect(client, entry, name, "aroma_1", "Aroma 1", "mdi:scent", _AROMA_OPTIONS, "freestyle_aroma1"),
         MelittaFreestyleSelect(client, entry, name, "temperature_1", "Temperature 1", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature1"),
         MelittaFreestyleSelect(client, entry, name, "shots_1", "Shots 1", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots1"),
         MelittaFreestyleSelect(client, entry, name, "process_2", "Process 2", "mdi:coffee-outline", _PROCESS_OPTIONS_WITH_NONE, "freestyle_process2"),
         MelittaFreestyleSelect(client, entry, name, "intensity_2", "Intensity 2", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity2"),
+        MelittaFreestyleSelect(client, entry, name, "aroma_2", "Aroma 2", "mdi:scent", _AROMA_OPTIONS, "freestyle_aroma2"),
         MelittaFreestyleSelect(client, entry, name, "temperature_2", "Temperature 2", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature2"),
         MelittaFreestyleSelect(client, entry, name, "shots_2", "Shots 2", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots2"),
     ])

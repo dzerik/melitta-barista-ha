@@ -93,11 +93,13 @@ class MelittaBleClient:
         self.freestyle_name: str = "Custom"
         self.freestyle_process1: str = "coffee"
         self.freestyle_intensity1: str = "medium"
+        self.freestyle_aroma1: str = "standard"
         self.freestyle_portion1_ml: int = 40
         self.freestyle_temperature1: str = "normal"
         self.freestyle_shots1: str = "one"
         self.freestyle_process2: str = "none"
         self.freestyle_intensity2: str = "medium"
+        self.freestyle_aroma2: str = "standard"
         self.freestyle_portion2_ml: int = 0
         self.freestyle_temperature2: str = "normal"
         self.freestyle_shots2: str = "none"
