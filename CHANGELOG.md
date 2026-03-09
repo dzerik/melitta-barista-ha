@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.19.0] — 2026-03-09
+
+### Fixed
+- HJ write_recipe: omit `recipe_key` byte for DirectKey slots (matches decompiled `BluetoothRepositoryImpl.writeRecipe$lambda$17` — `recipeKey=null` skips the byte, components start at offset 3)
+- Only TEMP_RECIPE writes (for brewing) include `recipe_key`; DK slot writes (save, reset, copy, update) do not
+- This fixes "ACK timeout" errors when saving DirectKey recipes
+
 ## [0.18.2] — 2026-03-09
 
 ### Fixed

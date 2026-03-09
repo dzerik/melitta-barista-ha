@@ -859,19 +859,17 @@ class MelittaBleClient:
                         recipe_id, recipe_type, category.name,
                     )
 
-                rk = get_recipe_key(recipe_type)
                 _LOGGER.debug(
-                    "Writing DK recipe id=%d type=%d key=%d (profile=%d, %s)",
-                    recipe_id, recipe_type, rk, profile_id, category.name,
+                    "Writing DK recipe id=%d type=%d (profile=%d, %s)",
+                    recipe_id, recipe_type, profile_id, category.name,
                 )
 
-                # Write with retry
+                # Write with retry — DK slots use no recipe_key (matches original app)
                 result = False
                 for attempt in range(3):
                     result = await self._protocol.write_recipe(
                         self._write_ble, recipe_id, recipe_type,
                         component1, component2,
-                        recipe_key=rk,
                     )
                     if result:
                         break
@@ -929,11 +927,9 @@ class MelittaBleClient:
             )
             return False
         target_id = get_directkey_id(profile_id, category)
-        from .const import get_recipe_key
         return await self._protocol.write_recipe(
             self._write_ble, target_id, default_recipe.recipe_type,
             default_recipe.component1, default_recipe.component2,
-            recipe_key=get_recipe_key(default_recipe.recipe_type),
         )
 
     async def update_profile_recipe(
@@ -975,11 +971,9 @@ class MelittaBleClient:
             portion=portion_ml // 5 if portion_ml is not None else c.portion,
             reserve=c.reserve,
         )
-        from .const import get_recipe_key
         return await self._protocol.write_recipe(
             self._write_ble, recipe_id, current.recipe_type,
             updated, current.component2,
-            recipe_key=get_recipe_key(current.recipe_type),
         )
 
     async def copy_profile_recipe(
@@ -1000,11 +994,9 @@ class MelittaBleClient:
             )
             return False
         target_id = get_directkey_id(to_profile, category)
-        from .const import get_recipe_key
         return await self._protocol.write_recipe(
             self._write_ble, target_id, source.recipe_type,
             source.component1, source.component2,
-            recipe_key=get_recipe_key(source.recipe_type),
         )
 
     async def reset_all_profile_recipes(self, profile_id: int) -> bool:
