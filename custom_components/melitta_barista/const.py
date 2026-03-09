@@ -227,6 +227,18 @@ def get_directkey_id(profile_id: int, category: DirectKeyCategory) -> int:
     return DIRECTKEY_OFFSET + profile_id * DIRECTKEY_PROFILE_MULTIPLIER + category
 
 
+# Default recipe_type for each DirectKey category (fallback when read fails)
+DIRECTKEY_DEFAULT_RECIPE_TYPE: dict[DirectKeyCategory, int] = {
+    DirectKeyCategory.ESPRESSO: 0,
+    DirectKeyCategory.CAFE_CREME: 5,
+    DirectKeyCategory.CAPPUCCINO: 13,
+    DirectKeyCategory.LATTE_MACCHIATO: 18,
+    DirectKeyCategory.MILK_FROTH: 22,
+    DirectKeyCategory.MILK: 21,
+    DirectKeyCategory.WATER: 23,
+}
+
+
 # Map RecipeId -> DirectKeyCategory for profile-based brewing
 RECIPE_TO_DIRECTKEY: dict[int, DirectKeyCategory] = {
     RecipeId.ESPRESSO: DirectKeyCategory.ESPRESSO,
