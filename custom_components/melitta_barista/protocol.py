@@ -657,18 +657,22 @@ class MelittaProtocol:
     async def write_recipe(
         self, write_func, recipe_id: int, recipe_type: int,
         comp1: RecipeComponent, comp2: RecipeComponent,
-        recipe_key: int = 0,
+        recipe_key: int | None = None,
         comp3: RecipeComponent | None = None,
     ) -> bool:
         """Write recipe via HJ command (66-byte payload).
 
-        Fixed layout: recipe_id(2) + recipe_type(1) + recipe_key(1) + comp1(8) + comp2(8) [+ comp3(8)].
+        Layout: recipe_id(2) + recipe_type(1) [+ recipe_key(1)] + comp1(8) + comp2(8) [+ comp3(8)].
+        When recipe_key is None, the byte is omitted (used for DirectKey slots).
+        When recipe_key is set, it's included (used for TEMP_RECIPE brewing).
         """
         payload = bytearray(66)
         struct.pack_into(">h", payload, 0, recipe_id)
         payload[2] = recipe_type & 0xFF
-        payload[3] = recipe_key & 0xFF
-        offset = 4
+        offset = 3
+        if recipe_key is not None:
+            payload[offset] = recipe_key & 0xFF
+            offset += 1
         payload[offset:offset + 8] = comp1.to_bytes()
         offset += 8
         payload[offset:offset + 8] = comp2.to_bytes()
