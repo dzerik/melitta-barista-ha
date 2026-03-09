@@ -2,6 +2,22 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.17.0] — 2026-03-09
+
+### Added
+- DirectKey brewing: read DK recipe → write to temp slot → start brew
+- Profile data caching for faster recipe access
+
+### Fixed
+- BLE protocol: rewrite frame parser to match original Melitta app algorithm
+- A/N (ACK/NACK) frames are plaintext — no longer RC4-decrypted
+- Frame timeout to prevent stale buffer corruption
+- Drop corrupted BLE frames, retry read_recipe on checksum mismatch
+- Stop polling during BLE writes to prevent command conflicts
+- Eliminate BLE reads from text entity polling, retry ACK on timeout
+- HC response `recipe_key` byte at offset 3 now correctly skipped in `from_payload`
+- Remove spurious `recipe_key=0` from HJ write payload
+
 ## [0.11.5] — 2026-03-08
 
 ### Added

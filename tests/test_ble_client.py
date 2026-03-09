@@ -592,6 +592,10 @@ class TestConnect:
                 client, "read_cup_counters",
                 new=AsyncMock(return_value=True),
             ),
+            patch.object(
+                client, "read_profile_data",
+                new=AsyncMock(),
+            ),
         ):
             result = await client._connect_impl()
 
@@ -694,6 +698,7 @@ class TestConnect:
             ),
             patch.object(client, "_start_notify", new=AsyncMock()),
             patch.object(client, "read_cup_counters", new=AsyncMock(return_value=True)),
+            patch.object(client, "read_profile_data", new=AsyncMock()),
         ):
             result = await client._connect_impl()
 
@@ -726,6 +731,7 @@ class TestConnect:
             ),
             patch.object(client, "_start_notify", new=AsyncMock()),
             patch.object(client, "read_cup_counters", new=AsyncMock(return_value=True)),
+            patch.object(client, "read_profile_data", new=AsyncMock()),
         ):
             result = await client._connect_impl()
 
@@ -1765,13 +1771,14 @@ class TestProfileRecipeManagement:
         )
         assert result is True
         expected_id = get_directkey_id(2, DirectKeyCategory.CAPPUCCINO)
-        # Should read current recipe first
-        client._protocol.read_recipe.assert_awaited_once_with(
+        # Should read current recipe first, then re-read for cache update
+        assert client._protocol.read_recipe.await_count == 2
+        client._protocol.read_recipe.assert_any_await(
             client._write_ble, expected_id,
         )
         # Should write with preserved recipe_type=5
         client._protocol.write_recipe.assert_awaited_once_with(
-            client._write_ble, expected_id, 5, 0, comp1, comp2,
+            client._write_ble, expected_id, 5, comp1, comp2,
         )
 
     @pytest.mark.asyncio
@@ -1812,7 +1819,7 @@ class TestProfileRecipeManagement:
         )
         # Should write to target profile
         client._protocol.write_recipe.assert_awaited_once_with(
-            client._write_ble, target_id, default_recipe.recipe_type, 0,
+            client._write_ble, target_id, default_recipe.recipe_type,
             default_recipe.component1, default_recipe.component2,
         )
 
@@ -1933,7 +1940,7 @@ class TestUpdateProfileRecipe:
         assert result is True
         # Verify the written component has intensity=4, rest unchanged
         call_args = client._protocol.write_recipe.call_args
-        written_comp1 = call_args[0][4]  # comp1 (5th positional arg)
+        written_comp1 = call_args[0][3]  # comp1 (4th positional arg)
         assert written_comp1.intensity == 4
         assert written_comp1.process == 1  # unchanged
         assert written_comp1.shots == 1    # unchanged
@@ -1950,7 +1957,7 @@ class TestUpdateProfileRecipe:
         )
         assert result is True
         call_args = client._protocol.write_recipe.call_args
-        written_comp1 = call_args[0][4]  # comp1 (5th positional arg)
+        written_comp1 = call_args[0][3]  # comp1 (4th positional arg)
         assert written_comp1.portion == 20  # 100 // 5
 
     @pytest.mark.asyncio
@@ -1965,7 +1972,7 @@ class TestUpdateProfileRecipe:
         )
         assert result is True
         call_args = client._protocol.write_recipe.call_args
-        written_comp1 = call_args[0][4]  # comp1 (5th positional arg)
+        written_comp1 = call_args[0][3]  # comp1 (4th positional arg)
         assert written_comp1.intensity == 3
         assert written_comp1.temperature == 2
         assert written_comp1.shots == 2
@@ -1983,7 +1990,7 @@ class TestUpdateProfileRecipe:
             1, DirectKeyCategory.CAPPUCCINO, intensity=4,
         )
         call_args = client._protocol.write_recipe.call_args
-        written_comp2 = call_args[0][5]  # comp2 (6th positional arg)
+        written_comp2 = call_args[0][4]  # comp2 (5th positional arg)
         assert written_comp2 is comp2
 
     @pytest.mark.asyncio
@@ -2039,7 +2046,7 @@ class TestCopyAndResetAllRecipes:
             client._write_ble, source_id,
         )
         client._protocol.write_recipe.assert_awaited_once_with(
-            client._write_ble, target_id, 5, 0,
+            client._write_ble, target_id, 5,
             source.component1, source.component2,
         )
 

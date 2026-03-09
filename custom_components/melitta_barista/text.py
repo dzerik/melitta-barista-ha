@@ -37,11 +37,16 @@ async def async_setup_entry(
 
 
 class MelittaProfileNameText(TextEntity):
-    """Text entity for a user profile name."""
+    """Text entity for a user profile name.
+
+    Reads from the cached profile_names dict (populated at connect time)
+    instead of doing BLE reads on every HA poll cycle.
+    """
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
     _attr_native_max = 64
+    _attr_should_poll = False
 
     def __init__(
         self,
@@ -57,7 +62,6 @@ class MelittaProfileNameText(TextEntity):
         self._name_id = USER_NAME_IDS[profile_num]
         self._attr_name = f"Profile {profile_num} Name"
         self._attr_icon = "mdi:account"
-        self._attr_native_value: str | None = None
 
     @property
     def unique_id(self) -> str:
@@ -73,24 +77,27 @@ class MelittaProfileNameText(TextEntity):
         )
 
     @property
+    def native_value(self) -> str | None:
+        return self._client.profile_names.get(self._profile_num)
+
+    @property
     def available(self) -> bool:
         return self._client.connected
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
+        self._client.add_profile_callback(self._on_profile_data_change)
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
         self.async_write_ha_state()
 
-    async def async_update(self) -> None:
-        value = await self._client.read_alpha(self._name_id)
-        if value is not None:
-            self._attr_native_value = value
+    @callback
+    def _on_profile_data_change(self) -> None:
+        self.async_write_ha_state()
 
     async def async_set_value(self, value: str) -> None:
         if await self._client.write_alpha(self._name_id, value):
-            self._attr_native_value = value
             self.async_write_ha_state()
 
 

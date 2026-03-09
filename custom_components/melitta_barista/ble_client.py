@@ -83,6 +83,11 @@ class MelittaBleClient:
         self._total_cups: int | None = None
         self._cups_callbacks: list[Callable[[], None]] = []
 
+        # Profile data: names and DirectKey recipes per profile
+        self._profile_names: dict[int, str] = {0: PROFILE_NAMES[0]}
+        self._directkey_recipes: dict[int, dict[int, MachineRecipe]] = {}
+        self._profile_callbacks: list[Callable[[], None]] = []
+
         # Freestyle recipe state (used by freestyle entities)
         self.freestyle_name: str = "Custom"
         self.freestyle_process1: str = "coffee"
@@ -134,6 +139,30 @@ class MelittaBleClient:
     @property
     def cup_counters(self) -> dict[str, int]:
         return self._cup_counters
+
+    @property
+    def profile_names(self) -> dict[int, str]:
+        return self._profile_names
+
+    @property
+    def directkey_recipes(self) -> dict[int, dict[int, MachineRecipe]]:
+        return self._directkey_recipes
+
+    def add_profile_callback(self, callback: Callable[[], None]) -> None:
+        self._profile_callbacks.append(callback)
+
+    def remove_profile_callback(self, callback: Callable[[], None]) -> None:
+        try:
+            self._profile_callbacks.remove(callback)
+        except ValueError:
+            pass
+
+    def _notify_profile_callbacks(self) -> None:
+        for cb in self._profile_callbacks:
+            try:
+                cb()
+            except Exception:  # noqa: BLE900 — callback from user code
+                _LOGGER.exception("Error in profile callback")
 
     def add_cups_callback(self, callback: Callable[[], None]) -> None:
         self._cups_callbacks.append(callback)
@@ -369,6 +398,9 @@ class MelittaBleClient:
             # Read cup counters
             await self.read_cup_counters()
 
+            # Read profile names and DirectKey recipes
+            await self.read_profile_data()
+
             # Notify connection callbacks
             for cb in self._connection_callbacks:
                 try:
@@ -459,9 +491,8 @@ class MelittaBleClient:
     # High-level API
 
     async def brew_recipe(self, recipe_id: RecipeId) -> bool:
-        """Brew a recipe using the 3-step protocol: HJ -> HB -> HE.
+        """Brew a base recipe (always from default profile 0).
 
-        If active_profile > 0, reads the profile-customized recipe via DirectKey.
         Uses _brew_lock to prevent concurrent brew operations.
         Pauses polling during brew to avoid BLE contention.
         """
@@ -475,35 +506,20 @@ class MelittaBleClient:
             _LOGGER.warning("Machine not ready: %s", self._status)
             return False
 
-        from .const import (
-            RECIPE_NAMES,
-            RECIPE_TO_DIRECTKEY,
-            TEMP_RECIPE_ID,
-            FREESTYLE_NAME_ID,
-            get_directkey_id,
-        )
+        from .const import RECIPE_NAMES, TEMP_RECIPE_ID, FREESTYLE_NAME_ID
 
         async with self._brew_lock:
             self._stop_polling()
             try:
-                # Determine which recipe ID to read
-                read_id = recipe_id
-                if self.active_profile > 0:
-                    dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
-                    if dk_cat is not None:
-                        read_id = get_directkey_id(self.active_profile, dk_cat)
-                        _LOGGER.debug(
-                            "Using DirectKey %d for profile %d, category %s",
-                            read_id, self.active_profile, dk_cat.name,
-                        )
-
-                recipe = await self._protocol.read_recipe(self._write_ble, read_id)
+                recipe = await self._protocol.read_recipe(
+                    self._write_ble, int(recipe_id),
+                )
                 if not recipe:
-                    _LOGGER.error("Failed to read recipe %d", read_id)
+                    _LOGGER.error("Failed to read recipe %d", recipe_id)
                     return False
 
                 if not await self._protocol.write_recipe(
-                    self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type, 0,
+                    self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type,
                     recipe.component1, recipe.component2,
                 ):
                     _LOGGER.error("Failed to write recipe to temp slot")
@@ -516,6 +532,59 @@ class MelittaBleClient:
                     self._write_ble, FREESTYLE_NAME_ID, name,
                 ):
                     _LOGGER.error("Failed to write recipe name")
+                    return False
+
+                await asyncio.sleep(0.2)
+
+                return await self._protocol.start_process(
+                    self._write_ble, MachineProcess.PRODUCT,
+                )
+            finally:
+                if self.connected:
+                    self.start_polling(interval=5.0)
+
+    async def brew_directkey(self, category: DirectKeyCategory) -> bool:
+        """Brew from a DirectKey slot of the active profile.
+
+        Reads the DirectKey recipe for the active profile and category,
+        writes to temp slot, then starts brewing.
+        """
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew already in progress, ignoring")
+            return False
+
+        if not self.connected:
+            return False
+        if self._status and not self._status.is_ready:
+            _LOGGER.warning("Machine not ready: %s", self._status)
+            return False
+
+        from .const import TEMP_RECIPE_ID, FREESTYLE_NAME_ID
+
+        dk_id = get_directkey_id(self.active_profile, category)
+
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                recipe = await self._protocol.read_recipe(self._write_ble, dk_id)
+                if not recipe:
+                    _LOGGER.error("Failed to read DirectKey recipe %d", dk_id)
+                    return False
+
+                if not await self._protocol.write_recipe(
+                    self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type,
+                    recipe.component1, recipe.component2,
+                ):
+                    _LOGGER.error("Failed to write DirectKey recipe to temp slot")
+                    return False
+
+                await asyncio.sleep(0.2)
+
+                name = category.name.replace("_", " ").title()
+                if not await self._protocol.write_alphanumeric(
+                    self._write_ble, FREESTYLE_NAME_ID, name,
+                ):
+                    _LOGGER.error("Failed to write DirectKey recipe name")
                     return False
 
                 await asyncio.sleep(0.2)
@@ -555,7 +624,7 @@ class MelittaBleClient:
             self._stop_polling()
             try:
                 if not await self._protocol.write_recipe(
-                    self._write_ble, TEMP_RECIPE_ID, recipe_type, 0,
+                    self._write_ble, TEMP_RECIPE_ID, recipe_type,
                     component1, component2,
                 ):
                     _LOGGER.error("Failed to write freestyle recipe")
@@ -743,21 +812,62 @@ class MelittaBleClient:
 
         Reads the current recipe first to preserve recipe_type,
         then writes back with updated components.
+        Stops polling during the operation to avoid BLE command conflicts.
         """
         if not self.connected:
             return False
-        recipe_id = get_directkey_id(profile_id, category)
-        current = await self._protocol.read_recipe(self._write_ble, recipe_id)
-        if not current:
-            _LOGGER.error(
-                "Cannot read current recipe for profile %d, category %s",
-                profile_id, category.name,
-            )
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew in progress, cannot save recipe")
             return False
-        return await self._protocol.write_recipe(
-            self._write_ble, recipe_id, current.recipe_type, 0,
-            component1, component2,
-        )
+
+        recipe_id = get_directkey_id(profile_id, category)
+
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                # Read current recipe with retry (BLE checksums may fail)
+                current = None
+                for attempt in range(3):
+                    current = await self._protocol.read_recipe(self._write_ble, recipe_id)
+                    if current:
+                        break
+                    _LOGGER.debug("Read recipe %d attempt %d failed, retrying", recipe_id, attempt + 1)
+                    await asyncio.sleep(0.3)
+
+                if not current:
+                    _LOGGER.error(
+                        "Cannot read current recipe for profile %d, category %s",
+                        profile_id, category.name,
+                    )
+                    return False
+
+                result = await self._protocol.write_recipe(
+                    self._write_ble, recipe_id, current.recipe_type,
+                    component1, component2,
+                )
+                if result:
+                    _LOGGER.debug(
+                        "Written DirectKey recipe id=%d (profile=%d, %s)",
+                        recipe_id, profile_id, category.name,
+                    )
+                    # Update local cache: re-read the written recipe
+                    await asyncio.sleep(0.3)
+                    updated = await self._protocol.read_recipe(
+                        self._write_ble, recipe_id,
+                    )
+                    if updated:
+                        if profile_id not in self._directkey_recipes:
+                            self._directkey_recipes[profile_id] = {}
+                        self._directkey_recipes[profile_id][category] = updated
+                        self._notify_profile_callbacks()
+                return result
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.exception(
+                    "BLE error writing DirectKey recipe id=%d", recipe_id,
+                )
+                return False
+            finally:
+                self.start_polling(interval=5.0)
 
     async def reset_profile_recipe(
         self, profile_id: int, category: DirectKeyCategory,
@@ -779,7 +889,7 @@ class MelittaBleClient:
             return False
         target_id = get_directkey_id(profile_id, category)
         return await self._protocol.write_recipe(
-            self._write_ble, target_id, default_recipe.recipe_type, 0,
+            self._write_ble, target_id, default_recipe.recipe_type,
             default_recipe.component1, default_recipe.component2,
         )
 
@@ -823,7 +933,7 @@ class MelittaBleClient:
             reserve=c.reserve,
         )
         return await self._protocol.write_recipe(
-            self._write_ble, recipe_id, current.recipe_type, 0,
+            self._write_ble, recipe_id, current.recipe_type,
             updated, current.component2,
         )
 
@@ -846,7 +956,7 @@ class MelittaBleClient:
             return False
         target_id = get_directkey_id(to_profile, category)
         return await self._protocol.write_recipe(
-            self._write_ble, target_id, source.recipe_type, 0,
+            self._write_ble, target_id, source.recipe_type,
             source.component1, source.component2,
         )
 
@@ -883,6 +993,42 @@ class MelittaBleClient:
         return await self._protocol.write_numerical(self._write_ble, setting_id, value)
 
     # Alphanumeric operations
+
+    async def read_profile_data(self) -> None:
+        """Read profile names and DirectKey recipes for all profiles."""
+        if not self.connected:
+            return
+        profile_count = get_user_profile_count(self._machine_type)
+        # Read profile names (profiles 1..N)
+        for i in range(1, profile_count + 1):
+            if i in USER_NAME_IDS:
+                try:
+                    name = await self._protocol.read_alphanumeric(
+                        self._write_ble, USER_NAME_IDS[i],
+                    )
+                    if name:
+                        self._profile_names[i] = name
+                except (BleakError, OSError, asyncio.TimeoutError):
+                    _LOGGER.debug("Failed to read name for profile %d", i)
+
+        # Read DirectKey recipes for all profiles (0..N)
+        for pid in range(0, profile_count + 1):
+            recipes: dict[int, MachineRecipe] = {}
+            for cat in DirectKeyCategory:
+                dk_id = get_directkey_id(pid, cat)
+                try:
+                    recipe = await self._protocol.read_recipe(self._write_ble, dk_id)
+                    if recipe:
+                        recipes[cat] = recipe
+                except (BleakError, OSError, asyncio.TimeoutError):
+                    _LOGGER.debug("Failed to read DirectKey %d (profile %d, %s)", dk_id, pid, cat.name)
+            self._directkey_recipes[pid] = recipes
+
+        _LOGGER.info(
+            "Loaded %d profile names, DirectKey recipes for %d profiles",
+            len(self._profile_names) - 1, len(self._directkey_recipes),
+        )
+        self._notify_profile_callbacks()
 
     async def read_cup_counters(self) -> bool:
         """Read cup counters from the machine (HR IDs 100-123 + 150)."""
@@ -923,7 +1069,28 @@ class MelittaBleClient:
     async def write_alpha(self, value_id: int, value: str) -> bool:
         if not self.connected:
             return False
-        return await self._protocol.write_alphanumeric(self._write_ble, value_id, value)
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew in progress, cannot write alpha")
+            return False
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                result = await self._protocol.write_alphanumeric(
+                    self._write_ble, value_id, value,
+                )
+                if result:
+                    # Update cached profile name if applicable
+                    for pid, name_id in USER_NAME_IDS.items():
+                        if name_id == value_id:
+                            self._profile_names[pid] = value
+                            self._notify_profile_callbacks()
+                            break
+                return result
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.exception("BLE error writing alpha id=%d", value_id)
+                return False
+            finally:
+                self.start_polling(interval=5.0)
 
 
 async def discover_melitta_devices(timeout: float = 10.0) -> list[BLEDevice]:

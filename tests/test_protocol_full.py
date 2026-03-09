@@ -197,14 +197,17 @@ class TestHandshake:
         # Simulate machine responding with HU response in background
         async def respond():
             await asyncio.sleep(0.05)
-            # Build unencrypted HU response: challenge(4) + key_prefix(2) + validation(2)
+            # Build HU response: challenge(4) + key_prefix(2) + validation(2)
             response_payload = b"\x01\x02\x03\x04\xAA\xBB\xCC\xDD"
-            frame = bytes([FRAME_START]) + b"HU"
+            cmd_bytes = b"HU"
+            # Compute correct checksum: ~(sum(cmd + payload)) & 0xFF
+            cs = (~sum(cmd_bytes + response_payload)) & 0xFF
+            frame = bytes([FRAME_START]) + cmd_bytes
             if proto._rc4_key:
-                encrypted = _rc4_crypt(response_payload + b"\x00", proto._rc4_key)
+                encrypted = _rc4_crypt(response_payload + bytes([cs]), proto._rc4_key)
                 frame += encrypted + bytes([FRAME_END])
             else:
-                frame += response_payload + b"\x00" + bytes([FRAME_END])
+                frame += response_payload + bytes([cs]) + bytes([FRAME_END])
             proto.on_ble_data(frame)
 
         task = asyncio.create_task(respond())

@@ -157,7 +157,8 @@ class TestMachineRecipe:
         recipe_type = 0
         comp1_bytes = RecipeComponent(process=1, shots=1, intensity=3).to_bytes()
         comp2_bytes = RecipeComponent(process=0).to_bytes()
-        payload = struct.pack(">h", recipe_id) + bytes([recipe_type]) + comp1_bytes + comp2_bytes
+        recipe_key = 0  # HC response includes recipe_key byte at offset 3
+        payload = struct.pack(">hBB", recipe_id, recipe_type, recipe_key) + comp1_bytes + comp2_bytes
         recipe = MachineRecipe.from_payload(payload)
         assert recipe.recipe_id == 200
         assert recipe.recipe_type == 0
@@ -194,5 +195,5 @@ class TestAlphanumericValue:
 
 class TestKnownCommands:
     def test_all_commands_present(self):
-        expected = {"A", "N", "HA", "HB", "HC", "HE", "HJ", "HR", "HV", "HW", "HX", "HZ", "HU"}
+        expected = {"A", "N", "HA", "HC", "HR", "HV", "HX", "HU", "HF", "HL", "HQ", "HP"}
         assert set(KNOWN_COMMANDS.keys()) == expected

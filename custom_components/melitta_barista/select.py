@@ -17,16 +17,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .ble_client import MelittaBleClient
 from .const import (
     DOMAIN,
+    DirectKeyCategory,
     PROFILE_NAMES,
     RECIPE_NAMES,
-    RECIPE_TO_DIRECTKEY,
     RecipeId,
     ComponentProcess,
     Intensity,
     Temperature,
     Shots,
     get_available_recipes,
-    get_directkey_id,
     get_user_profile_count,
 )
 from .protocol import RecipeComponent
@@ -175,19 +174,14 @@ class MelittaRecipeSelect(SelectEntity):
         self.async_write_ha_state()
 
     async def _preload_recipes(self) -> None:
-        """Read all recipe details from the machine on connect."""
-        _LOGGER.debug("Preloading all recipes...")
+        """Read all base recipe details from the machine (always profile 0)."""
+        _LOGGER.debug("Preloading base recipes...")
         for option in self._attr_options:
             recipe_id = _NAME_TO_RECIPE.get(option)
             if recipe_id is None:
                 continue
-            read_id = int(recipe_id)
-            if self._client.active_profile > 0:
-                dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
-                if dk_cat is not None:
-                    read_id = get_directkey_id(self._client.active_profile, dk_cat)
             try:
-                recipe = await self._client.read_recipe(read_id)
+                recipe = await self._client.read_recipe(int(recipe_id))
                 if recipe:
                     attrs: dict[str, str | int] = {}
                     attrs.update(_component_attrs(recipe.component1, "c1"))
@@ -195,7 +189,7 @@ class MelittaRecipeSelect(SelectEntity):
                     self._all_recipes[option] = attrs
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Failed to preload recipe %s", option)
-        _LOGGER.debug("Preloaded %d recipes", len(self._all_recipes))
+        _LOGGER.debug("Preloaded %d base recipes", len(self._all_recipes))
         self.async_write_ha_state()
 
     async def async_select_option(self, option: str) -> None:
@@ -205,21 +199,26 @@ class MelittaRecipeSelect(SelectEntity):
         self._client.selected_recipe = recipe_id
         self.async_write_ha_state()
 
-        # If recipe not in cache, read it now
+        # If recipe not in cache, read it now (always base recipe)
         if option not in self._all_recipes and recipe_id is not None and self._client.connected:
-            read_id = int(recipe_id)
-            if self._client.active_profile > 0:
-                dk_cat = RECIPE_TO_DIRECTKEY.get(recipe_id)
-                if dk_cat is not None:
-                    read_id = get_directkey_id(self._client.active_profile, dk_cat)
-
-            recipe = await self._client.read_recipe(read_id)
+            recipe = await self._client.read_recipe(int(recipe_id))
             if recipe:
                 attrs: dict[str, str | int] = {}
                 attrs.update(_component_attrs(recipe.component1, "c1"))
                 attrs.update(_component_attrs(recipe.component2, "c2"))
                 self._all_recipes[option] = attrs
                 self.async_write_ha_state()
+
+
+DIRECTKEY_CATEGORY_NAMES: dict[int, str] = {
+    DirectKeyCategory.ESPRESSO: "Espresso",
+    DirectKeyCategory.CAFE_CREME: "Café Crème",
+    DirectKeyCategory.CAPPUCCINO: "Cappuccino",
+    DirectKeyCategory.LATTE_MACCHIATO: "Latte Macchiato",
+    DirectKeyCategory.MILK_FROTH: "Milk Froth",
+    DirectKeyCategory.MILK: "Milk",
+    DirectKeyCategory.WATER: "Hot Water",
+}
 
 
 class MelittaProfileSelect(SelectEntity):
@@ -238,12 +237,19 @@ class MelittaProfileSelect(SelectEntity):
         self._client = client
         self._entry = entry
         self._machine_name = machine_name
-        profile_count = get_user_profile_count(client.machine_type)
-        # Build options: "My Coffee", "Profile 1", ..., "Profile N"
-        self._profile_options: list[str] = [PROFILE_NAMES[0]]
-        for i in range(1, profile_count + 1):
-            self._profile_options.append(f"Profile {i}")
-        self._attr_options = list(self._profile_options)
+        self._profile_count = get_user_profile_count(client.machine_type)
+
+    def _build_options(self) -> list[str]:
+        """Build profile options from client data."""
+        names = self._client.profile_names
+        opts = [names.get(0, PROFILE_NAMES[0])]
+        for i in range(1, self._profile_count + 1):
+            opts.append(names.get(i, f"Profile {i}"))
+        return opts
+
+    @property
+    def options(self) -> list[str]:
+        return self._build_options()
 
     @property
     def unique_id(self) -> str:
@@ -260,39 +266,53 @@ class MelittaProfileSelect(SelectEntity):
 
     @property
     def current_option(self) -> str | None:
+        opts = self._build_options()
         idx = self._client.active_profile
-        if 0 <= idx < len(self._profile_options):
-            return self._profile_options[idx]
-        return self._profile_options[0]
+        if 0 <= idx < len(opts):
+            return opts[idx]
+        return opts[0]
 
     @property
     def available(self) -> bool:
         return self._client.connected
 
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Expose DirectKey recipes for all profiles."""
+        attrs: dict = {}
+        dk = self._client.directkey_recipes
+        if dk:
+            all_profiles: dict[int, dict[str, dict]] = {}
+            for pid, recipes in dk.items():
+                profile_data: dict[str, dict] = {}
+                for cat_val, recipe in recipes.items():
+                    cat_name = DIRECTKEY_CATEGORY_NAMES.get(cat_val, str(cat_val))
+                    recipe_attrs: dict[str, str | int] = {"category": cat_val}
+                    recipe_attrs.update(_component_attrs(recipe.component1, "c1"))
+                    recipe_attrs.update(_component_attrs(recipe.component2, "c2"))
+                    profile_data[cat_name] = recipe_attrs
+                all_profiles[pid] = profile_data
+            attrs["directkey_recipes"] = all_profiles
+            attrs["active_profile"] = self._client.active_profile
+        return attrs
+
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
-        # Try to read profile names from machine
-        if self._client.connected:
-            await self._refresh_profile_names()
-
-    async def _refresh_profile_names(self) -> None:
-        """Read profile names from the machine and update options."""
-        from .const import USER_NAME_IDS
-        for i in range(1, len(self._profile_options)):
-            if i in USER_NAME_IDS:
-                name = await self._client.read_alpha(USER_NAME_IDS[i])
-                if name:
-                    self._profile_options[i] = name
-        self._attr_options = list(self._profile_options)
+        self._client.add_profile_callback(self._on_profile_data_change)
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
         self.async_write_ha_state()
 
+    @callback
+    def _on_profile_data_change(self) -> None:
+        self.async_write_ha_state()
+
     async def async_select_option(self, option: str) -> None:
         """Select the active profile."""
+        opts = self._build_options()
         try:
-            idx = self._profile_options.index(option)
+            idx = opts.index(option)
         except ValueError:
             idx = 0
         self._client.active_profile = idx

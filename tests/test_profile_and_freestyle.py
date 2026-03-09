@@ -50,6 +50,8 @@ def _mock_client(status=None, selected_recipe=None):
     client.brew_recipe = AsyncMock(return_value=True)
     client.brew_freestyle = AsyncMock(return_value=True)
     client.read_alpha = AsyncMock(return_value=None)
+    client.profile_names = {0: "My Coffee"}
+    client.directkey_recipes = {}
     return client
 
 
@@ -217,9 +219,38 @@ class TestBleClientProfileBrew:
         )
 
     @pytest.mark.asyncio
-    async def test_brew_with_profile1(self):
-        """Profile 1 reads from DirectKey ID."""
+    async def test_brew_recipe_always_uses_base_id(self):
+        """brew_recipe always reads from base recipe ID (profile 0)."""
         from custom_components.melitta_barista.ble_client import MelittaBleClient
+
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._status = MachineStatus(process=MachineProcess.READY)
+        client.active_profile = 1  # should NOT affect brew_recipe
+
+        mock_recipe = MagicMock()
+        mock_recipe.recipe_type = 0
+        mock_recipe.component1 = RecipeComponent()
+        mock_recipe.component2 = RecipeComponent()
+        client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
+        client._protocol.read_status = AsyncMock(return_value=None)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+        client._protocol.write_alphanumeric = AsyncMock(return_value=True)
+        client._protocol.start_process = AsyncMock(return_value=True)
+
+        result = await client.brew_recipe(RecipeId.ESPRESSO)
+        assert result is True
+        # brew_recipe always reads base recipe ID (200 for ESPRESSO)
+        client._protocol.read_recipe.assert_awaited_once_with(
+            client._write_ble, int(RecipeId.ESPRESSO),
+        )
+
+    @pytest.mark.asyncio
+    async def test_brew_directkey_uses_profile(self):
+        """brew_directkey reads from DirectKey ID for active profile."""
+        from custom_components.melitta_barista.ble_client import MelittaBleClient
+        from custom_components.melitta_barista.const import DirectKeyCategory
 
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
@@ -232,15 +263,16 @@ class TestBleClientProfileBrew:
         mock_recipe.component1 = RecipeComponent()
         mock_recipe.component2 = RecipeComponent()
         client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
+        client._protocol.read_status = AsyncMock(return_value=None)
         client._protocol.write_recipe = AsyncMock(return_value=True)
         client._protocol.write_alphanumeric = AsyncMock(return_value=True)
         client._protocol.start_process = AsyncMock(return_value=True)
 
-        result = await client.brew_recipe(RecipeId.ESPRESSO)
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
         assert result is True
         # DirectKey for profile 1, ESPRESSO category = 302 + 1*10 + 0 = 312
         client._protocol.read_recipe.assert_awaited_once_with(
-            client._write_ble, 312
+            client._write_ble, 312,
         )
 
 

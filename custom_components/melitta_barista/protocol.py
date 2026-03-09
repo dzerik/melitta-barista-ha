@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import struct
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
@@ -65,10 +66,17 @@ _CRC_TABLE = [
     ]
 ]
 
-# Known commands with expected response payload sizes
-KNOWN_COMMANDS: dict[str, int] = {
-    "A": 0, "N": 0, "HA": 66, "HB": 66, "HC": 19, "HE": 18,
-    "HJ": 66, "HR": 6, "HV": 64, "HW": 6, "HX": 8, "HZ": 4, "HU": 8,
+# Known commands with expected RECEIVE payload sizes and encryption flag
+# (from decompiled Melitta app Q3/p.java + App.java).
+# Only commands the machine sends TO us are registered here.
+# Write-only commands (HB, HE, HJ, HW, HZ) are not listed — machine responds
+# with A/N (ACK/NACK) to those.
+# Format: {cmd: (payload_size, encrypted)}
+KNOWN_COMMANDS: dict[str, tuple[int, bool]] = {
+    "A": (0, False), "N": (0, False),
+    "HA": (66, True), "HC": (66, True), "HR": (6, True), "HV": (11, True),
+    "HX": (8, True), "HU": (8, True),
+    "HF": (16, True), "HL": (20, True), "HQ": (15, True), "HP": (14, True),
 }
 
 
@@ -212,13 +220,14 @@ class MachineRecipe:
 
     @classmethod
     def from_payload(cls, data: bytes) -> MachineRecipe | None:
-        if len(data) < 19:
+        if len(data) < 20:
             _LOGGER.debug("MachineRecipe payload too short: %d bytes", len(data))
             return None
         recipe_id = struct.unpack(">h", data[0:2])[0]
         recipe_type = data[2]
-        comp1 = RecipeComponent.from_bytes(data[3:11])
-        comp2 = RecipeComponent.from_bytes(data[11:19])
+        # byte 3 = recipe_key (skip, not used for write-back)
+        comp1 = RecipeComponent.from_bytes(data[4:12])
+        comp2 = RecipeComponent.from_bytes(data[12:20])
         if comp1 is None or comp2 is None:
             return None
         return cls(recipe_id, recipe_type, comp1, comp2)
@@ -273,6 +282,7 @@ class MelittaProtocol:
         self._rc4_key: bytes | None = None
         self._key_prefix: bytes | None = None
         self._recv_buffer = bytearray()
+        self._frame_start_time: float = 0.0
         self._frame_futures: dict[str, asyncio.Future] = {}
         self._ack_future: asyncio.Future | None = None
         self._on_status: Callable[[MachineStatus], None] | None = None
@@ -337,14 +347,36 @@ class MelittaProtocol:
 
     def on_ble_data(self, data: bytes) -> None:
         """Process incoming BLE notification data."""
+        _LOGGER.debug("BLE RX [%d]: %s", len(data), data.hex())
         for byte_val in data:
             self._process_byte(byte_val)
 
     def _process_byte(self, byte_val: int) -> None:
-        """Process a single byte from BLE stream."""
+        """Process a single byte from BLE stream.
+
+        Matches the original Melitta app algorithm (Q3/q.java):
+        - S (0x53) only starts a frame when buffer is empty
+        - S inside a frame is treated as regular data (can appear in RC4 ciphertext)
+        - E (0x45) triggers a length check against known commands
+        - If E arrives but length doesn't match any command, continue collecting
+        - 1-second timeout clears stale buffer (original uses Timer in q.java)
+        - Buffer overflow at 128 bytes resets
+        """
         if len(self._recv_buffer) == 0:
             if byte_val == FRAME_START:
                 self._recv_buffer.append(byte_val)
+                self._frame_start_time = time.monotonic()
+            return
+
+        # 1-second frame timeout (matches original Timer in Q3/q.java)
+        if time.monotonic() - self._frame_start_time > 1.0:
+            _LOGGER.debug(
+                "Frame timeout: discarding stale buffer (%d bytes)", len(self._recv_buffer)
+            )
+            self._recv_buffer.clear()
+            if byte_val == FRAME_START:
+                self._recv_buffer.append(byte_val)
+                self._frame_start_time = time.monotonic()
             return
 
         if len(self._recv_buffer) >= 128:
@@ -353,8 +385,33 @@ class MelittaProtocol:
 
         self._recv_buffer.append(byte_val)
 
-        if byte_val == FRAME_END and len(self._recv_buffer) >= 4:
+        # Only check for frame completion on E byte with minimum frame size
+        if byte_val != FRAME_END or len(self._recv_buffer) < 4:
+            return
+
+        # Check if buffer length matches any known command's expected frame size
+        buf = self._recv_buffer
+        buf_len = len(buf)
+        cmd_2 = chr(buf[1]) + chr(buf[2]) if buf_len >= 3 else ""
+        cmd_1 = chr(buf[1])
+
+        matched = False
+        if cmd_2 in KNOWN_COMMANDS:
+            payload_size, encrypted = KNOWN_COMMANDS[cmd_2]
+            # S(1) + cmd(2) + [encrypted](payload + checksum) + E(1)
+            expected = 1 + 2 + payload_size + 1 + 1
+            if expected == buf_len:
+                matched = True
+        if not matched and cmd_1 in KNOWN_COMMANDS:
+            payload_size, encrypted = KNOWN_COMMANDS[cmd_1]
+            # S(1) + cmd(1) + [encrypted](payload + checksum) + E(1)
+            expected = 1 + 1 + payload_size + 1 + 1
+            if expected == buf_len:
+                matched = True
+
+        if matched:
             self._try_parse_frame()
+        # else: E byte but wrong length — continue collecting bytes
 
     def _try_parse_frame(self) -> None:
         """Try to parse a complete frame from buffer."""
@@ -370,39 +427,55 @@ class MelittaProtocol:
 
         cmd = None
         cmd_len = 0
+        is_encrypted = False
         if cmd_2 in KNOWN_COMMANDS:
             cmd = cmd_2
             cmd_len = 2
+            is_encrypted = KNOWN_COMMANDS[cmd_2][1]
         elif cmd_1 in KNOWN_COMMANDS:
             cmd = cmd_1
             cmd_len = 1
+            is_encrypted = KNOWN_COMMANDS[cmd_1][1]
 
         if cmd is None:
             _LOGGER.debug("Unknown command in frame: %s", buf[1:3].hex())
             return
 
-        # Encrypted part: everything after command bytes, before E
-        encrypt_start = 1 + cmd_len
-        encrypted_part = buf[encrypt_start:-1]  # exclude E byte
+        # Data part: everything after command bytes, before E
+        data_start = 1 + cmd_len
+        data_part = buf[data_start:-1]  # exclude E byte
 
-        # Decrypt
-        if encrypted_part and self._rc4_key:
-            decrypted = _rc4_crypt(encrypted_part, self._rc4_key)
+        if is_encrypted and data_part and self._rc4_key:
+            # Encrypted frame: decrypt, then verify checksum
+            decrypted = _rc4_crypt(data_part, self._rc4_key)
             payload = decrypted[:-1]  # last byte is checksum
             received_cs = decrypted[-1]
 
             # Verify checksum: ~(sum of cmd_bytes + payload) & 0xFF
-            # Log mismatch but still process frame (BLE is lossy, prefer
-            # resilience over strict rejection)
             cs_data = buf[1:1 + cmd_len] + payload
             expected_cs = (~sum(cs_data) & 0xFF)
             if received_cs != expected_cs:
                 _LOGGER.warning(
-                    "Checksum mismatch for cmd=%s: got 0x%02X, expected 0x%02X",
-                    cmd, received_cs, expected_cs,
+                    "Checksum mismatch for cmd=%s: got 0x%02X, expected 0x%02X, "
+                    "raw_frame=%s, decrypted_part=%s",
+                    cmd, received_cs, expected_cs, buf.hex(), decrypted.hex(),
                 )
+                return
         else:
-            payload = buf[encrypt_start:-2]
+            # Unencrypted frame (A/N): payload + checksum in plaintext
+            if data_part:
+                payload = data_part[:-1]
+                received_cs = data_part[-1]
+                cs_data = buf[1:1 + cmd_len] + payload
+                expected_cs = (~sum(cs_data) & 0xFF)
+                if received_cs != expected_cs:
+                    _LOGGER.warning(
+                        "Checksum mismatch for unencrypted cmd=%s: got 0x%02X, expected 0x%02X",
+                        cmd, received_cs, expected_cs,
+                    )
+                    return
+            else:
+                payload = b""
 
         _LOGGER.debug("Frame: cmd=%s payload=%s (%d bytes)", cmd, payload.hex(), len(payload))
         self._dispatch_frame(cmd, payload)
@@ -478,24 +551,33 @@ class MelittaProtocol:
         command: str,
         payload: bytes | None,
         write_func: Callable[[bytes], Awaitable[None]],
+        retries: int = 2,
     ) -> bool:
-        """Send a write command and wait for ACK."""
-        async with self._lock:
-            loop = asyncio.get_running_loop()
-            self._ack_future = loop.create_future()
+        """Send a write command and wait for ACK, with retry on timeout."""
+        frame = self.build_frame(command, payload)
+        chunks = self.chunk_for_ble(frame)
 
-            frame = self.build_frame(command, payload)
-            chunks = self.chunk_for_ble(frame)
-            for chunk in chunks:
-                await write_func(chunk)
+        for attempt in range(retries):
+            async with self._lock:
+                loop = asyncio.get_running_loop()
+                self._ack_future = loop.create_future()
 
-            try:
-                return await asyncio.wait_for(self._ack_future, timeout=FRAME_TIMEOUT)
-            except asyncio.TimeoutError:
-                _LOGGER.warning("ACK timeout for %s", command)
-                return False
-            finally:
-                self._ack_future = None
+                for chunk in chunks:
+                    await write_func(chunk)
+
+                try:
+                    return await asyncio.wait_for(self._ack_future, timeout=FRAME_TIMEOUT)
+                except asyncio.TimeoutError:
+                    pass
+                finally:
+                    self._ack_future = None
+
+            if attempt < retries - 1:
+                _LOGGER.debug("ACK timeout for %s, retrying (%d/%d)", command, attempt + 1, retries)
+                await asyncio.sleep(0.3)
+
+        _LOGGER.warning("ACK timeout for %s after %d attempts", command, retries)
+        return False
 
     async def send_and_wait_response(
         self,
@@ -570,15 +652,25 @@ class MelittaProtocol:
 
     async def write_recipe(
         self, write_func, recipe_id: int, recipe_type: int,
-        recipe_key: int, comp1: RecipeComponent, comp2: RecipeComponent,
+        comp1: RecipeComponent, comp2: RecipeComponent,
+        recipe_key: int = 0,
+        comp3: RecipeComponent | None = None,
     ) -> bool:
-        """Write recipe via HJ command (66-byte payload)."""
+        """Write recipe via HJ command (66-byte payload).
+
+        Fixed layout: recipe_id(2) + recipe_type(1) + recipe_key(1) + comp1(8) + comp2(8) [+ comp3(8)].
+        """
         payload = bytearray(66)
         struct.pack_into(">h", payload, 0, recipe_id)
         payload[2] = recipe_type & 0xFF
         payload[3] = recipe_key & 0xFF
-        payload[4:12] = comp1.to_bytes()
-        payload[12:20] = comp2.to_bytes()
+        offset = 4
+        payload[offset:offset + 8] = comp1.to_bytes()
+        offset += 8
+        payload[offset:offset + 8] = comp2.to_bytes()
+        offset += 8
+        if comp3 is not None:
+            payload[offset:offset + 8] = comp3.to_bytes()
         return await self.send_and_wait_ack(CMD_WRITE_RECIPE, bytes(payload), write_func)
 
     async def start_process(self, write_func, process_value: int) -> bool:

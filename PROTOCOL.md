@@ -81,7 +81,7 @@ S | Command | RC4_ENCRYPT(key_prefix + payload + checksum) | E
 
 - `key_prefix` is included in encrypted frames after handshake is complete
 - HU handshake frame does NOT include `key_prefix` (it hasn't been established yet)
-- ACK (`A`) and NACK (`N`) frames have 0-byte payload but still contain an encrypted checksum byte
+- ACK (`A`) and NACK (`N`) frames are **NOT encrypted** — sent as plaintext: `S + A/N + checksum + E`
 
 ### Checksum Calculation
 
@@ -97,7 +97,26 @@ def calculate_checksum(frame_bytes: bytes, length: int) -> int:
 
 ### Frame Timeout
 
-3 seconds for ACK/response.
+3 seconds for ACK/response. Original app also has a 1-second receive timeout per frame (cancels incomplete frame collection).
+
+### Frame Parsing Algorithm (from `Q3/q.java`)
+
+The frame parser processes incoming BLE notifications **byte by byte**:
+
+1. **Empty buffer**: Only `S` (0x53) starts frame collection. All other bytes are ignored.
+2. **Collecting**: Each byte is appended to a 128-byte buffer.
+   - `S` (0x53) **inside** a frame is treated as regular data (RC4 ciphertext can contain any byte value).
+   - Buffer overflow at 128 bytes resets the buffer.
+3. **`E` (0x45) received** with buffer ≥ 4 bytes: Check if the buffer length matches any registered command:
+   - Extract 1-char and 2-char command from `buffer[1:2]` / `buffer[1:3]`
+   - For each matching registered command: `expected = 1(S) + cmd_len + payload_size + 1(checksum) + 1(E)`
+   - If `expected == buffer_length`: decrypt, verify checksum, accept frame, clear buffer
+   - If **no match**: `E` was in encrypted data — **continue collecting** (do NOT clear buffer)
+4. **Checksum verification** (after RC4 decryption): `~(sum of bytes[1..N-2]) & 0xFF == 0`
+
+**Critical insight**: Both `S` (0x53) and `E` (0x45) can appear inside RC4-encrypted data.
+The parser disambiguates by checking the total frame length against known command sizes.
+Only when `E` arrives at exactly the right position is the frame considered complete.
 
 ## Encryption: RC4
 
@@ -142,16 +161,27 @@ Standard RC4: KSA with derived key, then PRGA XOR on each byte.
 
 ### Incoming (Machine → App)
 
-| Command | Description | Payload Size |
-|---|---|---|
-| `A` | ACK (success) | 0 bytes |
-| `N` | NACK (failure) | 0 bytes |
-| `HU` | Handshake response | 8 bytes |
-| `HA` | Alphanumeric value | 66 bytes |
-| `HC` | Recipe data | 19 bytes |
-| `HR` | Numerical value | 6 bytes |
-| `HV` | Firmware version | up to 64 bytes |
-| `HX` | Machine status | 8 bytes |
+Payload sizes from decompiled `App.java` command registration (`Q3.c.a(size, cmd)`).
+These are the sizes the frame parser uses to detect frame boundaries.
+
+| Command | Description | Payload Size | Encrypted | Used Data |
+|---|---|---|---|---|
+| `A` | ACK (success) | 0 bytes | No | — |
+| `N` | NACK (failure) | 0 bytes | No | — |
+| `HU` | Handshake response | 8 bytes | Yes | 8 bytes |
+| `HA` | Alphanumeric value | 66 bytes | Yes | 66 bytes |
+| `HC` | Recipe data | 66 bytes | Yes | 19 bytes (rest is padding) |
+| `HF` | Unknown | 16 bytes | Yes | — |
+| `HL` | Unknown | 20 bytes | Yes | — |
+| `HP` | Unknown | 14 bytes | Yes | — |
+| `HQ` | Unknown | 15 bytes | Yes | — |
+| `HR` | Numerical value | 6 bytes | Yes | 6 bytes |
+| `HV` | Firmware version | 11 bytes | Yes | 11 bytes |
+| `HX` | Machine status | 8 bytes | Yes | 8 bytes |
+
+> **Note**: HC carries 66 bytes in the frame but only 19 bytes contain actual recipe data
+> (`id(2) + type(1) + component1(8) + component2(8)`); the remaining 47 bytes are padding.
+> HB, HE, HJ, HW, HZ are **write-only** — machine responds with `A`/`N`, not with the same command.
 
 ## Brewing Protocol
 
@@ -168,7 +198,7 @@ HC (read recipe) → HJ (write to temp slot 400) → HB (write name, id=401) →
 Read the built-in recipe parameters from the machine.
 
 - **Payload**: `struct.pack(">h", recipe_id)` (e.g., 200 for Espresso)
-- **Response**: 19 bytes — `recipe_id(2) + type(1) + comp1(8) + comp2(8)`
+- **Response**: 66 bytes frame payload — first 19 bytes contain `recipe_id(2) + type(1) + comp1(8) + comp2(8)`, rest is padding
 
 ### Step 2: Write Recipe to Temp Slot (HJ)
 
