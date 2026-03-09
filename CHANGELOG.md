@@ -2,6 +2,21 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.20.0] — 2026-03-09
+
+### Fixed
+- `select.py`: Temperature.COLD now correctly maps to "cold" instead of "normal" (was losing COLD value)
+- `ble_client.py`: `reset_profile_recipe`, `update_profile_recipe`, `copy_profile_recipe` now use `_brew_lock` and stop/resume polling to prevent BLE contention
+- `ble_client.py`: `write_profile_recipe` only restarts polling if it was active before the operation
+- `ble_client.py`: Race condition between disconnect callback and manual disconnect prevented with `_disconnecting` guard
+- `ble_client.py`: Replaced deprecated `asyncio.ensure_future` with `asyncio.create_task`
+- `sensor.py`: `MelittaActivitySensor` now has `available` property based on connection state
+
+### Added
+- Number entities: Language, Clock, Clock Send, Filter machine settings
+- Button entities: Filter Insert, Filter Replace, Filter Remove, Evaporating maintenance operations
+- Switch entities: Profile Activity (enable/disable user profiles 1-8)
+
 ## [0.19.0] — 2026-03-09
 
 ### Fixed

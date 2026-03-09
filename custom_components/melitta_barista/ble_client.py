@@ -77,6 +77,7 @@ class MelittaBleClient:
         self._poll_task: asyncio.Task | None = None
         self._reconnect_task: asyncio.Task | None = None
         self._auto_reconnect = True
+        self._disconnecting = False
         self.selected_recipe: RecipeId | None = None
         self.active_profile: int = 0  # 0 = default "My Coffee"
         self._cup_counters: dict[str, int] = {}  # recipe_name -> count
@@ -208,7 +209,7 @@ class MelittaBleClient:
             and prev.process == MachineProcess.PRODUCT
             and status.process == MachineProcess.READY
         ):
-            task = asyncio.ensure_future(self.read_cup_counters())
+            task = asyncio.create_task(self.read_cup_counters())
             task.add_done_callback(self._on_cup_refresh_done)
         for cb in self._status_callbacks:
             try:
@@ -225,6 +226,8 @@ class MelittaBleClient:
             _LOGGER.debug("Cup counter refresh failed: %s", exc)
 
     def _on_disconnect(self, client: BleakClient) -> None:
+        if self._disconnecting:
+            return
         _LOGGER.info("Disconnected from %s", self._address)
         self._connected = False
         self._client = None
@@ -448,6 +451,7 @@ class MelittaBleClient:
 
     async def disconnect(self) -> None:
         self._auto_reconnect = False
+        self._disconnecting = True
         self._stop_polling()
         if self._reconnect_task and not self._reconnect_task.done():
             self._reconnect_task.cancel()
@@ -465,6 +469,7 @@ class MelittaBleClient:
                 await client.disconnect()
             except (BleakError, OSError):
                 _LOGGER.debug("Error during disconnect", exc_info=True)
+        self._disconnecting = False
 
     async def poll_status(self) -> MachineStatus | None:
         if not self.connected:
@@ -688,6 +693,30 @@ class MelittaBleClient:
         return await self._protocol.start_process(
             self._write_ble, MachineProcess.DESCALING)
 
+    async def start_filter_insert(self) -> bool:
+        if not self.connected:
+            return False
+        return await self._protocol.start_process(
+            self._write_ble, MachineProcess.FILTER_INSERT)
+
+    async def start_filter_replace(self) -> bool:
+        if not self.connected:
+            return False
+        return await self._protocol.start_process(
+            self._write_ble, MachineProcess.FILTER_REPLACE)
+
+    async def start_filter_remove(self) -> bool:
+        if not self.connected:
+            return False
+        return await self._protocol.start_process(
+            self._write_ble, MachineProcess.FILTER_REMOVE)
+
+    async def start_evaporating(self) -> bool:
+        if not self.connected:
+            return False
+        return await self._protocol.start_process(
+            self._write_ble, MachineProcess.EVAPORATING)
+
     async def switch_off(self) -> bool:
         if not self.connected:
             return False
@@ -835,6 +864,7 @@ class MelittaBleClient:
 
         recipe_id = get_directkey_id(profile_id, category)
 
+        was_polling = self._poll_task is not None and not self._poll_task.done()
         async with self._brew_lock:
             self._stop_polling()
             try:
@@ -906,7 +936,8 @@ class MelittaBleClient:
                 )
                 return False
             finally:
-                self.start_polling(interval=5.0)
+                if was_polling and self.connected:
+                    self.start_polling(interval=5.0)
 
     async def reset_profile_recipe(
         self, profile_id: int, category: DirectKeyCategory,
@@ -917,20 +948,31 @@ class MelittaBleClient:
             return False
         if not self.connected:
             return False
-        default_id = get_directkey_id(0, category)
-        default_recipe = await self._protocol.read_recipe(
-            self._write_ble, default_id,
-        )
-        if not default_recipe:
-            _LOGGER.error(
-                "Cannot read default recipe for category %s", category.name,
-            )
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew in progress, cannot reset recipe")
             return False
-        target_id = get_directkey_id(profile_id, category)
-        return await self._protocol.write_recipe(
-            self._write_ble, target_id, default_recipe.recipe_type,
-            default_recipe.component1, default_recipe.component2,
-        )
+
+        was_polling = self._poll_task is not None and not self._poll_task.done()
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                default_id = get_directkey_id(0, category)
+                default_recipe = await self._protocol.read_recipe(
+                    self._write_ble, default_id,
+                )
+                if not default_recipe:
+                    _LOGGER.error(
+                        "Cannot read default recipe for category %s", category.name,
+                    )
+                    return False
+                target_id = get_directkey_id(profile_id, category)
+                return await self._protocol.write_recipe(
+                    self._write_ble, target_id, default_recipe.recipe_type,
+                    default_recipe.component1, default_recipe.component2,
+                )
+            finally:
+                if was_polling and self.connected:
+                    self.start_polling(interval=5.0)
 
     async def update_profile_recipe(
         self,
@@ -952,29 +994,40 @@ class MelittaBleClient:
         """
         if not self.connected:
             return False
-        recipe_id = get_directkey_id(profile_id, category)
-        current = await self._protocol.read_recipe(self._write_ble, recipe_id)
-        if not current:
-            _LOGGER.error(
-                "Cannot read current recipe for profile %d, category %s",
-                profile_id, category.name,
-            )
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew in progress, cannot update recipe")
             return False
-        c = current.component1
-        updated = RecipeComponent(
-            process=process if process is not None else c.process,
-            shots=shots if shots is not None else c.shots,
-            blend=blend if blend is not None else c.blend,
-            intensity=intensity if intensity is not None else c.intensity,
-            aroma=aroma if aroma is not None else c.aroma,
-            temperature=temperature if temperature is not None else c.temperature,
-            portion=portion_ml // 5 if portion_ml is not None else c.portion,
-            reserve=c.reserve,
-        )
-        return await self._protocol.write_recipe(
-            self._write_ble, recipe_id, current.recipe_type,
-            updated, current.component2,
-        )
+
+        was_polling = self._poll_task is not None and not self._poll_task.done()
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                recipe_id = get_directkey_id(profile_id, category)
+                current = await self._protocol.read_recipe(self._write_ble, recipe_id)
+                if not current:
+                    _LOGGER.error(
+                        "Cannot read current recipe for profile %d, category %s",
+                        profile_id, category.name,
+                    )
+                    return False
+                c = current.component1
+                updated = RecipeComponent(
+                    process=process if process is not None else c.process,
+                    shots=shots if shots is not None else c.shots,
+                    blend=blend if blend is not None else c.blend,
+                    intensity=intensity if intensity is not None else c.intensity,
+                    aroma=aroma if aroma is not None else c.aroma,
+                    temperature=temperature if temperature is not None else c.temperature,
+                    portion=portion_ml // 5 if portion_ml is not None else c.portion,
+                    reserve=c.reserve,
+                )
+                return await self._protocol.write_recipe(
+                    self._write_ble, recipe_id, current.recipe_type,
+                    updated, current.component2,
+                )
+            finally:
+                if was_polling and self.connected:
+                    self.start_polling(interval=5.0)
 
     async def copy_profile_recipe(
         self,
@@ -985,19 +1038,30 @@ class MelittaBleClient:
         """Copy a recipe from one profile to another."""
         if not self.connected:
             return False
-        source_id = get_directkey_id(from_profile, category)
-        source = await self._protocol.read_recipe(self._write_ble, source_id)
-        if not source:
-            _LOGGER.error(
-                "Cannot read source recipe from profile %d, category %s",
-                from_profile, category.name,
-            )
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew in progress, cannot copy recipe")
             return False
-        target_id = get_directkey_id(to_profile, category)
-        return await self._protocol.write_recipe(
-            self._write_ble, target_id, source.recipe_type,
-            source.component1, source.component2,
-        )
+
+        was_polling = self._poll_task is not None and not self._poll_task.done()
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                source_id = get_directkey_id(from_profile, category)
+                source = await self._protocol.read_recipe(self._write_ble, source_id)
+                if not source:
+                    _LOGGER.error(
+                        "Cannot read source recipe from profile %d, category %s",
+                        from_profile, category.name,
+                    )
+                    return False
+                target_id = get_directkey_id(to_profile, category)
+                return await self._protocol.write_recipe(
+                    self._write_ble, target_id, source.recipe_type,
+                    source.component1, source.component2,
+                )
+            finally:
+                if was_polling and self.connected:
+                    self.start_polling(interval=5.0)
 
     async def reset_all_profile_recipes(self, profile_id: int) -> bool:
         """Reset all recipes of a profile to defaults (from profile 0)."""
