@@ -518,9 +518,11 @@ class MelittaBleClient:
                     _LOGGER.error("Failed to read recipe %d", recipe_id)
                     return False
 
+                from .const import get_recipe_key
                 if not await self._protocol.write_recipe(
                     self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type,
                     recipe.component1, recipe.component2,
+                    recipe_key=get_recipe_key(recipe.recipe_type),
                 ):
                     _LOGGER.error("Failed to write recipe to temp slot")
                     return False
@@ -571,9 +573,11 @@ class MelittaBleClient:
                     _LOGGER.error("Failed to read DirectKey recipe %d", dk_id)
                     return False
 
+                from .const import get_recipe_key
                 if not await self._protocol.write_recipe(
                     self._write_ble, TEMP_RECIPE_ID, recipe.recipe_type,
                     recipe.component1, recipe.component2,
+                    recipe_key=get_recipe_key(recipe.recipe_type),
                 ):
                     _LOGGER.error("Failed to write DirectKey recipe to temp slot")
                     return False
@@ -623,9 +627,11 @@ class MelittaBleClient:
         async with self._brew_lock:
             self._stop_polling()
             try:
+                from .const import get_recipe_key
                 if not await self._protocol.write_recipe(
                     self._write_ble, TEMP_RECIPE_ID, recipe_type,
                     component1, component2,
+                    recipe_key=get_recipe_key(recipe_type),
                 ):
                     _LOGGER.error("Failed to write freestyle recipe")
                     return False
@@ -841,9 +847,11 @@ class MelittaBleClient:
                     )
                     return False
 
+                from .const import get_recipe_key
                 result = await self._protocol.write_recipe(
                     self._write_ble, recipe_id, current.recipe_type,
                     component1, component2,
+                    recipe_key=get_recipe_key(current.recipe_type),
                 )
                 if result:
                     _LOGGER.debug(
@@ -888,9 +896,11 @@ class MelittaBleClient:
             )
             return False
         target_id = get_directkey_id(profile_id, category)
+        from .const import get_recipe_key
         return await self._protocol.write_recipe(
             self._write_ble, target_id, default_recipe.recipe_type,
             default_recipe.component1, default_recipe.component2,
+            recipe_key=get_recipe_key(default_recipe.recipe_type),
         )
 
     async def update_profile_recipe(
@@ -932,9 +942,11 @@ class MelittaBleClient:
             portion=portion_ml // 5 if portion_ml is not None else c.portion,
             reserve=c.reserve,
         )
+        from .const import get_recipe_key
         return await self._protocol.write_recipe(
             self._write_ble, recipe_id, current.recipe_type,
             updated, current.component2,
+            recipe_key=get_recipe_key(current.recipe_type),
         )
 
     async def copy_profile_recipe(
@@ -955,9 +967,11 @@ class MelittaBleClient:
             )
             return False
         target_id = get_directkey_id(to_profile, category)
+        from .const import get_recipe_key
         return await self._protocol.write_recipe(
             self._write_ble, target_id, source.recipe_type,
             source.component1, source.component2,
+            recipe_key=get_recipe_key(source.recipe_type),
         )
 
     async def reset_all_profile_recipes(self, profile_id: int) -> bool:

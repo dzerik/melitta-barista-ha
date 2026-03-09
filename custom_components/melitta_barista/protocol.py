@@ -220,14 +220,18 @@ class MachineRecipe:
 
     @classmethod
     def from_payload(cls, data: bytes) -> MachineRecipe | None:
-        if len(data) < 20:
+        """Parse HC response: recipe_id(2) + recipe_type(1) + comp1(8) + comp2(8).
+
+        Note: HC response does NOT contain recipe_key byte.
+        HJ write payload has recipe_key at offset 3, but read response skips it.
+        """
+        if len(data) < 19:
             _LOGGER.debug("MachineRecipe payload too short: %d bytes", len(data))
             return None
         recipe_id = struct.unpack(">h", data[0:2])[0]
         recipe_type = data[2]
-        # byte 3 = recipe_key (skip, not used for write-back)
-        comp1 = RecipeComponent.from_bytes(data[4:12])
-        comp2 = RecipeComponent.from_bytes(data[12:20])
+        comp1 = RecipeComponent.from_bytes(data[3:11])
+        comp2 = RecipeComponent.from_bytes(data[11:19])
         if comp1 is None or comp2 is None:
             return None
         return cls(recipe_id, recipe_type, comp1, comp2)
