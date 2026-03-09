@@ -1776,10 +1776,9 @@ class TestProfileRecipeManagement:
         client._protocol.read_recipe.assert_any_await(
             client._write_ble, expected_id,
         )
-        # Should write with preserved recipe_type=5 and correct recipe_key=1 (COFFEE)
+        # Should write with preserved recipe_type=5, no recipe_key (DK slot)
         client._protocol.write_recipe.assert_awaited_once_with(
             client._write_ble, expected_id, 5, comp1, comp2,
-            recipe_key=1,
         )
 
     @pytest.mark.asyncio
@@ -1793,10 +1792,11 @@ class TestProfileRecipeManagement:
             1, DirectKeyCategory.ESPRESSO, comp1, comp2,
         )
         assert result is True
-        # Default recipe_type for ESPRESSO = 0, recipe_key = 0
+        # DK slot write: no recipe_key, default recipe_type=0 for ESPRESSO
         client._protocol.write_recipe.assert_called_once()
         call_args = client._protocol.write_recipe.call_args
-        assert call_args.kwargs.get("recipe_key") == 0
+        assert call_args.args[2] == 0  # recipe_type
+        assert "recipe_key" not in call_args.kwargs
 
     @pytest.mark.asyncio
     async def test_write_profile_recipe_disconnected(self):
@@ -1824,11 +1824,10 @@ class TestProfileRecipeManagement:
         client._protocol.read_recipe.assert_awaited_once_with(
             client._write_ble, default_id,
         )
-        # Should write to target profile with recipe_key=0 (ESPRESSO for type=0)
+        # Should write to target DK slot, no recipe_key
         client._protocol.write_recipe.assert_awaited_once_with(
             client._write_ble, target_id, default_recipe.recipe_type,
             default_recipe.component1, default_recipe.component2,
-            recipe_key=0,
         )
 
     @pytest.mark.asyncio
@@ -2056,7 +2055,6 @@ class TestCopyAndResetAllRecipes:
         client._protocol.write_recipe.assert_awaited_once_with(
             client._write_ble, target_id, 5,
             source.component1, source.component2,
-            recipe_key=1,
         )
 
     @pytest.mark.asyncio
