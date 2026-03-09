@@ -154,6 +154,10 @@ class MelittaActivitySensor(_MelittaSensorBase):
         return f"{self._client.address}_activity"
 
     @property
+    def available(self) -> bool:
+        return self._client.connected
+
+    @property
     def native_value(self) -> str | None:
         status = self._client.status
         if status is None or status.sub_process is None:

@@ -20,3 +20,4 @@ brew_espresso.py
 debug_brew.py
 CLAUDE.md
 ./audit/
+/decompiled_ref/
