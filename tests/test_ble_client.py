@@ -605,7 +605,7 @@ class TestConnect:
         assert client.machine_type == MachineType.BARISTA_TS
 
     async def test_connect_handshake_fails(self, mock_bleak_client):
-        """Test connection failure when handshake fails (lines 318-324)."""
+        """Test connection failure when handshake fails on all pair attempts."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
 
         mock_protocol = MagicMock()
@@ -621,18 +621,17 @@ class TestConnect:
                 client, "_establish_connection",
                 new=AsyncMock(return_value=mock_bleak_client),
             ),
-            patch.object(
-                client, "_start_notify",
-                new=AsyncMock(),
-            ),
+            patch.object(client, "_start_notify", new=AsyncMock()),
+            patch.object(client, "_try_unpair", new=AsyncMock()),
         ):
             result = await client._connect_impl()
 
         assert result is False
-        mock_bleak_client.disconnect.assert_awaited_once()
+        # disconnect called 3 times: pair=False, pair=True, unpair+pair=True
+        assert mock_bleak_client.disconnect.await_count == 3
 
     async def test_connect_handshake_fails_disconnect_raises(self, mock_bleak_client):
-        """Disconnect error during handshake failure is swallowed (lines 322-323)."""
+        """Disconnect error during handshake failure is swallowed."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         mock_bleak_client.disconnect = AsyncMock(side_effect=BleakError("disc err"))
 
@@ -650,13 +649,14 @@ class TestConnect:
                 new=AsyncMock(return_value=mock_bleak_client),
             ),
             patch.object(client, "_start_notify", new=AsyncMock()),
+            patch.object(client, "_try_unpair", new=AsyncMock()),
         ):
             result = await client._connect_impl()
 
         assert result is False
 
     async def test_connect_client_not_connected_after_establish(self, mock_bleak_client):
-        """Returns False when client.is_connected is False after establish (lines 308-310)."""
+        """Returns False when client.is_connected is False after establish."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         mock_bleak_client.is_connected = False
 
@@ -672,6 +672,7 @@ class TestConnect:
                 client, "_establish_connection",
                 new=AsyncMock(return_value=mock_bleak_client),
             ),
+            patch.object(client, "_try_unpair", new=AsyncMock()),
         ):
             result = await client._connect_impl()
 

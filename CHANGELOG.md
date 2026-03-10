@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.21.1] — 2026-03-10
+
+### Fixed
+- BLE connection: 3-phase pairing strategy to handle ESPHome proxy bond issues
+  - Phase 1: `pair=False` (reuse existing bond — fast reconnect)
+  - Phase 2: `pair=True` (create new bond — first-ever connection)
+  - Phase 3: `unpair` + `pair=True` (clear stale bond on ESP32, then fresh pair)
+- Fixes `TimeoutAPIError`, `BluetoothConnectionDroppedError`, and pairing error 82 on ESPHome BLE proxy after ESP32 reboot
+- Refactored connect logic into `_try_connect_and_handshake` / `_try_unpair` for clean retry
+
+### Added
+- ESPHome config for Seeed XIAO ESP32-S3 BLE proxy (`esphome/ble-proxy-xiao-s3.yaml`)
+
 ## [0.21.0] — 2026-03-09
 
 ### Added
