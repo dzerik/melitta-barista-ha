@@ -104,6 +104,9 @@ class MelittaBleClient:
         self.freestyle_temperature2: str = "normal"
         self.freestyle_shots2: str = "none"
 
+        # BLE pairing state: skip pair=True on reconnect if already bonded
+        self._paired = False
+
         # Pre-detect machine type from BLE device name if available
         if device_name:
             self._machine_type = detect_machine_type_from_name(device_name)
@@ -256,13 +259,11 @@ class MelittaBleClient:
                 _LOGGER.error("D-Bus connection lost during write (assert self._bus)")
                 raise BleakError("D-Bus connection lost")
 
-    async def _establish_connection(self) -> BleakClient:
+    async def _establish_connection(self, *, pair: bool = False) -> BleakClient:
         """Establish BLE connection following the switchbot/led_ble pattern.
 
         Uses BleakClientWithServiceCache + establish_connection() with
         ble_device_callback for fresh device reference on each retry.
-        Passes pair=True so Bleak handles bonding via any backend
-        (BlueZ D-Bus or ESPHome BLE proxy).
         """
         if self._ble_device is not None:
             try:
@@ -272,8 +273,9 @@ class MelittaBleClient:
                 )
 
                 _LOGGER.debug(
-                    "Using establish_connection for %s (ble_device=%s)",
+                    "Using establish_connection for %s (pair=%s, ble_device=%s)",
                     self._address,
+                    pair,
                     self._ble_device,
                 )
                 client = await establish_connection(
@@ -284,7 +286,7 @@ class MelittaBleClient:
                     use_services_cache=True,
                     ble_device_callback=lambda: self._ble_device,
                     max_attempts=3,
-                    pair=True,
+                    pair=pair,
                 )
                 return client
             except ImportError:
@@ -298,12 +300,12 @@ class MelittaBleClient:
                 )
 
         # Fallback: raw BleakClient (e.g. outside HA or missing retry-connector)
-        _LOGGER.debug("Using raw BleakClient for %s", self._address)
+        _LOGGER.debug("Using raw BleakClient for %s (pair=%s)", self._address, pair)
         client = BleakClient(
             self._ble_device or self._address,
             disconnected_callback=self._on_disconnect,
             timeout=15.0,
-            pair=True,
+            pair=pair,
         )
         await client.connect()
         return client
@@ -354,33 +356,105 @@ class MelittaBleClient:
         async with self._connect_lock:
             return await self._connect_impl()
 
+    async def _try_connect_and_handshake(self, *, pair: bool) -> bool:
+        """Try to establish BLE connection and perform HU handshake.
+
+        Returns True on success, False on failure (cleans up client).
+        """
+        self._protocol = MelittaProtocol()
+        self._protocol.set_status_callback(self._on_status)
+
+        try:
+            self._client = await self._establish_connection(pair=pair)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug(
+                "BLE connect failed (pair=%s)", pair, exc_info=True,
+            )
+            self._client = None
+            return False
+
+        if not self._client.is_connected:
+            _LOGGER.debug("BLE client not connected after establish (pair=%s)", pair)
+            self._client = None
+            return False
+
+        _LOGGER.debug("BLE connected to %s (pair=%s)", self._address, pair)
+
+        try:
+            await self._start_notify(self._client)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug("start_notify failed (pair=%s)", pair, exc_info=True)
+            await self._safe_disconnect()
+            return False
+
+        if not await self._protocol.perform_handshake(self._write_ble):
+            _LOGGER.debug("HU handshake failed (pair=%s)", pair)
+            await self._safe_disconnect()
+            return False
+
+        return True
+
+    async def _safe_disconnect(self) -> None:
+        """Disconnect current client, suppressing errors."""
+        client = self._client
+        self._client = None
+        if client:
+            try:
+                await client.disconnect()
+            except (BleakError, OSError):
+                pass
+
+    async def _try_unpair(self) -> None:
+        """Clear stale bond on ESP32/BlueZ by connecting without pair and calling unpair.
+
+        This is needed when pair=True fails because the proxy holds a stale bond
+        that the peripheral rejects (error 82 / BluetoothConnectionDroppedError).
+        """
+        try:
+            _LOGGER.info("Clearing stale bond for %s", self._address)
+            client = await self._establish_connection(pair=False)
+            try:
+                await client.unpair()
+                _LOGGER.info("Unpaired %s successfully", self._address)
+            except (BleakError, OSError, NotImplementedError, AttributeError):
+                _LOGGER.debug("unpair() failed or not supported", exc_info=True)
+            finally:
+                try:
+                    await client.disconnect()
+                except (BleakError, OSError):
+                    pass
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug("Could not connect for unpair", exc_info=True)
+
     async def _connect_impl(self) -> bool:
-        """Internal connect implementation (must be called under _connect_lock)."""
+        """Internal connect implementation (must be called under _connect_lock).
+
+        Pairing strategy:
+        1. Try pair=False first (fast — reuses existing bond on ESP32/BlueZ).
+        2. If handshake fails, retry with pair=True (first-ever or bond lost).
+        3. If pair=True also fails, unpair (clear stale bond) then pair=True again.
+        """
         try:
             _LOGGER.info("Connecting to Melitta at %s", self._address)
 
-            self._protocol = MelittaProtocol()
-            self._protocol.set_status_callback(self._on_status)
-
-            self._client = await self._establish_connection()
-
-            if not self._client.is_connected:
-                _LOGGER.error("Failed to connect to %s", self._address)
-                return False
-
-            _LOGGER.debug("BLE connected to %s", self._address)
-
-            # Subscribe to notifications on ad02
-            await self._start_notify(self._client)
-
-            # Perform HU handshake to get key_prefix
-            if not await self._protocol.perform_handshake(self._write_ble):
-                _LOGGER.error("HU handshake failed")
-                try:
-                    await self._client.disconnect()
-                except (BleakError, OSError):
-                    pass
-                return False
+            # Attempt 1: without pairing (reuse existing bond)
+            if await self._try_connect_and_handshake(pair=False):
+                self._paired = True
+            else:
+                # Attempt 2: with pairing (create new bond)
+                _LOGGER.info(
+                    "Retrying connection to %s with pairing", self._address,
+                )
+                if not await self._try_connect_and_handshake(pair=True):
+                    # Attempt 3: unpair stale bond, then pair fresh
+                    await self._try_unpair()
+                    _LOGGER.info(
+                        "Retrying connection to %s after unpair", self._address,
+                    )
+                    if not await self._try_connect_and_handshake(pair=True):
+                        _LOGGER.error("Connection failed for %s", self._address)
+                        return False
+                self._paired = True
 
             self._connected = True
             _LOGGER.info("Connected and handshake complete for %s", self._address)
@@ -418,13 +492,7 @@ class MelittaBleClient:
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("Connection failed for %s", self._address)
             self._connected = False
-            client = self._client
-            self._client = None
-            if client:
-                try:
-                    await client.disconnect()
-                except (BleakError, OSError):
-                    pass
+            await self._safe_disconnect()
             return False
 
     def _schedule_reconnect(self) -> None:

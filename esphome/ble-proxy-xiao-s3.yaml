@@ -1,0 +1,137 @@
+# ESPHome BLE Proxy — Seeed Studio XIAO ESP32-S3
+#
+# Full active Bluetooth proxy for Home Assistant.
+# Replaces XIAO ESP32-C6 with a more stable dual-core S3.
+#
+# Hardware: Seeed Studio XIAO ESP32-S3
+#   - Xtensa dual-core LX7 @ 240MHz
+#   - BLE 5.0 + WiFi (802.11 b/g/n) 2.4GHz
+#   - 8MB PSRAM + 8MB Flash
+#   - Onboard antenna + U.FL connector for external antenna
+#   - User LED on GPIO21
+#
+# Why S3 over C6:
+#   - Dual-core: WiFi and BLE don't compete for CPU
+#   - Mature chip: better NVS bond persistence across reboots
+#   - More RAM: stable with higher connection_slots
+#
+# Flash:
+#   1. First time (USB): esphome run ble-proxy-xiao-s3.yaml
+#   2. Subsequent: OTA from HA ESPHome dashboard
+#
+# After flashing, HA auto-discovers the proxy.
+# ---------------------------------------------------------------
+
+substitutions:
+  name: "ble-proxy-melitta"
+  friendly_name: "BLE Proxy Melitta"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: false
+
+esp32:
+  board: seeed_xiao_esp32s3
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+# PSRAM — required for ESP32-S3 with 8MB PSRAM (XIAO S3 uses octal)
+psram:
+  mode: octal
+  speed: 80MHz
+
+# ---------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: NONE          # Max performance for BLE proxy
+
+  # Fallback AP in case WiFi fails (for recovery)
+  ap:
+    ssid: "${name}-fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+# ---------------------------------------------------------------
+# Home Assistant API + OTA
+# ---------------------------------------------------------------
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ---------------------------------------------------------------
+# Logging — reduce noise, keep useful info
+# ---------------------------------------------------------------
+logger:
+  level: INFO
+  hardware_uart: USB_SERIAL_JTAG   # XIAO S3 uses USB-JTAG for serial
+  logs:
+    bluetooth_proxy: INFO
+    esp32_ble_tracker: WARN        # Suppress per-advertisement spam
+    component: ERROR
+
+# ---------------------------------------------------------------
+# Bluetooth — core proxy functionality
+#
+# ESP32-S3 is dual-core Xtensa. WiFi runs on core 0, BLE on core 1,
+# so there's no CPU contention. Safe to use 4 connection slots
+# (vs 3 on single-core C3/C6).
+# See: https://esphome.io/components/bluetooth_proxy/
+# ---------------------------------------------------------------
+esp32_ble_tracker:
+  scan_parameters:
+    active: true        # Active scan for full device names
+
+bluetooth_proxy:
+  active: true           # REQUIRED for GATT connections (Melitta needs this)
+  cache_services: true   # Cache BLE service discovery in NVS — faster reconnects
+  connection_slots: 4    # S3 dual-core + 8MB PSRAM handles 4 slots reliably
+
+# ---------------------------------------------------------------
+# Status LED — GPIO21 (active LOW on XIAO ESP32-S3)
+# ---------------------------------------------------------------
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: board_status_led
+    pin:
+      number: GPIO21
+      inverted: true
+    internal: true         # Don't expose to HA, just for visual status
+
+# ---------------------------------------------------------------
+# Diagnostic sensors — monitor proxy health in HA
+# ---------------------------------------------------------------
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 300s
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "WiFi SSID"
+      entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: "Restart"
+    entity_category: config
