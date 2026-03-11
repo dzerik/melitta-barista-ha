@@ -234,13 +234,14 @@ class TestOnDisconnect:
         """_on_disconnect sets connected=False, calls callbacks (lines 174-181)."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
-        client._client = MagicMock()
+        ble_client = MagicMock()
+        client._client = ble_client
         client._auto_reconnect = False  # Prevent reconnect scheduling
 
         cb = MagicMock()
         client.add_connection_callback(cb)
 
-        client._on_disconnect(MagicMock())
+        client._on_disconnect(ble_client)
 
         assert client._connected is False
         assert client._client is None
@@ -250,17 +251,20 @@ class TestOnDisconnect:
         """_on_disconnect schedules reconnect when auto_reconnect=True (lines 182-183)."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
-        client._client = MagicMock()
+        ble_client = MagicMock()
+        client._client = ble_client
         client._auto_reconnect = True
 
         with patch.object(client, "_schedule_reconnect") as mock_sched:
-            client._on_disconnect(MagicMock())
+            client._on_disconnect(ble_client)
             mock_sched.assert_called_once()
 
     def test_on_disconnect_callback_exception_isolated(self):
         """Exception in connection callback does not break other callbacks (line 180)."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
+        ble_client = MagicMock()
+        client._client = ble_client
         client._auto_reconnect = False
 
         bad_cb = MagicMock(side_effect=RuntimeError("boom"))
@@ -268,8 +272,25 @@ class TestOnDisconnect:
         client.add_connection_callback(bad_cb)
         client.add_connection_callback(good_cb)
 
-        client._on_disconnect(MagicMock())
+        client._on_disconnect(ble_client)
         good_cb.assert_called_once_with(False)
+
+    def test_on_disconnect_ignores_stale_client(self):
+        """_on_disconnect ignores callback from a stale (replaced) client."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        current_client = MagicMock()
+        stale_client = MagicMock()
+        client._client = current_client
+
+        cb = MagicMock()
+        client.add_connection_callback(cb)
+
+        client._on_disconnect(stale_client)
+
+        assert client._connected is True
+        assert client._client is current_client
+        cb.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
