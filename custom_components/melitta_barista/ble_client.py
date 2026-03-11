@@ -233,6 +233,9 @@ class MelittaBleClient:
     def _on_disconnect(self, client: BleakClient) -> None:
         if self._disconnecting:
             return
+        if client is not self._client:
+            _LOGGER.debug("Ignoring disconnect callback from stale client")
+            return
         _LOGGER.info("Disconnected from %s", self._address)
         self._connected = False
         self._client = None
@@ -434,6 +437,14 @@ class MelittaBleClient:
         2. If handshake fails, retry with pair=True (first-ever or bond lost).
         3. If pair=True also fails, unpair (clear stale bond) then pair=True again.
         """
+        if self._connected and self._client and self._client.is_connected:
+            return True
+
+        # Cancel any pending reconnect task to avoid interference with retry logic
+        if self._reconnect_task and not self._reconnect_task.done():
+            self._reconnect_task.cancel()
+            self._reconnect_task = None
+
         try:
             _LOGGER.info("Connecting to Melitta at %s", self._address)
 

@@ -176,7 +176,10 @@ async def _cleanup(bus, adapter, discovery_started: bool) -> None:
         await agent_mgr.call_unregister_agent(_AGENT_PATH)
     except Exception:
         pass
-    bus.disconnect()
+    try:
+        bus.disconnect()
+    except Exception:
+        pass
 
 
 async def async_pair_device(address: str, timeout: float = 30.0) -> str:
@@ -202,7 +205,10 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
                 "Assuming ESPHome BLE proxy — skipping D-Bus pairing for %s",
                 address,
             )
-            bus.disconnect()
+            try:
+                bus.disconnect()
+            except Exception:
+                pass
             return "ok"
 
         agent = _NoInputOutputAgent()
