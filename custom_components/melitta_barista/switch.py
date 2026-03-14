@@ -9,13 +9,14 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from bleak.exc import BleakError
 
 from .ble_client import MelittaBleClient
 from .const import DOMAIN, MachineSettingId, MachineType, TS_ONLY_SETTINGS, get_user_profile_count
+from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -67,10 +68,11 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class MelittaSettingSwitch(SwitchEntity):
+class MelittaSettingSwitch(MelittaDeviceMixin, SwitchEntity):
     """Switch entity for a boolean machine setting."""
 
     _attr_has_entity_name = True
+    _attr_should_poll = False
 
     def __init__(
         self,
@@ -93,15 +95,6 @@ class MelittaSettingSwitch(SwitchEntity):
         return f"{self._client.address}_switch_{self._setting_id}"
 
     @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
-
-    @property
     def available(self) -> bool:
         return self._client.connected
 
@@ -113,12 +106,19 @@ class MelittaSettingSwitch(SwitchEntity):
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
+        if connected:
+            self.hass.async_create_task(self._async_read_value())
         self.async_write_ha_state()
 
-    async def async_update(self) -> None:
-        value = await self._client.read_setting(self._setting_id)
-        if value is not None:
-            self._attr_is_on = value != 0
+    async def _async_read_value(self) -> None:
+        """Read setting from the machine (once on connect)."""
+        try:
+            value = await self._client.read_setting(self._setting_id)
+            if value is not None:
+                self._attr_is_on = value != 0
+                self.async_write_ha_state()
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug("Failed to read setting %d", self._setting_id)
 
     async def async_turn_on(self, **kwargs) -> None:
         if await self._client.write_setting(self._setting_id, 1):
@@ -131,7 +131,7 @@ class MelittaSettingSwitch(SwitchEntity):
             self.async_write_ha_state()
 
 
-class MelittaProfileActivitySwitch(SwitchEntity):
+class MelittaProfileActivitySwitch(MelittaDeviceMixin, SwitchEntity):
     """Switch to enable/disable a user profile."""
 
     _attr_has_entity_name = True
@@ -156,15 +156,6 @@ class MelittaProfileActivitySwitch(SwitchEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_profile_{self._profile_id}_activity"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     @property
     def available(self) -> bool:

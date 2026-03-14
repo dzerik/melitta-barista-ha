@@ -23,6 +23,7 @@ from .const import (
     CHAR_WRITE,
     CUP_COUNTER_BASE_ID,
     CUP_COUNTER_RECIPES,
+    DEFAULT_POLL_INTERVAL,
     DirectKeyCategory,
     MACHINE_MODEL_NAMES,
     MACHINE_TYPE_SETTING_ID,
@@ -494,18 +495,15 @@ class MelittaBleClient:
                     _LOGGER.warning("Unknown machine type ID: %d", type_id)
             _LOGGER.debug("Machine type: %s", self._machine_type)
 
-            # Read cup counters
-            await self.read_cup_counters()
-
-            # Read profile names and DirectKey recipes
-            await self.read_profile_data()
-
-            # Notify connection callbacks
+            # Notify connection callbacks (entities become available)
             for cb in self._connection_callbacks:
                 try:
                     cb(True)
                 except Exception:  # noqa: BLE900 — callback from user code
                     _LOGGER.exception("Error in connection callback")
+
+            # Load cup counters and profile data in background (non-blocking)
+            asyncio.create_task(self._load_post_connect_data())
 
             return True
 
@@ -514,6 +512,16 @@ class MelittaBleClient:
             self._connected = False
             await self._safe_disconnect()
             return False
+
+    async def _load_post_connect_data(self) -> None:
+        """Load cup counters and profile data after connect (non-blocking)."""
+        try:
+            await self.read_cup_counters()
+            await self.read_profile_data()
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug("Error loading post-connect data", exc_info=True)
+        except Exception:
+            _LOGGER.exception("Unexpected error loading post-connect data")
 
     def _schedule_reconnect(self) -> None:
         """Schedule a reconnect attempt."""
@@ -543,7 +551,7 @@ class MelittaBleClient:
             try:
                 if await self.connect():
                     _LOGGER.info("Reconnected to %s", self._address)
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
                     return
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Reconnect attempt failed", exc_info=True)
@@ -675,7 +683,7 @@ class MelittaBleClient:
                 )
             finally:
                 if self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def brew_directkey(self, category: DirectKeyCategory, *, two_cups: bool = False) -> bool:
         """Brew from a DirectKey slot of the active profile.
@@ -731,7 +739,7 @@ class MelittaBleClient:
                 )
             finally:
                 if self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def brew_freestyle(
         self,
@@ -787,7 +795,7 @@ class MelittaBleClient:
                 )
             finally:
                 if self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def cancel_process(self, process: MachineProcess = MachineProcess.PRODUCT) -> bool:
         if not self.connected:
@@ -1061,7 +1069,7 @@ class MelittaBleClient:
                 return False
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def reset_profile_recipe(
         self, profile_id: int, category: DirectKeyCategory,
@@ -1096,7 +1104,7 @@ class MelittaBleClient:
                 )
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def update_profile_recipe(
         self,
@@ -1151,7 +1159,7 @@ class MelittaBleClient:
                 )
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def copy_profile_recipe(
         self,
@@ -1185,7 +1193,7 @@ class MelittaBleClient:
                 )
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=5.0)
+                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
     async def reset_all_profile_recipes(self, profile_id: int) -> bool:
         """Reset all recipes of a profile to defaults (from profile 0)."""
@@ -1317,7 +1325,7 @@ class MelittaBleClient:
                 _LOGGER.exception("BLE error writing alpha id=%d", value_id)
                 return False
             finally:
-                self.start_polling(interval=5.0)
+                self.start_polling(interval=DEFAULT_POLL_INTERVAL)
 
 
 async def discover_melitta_devices(timeout: float = 10.0) -> list[BLEDevice]:

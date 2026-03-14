@@ -10,11 +10,15 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, FREESTYLE_RECIPE_TYPE, RECIPE_NAMES, MachineProcess
+from .const import (
+    DOMAIN, FREESTYLE_RECIPE_TYPE, RECIPE_NAMES, MachineProcess,
+    PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
+)
+from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -90,7 +94,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class _MelittaButtonBase(ButtonEntity):
+class _MelittaButtonBase(MelittaDeviceMixin, ButtonEntity):
     """Base for Melitta buttons."""
 
     _attr_has_entity_name = True
@@ -99,15 +103,6 @@ class _MelittaButtonBase(ButtonEntity):
         self._client = client
         self._entry = entry
         self._machine_name = machine_name
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
@@ -154,11 +149,11 @@ class MelittaBrewButton(_MelittaButtonBase):
             _LOGGER.exception("BLE error while brewing %s", recipe_name)
 
 
-_PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
-_INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
-_AROMA_MAP = {"standard": 0, "intense": 1}
-_TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
-_SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
+_PROCESS_MAP = PROCESS_MAP
+_INTENSITY_MAP = INTENSITY_MAP
+_AROMA_MAP = AROMA_MAP
+_TEMPERATURE_MAP = TEMPERATURE_MAP
+_SHOTS_MAP = SHOTS_MAP
 
 
 class MelittaBrewFreestyleButton(_MelittaButtonBase):

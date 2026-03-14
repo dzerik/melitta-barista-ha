@@ -15,7 +15,10 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN
+from .const import (
+    DOMAIN, DEFAULT_POLL_INTERVAL,
+    PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
+)
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -175,7 +178,7 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
             _LOGGER.debug("Background connect starting for %s", client.address)
             if await client.connect():
                 _LOGGER.info("Connected to %s, starting polling", client.address)
-                client.start_polling(interval=5.0)
+                client.start_polling(interval=DEFAULT_POLL_INTERVAL)
                 return
             _LOGGER.warning(
                 "Connection to %s failed, retrying in %.0fs",
@@ -206,11 +209,11 @@ SERVICE_BREW_FREESTYLE = "brew_freestyle"
 SERVICE_BREW_DIRECTKEY = "brew_directkey"
 SERVICE_SAVE_DIRECTKEY = "save_directkey"
 
-_PROCESS_MAP = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
-_INTENSITY_MAP = {"very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4}
-_AROMA_MAP = {"standard": 0, "intense": 1}
-_TEMPERATURE_MAP = {"cold": 0, "normal": 1, "high": 2}
-_SHOTS_MAP = {"none": 0, "one": 1, "two": 2, "three": 3}
+_PROCESS_MAP = PROCESS_MAP
+_INTENSITY_MAP = INTENSITY_MAP
+_AROMA_MAP = AROMA_MAP
+_TEMPERATURE_MAP = TEMPERATURE_MAP
+_SHOTS_MAP = SHOTS_MAP
 
 _DIRECTKEY_CATEGORIES = [
     "espresso", "cafe_creme", "cappuccino",

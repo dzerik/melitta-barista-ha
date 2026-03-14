@@ -8,11 +8,12 @@ from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import DOMAIN, MachineSettingId
+from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -117,10 +118,11 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class MelittaSettingNumber(NumberEntity):
+class MelittaSettingNumber(MelittaDeviceMixin, NumberEntity):
     """Number entity for a machine setting."""
 
     _attr_has_entity_name = True
+    _attr_should_poll = False
 
     def __init__(
         self,
@@ -149,15 +151,6 @@ class MelittaSettingNumber(NumberEntity):
         return f"{self._client.address}_setting_{self._setting_id}"
 
     @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
-
-    @property
     def available(self) -> bool:
         return self._client.connected
 
@@ -169,12 +162,19 @@ class MelittaSettingNumber(NumberEntity):
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
+        if connected:
+            self.hass.async_create_task(self._async_read_value())
         self.async_write_ha_state()
 
-    async def async_update(self) -> None:
-        value = await self._client.read_setting(self._setting_id)
-        if value is not None:
-            self._attr_native_value = float(value)
+    async def _async_read_value(self) -> None:
+        """Read setting from the machine (once on connect)."""
+        try:
+            value = await self._client.read_setting(self._setting_id)
+            if value is not None:
+                self._attr_native_value = float(value)
+                self.async_write_ha_state()
+        except Exception:
+            _LOGGER.debug("Failed to read setting %d", self._setting_id)
 
     async def async_set_native_value(self, value: float) -> None:
         if await self._client.write_setting(self._setting_id, int(value)):
@@ -182,7 +182,7 @@ class MelittaSettingNumber(NumberEntity):
             self.async_write_ha_state()
 
 
-class MelittaFreestyleNumber(NumberEntity):
+class MelittaFreestyleNumber(MelittaDeviceMixin, NumberEntity):
     """Number entity for a freestyle recipe portion parameter."""
 
     _attr_has_entity_name = True
@@ -216,15 +216,6 @@ class MelittaFreestyleNumber(NumberEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_freestyle_{self._key}"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     @property
     def native_value(self) -> float | None:

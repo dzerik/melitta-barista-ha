@@ -8,11 +8,12 @@ from homeassistant.components.text import TextEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import DOMAIN, USER_NAME_IDS, get_user_profile_count
+from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -36,7 +37,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class MelittaProfileNameText(TextEntity):
+class MelittaProfileNameText(MelittaDeviceMixin, TextEntity):
     """Text entity for a user profile name.
 
     Reads from the cached profile_names dict (populated at connect time)
@@ -68,15 +69,6 @@ class MelittaProfileNameText(TextEntity):
         return f"{self._client.address}_profile_{self._profile_num}_name"
 
     @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
-
-    @property
     def native_value(self) -> str | None:
         return self._client.profile_names.get(self._profile_num)
 
@@ -105,7 +97,7 @@ class MelittaProfileNameText(TextEntity):
             self.async_write_ha_state()
 
 
-class MelittaFreestyleNameText(TextEntity):
+class MelittaFreestyleNameText(MelittaDeviceMixin, TextEntity):
     """Text entity for the freestyle recipe name."""
 
     _attr_has_entity_name = True
@@ -126,15 +118,6 @@ class MelittaFreestyleNameText(TextEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_freestyle_name"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     @property
     def native_value(self) -> str | None:
