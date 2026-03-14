@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.22.1] — 2026-03-14
+
+### Fixed
+- **Graceful shutdown**: background connect task is now cancelled on integration unload, preventing "task still running after shutdown" warnings
+- **Callback cleanup**: all entity callbacks are unsubscribed in `async_will_remove_from_hass`, preventing duplicate state updates and stale references after integration reload
+- **Poll loop disconnect detection**: 3 consecutive poll errors now force disconnect and trigger reconnect, fixing silent "zombie" connections where BLE link is dead but no disconnect callback fires (e.g. ESP32 reboot without clean disconnect)
+
 ## [0.22.0] — 2026-03-14
 
 ### Added

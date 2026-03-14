@@ -112,6 +112,9 @@ class _MelittaButtonBase(ButtonEntity):
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
 
+    async def async_will_remove_from_hass(self) -> None:
+        self._client.remove_connection_callback(self._on_connection_change)
+
     @callback
     def _on_connection_change(self, connected: bool) -> None:
         self.async_write_ha_state()

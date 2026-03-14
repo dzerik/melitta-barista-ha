@@ -98,6 +98,10 @@ class _MelittaSensorBase(SensorEntity):
         self._client.add_status_callback(self._on_status_update)
         self._client.add_connection_callback(self._on_connection_change)
 
+    async def async_will_remove_from_hass(self) -> None:
+        self._client.remove_status_callback(self._on_status_update)
+        self._client.remove_connection_callback(self._on_connection_change)
+
     @callback
     def _on_status_update(self, status: MachineStatus) -> None:
         self.async_write_ha_state()
@@ -262,6 +266,10 @@ class MelittaTotalCupsSensor(_MelittaSensorBase):
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         self._client.add_cups_callback(self._on_cups_update)
+
+    async def async_will_remove_from_hass(self) -> None:
+        await super().async_will_remove_from_hass()
+        self._client.remove_cups_callback(self._on_cups_update)
 
     @callback
     def _on_cups_update(self) -> None:

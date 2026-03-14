@@ -588,11 +588,33 @@ class MelittaBleClient:
             self._poll_task = None
 
     async def _poll_loop(self, interval: float) -> None:
+        consecutive_errors = 0
+        max_consecutive_errors = 3
         while self.connected:
             try:
                 await self.poll_status()
+                consecutive_errors = 0
             except (BleakError, OSError, asyncio.TimeoutError):
-                _LOGGER.debug("Poll error", exc_info=True)
+                consecutive_errors += 1
+                _LOGGER.debug(
+                    "Poll error (%d/%d)", consecutive_errors, max_consecutive_errors,
+                    exc_info=True,
+                )
+                if consecutive_errors >= max_consecutive_errors:
+                    _LOGGER.warning(
+                        "Poll failed %d times in a row for %s, forcing disconnect",
+                        max_consecutive_errors, self._address,
+                    )
+                    self._connected = False
+                    self._client = None
+                    for cb in self._connection_callbacks:
+                        try:
+                            cb(False)
+                        except Exception:
+                            _LOGGER.exception("Error in connection callback")
+                    if self._auto_reconnect:
+                        self._schedule_reconnect()
+                    return
             await asyncio.sleep(interval)
 
     # High-level API

@@ -142,10 +142,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     # Connect in background so we don't block HA setup
-    hass.async_create_task(
+    connect_task = hass.async_create_task(
         _async_connect_and_poll(client),
         f"melitta_barista_connect_{address}",
     )
+
+    @callback
+    def _cancel_connect_task() -> None:
+        if not connect_task.done():
+            connect_task.cancel()
+
+    entry.async_on_unload(_cancel_connect_task)
     _LOGGER.info("Setup complete for %s, connecting in background", address)
 
     return True
