@@ -575,10 +575,15 @@ async def test_step_pair_success_creates_entry(
     assert result2["step_id"] == "pair"
 
     # Submit pair with successful pairing
+    # Also mock async_setup_entry to prevent background connect loop from running
     with patch(
         "custom_components.melitta_barista.config_flow.MelittaBaristaConfigFlow._async_try_pair",
         new_callable=AsyncMock,
         return_value="ok",
+    ), patch(
+        "custom_components.melitta_barista.async_setup_entry",
+        new_callable=AsyncMock,
+        return_value=True,
     ):
         result3 = await hass.config_entries.flow.async_configure(
             result2["flow_id"], user_input={}
