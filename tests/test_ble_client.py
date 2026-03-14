@@ -97,11 +97,22 @@ class TestClientInit:
 class TestClientBLEDevice:
     """Test BLEDevice management."""
 
-    def test_set_ble_device(self):
+    async def test_set_ble_device(self):
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         device = BLEDevice("AA:BB:CC:DD:EE:FF", "test", {})
         client.set_ble_device(device)
         assert client._ble_device is device
+
+    async def test_set_ble_device_triggers_reconnect_when_disconnected(self):
+        """BLE advertisement while disconnected triggers immediate reconnect."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = False
+        client._auto_reconnect = True
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "test", {})
+        with patch.object(client, "_schedule_reconnect") as mock_sched:
+            client.set_ble_device(device)
+        assert client._reconnect_event.is_set()
+        mock_sched.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -880,37 +891,42 @@ class TestReconnect:
 
         mock_start_polling = MagicMock()
 
+        async def fake_wait_for(coro, **kwargs):
+            coro.close() if hasattr(coro, 'close') else None
+            raise asyncio.TimeoutError
+
         with (
             patch.object(client, "connect", new=AsyncMock(return_value=True)),
             patch.object(client, "start_polling", mock_start_polling),
-            patch("asyncio.sleep", new=AsyncMock()),
+            patch("asyncio.wait_for", side_effect=fake_wait_for),
         ):
             await client._reconnect_loop()
 
         mock_start_polling.assert_called_once_with(interval=5.0)
 
     async def test_reconnect_loop_auto_reconnect_false_breaks(self):
-        """Loop breaks when auto_reconnect becomes False (lines 381-382)."""
+        """Loop breaks when auto_reconnect becomes False."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._auto_reconnect = True
 
+        original_wait_for = asyncio.wait_for
         call_count = 0
 
-        async def fake_sleep(delay):
+        async def fake_wait_for(coro, **kwargs):
             nonlocal call_count
             call_count += 1
-            # Disable after first sleep
             client._auto_reconnect = False
+            # Cancel the awaitable to avoid warnings
+            coro.close() if hasattr(coro, 'close') else None
+            raise asyncio.TimeoutError
 
-        with (
-            patch("asyncio.sleep", side_effect=fake_sleep),
-        ):
+        with patch("asyncio.wait_for", side_effect=fake_wait_for):
             await client._reconnect_loop()
 
         assert call_count == 1
 
     async def test_reconnect_loop_retries_on_failure(self):
-        """Retry on BleakError with increasing delay (lines 388-390)."""
+        """Retry on BleakError with increasing delay."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._auto_reconnect = True
         attempt = 0
@@ -922,10 +938,14 @@ class TestReconnect:
                 raise BleakError("fail")
             return True
 
+        async def fake_wait_for(coro, **kwargs):
+            coro.close() if hasattr(coro, 'close') else None
+            raise asyncio.TimeoutError
+
         with (
             patch.object(client, "connect", side_effect=fake_connect),
             patch.object(client, "start_polling"),
-            patch("asyncio.sleep", new=AsyncMock()),
+            patch("asyncio.wait_for", side_effect=fake_wait_for),
         ):
             await client._reconnect_loop()
 

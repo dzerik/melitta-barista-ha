@@ -76,6 +76,7 @@ class MelittaBleClient:
         self._connection_callbacks: list[Callable[[bool], None]] = []
         self._poll_task: asyncio.Task | None = None
         self._reconnect_task: asyncio.Task | None = None
+        self._reconnect_event = asyncio.Event()
         self._auto_reconnect = True
         self._disconnecting = False
         self.selected_recipe: RecipeId | None = None
@@ -184,8 +185,16 @@ class MelittaBleClient:
 
         Called by __init__.py when HA sees a new advertisement from the device.
         This keeps the BLEDevice fresh for establish_connection() retries.
+        If disconnected, triggers immediate reconnect attempt.
         """
         self._ble_device = ble_device
+        if not self._connected and self._auto_reconnect:
+            _LOGGER.info(
+                "BLE advertisement from %s while disconnected, triggering reconnect",
+                self._address,
+            )
+            self._reconnect_event.set()
+            self._schedule_reconnect()
 
     def add_status_callback(self, callback: Callable[[MachineStatus], None]) -> None:
         self._status_callbacks.append(callback)
@@ -513,12 +522,22 @@ class MelittaBleClient:
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
     async def _reconnect_loop(self) -> None:
-        """Try to reconnect with exponential backoff."""
+        """Try to reconnect with exponential backoff.
+
+        The loop can be woken up early by setting _reconnect_event (e.g. when
+        a BLE advertisement arrives, indicating the machine is back online).
+        """
         delay = 5.0
         max_delay = 300.0
         while self._auto_reconnect and not self.connected:
             _LOGGER.info("Reconnecting to %s in %.0fs...", self._address, delay)
-            await asyncio.sleep(delay)
+            self._reconnect_event.clear()
+            try:
+                await asyncio.wait_for(self._reconnect_event.wait(), timeout=delay)
+                _LOGGER.debug("Reconnect woken up early (BLE advertisement received)")
+                delay = 5.0  # reset backoff — machine is likely available
+            except asyncio.TimeoutError:
+                pass
             if not self._auto_reconnect:
                 break
             try:
@@ -528,6 +547,8 @@ class MelittaBleClient:
                     return
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Reconnect attempt failed", exc_info=True)
+            except Exception:
+                _LOGGER.exception("Unexpected error during reconnect")
             delay = min(delay * 2, max_delay)
 
     async def disconnect(self) -> None:

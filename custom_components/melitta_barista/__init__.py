@@ -155,6 +155,7 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
     """Connect to the machine in background -- does not block setup.
 
     Retries with exponential backoff if initial connection fails.
+    Can be woken up early by BLE advertisement via client._reconnect_event.
     """
     delay = 5.0
     max_delay = 300.0
@@ -178,7 +179,19 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
                 "Connection error for %s, retrying in %.0fs",
                 client.address, delay, exc_info=True,
             )
-        await asyncio.sleep(delay)
+        except Exception:
+            _LOGGER.exception(
+                "Unexpected error connecting to %s, retrying in %.0fs",
+                client.address, delay,
+            )
+        # Wait for backoff delay, but wake up early on BLE advertisement
+        client._reconnect_event.clear()
+        try:
+            await asyncio.wait_for(client._reconnect_event.wait(), timeout=delay)
+            _LOGGER.debug("Initial connect woken up early (BLE advertisement)")
+            delay = 5.0
+        except asyncio.TimeoutError:
+            pass
         delay = min(delay * 2, max_delay)
 
 
