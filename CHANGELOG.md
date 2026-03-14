@@ -2,6 +2,21 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.23.0] — 2026-03-14
+
+### Added
+- **Options Flow UI**: configurable integration parameters via Settings → Integrations → Melitta Barista → Configure
+  - **Basic settings**: poll interval, reconnect initial delay, reconnect max backoff, poll errors before disconnect, BLE frame timeout
+  - **Advanced settings**: BLE connection timeout, pairing timeout, recipe read/write retries, initial connect delay
+- All 9 parameters have sensible defaults matching previous hardcoded values — no changes needed after upgrade
+- 4 new tests for Options Flow (init menu, basic form, basic submit, advanced submit)
+
+### Changed
+- `MelittaProtocol` accepts `frame_timeout` parameter instead of using module-level constant
+- `MelittaBleClient` accepts all configurable parameters via constructor kwargs
+- `_async_connect_and_poll` accepts `poll_interval`, `initial_delay`, `reconnect_delay`, `reconnect_max_delay` parameters
+- Integration reloads automatically when options are changed
+
 ## [0.22.2] — 2026-03-14
 
 ### Changed

@@ -463,6 +463,31 @@ CUP_COUNTER_RECIPES: dict[int, str] = {
 
 DEFAULT_POLL_INTERVAL: float = 5.0
 
+# ---------------------------------------------------------------------------
+# Options Flow keys and defaults
+# ---------------------------------------------------------------------------
+
+# Option keys
+CONF_POLL_INTERVAL = "poll_interval"
+CONF_RECONNECT_DELAY = "reconnect_initial_delay"
+CONF_RECONNECT_MAX_DELAY = "reconnect_max_delay"
+CONF_MAX_CONSECUTIVE_ERRORS = "max_consecutive_errors"
+CONF_FRAME_TIMEOUT = "frame_timeout"
+CONF_BLE_CONNECT_TIMEOUT = "ble_connect_timeout"
+CONF_PAIR_TIMEOUT = "pair_timeout"
+CONF_RECIPE_RETRIES = "recipe_retries"
+CONF_INITIAL_CONNECT_DELAY = "initial_connect_delay"
+
+# Defaults
+DEFAULT_RECONNECT_DELAY: float = 5.0
+DEFAULT_RECONNECT_MAX_DELAY: float = 300.0
+DEFAULT_MAX_CONSECUTIVE_ERRORS: int = 3
+DEFAULT_FRAME_TIMEOUT: int = 5
+DEFAULT_BLE_CONNECT_TIMEOUT: float = 15.0
+DEFAULT_PAIR_TIMEOUT: float = 30.0
+DEFAULT_RECIPE_RETRIES: int = 3
+DEFAULT_INITIAL_CONNECT_DELAY: float = 3.0
+
 PROCESS_MAP: dict[str, int] = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 INTENSITY_MAP: dict[str, int] = {
     "very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4,
