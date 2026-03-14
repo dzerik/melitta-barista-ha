@@ -456,3 +456,17 @@ CUP_COUNTER_RECIPES: dict[int, str] = {
     22: "Milk Froth",
     23: "Hot Water",
 }
+
+# ---------------------------------------------------------------------------
+# Freestyle / service parameter mappings (name → protocol value)
+# ---------------------------------------------------------------------------
+
+DEFAULT_POLL_INTERVAL: float = 5.0
+
+PROCESS_MAP: dict[str, int] = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
+INTENSITY_MAP: dict[str, int] = {
+    "very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4,
+}
+AROMA_MAP: dict[str, int] = {"standard": 0, "intense": 1}
+TEMPERATURE_MAP: dict[str, int] = {"cold": 0, "normal": 1, "high": 2}
+SHOTS_MAP: dict[str, int] = {"none": 0, "one": 1, "two": 2, "three": 3}

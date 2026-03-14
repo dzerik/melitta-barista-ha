@@ -8,11 +8,12 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import DOMAIN, InfoMessage, MachineProcess, Manipulation, SubProcess
+from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -74,7 +75,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class _MelittaSensorBase(SensorEntity):
+class _MelittaSensorBase(MelittaDeviceMixin, SensorEntity):
     """Base class for Melitta sensors."""
 
     _attr_has_entity_name = True
@@ -83,16 +84,6 @@ class _MelittaSensorBase(SensorEntity):
         self._client = client
         self._entry = entry
         self._machine_name = name
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-            sw_version=self._client.firmware_version,
-        )
 
     async def async_added_to_hass(self) -> None:
         self._client.add_status_callback(self._on_status_update)

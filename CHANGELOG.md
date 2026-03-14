@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.22.2] — 2026-03-14
+
+### Changed
+- Settings switches and number entities no longer poll via BLE every 30s; values are read once on connect (`should_poll=False`)
+- Parameter mappings (`PROCESS_MAP`, `INTENSITY_MAP`, etc.) consolidated into `const.py`, eliminating duplication across `button.py` and `__init__.py`
+- Profile data and cup counters now load in background after connect, not blocking the connection phase
+- All 11 `device_info` properties replaced with shared `MelittaDeviceMixin` (new `entity.py`)
+- Hardcoded `interval=5.0` replaced with `DEFAULT_POLL_INTERVAL` constant
+
 ## [0.22.1] — 2026-03-14
 
 ### Fixed

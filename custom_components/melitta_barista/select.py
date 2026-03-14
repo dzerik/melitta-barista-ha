@@ -11,7 +11,6 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
@@ -28,6 +27,7 @@ from .const import (
     get_available_recipes,
     get_user_profile_count,
 )
+from .entity import MelittaDeviceMixin
 from .protocol import RecipeComponent
 
 # Freestyle option lists
@@ -118,7 +118,7 @@ async def async_setup_entry(
     ])
 
 
-class MelittaRecipeSelect(SelectEntity):
+class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
     """Select and brew a recipe."""
 
     _attr_has_entity_name = True
@@ -144,15 +144,6 @@ class MelittaRecipeSelect(SelectEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_recipe_select"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     @property
     def current_option(self) -> str | None:
@@ -219,7 +210,7 @@ class MelittaRecipeSelect(SelectEntity):
                 self.async_write_ha_state()
 
 
-class MelittaProfileSelect(SelectEntity):
+class MelittaProfileSelect(MelittaDeviceMixin, SelectEntity):
     """Select the active user profile."""
 
     _attr_has_entity_name = True
@@ -252,15 +243,6 @@ class MelittaProfileSelect(SelectEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_profile_select"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     @property
     def current_option(self) -> str | None:
@@ -306,7 +288,7 @@ class MelittaProfileSelect(SelectEntity):
         self.async_write_ha_state()
 
 
-class MelittaFreestyleSelect(SelectEntity):
+class MelittaFreestyleSelect(MelittaDeviceMixin, SelectEntity):
     """Select entity for a freestyle recipe parameter."""
 
     _attr_has_entity_name = True
@@ -334,15 +316,6 @@ class MelittaFreestyleSelect(SelectEntity):
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_freestyle_{self._key}"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._client.address)},
-            name=self._machine_name,
-            manufacturer="Melitta",
-            model=self._client.model_name,
-        )
 
     @property
     def current_option(self) -> str | None:
