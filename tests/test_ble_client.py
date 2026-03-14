@@ -1045,6 +1045,36 @@ class TestPollLoop:
 
         assert call_count == 2
 
+    async def test_poll_loop_consecutive_errors_force_disconnect(self):
+        """3 consecutive poll errors trigger forced disconnect and reconnect."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._protocol = MagicMock()
+
+        call_count = 0
+
+        async def fake_read_status(write_fn):
+            nonlocal call_count
+            call_count += 1
+            raise BleakError("poll error")
+
+        client._protocol.read_status = fake_read_status
+
+        conn_cb = MagicMock()
+        client.add_connection_callback(conn_cb)
+
+        with (
+            patch("asyncio.sleep", new=AsyncMock()),
+            patch.object(client, "_schedule_reconnect") as mock_reconnect,
+        ):
+            await client._poll_loop(1.0)
+
+        assert call_count == 3
+        assert client._connected is False
+        conn_cb.assert_called_once_with(False)
+        mock_reconnect.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # High-level API
