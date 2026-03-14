@@ -19,6 +19,7 @@ from .const import (
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
 )
 from .entity import MelittaDeviceMixin
+from .protocol import MachineStatus
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -105,10 +106,16 @@ class _MelittaButtonBase(MelittaDeviceMixin, ButtonEntity):
         self._machine_name = machine_name
 
     async def async_added_to_hass(self) -> None:
+        self._client.add_status_callback(self._on_status_update)
         self._client.add_connection_callback(self._on_connection_change)
 
     async def async_will_remove_from_hass(self) -> None:
+        self._client.remove_status_callback(self._on_status_update)
         self._client.remove_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_status_update(self, status: MachineStatus) -> None:
+        self.async_write_ha_state()
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
