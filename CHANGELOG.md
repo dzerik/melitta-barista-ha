@@ -2,11 +2,18 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
-## [0.21.3] — 2026-03-14
+## [0.22.0] — 2026-03-14
+
+### Added
+- Instant reconnect on BLE advertisement: when machine powers on after being offline, reconnect triggers immediately instead of waiting up to 5 minutes for next backoff retry
+- Reconnect event mechanism (`_reconnect_event`) wakes up both initial connect and reconnect loops when BLE advertisement is received
+- Backoff delay resets to 5s when advertisement arrives (machine is likely available)
+- Catch-all exception handler in reconnect loops prevents silent reconnect death
 
 ### Fixed
+- Machine not reconnecting after long power-off without HA restart
 - Profile and Recipe select entities no longer store all DirectKey/recipe data in state attributes, preventing Recorder "exceeds maximum size of 16384 bytes" warnings
-- Config flow test `test_step_pair_success_creates_entry` no longer times out (mock background connect loop)
+- Config flow test `test_step_pair_success_creates_entry` no longer times out
 
 ### Removed
 - `directkey_recipes` attribute from Profile select (was causing >16KB state attributes)
