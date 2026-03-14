@@ -10,22 +10,50 @@ from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
 )
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .ble_client import MELITTA_SERVICE_UUID
-from .const import BLE_PREFIXES_ALL, DOMAIN
+from .const import (
+    BLE_PREFIXES_ALL,
+    DOMAIN,
+    CONF_POLL_INTERVAL,
+    CONF_RECONNECT_DELAY,
+    CONF_RECONNECT_MAX_DELAY,
+    CONF_MAX_CONSECUTIVE_ERRORS,
+    CONF_FRAME_TIMEOUT,
+    CONF_BLE_CONNECT_TIMEOUT,
+    CONF_PAIR_TIMEOUT,
+    CONF_RECIPE_RETRIES,
+    CONF_INITIAL_CONNECT_DELAY,
+    DEFAULT_POLL_INTERVAL,
+    DEFAULT_RECONNECT_DELAY,
+    DEFAULT_RECONNECT_MAX_DELAY,
+    DEFAULT_MAX_CONSECUTIVE_ERRORS,
+    DEFAULT_FRAME_TIMEOUT,
+    DEFAULT_BLE_CONNECT_TIMEOUT,
+    DEFAULT_PAIR_TIMEOUT,
+    DEFAULT_RECIPE_RETRIES,
+    DEFAULT_INITIAL_CONNECT_DELAY,
+)
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-PAIR_TIMEOUT = 30.0
+PAIR_TIMEOUT = DEFAULT_PAIR_TIMEOUT
 
 
 class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Melitta Barista Smart."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Get the options flow handler."""
+        return MelittaOptionsFlow(config_entry)
 
     def __init__(self) -> None:
         self._discovered_devices: dict[str, str] = {}
@@ -216,3 +244,85 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             return "ok"
 
         return await async_pair_device(self._address, timeout=PAIR_TIMEOUT)
+
+
+class MelittaOptionsFlow(OptionsFlow):
+    """Handle options flow for Melitta Barista Smart."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        self._config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show options menu."""
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["basic", "advanced"],
+        )
+
+    async def async_step_basic(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle basic options."""
+        if user_input is not None:
+            new_options = {**self._config_entry.options, **user_input}
+            return self.async_create_entry(title="", data=new_options)
+
+        options = self._config_entry.options
+        return self.async_show_form(
+            step_id="basic",
+            data_schema=vol.Schema({
+                vol.Optional(
+                    CONF_POLL_INTERVAL,
+                    default=options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+                ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=60.0)),
+                vol.Optional(
+                    CONF_RECONNECT_DELAY,
+                    default=options.get(CONF_RECONNECT_DELAY, DEFAULT_RECONNECT_DELAY),
+                ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=60.0)),
+                vol.Optional(
+                    CONF_RECONNECT_MAX_DELAY,
+                    default=options.get(CONF_RECONNECT_MAX_DELAY, DEFAULT_RECONNECT_MAX_DELAY),
+                ): vol.All(vol.Coerce(float), vol.Range(min=30.0, max=3600.0)),
+                vol.Optional(
+                    CONF_MAX_CONSECUTIVE_ERRORS,
+                    default=options.get(CONF_MAX_CONSECUTIVE_ERRORS, DEFAULT_MAX_CONSECUTIVE_ERRORS),
+                ): vol.All(int, vol.Range(min=1, max=20)),
+                vol.Optional(
+                    CONF_FRAME_TIMEOUT,
+                    default=options.get(CONF_FRAME_TIMEOUT, DEFAULT_FRAME_TIMEOUT),
+                ): vol.All(int, vol.Range(min=2, max=30)),
+            }),
+        )
+
+    async def async_step_advanced(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle advanced options."""
+        if user_input is not None:
+            new_options = {**self._config_entry.options, **user_input}
+            return self.async_create_entry(title="", data=new_options)
+
+        options = self._config_entry.options
+        return self.async_show_form(
+            step_id="advanced",
+            data_schema=vol.Schema({
+                vol.Optional(
+                    CONF_BLE_CONNECT_TIMEOUT,
+                    default=options.get(CONF_BLE_CONNECT_TIMEOUT, DEFAULT_BLE_CONNECT_TIMEOUT),
+                ): vol.All(vol.Coerce(float), vol.Range(min=5.0, max=60.0)),
+                vol.Optional(
+                    CONF_PAIR_TIMEOUT,
+                    default=options.get(CONF_PAIR_TIMEOUT, DEFAULT_PAIR_TIMEOUT),
+                ): vol.All(vol.Coerce(float), vol.Range(min=10.0, max=120.0)),
+                vol.Optional(
+                    CONF_RECIPE_RETRIES,
+                    default=options.get(CONF_RECIPE_RETRIES, DEFAULT_RECIPE_RETRIES),
+                ): vol.All(int, vol.Range(min=1, max=10)),
+                vol.Optional(
+                    CONF_INITIAL_CONNECT_DELAY,
+                    default=options.get(CONF_INITIAL_CONNECT_DELAY, DEFAULT_INITIAL_CONNECT_DELAY),
+                ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=30.0)),
+            }),
+        )

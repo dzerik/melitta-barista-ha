@@ -282,7 +282,7 @@ class MelittaProtocol:
         3. key_prefix is used in all subsequent encrypted frames.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, frame_timeout: int = FRAME_TIMEOUT) -> None:
         self._rc4_key: bytes | None = None
         self._key_prefix: bytes | None = None
         self._recv_buffer = bytearray()
@@ -292,6 +292,7 @@ class MelittaProtocol:
         self._on_status: Callable[[MachineStatus], None] | None = None
         self._lock = asyncio.Lock()
         self._handshake_done = asyncio.Event()
+        self._frame_timeout = frame_timeout
         self._init_encryption()
 
     def _init_encryption(self) -> None:
@@ -544,7 +545,7 @@ class MelittaProtocol:
         _LOGGER.debug("HU challenge sent: %s", challenge.hex())
 
         try:
-            await asyncio.wait_for(self._handshake_done.wait(), timeout=FRAME_TIMEOUT)
+            await asyncio.wait_for(self._handshake_done.wait(), timeout=self._frame_timeout)
             return self._key_prefix is not None
         except asyncio.TimeoutError:
             _LOGGER.error("HU handshake timeout")
@@ -570,7 +571,7 @@ class MelittaProtocol:
                     await write_func(chunk)
 
                 try:
-                    return await asyncio.wait_for(self._ack_future, timeout=FRAME_TIMEOUT)
+                    return await asyncio.wait_for(self._ack_future, timeout=self._frame_timeout)
                 except asyncio.TimeoutError:
                     pass
                 finally:
@@ -601,7 +602,7 @@ class MelittaProtocol:
                 await write_func(chunk)
 
             try:
-                return await asyncio.wait_for(future, timeout=FRAME_TIMEOUT)
+                return await asyncio.wait_for(future, timeout=self._frame_timeout)
             except asyncio.TimeoutError:
                 _LOGGER.debug("Response timeout for %s", command)
                 self._frame_futures.pop(command, None)

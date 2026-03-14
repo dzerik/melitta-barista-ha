@@ -16,8 +16,24 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .ble_client import MelittaBleClient
 from .const import (
-    DOMAIN, DEFAULT_POLL_INTERVAL,
+    DOMAIN,
+    DEFAULT_POLL_INTERVAL,
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
+    CONF_POLL_INTERVAL,
+    CONF_RECONNECT_DELAY,
+    CONF_RECONNECT_MAX_DELAY,
+    CONF_MAX_CONSECUTIVE_ERRORS,
+    CONF_FRAME_TIMEOUT,
+    CONF_BLE_CONNECT_TIMEOUT,
+    CONF_RECIPE_RETRIES,
+    CONF_INITIAL_CONNECT_DELAY,
+    DEFAULT_RECONNECT_DELAY,
+    DEFAULT_RECONNECT_MAX_DELAY,
+    DEFAULT_MAX_CONSECUTIVE_ERRORS,
+    DEFAULT_FRAME_TIMEOUT,
+    DEFAULT_BLE_CONNECT_TIMEOUT,
+    DEFAULT_RECIPE_RETRIES,
+    DEFAULT_INITIAL_CONNECT_DELAY,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -100,10 +116,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except (AttributeError, ValueError):
         _LOGGER.debug("Could not get BLEDevice from cache", exc_info=True)
 
+    opts = entry.options
     client = MelittaBleClient(
         address,
         device_name=device_name,
         ble_device=ble_device,
+        poll_interval=opts.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+        ble_connect_timeout=opts.get(CONF_BLE_CONNECT_TIMEOUT, DEFAULT_BLE_CONNECT_TIMEOUT),
+        frame_timeout=opts.get(CONF_FRAME_TIMEOUT, DEFAULT_FRAME_TIMEOUT),
+        max_consecutive_errors=opts.get(CONF_MAX_CONSECUTIVE_ERRORS, DEFAULT_MAX_CONSECUTIVE_ERRORS),
+        reconnect_delay=opts.get(CONF_RECONNECT_DELAY, DEFAULT_RECONNECT_DELAY),
+        reconnect_max_delay=opts.get(CONF_RECONNECT_MAX_DELAY, DEFAULT_RECONNECT_MAX_DELAY),
+        recipe_retries=opts.get(CONF_RECIPE_RETRIES, DEFAULT_RECIPE_RETRIES),
     )
 
     # Register bluetooth callback to keep BLEDevice reference fresh.
@@ -146,7 +170,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Connect in background so we don't block HA setup
     connect_task = hass.async_create_task(
-        _async_connect_and_poll(client),
+        _async_connect_and_poll(
+            client,
+            poll_interval=opts.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+            initial_delay=opts.get(CONF_INITIAL_CONNECT_DELAY, DEFAULT_INITIAL_CONNECT_DELAY),
+            reconnect_delay=opts.get(CONF_RECONNECT_DELAY, DEFAULT_RECONNECT_DELAY),
+            reconnect_max_delay=opts.get(CONF_RECONNECT_MAX_DELAY, DEFAULT_RECONNECT_MAX_DELAY),
+        ),
         f"melitta_barista_connect_{address}",
     )
 
@@ -161,24 +191,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _async_connect_and_poll(client: MelittaBleClient) -> None:
+async def _async_connect_and_poll(
+    client: MelittaBleClient,
+    *,
+    poll_interval: float = DEFAULT_POLL_INTERVAL,
+    initial_delay: float = DEFAULT_INITIAL_CONNECT_DELAY,
+    reconnect_delay: float = DEFAULT_RECONNECT_DELAY,
+    reconnect_max_delay: float = DEFAULT_RECONNECT_MAX_DELAY,
+) -> None:
     """Connect to the machine in background -- does not block setup.
 
     Retries with exponential backoff if initial connection fails.
     Can be woken up early by BLE advertisement via client._reconnect_event.
     """
-    delay = 5.0
-    max_delay = 300.0
+    delay = reconnect_delay
 
     # Wait for the machine to release any prior BLE connection (e.g. from pairing)
-    await asyncio.sleep(3)
+    await asyncio.sleep(initial_delay)
 
     while True:
         try:
             _LOGGER.debug("Background connect starting for %s", client.address)
             if await client.connect():
                 _LOGGER.info("Connected to %s, starting polling", client.address)
-                client.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                client.start_polling(interval=poll_interval)
                 return
             _LOGGER.warning(
                 "Connection to %s failed, retrying in %.0fs",
@@ -199,10 +235,10 @@ async def _async_connect_and_poll(client: MelittaBleClient) -> None:
         try:
             await asyncio.wait_for(client._reconnect_event.wait(), timeout=delay)
             _LOGGER.debug("Initial connect woken up early (BLE advertisement)")
-            delay = 5.0
+            delay = reconnect_delay
         except asyncio.TimeoutError:
             pass
-        delay = min(delay * 2, max_delay)
+        delay = min(delay * 2, reconnect_max_delay)
 
 
 SERVICE_BREW_FREESTYLE = "brew_freestyle"

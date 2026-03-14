@@ -220,21 +220,13 @@ class TestHandshake:
 
     @pytest.mark.asyncio
     async def test_handshake_timeout(self):
-        proto = MelittaProtocol()
-        # Patch FRAME_TIMEOUT to be very short
-        import custom_components.melitta_barista.protocol as proto_mod
-        original_timeout = proto_mod.FRAME_TIMEOUT
+        proto = MelittaProtocol(frame_timeout=1)
 
-        try:
-            proto_mod.FRAME_TIMEOUT = 0.1
+        async def mock_write(data: bytes) -> None:
+            pass  # No response -> timeout
 
-            async def mock_write(data: bytes) -> None:
-                pass  # No response -> timeout
-
-            result = await proto.perform_handshake(mock_write)
-            assert result is False
-        finally:
-            proto_mod.FRAME_TIMEOUT = original_timeout
+        result = await proto.perform_handshake(mock_write)
+        assert result is False
 
 
 class TestSendAndWait:
@@ -242,105 +234,72 @@ class TestSendAndWait:
 
     @pytest.mark.asyncio
     async def test_send_and_wait_ack_success(self):
-        proto = MelittaProtocol()
+        proto = MelittaProtocol(frame_timeout=1)
         proto._key_prefix = b"\x00\x00"
+        proto._rc4_key = None
 
-        async def mock_write(data: bytes) -> None:
-            # Simulate ACK response
-            await asyncio.sleep(0.01)
-            ack_frame = bytes([FRAME_START, ord("A")])
-            cs = (~ord("A")) & 0xFF
-            ack_frame += bytes([cs, FRAME_END])
-            # Decrypt is symmetric, but ACK has no encrypted part
-            proto._rc4_key = None  # temporarily disable for ACK
-            proto.on_ble_data(ack_frame)
-
-        # Need to handle the fact that write is called for chunks
         write_calls = []
 
         async def capturing_write(data: bytes) -> None:
             write_calls.append(data)
 
-        # We need to simulate ACK arriving after send
-        import custom_components.melitta_barista.protocol as proto_mod
-        original_timeout = proto_mod.FRAME_TIMEOUT
-        try:
-            proto_mod.FRAME_TIMEOUT = 0.5
-            proto._rc4_key = None  # simplify
+        async def respond():
+            await asyncio.sleep(0.05)
+            ack_frame = bytes([FRAME_START, ord("A")])
+            cs = (~ord("A")) & 0xFF
+            ack_frame += bytes([cs, FRAME_END])
+            proto.on_ble_data(ack_frame)
 
-            async def respond():
-                await asyncio.sleep(0.05)
-                ack_frame = bytes([FRAME_START, ord("A")])
-                cs = (~ord("A")) & 0xFF
-                ack_frame += bytes([cs, FRAME_END])
-                proto.on_ble_data(ack_frame)
-
-            task = asyncio.create_task(respond())
-            result = await proto.send_and_wait_ack(
-                CMD_WRITE_NUMERICAL,
-                struct.pack(">hi", 11, 3),
-                capturing_write,
-            )
-            await task
-            assert result is True
-        finally:
-            proto_mod.FRAME_TIMEOUT = original_timeout
+        task = asyncio.create_task(respond())
+        result = await proto.send_and_wait_ack(
+            CMD_WRITE_NUMERICAL,
+            struct.pack(">hi", 11, 3),
+            capturing_write,
+        )
+        await task
+        assert result is True
 
     @pytest.mark.asyncio
     async def test_send_and_wait_ack_timeout(self):
-        proto = MelittaProtocol()
+        proto = MelittaProtocol(frame_timeout=1)
         proto._key_prefix = b"\x00\x00"
         proto._rc4_key = None
 
-        import custom_components.melitta_barista.protocol as proto_mod
-        original_timeout = proto_mod.FRAME_TIMEOUT
-        try:
-            proto_mod.FRAME_TIMEOUT = 0.1
+        async def mock_write(data: bytes) -> None:
+            pass
 
-            async def mock_write(data: bytes) -> None:
-                pass
-
-            result = await proto.send_and_wait_ack(
-                CMD_WRITE_NUMERICAL,
-                struct.pack(">hi", 11, 3),
-                mock_write,
-            )
-            assert result is False
-        finally:
-            proto_mod.FRAME_TIMEOUT = original_timeout
+        result = await proto.send_and_wait_ack(
+            CMD_WRITE_NUMERICAL,
+            struct.pack(">hi", 11, 3),
+            mock_write,
+        )
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_send_and_wait_response(self):
-        proto = MelittaProtocol()
+        proto = MelittaProtocol(frame_timeout=1)
         proto._key_prefix = b"\x00\x00"
         proto._rc4_key = None
 
-        import custom_components.melitta_barista.protocol as proto_mod
-        original_timeout = proto_mod.FRAME_TIMEOUT
-        try:
-            proto_mod.FRAME_TIMEOUT = 0.5
+        response_payload = struct.pack(">hi", 6, 259)
 
-            response_payload = struct.pack(">hi", 6, 259)
+        async def respond():
+            await asyncio.sleep(0.05)
+            frame = bytes([FRAME_START]) + b"HR" + response_payload
+            cs = 0
+            for b in frame[1:]:
+                cs = (cs + b) & 0xFF
+            frame += bytes([(~cs) & 0xFF, FRAME_END])
+            proto.on_ble_data(frame)
 
-            async def respond():
-                await asyncio.sleep(0.05)
-                frame = bytes([FRAME_START]) + b"HR" + response_payload
-                cs = 0
-                for b in frame[1:]:
-                    cs = (cs + b) & 0xFF
-                frame += bytes([(~cs) & 0xFF, FRAME_END])
-                proto.on_ble_data(frame)
-
-            task = asyncio.create_task(respond())
-            result = await proto.send_and_wait_response(
-                CMD_READ_NUMERICAL,
-                struct.pack(">h", 6),
-                AsyncMock(),
-            )
-            await task
-            assert result is not None
-            nv = NumericalValue.from_payload(result)
-            assert nv.value_id == 6
-            assert nv.value == 259
-        finally:
-            proto_mod.FRAME_TIMEOUT = original_timeout
+        task = asyncio.create_task(respond())
+        result = await proto.send_and_wait_response(
+            CMD_READ_NUMERICAL,
+            struct.pack(">h", 6),
+            AsyncMock(),
+        )
+        await task
+        assert result is not None
+        nv = NumericalValue.from_payload(result)
+        assert nv.value_id == 6
+        assert nv.value == 259

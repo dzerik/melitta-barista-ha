@@ -10,7 +10,18 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.melitta_barista.const import DOMAIN
+from custom_components.melitta_barista.const import (
+    DOMAIN,
+    CONF_POLL_INTERVAL,
+    CONF_RECONNECT_DELAY,
+    CONF_RECONNECT_MAX_DELAY,
+    CONF_MAX_CONSECUTIVE_ERRORS,
+    CONF_FRAME_TIMEOUT,
+    CONF_BLE_CONNECT_TIMEOUT,
+    CONF_PAIR_TIMEOUT,
+    CONF_RECIPE_RETRIES,
+    CONF_INITIAL_CONNECT_DELAY,
+)
 
 from . import MOCK_ADDRESS, MOCK_NAME
 
@@ -781,3 +792,102 @@ async def test_step_user_bleak_filters_by_prefix(
     # Should show a form with discovered devices (excluding other_device and no_name)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
+
+
+# ---------------------------------------------------------------------------
+# Options Flow tests
+# ---------------------------------------------------------------------------
+
+
+async def test_options_flow_init_shows_menu(hass: HomeAssistant) -> None:
+    """Options flow init step shows menu with basic/advanced."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    assert "basic" in result["menu_options"]
+    assert "advanced" in result["menu_options"]
+
+
+async def test_options_flow_basic_defaults(hass: HomeAssistant) -> None:
+    """Basic options step shows form with default values."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "basic"},
+    )
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["step_id"] == "basic"
+
+
+async def test_options_flow_basic_submit(hass: HomeAssistant) -> None:
+    """Submitting basic options saves values."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "basic"},
+    )
+    result3 = await hass.config_entries.options.async_configure(
+        result2["flow_id"],
+        user_input={
+            CONF_POLL_INTERVAL: 10.0,
+            CONF_RECONNECT_DELAY: 8.0,
+            CONF_RECONNECT_MAX_DELAY: 600.0,
+            CONF_MAX_CONSECUTIVE_ERRORS: 5,
+            CONF_FRAME_TIMEOUT: 10,
+        },
+    )
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
+    assert result3["data"][CONF_POLL_INTERVAL] == 10.0
+    assert result3["data"][CONF_RECONNECT_DELAY] == 8.0
+    assert result3["data"][CONF_RECONNECT_MAX_DELAY] == 600.0
+    assert result3["data"][CONF_MAX_CONSECUTIVE_ERRORS] == 5
+    assert result3["data"][CONF_FRAME_TIMEOUT] == 10
+
+
+async def test_options_flow_advanced_submit(hass: HomeAssistant) -> None:
+    """Submitting advanced options saves values."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "advanced"},
+    )
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["step_id"] == "advanced"
+
+    result3 = await hass.config_entries.options.async_configure(
+        result2["flow_id"],
+        user_input={
+            CONF_BLE_CONNECT_TIMEOUT: 20.0,
+            CONF_PAIR_TIMEOUT: 45.0,
+            CONF_RECIPE_RETRIES: 5,
+            CONF_INITIAL_CONNECT_DELAY: 5.0,
+        },
+    )
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
+    assert result3["data"][CONF_BLE_CONNECT_TIMEOUT] == 20.0
+    assert result3["data"][CONF_PAIR_TIMEOUT] == 45.0
+    assert result3["data"][CONF_RECIPE_RETRIES] == 5
+    assert result3["data"][CONF_INITIAL_CONNECT_DELAY] == 5.0

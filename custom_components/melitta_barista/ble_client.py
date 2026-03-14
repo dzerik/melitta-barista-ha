@@ -23,7 +23,13 @@ from .const import (
     CHAR_WRITE,
     CUP_COUNTER_BASE_ID,
     CUP_COUNTER_RECIPES,
+    DEFAULT_BLE_CONNECT_TIMEOUT,
+    DEFAULT_FRAME_TIMEOUT,
+    DEFAULT_MAX_CONSECUTIVE_ERRORS,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_RECIPE_RETRIES,
+    DEFAULT_RECONNECT_DELAY,
+    DEFAULT_RECONNECT_MAX_DELAY,
     DirectKeyCategory,
     MACHINE_MODEL_NAMES,
     MACHINE_TYPE_SETTING_ID,
@@ -60,12 +66,29 @@ class MelittaBleClient:
         address: str,
         device_name: str | None = None,
         ble_device: BLEDevice | None = None,
+        *,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        ble_connect_timeout: float = DEFAULT_BLE_CONNECT_TIMEOUT,
+        frame_timeout: int = DEFAULT_FRAME_TIMEOUT,
+        max_consecutive_errors: int = DEFAULT_MAX_CONSECUTIVE_ERRORS,
+        reconnect_delay: float = DEFAULT_RECONNECT_DELAY,
+        reconnect_max_delay: float = DEFAULT_RECONNECT_MAX_DELAY,
+        recipe_retries: int = DEFAULT_RECIPE_RETRIES,
     ) -> None:
         self._address = address
         self._device_name = device_name
         self._ble_device: BLEDevice | None = ble_device
         self._client: BleakClient | None = None
-        self._protocol = MelittaProtocol()
+        self._protocol = MelittaProtocol(frame_timeout=frame_timeout)
+
+        # Configurable parameters
+        self._poll_interval = poll_interval
+        self._ble_connect_timeout = ble_connect_timeout
+        self._frame_timeout = frame_timeout
+        self._max_consecutive_errors = max_consecutive_errors
+        self._reconnect_delay = reconnect_delay
+        self._reconnect_max_delay = reconnect_max_delay
+        self._recipe_retries = recipe_retries
         self._connected = False
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
@@ -317,7 +340,7 @@ class MelittaBleClient:
         client = BleakClient(
             self._ble_device or self._address,
             disconnected_callback=self._on_disconnect,
-            timeout=15.0,
+            timeout=self._ble_connect_timeout,
             pair=pair,
         )
         await client.connect()
@@ -535,15 +558,14 @@ class MelittaBleClient:
         The loop can be woken up early by setting _reconnect_event (e.g. when
         a BLE advertisement arrives, indicating the machine is back online).
         """
-        delay = 5.0
-        max_delay = 300.0
+        delay = self._reconnect_delay
         while self._auto_reconnect and not self.connected:
             _LOGGER.info("Reconnecting to %s in %.0fs...", self._address, delay)
             self._reconnect_event.clear()
             try:
                 await asyncio.wait_for(self._reconnect_event.wait(), timeout=delay)
                 _LOGGER.debug("Reconnect woken up early (BLE advertisement received)")
-                delay = 5.0  # reset backoff — machine is likely available
+                delay = self._reconnect_delay  # reset backoff
             except asyncio.TimeoutError:
                 pass
             if not self._auto_reconnect:
@@ -551,13 +573,13 @@ class MelittaBleClient:
             try:
                 if await self.connect():
                     _LOGGER.info("Reconnected to %s", self._address)
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
                     return
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Reconnect attempt failed", exc_info=True)
             except Exception:
                 _LOGGER.exception("Unexpected error during reconnect")
-            delay = min(delay * 2, max_delay)
+            delay = min(delay * 2, self._reconnect_max_delay)
 
     async def disconnect(self) -> None:
         self._auto_reconnect = False
@@ -597,7 +619,6 @@ class MelittaBleClient:
 
     async def _poll_loop(self, interval: float) -> None:
         consecutive_errors = 0
-        max_consecutive_errors = 3
         while self.connected:
             try:
                 await self.poll_status()
@@ -605,13 +626,13 @@ class MelittaBleClient:
             except (BleakError, OSError, asyncio.TimeoutError):
                 consecutive_errors += 1
                 _LOGGER.debug(
-                    "Poll error (%d/%d)", consecutive_errors, max_consecutive_errors,
+                    "Poll error (%d/%d)", consecutive_errors, self._max_consecutive_errors,
                     exc_info=True,
                 )
-                if consecutive_errors >= max_consecutive_errors:
+                if consecutive_errors >= self._max_consecutive_errors:
                     _LOGGER.warning(
                         "Poll failed %d times in a row for %s, forcing disconnect",
-                        max_consecutive_errors, self._address,
+                        self._max_consecutive_errors, self._address,
                     )
                     self._connected = False
                     self._client = None
@@ -1002,7 +1023,7 @@ class MelittaBleClient:
             try:
                 # Read current recipe to get recipe_type (with retry)
                 current = None
-                for attempt in range(3):
+                for attempt in range(self._recipe_retries):
                     current = await self._protocol.read_recipe(self._write_ble, recipe_id)
                     if current:
                         break
@@ -1028,7 +1049,7 @@ class MelittaBleClient:
 
                 # Write with retry — DK slots use no recipe_key (matches original app)
                 result = False
-                for attempt in range(3):
+                for attempt in range(self._recipe_retries):
                     result = await self._protocol.write_recipe(
                         self._write_ble, recipe_id, recipe_type,
                         component1, component2,
@@ -1058,8 +1079,8 @@ class MelittaBleClient:
                         self._notify_profile_callbacks()
                 else:
                     _LOGGER.error(
-                        "Write recipe %d failed after 3 attempts (profile=%d, %s)",
-                        recipe_id, profile_id, category.name,
+                        "Write recipe %d failed after %d attempts (profile=%d, %s)",
+                        recipe_id, self._recipe_retries, profile_id, category.name,
                     )
                 return result
             except (BleakError, OSError, asyncio.TimeoutError):
