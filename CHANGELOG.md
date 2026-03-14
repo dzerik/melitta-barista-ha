@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.21.3] — 2026-03-14
+
+### Fixed
+- Profile and Recipe select entities no longer store all DirectKey/recipe data in state attributes, preventing Recorder "exceeds maximum size of 16384 bytes" warnings
+- Config flow test `test_step_pair_success_creates_entry` no longer times out (mock background connect loop)
+
+### Removed
+- `directkey_recipes` attribute from Profile select (was causing >16KB state attributes)
+- `recipes` attribute from Recipe select (redundant bulk data; selected recipe details still available)
+
 ## [0.21.1] — 2026-03-10
 
 ### Fixed

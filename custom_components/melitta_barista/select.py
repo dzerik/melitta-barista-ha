@@ -17,7 +17,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .ble_client import MelittaBleClient
 from .const import (
     DOMAIN,
-    DirectKeyCategory,
     PROFILE_NAMES,
     RECIPE_NAMES,
     RecipeId,
@@ -166,12 +165,9 @@ class MelittaRecipeSelect(SelectEntity):
     @property
     def extra_state_attributes(self) -> dict:
         attrs: dict = {}
-        # Include details of the selected recipe at top level (backward compat)
+        # Include details of the selected recipe only
         if self._selected and self._selected in self._all_recipes:
             attrs.update(self._all_recipes[self._selected])
-        # All preloaded recipes as nested dict
-        if self._all_recipes:
-            attrs["recipes"] = self._all_recipes
         return attrs
 
     async def async_added_to_hass(self) -> None:
@@ -218,17 +214,6 @@ class MelittaRecipeSelect(SelectEntity):
                 attrs.update(_component_attrs(recipe.component2, "c2"))
                 self._all_recipes[option] = attrs
                 self.async_write_ha_state()
-
-
-DIRECTKEY_CATEGORY_NAMES: dict[int, str] = {
-    DirectKeyCategory.ESPRESSO: "Espresso",
-    DirectKeyCategory.CAFE_CREME: "Café Crème",
-    DirectKeyCategory.CAPPUCCINO: "Cappuccino",
-    DirectKeyCategory.LATTE_MACCHIATO: "Latte Macchiato",
-    DirectKeyCategory.MILK_FROTH: "Milk Froth",
-    DirectKeyCategory.MILK: "Milk",
-    DirectKeyCategory.WATER: "Hot Water",
-}
 
 
 class MelittaProfileSelect(SelectEntity):
@@ -288,23 +273,7 @@ class MelittaProfileSelect(SelectEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Expose DirectKey recipes for all profiles."""
-        attrs: dict = {}
-        dk = self._client.directkey_recipes
-        if dk:
-            all_profiles: dict[int, dict[str, dict]] = {}
-            for pid, recipes in dk.items():
-                profile_data: dict[str, dict] = {}
-                for cat_val, recipe in recipes.items():
-                    cat_name = DIRECTKEY_CATEGORY_NAMES.get(cat_val, str(cat_val))
-                    recipe_attrs: dict[str, str | int] = {"category": cat_val}
-                    recipe_attrs.update(_component_attrs(recipe.component1, "c1"))
-                    recipe_attrs.update(_component_attrs(recipe.component2, "c2"))
-                    profile_data[cat_name] = recipe_attrs
-                all_profiles[pid] = profile_data
-            attrs["directkey_recipes"] = all_profiles
-            attrs["active_profile"] = self._client.active_profile
-        return attrs
+        return {"active_profile": self._client.active_profile}
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
