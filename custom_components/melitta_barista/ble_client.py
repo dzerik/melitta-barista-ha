@@ -99,6 +99,7 @@ class MelittaBleClient:
         self._status_callbacks: list[Callable[[MachineStatus], None]] = []
         self._connection_callbacks: list[Callable[[bool], None]] = []
         self._poll_task: asyncio.Task | None = None
+        self._post_connect_task: asyncio.Task | None = None
         self._reconnect_task: asyncio.Task | None = None
         self._reconnect_event = asyncio.Event()
         self._auto_reconnect = True
@@ -218,7 +219,11 @@ class MelittaBleClient:
                 self._address,
             )
             self._reconnect_event.set()
-            self._schedule_reconnect()
+            # Only schedule reconnect if no loop is already running
+            # (_async_connect_and_poll or _reconnect_loop already listens
+            # on _reconnect_event, so set() alone wakes them up)
+            if not self._reconnect_task or self._reconnect_task.done():
+                self._schedule_reconnect()
 
     def add_status_callback(self, callback: Callable[[MachineStatus], None]) -> None:
         self._status_callbacks.append(callback)
@@ -246,6 +251,7 @@ class MelittaBleClient:
             prev is not None
             and prev.process == MachineProcess.PRODUCT
             and status.process == MachineProcess.READY
+            and not self._brew_lock.locked()
         ):
             task = asyncio.create_task(self.read_cup_counters())
             task.add_done_callback(self._on_cup_refresh_done)
@@ -397,7 +403,7 @@ class MelittaBleClient:
 
         Returns True on success, False on failure (cleans up client).
         """
-        self._protocol = MelittaProtocol()
+        self._protocol = MelittaProtocol(frame_timeout=self._frame_timeout)
         self._protocol.set_status_callback(self._on_status)
 
         try:
@@ -528,7 +534,9 @@ class MelittaBleClient:
                     _LOGGER.exception("Error in connection callback")
 
             # Load cup counters and profile data in background (non-blocking)
-            asyncio.create_task(self._load_post_connect_data())
+            self._post_connect_task = asyncio.create_task(
+                self._load_post_connect_data()
+            )
 
             return True
 
@@ -587,6 +595,9 @@ class MelittaBleClient:
         self._auto_reconnect = False
         self._disconnecting = True
         self._stop_polling()
+        if self._post_connect_task and not self._post_connect_task.done():
+            self._post_connect_task.cancel()
+            self._post_connect_task = None
         if self._reconnect_task and not self._reconnect_task.done():
             self._reconnect_task.cancel()
             self._reconnect_task = None
@@ -1330,6 +1341,7 @@ class MelittaBleClient:
         if self._brew_lock.locked():
             _LOGGER.warning("Brew in progress, cannot write alpha")
             return False
+        was_polling = self._poll_task is not None and not self._poll_task.done()
         async with self._brew_lock:
             self._stop_polling()
             try:
@@ -1348,7 +1360,8 @@ class MelittaBleClient:
                 _LOGGER.exception("BLE error writing alpha id=%d", value_id)
                 return False
             finally:
-                self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                if was_polling and self.connected:
+                    self.start_polling(interval=self._poll_interval)
 
 
 async def discover_melitta_devices(timeout: float = 10.0) -> list[BLEDevice]:

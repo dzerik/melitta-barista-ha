@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.23.3] — 2026-03-19
+
+### Fixed
+- `_load_post_connect_data` task now tracked and cancelled on disconnect (was fire-and-forget, could write to closed BLE)
+- `set_ble_device()` no longer spawns duplicate `_reconnect_loop` when `_async_connect_and_poll` is still active (shared `_reconnect_event` race condition)
+- `MelittaProtocol()` in `_try_connect_and_handshake` now passes `frame_timeout` from Options Flow (was using hardcoded default)
+- `write_alpha()` now checks `was_polling` before restarting poll loop in `finally` (was unconditionally starting polling)
+- `send_and_wait_response()` now cleans up stale future via `finally` block (was leaking future when `write_func` raised)
+- Cup counter refresh now checks `_brew_lock.locked()` before launching (could interleave with brew sequence)
+
 ## [0.23.2] — 2026-03-19
 
 ### Fixed

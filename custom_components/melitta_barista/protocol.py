@@ -596,17 +596,18 @@ class MelittaProtocol:
             future = loop.create_future()
             self._frame_futures[command] = future
 
-            frame = self.build_frame(command, payload)
-            chunks = self.chunk_for_ble(frame)
-            for chunk in chunks:
-                await write_func(chunk)
-
             try:
+                frame = self.build_frame(command, payload)
+                chunks = self.chunk_for_ble(frame)
+                for chunk in chunks:
+                    await write_func(chunk)
+
                 return await asyncio.wait_for(future, timeout=self._frame_timeout)
             except asyncio.TimeoutError:
                 _LOGGER.debug("Response timeout for %s", command)
-                self._frame_futures.pop(command, None)
                 return None
+            finally:
+                self._frame_futures.pop(command, None)
 
     # High-level API
 
