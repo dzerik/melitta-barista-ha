@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, InfoMessage, MachineProcess, Manipulation, SubProcess
+from .const import InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
 

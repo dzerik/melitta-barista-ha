@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, MachineSettingId
+from .const import MachineSettingId
 from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")

@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, USER_NAME_IDS, get_user_profile_count
+from .const import USER_NAME_IDS, get_user_profile_count
 from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")

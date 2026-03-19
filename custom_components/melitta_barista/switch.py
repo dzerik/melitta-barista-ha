@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from bleak.exc import BleakError
 
 from .ble_client import MelittaBleClient
-from .const import DOMAIN, MachineSettingId, MachineType, TS_ONLY_SETTINGS, get_user_profile_count
+from .const import MachineSettingId, MachineType, TS_ONLY_SETTINGS, get_user_profile_count
 from .entity import MelittaDeviceMixin
 
 _LOGGER = logging.getLogger("melitta_barista")

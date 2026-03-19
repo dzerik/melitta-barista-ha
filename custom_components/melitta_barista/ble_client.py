@@ -1043,7 +1043,7 @@ class MelittaBleClient:
                     _LOGGER.debug("Read recipe %d attempt %d failed, retrying", recipe_id, attempt + 1)
                     await asyncio.sleep(0.3)
 
-                from .const import get_recipe_key, DIRECTKEY_DEFAULT_RECIPE_TYPE
+                from .const import DIRECTKEY_DEFAULT_RECIPE_TYPE
 
                 if current:
                     recipe_type = current.recipe_type

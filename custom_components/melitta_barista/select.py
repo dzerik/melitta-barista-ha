@@ -15,7 +15,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import (
-    DOMAIN,
     PROFILE_NAMES,
     RECIPE_NAMES,
     RecipeId,

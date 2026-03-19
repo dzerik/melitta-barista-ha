@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import (
-    DOMAIN, FREESTYLE_RECIPE_TYPE, RECIPE_NAMES, MachineProcess,
+    FREESTYLE_RECIPE_TYPE, RECIPE_NAMES, MachineProcess,
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
 )
 from .entity import MelittaDeviceMixin
