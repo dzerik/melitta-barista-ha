@@ -6,8 +6,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from bleak.exc import BleakError
-
 from .const import (
     DirectKeyCategory,
     MachineProcess,

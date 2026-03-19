@@ -68,7 +68,7 @@ async def _wait_for_device(bus, device_path: str, timeout: float = 15.0) -> bool
         try:
             await bus.introspect("org.bluez", device_path)
             return True
-        except Exception:
+        except Exception:  # noqa: BLE001 — D-Bus introspect raises various errors
             await asyncio.sleep(1)
     return False
 
@@ -79,7 +79,7 @@ async def _get_adapter(bus):
         introspection = await bus.introspect("org.bluez", "/org/bluez/hci0")
         proxy = bus.get_proxy_object("org.bluez", "/org/bluez/hci0", introspection)
         return proxy.get_interface("org.bluez.Adapter1")
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         return None
 
 
@@ -93,7 +93,7 @@ async def _register_agent(bus, agent):
     _LOGGER.debug("Agent registered at %s", _AGENT_PATH)
     try:
         await agent_mgr.call_request_default_agent(_AGENT_PATH)
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         _LOGGER.debug("RequestDefaultAgent failed (non-critical)")
     return agent_mgr
 
@@ -109,7 +109,7 @@ async def _check_already_paired(bus, device_path: str, address: str) -> bool | N
             _LOGGER.info("Device %s is already paired", address)
             return True
         return False
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         _LOGGER.debug("Device %s not known to BlueZ", address)
         return None
 
@@ -155,7 +155,7 @@ async def _pair_and_trust(bus, device_path: str, address: str, timeout: float) -
         props = proxy.get_interface("org.freedesktop.DBus.Properties")
         await props.call_set("org.bluez.Device1", "Trusted", Variant("b", True))
         _LOGGER.debug("Device %s set as trusted", address)
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         _LOGGER.warning("Failed to set Trusted for %s", address)
 
     _LOGGER.info("Pairing with %s succeeded", address)
@@ -167,18 +167,18 @@ async def _cleanup(bus, adapter, discovery_started: bool) -> None:
     if discovery_started and adapter:
         try:
             await adapter.call_stop_discovery()
-        except Exception:
+        except Exception:  # noqa: BLE001 — D-Bus cleanup
             pass
     try:
         introspection = await bus.introspect("org.bluez", "/org/bluez")
         proxy = bus.get_proxy_object("org.bluez", "/org/bluez", introspection)
         agent_mgr = proxy.get_interface("org.bluez.AgentManager1")
         await agent_mgr.call_unregister_agent(_AGENT_PATH)
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         pass
     try:
         bus.disconnect()
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         pass
 
 
@@ -207,7 +207,7 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
             )
             try:
                 bus.disconnect()
-            except Exception:
+            except Exception:  # noqa: BLE001 — D-Bus cleanup
                 pass
             return "ok"
 
@@ -229,7 +229,7 @@ async def async_pair_device(address: str, timeout: float = 30.0) -> str:
         _LOGGER.info("Initiating D-Bus pairing with %s", address)
         return await _pair_and_trust(bus, device_path, address, timeout)
 
-    except Exception:
+    except Exception: # noqa: BLE001 — D-Bus introspect raises various errors
         _LOGGER.exception("D-Bus pairing error for %s", address)
         return "pairing_failed"
     finally:

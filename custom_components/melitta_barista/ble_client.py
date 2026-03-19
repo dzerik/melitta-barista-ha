@@ -17,6 +17,9 @@ from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakDBusError, BleakError
 
+from ._ble_commands import BleCommandsMixin
+from ._ble_recipes import BleRecipesMixin
+from ._ble_settings import BleSettingsMixin
 from .const import (
     BLE_PREFIXES_ALL,
     CHAR_NOTIFY,
@@ -33,6 +36,7 @@ from .const import (
     MachineProcess,
     MachineType,
     PROFILE_NAMES,
+    RecipeId,
     detect_machine_type_from_name,
 )
 from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
@@ -41,11 +45,6 @@ _LOGGER = logging.getLogger("melitta_barista")
 
 # Melitta service UUID for BLE discovery
 MELITTA_SERVICE_UUID = "0000ad00-b35c-11e4-9813-0002a5d5c51b"
-
-
-from ._ble_commands import BleCommandsMixin
-from ._ble_recipes import BleRecipesMixin
-from ._ble_settings import BleSettingsMixin
 
 
 class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
