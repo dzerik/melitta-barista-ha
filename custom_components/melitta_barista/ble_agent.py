@@ -119,7 +119,7 @@ async def _discover_device(adapter, bus, device_path: str, address: str) -> bool
     try:
         await adapter.call_start_discovery()
         _LOGGER.debug("Discovery started, waiting for %s", address)
-    except Exception as ex:
+    except Exception as ex:  # noqa: BLE001 — D-Bus StartDiscovery
         _LOGGER.debug("StartDiscovery failed: %s", ex)
 
     if not await _wait_for_device(bus, device_path, timeout=15.0):
@@ -143,7 +143,7 @@ async def _pair_and_trust(bus, device_path: str, address: str, timeout: float) -
     except asyncio.TimeoutError:
         _LOGGER.error("Pairing timeout for %s", address)
         return "pairing_timeout"
-    except Exception as ex:
+    except Exception as ex:  # noqa: BLE001 — D-Bus Pair() raises various errors
         if "AlreadyExists" in str(ex):
             _LOGGER.info("Device %s already paired", address)
         else:
