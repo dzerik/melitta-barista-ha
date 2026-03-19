@@ -9,6 +9,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ._ble_typing import BleClientProtocol
 
+    _MixinBase = BleClientProtocol
+else:
+    _MixinBase = object
+
 from .const import (
     DirectKeyCategory,
     MachineProcess,
@@ -21,7 +25,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger("melitta_barista")
 
 
-class BleCommandsMixin:
+class BleCommandsMixin(_MixinBase):
     """Mixin providing brew and maintenance commands."""
 
     async def brew_recipe(

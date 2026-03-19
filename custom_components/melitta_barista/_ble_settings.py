@@ -13,10 +13,14 @@ from .const import USER_NAME_IDS
 if TYPE_CHECKING:
     from ._ble_typing import BleClientProtocol
 
+    _MixinBase = BleClientProtocol
+else:
+    _MixinBase = object
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 
-class BleSettingsMixin:
+class BleSettingsMixin(_MixinBase):
     """Mixin providing settings and alphanumeric read/write."""
 
     # Numerical settings

@@ -23,6 +23,13 @@
       "pair": {
         "title": "Pair with {name}",
         "description": "Enable Bluetooth pairing mode on your coffee machine (check machine settings menu), then press Submit to pair.\n\nDevice: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

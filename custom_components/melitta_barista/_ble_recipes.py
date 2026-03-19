@@ -11,6 +11,10 @@ from bleak.exc import BleakError
 if TYPE_CHECKING:
     from ._ble_typing import BleClientProtocol
 
+    _MixinBase = BleClientProtocol
+else:
+    _MixinBase = object
+
 from .const import (
     CUP_COUNTER_BASE_ID,
     CUP_COUNTER_RECIPES,
@@ -27,7 +31,7 @@ from .protocol import MachineRecipe, RecipeComponent
 _LOGGER = logging.getLogger("melitta_barista")
 
 
-class BleRecipesMixin:
+class BleRecipesMixin(_MixinBase):
     """Mixin providing recipe, profile, and cup counter operations."""
 
     # Recipe operations

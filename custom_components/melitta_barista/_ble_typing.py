@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 from typing import Callable, Protocol
 
-from .protocol import MachineStatus, MelittaProtocol, MachineRecipe
+from .const import MachineType
+from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
 
 
 class BleClientProtocol(Protocol):
@@ -19,12 +20,13 @@ class BleClientProtocol(Protocol):
     _protocol: MelittaProtocol
     _connected: bool
     _client: object | None
+    _status: MachineStatus | None
     _brew_lock: asyncio.Lock
     _write_lock: asyncio.Lock
     _poll_task: asyncio.Task | None
     _poll_interval: float
     _recipe_retries: int
-    _machine_type: object | None
+    _machine_type: MachineType | None
     _profile_names: dict[int, str]
     _directkey_recipes: dict[int, dict[int, MachineRecipe]]
     _cups_callbacks: list[Callable[[], None]]

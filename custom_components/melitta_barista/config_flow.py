@@ -13,7 +13,7 @@ from homeassistant.components.bluetooth import (
 from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 
 from .ble_client import MELITTA_SERVICE_UUID
 from .const import (
@@ -62,7 +62,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle user-initiated setup."""
         errors: dict[str, str] = {}
 
@@ -132,7 +132,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_manual(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle manual address entry."""
         errors: dict[str, str] = {}
 
@@ -166,7 +166,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle bluetooth discovery."""
         address = discovery_info.address
         name = discovery_info.name or "Melitta Barista Smart"
@@ -181,7 +181,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_bluetooth_confirm(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Confirm bluetooth discovery."""
         if user_input is not None:
             return await self.async_step_pair()
@@ -195,7 +195,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_pair(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Pair with the coffee machine via BLE."""
         errors: dict[str, str] = {}
 
@@ -245,6 +245,46 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return await async_pair_device(self._address, timeout=PAIR_TIMEOUT)
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration (change BLE address or device name)."""
+        errors: dict[str, str] = {}
+        entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            address = user_input[CONF_ADDRESS].strip().upper()
+            name = user_input.get(CONF_NAME, entry.data.get(CONF_NAME, ""))
+
+            if len(address.replace(":", "").replace("-", "")) != 12:
+                errors[CONF_ADDRESS] = "invalid_address"
+            else:
+                clean = address.replace(":", "").replace("-", "")
+                address = ":".join(clean[i:i+2] for i in range(0, 12, 2))
+
+                await self.async_set_unique_id(clean.lower())
+                self._abort_if_unique_id_mismatch()
+
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data_updates={CONF_ADDRESS: address, CONF_NAME: name},
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_ADDRESS,
+                    default=entry.data.get(CONF_ADDRESS, ""),
+                ): str,
+                vol.Optional(
+                    CONF_NAME,
+                    default=entry.data.get(CONF_NAME, "Melitta Barista Smart"),
+                ): str,
+            }),
+            errors=errors,
+        )
+
 
 class MelittaOptionsFlow(OptionsFlow):
     """Handle options flow for Melitta Barista Smart."""
@@ -254,7 +294,7 @@ class MelittaOptionsFlow(OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Show options menu."""
         return self.async_show_menu(
             step_id="init",
@@ -263,7 +303,7 @@ class MelittaOptionsFlow(OptionsFlow):
 
     async def async_step_basic(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle basic options."""
         if user_input is not None:
             new_options = {**self._config_entry.options, **user_input}
@@ -298,7 +338,7 @@ class MelittaOptionsFlow(OptionsFlow):
 
     async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle advanced options."""
         if user_input is not None:
             new_options = {**self._config_entry.options, **user_input}

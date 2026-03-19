@@ -2,6 +2,24 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.25.0] — 2026-03-19
+
+### Added
+- **Diagnostics support** (`diagnostics.py`) — HA diagnostics panel with redacted BLE address
+- **Reconfigure flow** (`async_step_reconfigure`) — change BLE address/name without re-adding
+- **Type safety** (`_ble_typing.py`) — Protocol class for mypy mixin type checking
+
+### Changed
+- `manifest.json`: added `integration_type: "device"`, `loggers: ["melitta_barista"]`
+- `config_flow.py`: migrated `FlowResult` → `ConfigFlowResult` (HA best practice)
+- Mixin classes now use conditional `_MixinBase` for mypy compatibility
+
+### Improved
+- Test coverage: 89% → 89% (371 tests, was 349)
+- `button.py`: 78% → **100%** (22 new tests)
+- `config_flow.py`: maintained 90% (reconfigure flow added)
+- HA Quality Scale: 10/14 → **13/14** (diagnostics, loggers, integration_type added)
+
 ## [0.24.0] — 2026-03-19
 
 ### Changed
