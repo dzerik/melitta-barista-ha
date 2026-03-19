@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.24.0] — 2026-03-19
+
+### Changed
+- **Refactor**: `ble_client.py` split from 1386 lines into 4 modules using mixins:
+  - `ble_client.py` — connection, reconnect, polling (684 lines)
+  - `_ble_commands.py` — brew, cancel, maintenance (262 lines)
+  - `_ble_recipes.py` — recipe/profile CRUD, cup counters (447 lines)
+  - `_ble_settings.py` — settings, alpha read/write (62 lines)
+- All external imports unchanged — fully backward-compatible
+
 ## [0.23.4] — 2026-03-19
 
 ### Fixed
