@@ -113,6 +113,18 @@
       },
       "switch_off": {
         "name": "Ausschalten"
+      },
+      "filter_insert": {
+        "name": "Filter Insert"
+      },
+      "filter_replace": {
+        "name": "Filter Replace"
+      },
+      "filter_remove": {
+        "name": "Filter Remove"
+      },
+      "evaporating": {
+        "name": "Evaporating"
       }
     },
     "select": {
@@ -155,6 +167,18 @@
       },
       "brew_temperature": {
         "name": "Brühtemperatur"
+      },
+      "language": {
+        "name": "Language"
+      },
+      "clock": {
+        "name": "Clock"
+      },
+      "clock_send": {
+        "name": "Clock Send"
+      },
+      "filter": {
+        "name": "Filter"
       }
     },
     "switch": {
@@ -166,6 +190,55 @@
       },
       "rinsing_disabled": {
         "name": "Spülung deaktiviert"
+      },
+      "profile_activity": {
+        "name": "Profile {profile_id} Active"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Melitta Barista Settings",
+        "description": "Choose settings category",
+        "menu_options": {
+          "basic": "Basic Settings",
+          "advanced": "Advanced Settings"
+        }
+      },
+      "basic": {
+        "title": "Basic Settings",
+        "description": "Configure polling and reconnect parameters",
+        "data": {
+          "poll_interval": "Status poll interval (seconds)",
+          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
+          "reconnect_max_delay": "Reconnect max backoff (seconds)",
+          "max_consecutive_errors": "Poll errors before disconnect",
+          "frame_timeout": "BLE frame timeout (seconds)"
+        },
+        "data_description": {
+          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
+          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
+          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
+          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
+          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
+        }
+      },
+      "advanced": {
+        "title": "Advanced Settings",
+        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
+        "data": {
+          "ble_connect_timeout": "BLE connection timeout (seconds)",
+          "pair_timeout": "Pairing timeout (seconds)",
+          "recipe_retries": "Recipe read/write retries",
+          "initial_connect_delay": "Initial connect delay (seconds)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
+          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
+          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
+          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
+        }
       }
     }
   }
