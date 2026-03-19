@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.23.4] — 2026-03-19
+
+### Fixed
+- `_SHOTS_NAMES` mapped to integers instead of strings — shots entity attributes rendered as `0/1/2/3` instead of `"none"/"one"/"two"/"three"`
+- Brew/recipe methods used hardcoded `DEFAULT_POLL_INTERVAL` instead of `self._poll_interval`, silently overriding user Options Flow configuration
+
 ## [0.23.3] — 2026-03-19
 
 ### Fixed

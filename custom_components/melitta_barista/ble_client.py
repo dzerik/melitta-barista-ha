@@ -717,7 +717,7 @@ class MelittaBleClient:
                 )
             finally:
                 if self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def brew_directkey(self, category: DirectKeyCategory, *, two_cups: bool = False) -> bool:
         """Brew from a DirectKey slot of the active profile.
@@ -773,7 +773,7 @@ class MelittaBleClient:
                 )
             finally:
                 if self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def brew_freestyle(
         self,
@@ -829,7 +829,7 @@ class MelittaBleClient:
                 )
             finally:
                 if self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def cancel_process(self, process: MachineProcess = MachineProcess.PRODUCT) -> bool:
         if not self.connected:
@@ -1103,7 +1103,7 @@ class MelittaBleClient:
                 return False
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def reset_profile_recipe(
         self, profile_id: int, category: DirectKeyCategory,
@@ -1138,7 +1138,7 @@ class MelittaBleClient:
                 )
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def update_profile_recipe(
         self,
@@ -1193,7 +1193,7 @@ class MelittaBleClient:
                 )
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def copy_profile_recipe(
         self,
@@ -1227,7 +1227,7 @@ class MelittaBleClient:
                 )
             finally:
                 if was_polling and self.connected:
-                    self.start_polling(interval=DEFAULT_POLL_INTERVAL)
+                    self.start_polling(interval=self._poll_interval)
 
     async def reset_all_profile_recipes(self, profile_id: int) -> bool:
         """Reset all recipes of a profile to defaults (from profile 0)."""

@@ -66,10 +66,10 @@ _TEMPERATURE_NAMES = {
 }
 
 _SHOTS_NAMES = {
-    Shots.NONE: 0,
-    Shots.ONE: 1,
-    Shots.TWO: 2,
-    Shots.THREE: 3,
+    Shots.NONE: "none",
+    Shots.ONE: "one",
+    Shots.TWO: "two",
+    Shots.THREE: "three",
 }
 
 
