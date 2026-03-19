@@ -23,6 +23,13 @@
       "pair": {
         "title": "Appairage avec {name}",
         "description": "Activez le mode d'appairage Bluetooth sur votre machine à café (consultez le menu des paramètres de la machine), puis appuyez sur Envoyer pour appairer.\n\nAppareil : **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

@@ -23,6 +23,13 @@
       "pair": {
         "title": "Emparelhar com {name}",
         "description": "Ative o modo de emparelhamento Bluetooth na sua máquina de café (consulte o menu de configurações da máquina), depois pressione Enviar para emparelhar.\n\nDispositivo: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

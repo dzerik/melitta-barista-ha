@@ -23,6 +23,13 @@
       "pair": {
         "title": "Kopplung mit {name}",
         "description": "Aktivieren Sie den Bluetooth-Kopplungsmodus an Ihrer Kaffeemaschine (im Einstellungsmenü der Maschine), dann drücken Sie Senden zum Koppeln.\n\nGerät: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

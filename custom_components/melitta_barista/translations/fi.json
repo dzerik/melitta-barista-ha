@@ -23,6 +23,13 @@
       "pair": {
         "title": "Pariliitos laitteeseen {name}",
         "description": "Ota Bluetooth-pariliitostila käyttöön kahvikoneessasi (asetusvalikossa), paina sitten Lähetä.\n\nLaite: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

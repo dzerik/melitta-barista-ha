@@ -23,6 +23,13 @@
       "pair": {
         "title": "Párovanie s {name}",
         "description": "Zapnite režim párovania Bluetooth na kávovare (v menu nastavení), potom stlačte Odoslať.\n\nZariadenie: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

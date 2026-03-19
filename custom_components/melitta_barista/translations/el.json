@@ -23,6 +23,13 @@
       "pair": {
         "title": "Σύζευξη με {name}",
         "description": "Ενεργοποιήστε τη λειτουργία σύζευξης Bluetooth στην καφετιέρα (στο μενού ρυθμίσεων), μετά πατήστε Αποστολή.\n\nΣυσκευή: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

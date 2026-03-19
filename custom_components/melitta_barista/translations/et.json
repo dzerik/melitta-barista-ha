@@ -23,6 +23,13 @@
       "pair": {
         "title": "Sidumine seadmega {name}",
         "description": "Lülitage kohvimasinal Bluetooth sidumisrežiim sisse (seadete menüüs), seejärel vajutage Saada.\n\nSeade: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

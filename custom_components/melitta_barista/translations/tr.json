@@ -23,6 +23,13 @@
       "pair": {
         "title": "{name} ile eşleştir",
         "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsünde), ardından Gönder'e basın.\n\nCihaz: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

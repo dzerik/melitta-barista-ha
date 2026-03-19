@@ -23,6 +23,13 @@
       "pair": {
         "title": "Párosítás: {name}",
         "description": "Kapcsolja be a Bluetooth párosítási módot a kávégépen (a beállítások menüben), majd nyomja meg a Küldés gombot.\n\nEszköz: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

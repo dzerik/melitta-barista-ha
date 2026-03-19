@@ -23,6 +23,13 @@
       "pair": {
         "title": "Uparivanje s {name}",
         "description": "Uključite Bluetooth način uparivanja na aparatu za kavu (u izborniku postavki), zatim pritisnite Pošalji.\n\nUređaj: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

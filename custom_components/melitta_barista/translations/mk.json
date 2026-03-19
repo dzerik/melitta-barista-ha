@@ -23,6 +23,13 @@
       "pair": {
         "title": "Спарување со {name}",
         "description": "Вклучете го Bluetooth режимот за спарување на апаратот за кафе (во менито за поставки), потоа притиснете Испрати.\n\nУред: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

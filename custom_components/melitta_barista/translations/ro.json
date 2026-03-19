@@ -23,6 +23,13 @@
       "pair": {
         "title": "Împerechere cu {name}",
         "description": "Activați modul de împerechere Bluetooth pe aparatul de cafea (în meniul de setări), apoi apăsați Trimite.\n\nDispozitiv: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

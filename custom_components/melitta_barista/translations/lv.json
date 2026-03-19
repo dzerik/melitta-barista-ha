@@ -23,6 +23,13 @@
       "pair": {
         "title": "Savienošana ar {name}",
         "description": "Ieslēdziet Bluetooth savienošanas režīmu kafijas automātā (iestatījumu izvēlnē), tad nospiediet Nosūtīt.\n\nIerīce: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

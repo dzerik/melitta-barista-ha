@@ -23,6 +23,13 @@
       "pair": {
         "title": "Сопряжение с {name}",
         "description": "Включите режим сопряжения Bluetooth на кофемашине (в меню настроек машины), затем нажмите Отправить.\n\nУстройство: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

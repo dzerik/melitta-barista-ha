@@ -23,6 +23,13 @@
       "pair": {
         "title": "Сдвояване с {name}",
         "description": "Включете режим на сдвояване по Bluetooth на кафемашината (в менюто с настройки), след което натиснете Изпрати.\n\nУстройство: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

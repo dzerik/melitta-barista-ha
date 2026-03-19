@@ -23,6 +23,13 @@
       "pair": {
         "title": "Сполучення з {name}",
         "description": "Увімкніть режим сполучення Bluetooth на кавомашині (в меню налаштувань), потім натисніть Надіслати.\n\nПристрій: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {

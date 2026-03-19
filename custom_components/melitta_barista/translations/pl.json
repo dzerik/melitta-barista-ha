@@ -23,6 +23,13 @@
       "pair": {
         "title": "Parowanie z {name}",
         "description": "Włącz tryb parowania Bluetooth na ekspresie (w menu ustawień), a następnie naciśnij Wyślij.\n\nUrządzenie: **{name}** ({address})"
+      },
+      "reconfigure": {
+        "title": "Reconfigure Melitta Barista",
+        "data": {
+          "address": "Bluetooth MAC Address",
+          "name": "Device Name"
+        }
       }
     },
     "error": {
