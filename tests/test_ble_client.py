@@ -951,6 +951,37 @@ class TestReconnect:
 
         assert attempt == 3
 
+    async def test_reconnect_loop_does_not_cancel_itself(self):
+        """Reconnect loop must not cancel its own task via _connect_impl."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._auto_reconnect = True
+
+        async def fake_wait_for(coro, **kwargs):
+            coro.close() if hasattr(coro, 'close') else None
+            raise asyncio.TimeoutError
+
+        # Simulate _schedule_reconnect: set _reconnect_task to the running task
+        original_connect = client.connect
+
+        async def patched_connect():
+            # Mimic what _schedule_reconnect does: _reconnect_task = current task
+            client._reconnect_task = asyncio.current_task()
+            # Use a mock for _connect_impl to avoid real BLE
+            client._connected = True
+            return True
+
+        with (
+            patch.object(client, "connect", side_effect=patched_connect),
+            patch.object(client, "start_polling") as mock_start_polling,
+            patch("asyncio.wait_for", side_effect=fake_wait_for),
+        ):
+            # Run via _schedule_reconnect so _reconnect_task is set correctly
+            client._schedule_reconnect()
+            await client._reconnect_task
+
+        mock_start_polling.assert_called_once()
+        assert client._connected is True
+
 
 # ---------------------------------------------------------------------------
 # disconnect (lines 392-410)
@@ -1067,6 +1098,7 @@ class TestPollLoop:
         with (
             patch("asyncio.sleep", new=AsyncMock()),
             patch.object(client, "_schedule_reconnect") as mock_reconnect,
+            patch.object(client, "_safe_disconnect", new=AsyncMock()) as mock_disconnect,
         ):
             await client._poll_loop(1.0)
 
@@ -1074,6 +1106,7 @@ class TestPollLoop:
         assert client._connected is False
         conn_cb.assert_called_once_with(False)
         mock_reconnect.assert_called_once()
+        mock_disconnect.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

@@ -474,9 +474,11 @@ class MelittaBleClient:
             return True
 
         # Cancel any pending reconnect task to avoid interference with retry logic
+        # (but skip if WE are the reconnect task — otherwise we cancel ourselves)
         if self._reconnect_task and not self._reconnect_task.done():
-            self._reconnect_task.cancel()
-            self._reconnect_task = None
+            if asyncio.current_task() is not self._reconnect_task:
+                self._reconnect_task.cancel()
+                self._reconnect_task = None
 
         try:
             _LOGGER.info("Connecting to Melitta at %s", self._address)
@@ -635,7 +637,7 @@ class MelittaBleClient:
                         self._max_consecutive_errors, self._address,
                     )
                     self._connected = False
-                    self._client = None
+                    await self._safe_disconnect()
                     for cb in self._connection_callbacks:
                         try:
                             cb(False)

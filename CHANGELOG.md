@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.23.2] — 2026-03-19
+
+### Fixed
+- **Critical**: reconnect loop silently cancelled itself — `_connect_impl` called `_reconnect_task.cancel()` on the currently running task, preventing any reconnection after BLE disconnect
+- Poll-loop forced disconnect now calls `_safe_disconnect()` to properly close the BLE connection on ESPHome proxy before scheduling reconnect
+
+### Added
+- New test verifying reconnect loop does not cancel itself
+
 ## [0.23.0] — 2026-03-14
 
 ### Added
