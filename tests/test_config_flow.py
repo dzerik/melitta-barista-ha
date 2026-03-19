@@ -891,3 +891,196 @@ async def test_options_flow_advanced_submit(hass: HomeAssistant) -> None:
     assert result3["data"][CONF_PAIR_TIMEOUT] == 45.0
     assert result3["data"][CONF_RECIPE_RETRIES] == 5
     assert result3["data"][CONF_INITIAL_CONNECT_DELAY] == 5.0
+
+
+# ---------------------------------------------------------------------------
+# async_step_reconfigure — change BLE address / name
+# ---------------------------------------------------------------------------
+
+
+async def test_step_reconfigure_shows_form(hass: HomeAssistant) -> None:
+    """Reconfigure step shows a form pre-filled with current address and name."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+
+async def test_step_reconfigure_valid_address_updates_entry(
+    hass: HomeAssistant,
+) -> None:
+    """Submitting a valid address updates the config entry and aborts."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    with patch(
+        "custom_components.melitta_barista.async_setup_entry",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            user_input={
+                CONF_ADDRESS: "AA:BB:CC:DD:EE:FF",
+                CONF_NAME: "New Name",
+            },
+        )
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result2["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_ADDRESS] == "AA:BB:CC:DD:EE:FF"
+    assert entry.data[CONF_NAME] == "New Name"
+
+
+async def test_step_reconfigure_normalizes_address(
+    hass: HomeAssistant,
+) -> None:
+    """Reconfigure normalizes MAC address (lowercase, dashes, no separators)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    with patch(
+        "custom_components.melitta_barista.async_setup_entry",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            user_input={
+                CONF_ADDRESS: "aa-bb-cc-dd-ee-ff",
+                CONF_NAME: MOCK_NAME,
+            },
+        )
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result2["reason"] == "reconfigure_successful"
+    # Address should be normalized to colon-separated uppercase
+    assert entry.data[CONF_ADDRESS] == "AA:BB:CC:DD:EE:FF"
+
+
+async def test_step_reconfigure_invalid_address_shows_error(
+    hass: HomeAssistant,
+) -> None:
+    """Submitting an invalid MAC address shows an error and stays on the form."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_ADDRESS: "AA:BB:CC",
+            CONF_NAME: MOCK_NAME,
+        },
+    )
+
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["step_id"] == "reconfigure"
+    assert result2["errors"][CONF_ADDRESS] == "invalid_address"
+
+
+async def test_step_reconfigure_invalid_address_too_long(
+    hass: HomeAssistant,
+) -> None:
+    """MAC address that is too long shows an error."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_ADDRESS: "AA:BB:CC:DD:EE:FF:00",
+            CONF_NAME: MOCK_NAME,
+        },
+    )
+
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["errors"][CONF_ADDRESS] == "invalid_address"
+
+
+async def test_step_reconfigure_unique_id_mismatch_aborts(
+    hass: HomeAssistant,
+) -> None:
+    """Changing to an address with a different unique_id aborts with mismatch."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    # Submit with a completely different address (different unique_id)
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_ADDRESS: "11:22:33:44:55:66",
+            CONF_NAME: MOCK_NAME,
+        },
+    )
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result2["reason"] == "unique_id_mismatch"
+
+
+async def test_step_reconfigure_no_separators_accepted(
+    hass: HomeAssistant,
+) -> None:
+    """MAC without separators is accepted and normalized."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        unique_id="aabbccddeeff",
+    )
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+
+    with patch(
+        "custom_components.melitta_barista.async_setup_entry",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            user_input={
+                CONF_ADDRESS: "aabbccddeeff",
+                CONF_NAME: "Updated Name",
+            },
+        )
+
+    assert result2["type"] is FlowResultType.ABORT
+    assert result2["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_ADDRESS] == "AA:BB:CC:DD:EE:FF"
+    assert entry.data[CONF_NAME] == "Updated Name"

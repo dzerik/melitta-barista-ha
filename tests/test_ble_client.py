@@ -2218,3 +2218,222 @@ class TestCopyAndResetAllRecipes:
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         result = await client.reset_all_profile_recipes(1)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# brew_directkey error paths (_ble_commands.py lines 95-157)
+# ---------------------------------------------------------------------------
+
+class TestBrewDirectKey:
+    """Test DirectKey brew error paths."""
+
+    async def test_brew_directkey_not_connected(self):
+        """brew_directkey returns False when not connected (line 100)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is False
+
+    async def test_brew_directkey_brew_lock_held(self):
+        """brew_directkey returns False when brew lock is already held (lines 96-97)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._protocol = MagicMock()
+        client._protocol.read_status = AsyncMock(return_value=None)
+
+        await client._brew_lock.acquire()
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is False
+        client._brew_lock.release()
+
+    async def test_brew_directkey_not_ready(self):
+        """brew_directkey returns False when machine is not ready (lines 102-103)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._status = MachineStatus(process=MachineProcess.PRODUCT)
+        client._protocol = MagicMock()
+        client._protocol.read_status = AsyncMock(return_value=None)
+
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is False
+
+    async def test_brew_directkey_read_recipe_all_retries_fail(self, mock_bleak_client):
+        """brew_directkey returns False when all read_recipe retries fail (lines 120-130)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._status = MachineStatus(process=MachineProcess.READY)
+        client._protocol.read_recipe = AsyncMock(return_value=None)
+
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is False
+        # Should have retried _recipe_retries times (default=3)
+        assert client._protocol.read_recipe.await_count == client._recipe_retries
+
+    async def test_brew_directkey_write_recipe_fails(self, mock_bleak_client):
+        """brew_directkey returns False when write_recipe fails (lines 137-138)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._status = MachineStatus(process=MachineProcess.READY)
+
+        mock_recipe = MachineRecipe(
+            recipe_id=302, recipe_type=0,
+            component1=RecipeComponent(), component2=RecipeComponent(),
+        )
+        client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
+        client._protocol.write_recipe = AsyncMock(return_value=False)
+
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is False
+
+    async def test_brew_directkey_write_name_fails(self, mock_bleak_client):
+        """brew_directkey returns False when write_alphanumeric fails (lines 146-147)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._status = MachineStatus(process=MachineProcess.READY)
+
+        mock_recipe = MachineRecipe(
+            recipe_id=302, recipe_type=0,
+            component1=RecipeComponent(), component2=RecipeComponent(),
+        )
+        client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+        client._protocol.write_alphanumeric = AsyncMock(return_value=False)
+
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is False
+
+    async def test_brew_directkey_success(self, mock_bleak_client):
+        """brew_directkey succeeds when all steps pass."""
+        client = _make_connected_client(mock_bleak_client)
+        client._status = MachineStatus(process=MachineProcess.READY)
+
+        mock_recipe = MachineRecipe(
+            recipe_id=302, recipe_type=0,
+            component1=RecipeComponent(), component2=RecipeComponent(),
+        )
+        client._protocol.read_recipe = AsyncMock(return_value=mock_recipe)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+        client._protocol.write_alphanumeric = AsyncMock(return_value=True)
+        client._protocol.start_process = AsyncMock(return_value=True)
+
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is True
+        client._protocol.start_process.assert_awaited_once()
+
+    async def test_brew_directkey_read_retries_then_succeeds(self, mock_bleak_client):
+        """brew_directkey retries read_recipe and succeeds on later attempt (lines 120-123)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._status = MachineStatus(process=MachineProcess.READY)
+
+        mock_recipe = MachineRecipe(
+            recipe_id=302, recipe_type=0,
+            component1=RecipeComponent(), component2=RecipeComponent(),
+        )
+        call_count = 0
+
+        async def read_with_retries(write_fn, recipe_id):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                return None  # fail first two attempts
+            return mock_recipe
+
+        client._protocol.read_recipe = AsyncMock(side_effect=read_with_retries)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+        client._protocol.write_alphanumeric = AsyncMock(return_value=True)
+        client._protocol.start_process = AsyncMock(return_value=True)
+
+        result = await client.brew_directkey(DirectKeyCategory.ESPRESSO)
+        assert result is True
+        assert call_count == 3
+
+
+# ---------------------------------------------------------------------------
+# brew_freestyle brew_lock path (_ble_commands.py lines 172-173)
+# ---------------------------------------------------------------------------
+
+class TestBrewFreestyleLock:
+    """Test freestyle brew lock rejection."""
+
+    async def test_brew_freestyle_brew_lock_held(self):
+        """brew_freestyle returns False when brew lock is already held (lines 172-173)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._status = MachineStatus(process=MachineProcess.READY)
+        client._protocol = MagicMock()
+        client._protocol.read_status = AsyncMock(return_value=None)
+
+        await client._brew_lock.acquire()
+        result = await client.brew_freestyle(
+            "Custom", 24, RecipeComponent(), RecipeComponent(),
+        )
+        assert result is False
+        client._brew_lock.release()
+
+
+# ---------------------------------------------------------------------------
+# Maintenance: filter_insert, filter_replace, filter_remove, evaporating, switch_off
+# (_ble_commands.py lines 239-267)
+# ---------------------------------------------------------------------------
+
+class TestMaintenanceFilterAndEvaporating:
+    """Test filter and evaporating maintenance operations."""
+
+    async def test_start_filter_insert_not_connected(self):
+        """start_filter_insert returns False when not connected (lines 240-241)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        assert await client.start_filter_insert() is False
+
+    async def test_start_filter_insert_connected(self, mock_bleak_client):
+        """start_filter_insert delegates to protocol (lines 242-243)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.start_process = AsyncMock(return_value=True)
+        result = await client.start_filter_insert()
+        assert result is True
+        client._protocol.start_process.assert_awaited_once_with(
+            client._write_ble, MachineProcess.FILTER_INSERT,
+        )
+
+    async def test_start_filter_replace_not_connected(self):
+        """start_filter_replace returns False when not connected (lines 246-247)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        assert await client.start_filter_replace() is False
+
+    async def test_start_filter_replace_connected(self, mock_bleak_client):
+        """start_filter_replace delegates to protocol (lines 248-249)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.start_process = AsyncMock(return_value=True)
+        result = await client.start_filter_replace()
+        assert result is True
+        client._protocol.start_process.assert_awaited_once_with(
+            client._write_ble, MachineProcess.FILTER_REPLACE,
+        )
+
+    async def test_start_filter_remove_not_connected(self):
+        """start_filter_remove returns False when not connected (lines 252-253)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        assert await client.start_filter_remove() is False
+
+    async def test_start_filter_remove_connected(self, mock_bleak_client):
+        """start_filter_remove delegates to protocol (lines 254-255)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.start_process = AsyncMock(return_value=True)
+        result = await client.start_filter_remove()
+        assert result is True
+        client._protocol.start_process.assert_awaited_once_with(
+            client._write_ble, MachineProcess.FILTER_REMOVE,
+        )
+
+    async def test_start_evaporating_not_connected(self):
+        """start_evaporating returns False when not connected (lines 258-259)."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        assert await client.start_evaporating() is False
+
+    async def test_start_evaporating_connected(self, mock_bleak_client):
+        """start_evaporating delegates to protocol (lines 260-261)."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.start_process = AsyncMock(return_value=True)
+        result = await client.start_evaporating()
+        assert result is True
+        client._protocol.start_process.assert_awaited_once_with(
+            client._write_ble, MachineProcess.EVAPORATING,
+        )
