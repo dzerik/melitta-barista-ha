@@ -15,6 +15,9 @@ from .ble_client import MelittaBleClient
 from .const import MachineSettingId
 from .entity import MelittaDeviceMixin
 
+
+PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 

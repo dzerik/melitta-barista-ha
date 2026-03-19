@@ -518,28 +518,30 @@ async def test_handle_brew_freestyle_success(
 async def test_handle_brew_freestyle_client_not_found(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Test brew_freestyle logs error when no matching client is found."""
+    """Test brew_freestyle raises ServiceValidationError when no client found."""
+    from homeassistant.exceptions import ServiceValidationError
+
     client = _mock_client()
     await _setup_entry_with_client(hass, mock_entry, client)
 
-    # Call with an entity_id that doesn't exist in registry
-    await hass.services.async_call(
-        DOMAIN, "brew_freestyle",
-        {
-            "entity_id": "button.nonexistent",
-            "name": "Test",
-            "process1": "coffee",
-        },
-        blocking=True,
-    )
-
-    # Should not raise, just log error
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, "brew_freestyle",
+            {
+                "entity_id": "button.nonexistent",
+                "name": "Test",
+                "process1": "coffee",
+            },
+            blocking=True,
+        )
 
 
 async def test_handle_brew_freestyle_returns_false(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Test brew_freestyle logs error when client returns False."""
+    """Test brew_freestyle raises HomeAssistantError when client returns False."""
+    from homeassistant.exceptions import HomeAssistantError
+
     client = _mock_client()
     client.brew_freestyle = AsyncMock(return_value=False)
     await _setup_entry_with_client(hass, mock_entry, client)
@@ -552,15 +554,16 @@ async def test_handle_brew_freestyle_returns_false(
     )
     entity_id = registry.async_get_entity_id("button", DOMAIN, f"{MOCK_ADDRESS}_brew")
 
-    await hass.services.async_call(
-        DOMAIN, "brew_freestyle",
-        {
-            "entity_id": entity_id,
-            "name": "Test",
-            "process1": "coffee",
-        },
-        blocking=True,
-    )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            DOMAIN, "brew_freestyle",
+            {
+                "entity_id": entity_id,
+                "name": "Test",
+                "process1": "coffee",
+            },
+            blocking=True,
+        )
 
     client.brew_freestyle.assert_awaited_once()
 
@@ -606,24 +609,29 @@ async def test_handle_brew_directkey_success(
 async def test_handle_brew_directkey_client_not_found(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Test brew_directkey logs error when no matching client is found."""
+    """Test brew_directkey raises ServiceValidationError when no client found."""
+    from homeassistant.exceptions import ServiceValidationError
+
     client = _mock_client()
     await _setup_entry_with_client(hass, mock_entry, client)
 
-    await hass.services.async_call(
-        DOMAIN, "brew_directkey",
-        {
-            "entity_id": "button.nonexistent",
-            "category": "espresso",
-        },
-        blocking=True,
-    )
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, "brew_directkey",
+            {
+                "entity_id": "button.nonexistent",
+                "category": "espresso",
+            },
+            blocking=True,
+        )
 
 
 async def test_handle_brew_directkey_returns_false(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Test brew_directkey logs error when client returns False."""
+    """Test brew_directkey raises HomeAssistantError when client returns False."""
+    from homeassistant.exceptions import HomeAssistantError
+
     client = _mock_client()
     client.brew_directkey = AsyncMock(return_value=False)
     await _setup_entry_with_client(hass, mock_entry, client)
@@ -636,15 +644,16 @@ async def test_handle_brew_directkey_returns_false(
     )
     entity_id = registry.async_get_entity_id("button", DOMAIN, f"{MOCK_ADDRESS}_brew")
 
-    await hass.services.async_call(
-        DOMAIN, "brew_directkey",
-        {
-            "entity_id": entity_id,
-            "category": "cappuccino",
-            "two_cups": True,
-        },
-        blocking=True,
-    )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            DOMAIN, "brew_directkey",
+            {
+                "entity_id": entity_id,
+                "category": "cappuccino",
+                "two_cups": True,
+            },
+            blocking=True,
+        )
 
     client.brew_directkey.assert_awaited_once()
 
@@ -735,25 +744,30 @@ async def test_handle_save_directkey_with_explicit_profile(
 async def test_handle_save_directkey_client_not_found(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Test save_directkey logs error when no matching client is found."""
+    """Test save_directkey raises ServiceValidationError when no client found."""
+    from homeassistant.exceptions import ServiceValidationError
+
     client = _mock_client()
     await _setup_entry_with_client(hass, mock_entry, client)
 
-    await hass.services.async_call(
-        DOMAIN, "save_directkey",
-        {
-            "entity_id": "button.nonexistent",
-            "category": "espresso",
-            "process1": "coffee",
-        },
-        blocking=True,
-    )
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, "save_directkey",
+            {
+                "entity_id": "button.nonexistent",
+                "category": "espresso",
+                "process1": "coffee",
+            },
+            blocking=True,
+        )
 
 
 async def test_handle_save_directkey_returns_false(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Test save_directkey logs error when write_profile_recipe returns False."""
+    """Test save_directkey raises HomeAssistantError when write returns False."""
+    from homeassistant.exceptions import HomeAssistantError
+
     client = _mock_client()
     client.write_profile_recipe = AsyncMock(return_value=False)
     await _setup_entry_with_client(hass, mock_entry, client)
@@ -766,15 +780,16 @@ async def test_handle_save_directkey_returns_false(
     )
     entity_id = registry.async_get_entity_id("button", DOMAIN, f"{MOCK_ADDRESS}_brew")
 
-    await hass.services.async_call(
-        DOMAIN, "save_directkey",
-        {
-            "entity_id": entity_id,
-            "category": "milk",
-            "process1": "milk",
-        },
-        blocking=True,
-    )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            DOMAIN, "save_directkey",
+            {
+                "entity_id": entity_id,
+                "category": "milk",
+                "process1": "milk",
+            },
+            blocking=True,
+        )
 
     client.write_profile_recipe.assert_awaited_once()
 

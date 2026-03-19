@@ -10,6 +10,7 @@ from homeassistant.components import bluetooth
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
@@ -321,8 +322,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
         """Handle brew_freestyle service call."""
         client = _find_client(call.data["entity_id"])
         if client is None:
-            _LOGGER.error("No Melitta machine found for %s", call.data["entity_id"])
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+            )
 
         comp1 = RecipeComponent(
             process=_PROCESS_MAP[call.data["process1"]],
@@ -354,7 +357,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
             two_cups=two_cups,
         )
         if not success:
-            _LOGGER.error("Failed to brew freestyle recipe")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="brew_failed",
+            )
 
     hass.services.async_register(
         DOMAIN, SERVICE_BREW_FREESTYLE, _handle_brew_freestyle,
@@ -377,21 +383,28 @@ def _async_register_services(hass: HomeAssistant) -> None:
         """Handle brew_directkey service call."""
         client = _find_client(call.data["entity_id"])
         if client is None:
-            _LOGGER.error("No Melitta machine found for %s", call.data["entity_id"])
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+            )
 
         category = _CATEGORY_MAP[call.data["category"]]
         two_cups = call.data.get("two_cups", False)
         success = await client.brew_directkey(category, two_cups=two_cups)
         if not success:
-            _LOGGER.error("Failed to brew DirectKey recipe %s", call.data["category"])
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="brew_failed",
+            )
 
     async def _handle_save_directkey(call: ServiceCall) -> None:
         """Handle save_directkey service call."""
         client = _find_client(call.data["entity_id"])
         if client is None:
-            _LOGGER.error("No Melitta machine found for %s", call.data["entity_id"])
-            return
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+            )
 
         category = _CATEGORY_MAP[call.data["category"]]
         profile_id = call.data.get("profile_id", client.active_profile)
@@ -419,16 +432,15 @@ def _async_register_services(hass: HomeAssistant) -> None:
         success = await client.write_profile_recipe(
             profile_id, category, comp1, comp2,
         )
-        if success:
-            _LOGGER.info(
-                "Saved DirectKey recipe: profile=%d, category=%s",
-                profile_id, call.data["category"],
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="save_failed",
             )
-        else:
-            _LOGGER.error(
-                "Failed to save DirectKey recipe: profile=%d, category=%s",
-                profile_id, call.data["category"],
-            )
+        _LOGGER.info(
+            "Saved DirectKey recipe: profile=%d, category=%s",
+            profile_id, call.data["category"],
+        )
 
     hass.services.async_register(
         DOMAIN, SERVICE_BREW_DIRECTKEY, _handle_brew_directkey,

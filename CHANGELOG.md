@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.26.0] — 2026-03-19
+
+### Added
+- **HA Quality Scale compliance**:
+  - `PARALLEL_UPDATES = 0` in all 6 entity platform files (Silver: `parallel-updates`)
+  - Service actions now raise `HomeAssistantError` / `ServiceValidationError` (Silver: `action-exceptions`)
+  - Exception translations in `strings.json` (Gold: `exception-translations`)
+  - `ConfigFlowResult` return types (HA best practice)
+- **Quality Scale Plan**: `docs/QUALITY_SCALE_PLAN.md` — detailed roadmap to Platinum
+
+### Changed
+- Service handlers (`brew_freestyle`, `brew_directkey`, `save_directkey`) raise exceptions on failure instead of silently returning
+
 ## [0.25.0] — 2026-03-19
 
 ### Added

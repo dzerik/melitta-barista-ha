@@ -29,6 +29,9 @@ from .const import (
 from .entity import MelittaDeviceMixin
 from .protocol import RecipeComponent
 
+
+PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
+
 # Freestyle option lists
 _PROCESS_OPTIONS = ["coffee", "milk", "water"]
 _PROCESS_OPTIONS_WITH_NONE = ["none", "coffee", "milk", "water"]

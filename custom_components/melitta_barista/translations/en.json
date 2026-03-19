@@ -248,5 +248,16 @@
         "name": "Profile {profile_id} Active"
       }
     }
+  },
+  "exceptions": {
+    "device_not_found": {
+      "message": "Melitta device not found for this service call."
+    },
+    "brew_failed": {
+      "message": "Brewing failed. Check the machine status and try again."
+    },
+    "save_failed": {
+      "message": "Failed to save recipe. Check the BLE connection."
+    }
   }
 }

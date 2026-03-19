@@ -18,6 +18,9 @@ from .ble_client import MelittaBleClient
 from .const import MachineSettingId, MachineType, TS_ONLY_SETTINGS, get_user_profile_count
 from .entity import MelittaDeviceMixin
 
+
+PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 SWITCH_DEFINITIONS: list[dict] = [

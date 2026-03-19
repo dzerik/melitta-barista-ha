@@ -16,6 +16,9 @@ from .const import InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
 
+
+PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 
