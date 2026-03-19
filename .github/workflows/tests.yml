@@ -27,6 +27,7 @@ jobs:
           pip install pytest-homeassistant-custom-component
           pip install pytest-cov pytest-timeout
           pip install bleak bleak-retry-connector pycryptodome
+          pip install pyserial pyudev aiousbwatcher
 
       - name: Run tests
         run: |
