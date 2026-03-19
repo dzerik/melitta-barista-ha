@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 from bleak.exc import BleakError
 
 from .const import USER_NAME_IDS
+
+if TYPE_CHECKING:
+    from ._ble_typing import BleClientProtocol
 
 _LOGGER = logging.getLogger("melitta_barista")
 

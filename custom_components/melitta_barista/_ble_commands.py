@@ -6,6 +6,9 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from ._ble_typing import BleClientProtocol
+
 from .const import (
     DirectKeyCategory,
     MachineProcess,

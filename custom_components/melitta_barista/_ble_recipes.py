@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 from bleak.exc import BleakError
+
+if TYPE_CHECKING:
+    from ._ble_typing import BleClientProtocol
 
 from .const import (
     CUP_COUNTER_BASE_ID,
