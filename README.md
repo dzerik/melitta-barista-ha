@@ -4,11 +4,11 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha?style=flat-square)](https://github.com/dzerik/melitta-barista-ha/releases)
 [![GitHub Downloads](https://img.shields.io/github/downloads/dzerik/melitta-barista-ha/total?style=flat-square&label=downloads)](https://github.com/dzerik/melitta-barista-ha/releases)
+[![Tests](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=tests)](https://github.com/dzerik/melitta-barista-ha/actions/workflows/tests.yml)
+[![Validate](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=hassfest%2BHACS)](https://github.com/dzerik/melitta-barista-ha/actions)
 [![License](https://img.shields.io/github/license/dzerik/melitta-barista-ha?style=flat-square)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square)](https://hacs.xyz)
 [![Home Assistant](https://img.shields.io/badge/HA-2024.1%2B-blue?style=flat-square)](https://www.home-assistant.io/)
-[![Tests](https://img.shields.io/badge/tests-497_passed-brightgreen?style=flat-square)](#)
-[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen?style=flat-square)](#)
 [![BLE](https://img.shields.io/badge/BLE-Bluetooth_LE-blue?style=flat-square)](#)
 [![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#)
 
