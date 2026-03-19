@@ -1,4 +1,10 @@
 {
+  "issues": {
+    "connection_unstable": {
+      "title": "Unstable BLE connection",
+      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+    }
+  },
   "exceptions": {
     "device_not_found": {
       "message": "Melitta device not found for this service call."

@@ -7,8 +7,8 @@
 [![License](https://img.shields.io/github/license/dzerik/melitta-barista-ha?style=flat-square)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square)](https://hacs.xyz)
 [![Home Assistant](https://img.shields.io/badge/HA-2024.1%2B-blue?style=flat-square)](https://www.home-assistant.io/)
-[![Tests](https://img.shields.io/badge/tests-371_passed-brightgreen?style=flat-square)](#)
-[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/tests-497_passed-brightgreen?style=flat-square)](#)
+[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen?style=flat-square)](#)
 [![BLE](https://img.shields.io/badge/BLE-Bluetooth_LE-blue?style=flat-square)](#)
 [![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#)
 

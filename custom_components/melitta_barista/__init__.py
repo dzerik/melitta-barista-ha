@@ -9,8 +9,11 @@ from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 import voluptuous as vol
 
+import time
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
@@ -157,6 +160,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     entry.runtime_data = client
+
+    # Track disconnects for repair issue (connection instability warning)
+    disconnect_times: list[float] = []
+    max_disconnects_per_hour = 5
+    issue_id = f"connection_unstable_{address}"
+
+    @callback
+    def _track_connection(connected: bool) -> None:
+        if connected:
+            # Clear repair issue on successful reconnect
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+            return
+        disconnect_times.append(time.monotonic())
+        # Keep only last hour
+        cutoff = time.monotonic() - 3600
+        disconnect_times[:] = [t for t in disconnect_times if t > cutoff]
+        if len(disconnect_times) >= max_disconnects_per_hour:
+            ir.async_create_issue(
+                hass, DOMAIN, issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="connection_unstable",
+                translation_placeholders={"count": str(len(disconnect_times))},
+            )
+
+    client.add_connection_callback(_track_connection)
+    entry.async_on_unload(
+        lambda: client.remove_connection_callback(_track_connection)
+    )
 
     # Clean up legacy per-recipe button entities (v0.5.x → v0.6.0 migration)
     _async_cleanup_legacy_recipe_buttons(hass, entry, address)

@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.27.0] — 2026-03-19
+
+### Added
+- **Repair Issues**: BLE connection instability warning in Settings → Repairs (Gold: `repair-issues`)
+- **GitHub Actions CI**: automated tests, coverage, HACS validation, hassfest, ruff, bandit
+- README badges updated: 497 tests, 97% coverage
+
+### Stats
+- **497 tests**, **97% coverage**, 12 modules at 99-100%
+- Bronze 18/18 ✅, Silver 10/10 ✅, Gold ~18/22
+
 ## [0.26.0] — 2026-03-19
 
 ### Added
