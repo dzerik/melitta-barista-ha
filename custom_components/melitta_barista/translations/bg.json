@@ -27,14 +27,60 @@
     },
     "error": {
       "invalid_address": "Невалиден Bluetooth MAC адрес",
-      "cannot_connect": "Неуспешно свързване с устройството",
-      "unknown": "Неочаквана грешка",
-      "pairing_failed": "Сдвояването е неуспешно. Уверете се, че машината е в режим на сдвояване.",
-      "pairing_timeout": "Изтичане на времето за сдвояване. Включете режим на сдвояване и опитайте отново."
+      "cannot_connect": "Неуспешно свързване с устройството. Уверете се, че машината е включена и в обхвата на Bluetooth.",
+      "pairing_failed": "Сдвояването е неуспешно. Уверете се, че машината е в режим на сдвояване, и опитайте отново.",
+      "pairing_timeout": "Изтичане на времето за сдвояване. Включете режим на сдвояване и опитайте отново.",
+      "unknown": "Неочаквана грешка"
     },
     "abort": {
       "already_configured": "Устройството вече е конфигурирано",
       "no_devices_found": "Не са намерени устройства Melitta"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки на Melitta Barista",
+        "description": "Изберете категория настройки",
+        "menu_options": {
+          "basic": "Основни настройки",
+          "advanced": "Разширени настройки"
+        }
+      },
+      "basic": {
+        "title": "Основни настройки",
+        "description": "Конфигуриране на анкетиране и параметри за повторно свързване",
+        "data": {
+          "poll_interval": "Интервал на анкетиране на статуса (секунди)",
+          "reconnect_initial_delay": "Начално забавяне при повторно свързване (секунди)",
+          "reconnect_max_delay": "Макс. забавяне при повторно свързване (секунди)",
+          "max_consecutive_errors": "Грешки при анкетиране преди прекъсване",
+          "frame_timeout": "Времево ограничение на BLE кадър (секунди)"
+        },
+        "data_description": {
+          "poll_interval": "Колко често да се анкетира машината за обновяване на статуса (по подразбиране: 5 с)",
+          "reconnect_initial_delay": "Начално забавяне преди опит за повторно свързване (по подразбиране: 5 с)",
+          "reconnect_max_delay": "Максимално забавяне между опитите за повторно свързване (по подразбиране: 300 с)",
+          "max_consecutive_errors": "Брой последователни грешки при анкетиране преди принудително прекъсване (по подразбиране: 3)",
+          "frame_timeout": "Времево ограничение за операции за изпращане/получаване на BLE кадри (по подразбиране: 5 с)"
+        }
+      },
+      "advanced": {
+        "title": "Разширени настройки",
+        "description": "Параметри на BLE връзката (променяйте само при проблеми с връзката)",
+        "data": {
+          "ble_connect_timeout": "Времево ограничение на BLE свързване (секунди)",
+          "pair_timeout": "Времево ограничение на сдвояване (секунди)",
+          "recipe_retries": "Повторни опити за четене/запис на рецепти",
+          "initial_connect_delay": "Забавяне на първоначално свързване (секунди)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "Времево ограничение за установяване на BLE връзка (по подразбиране: 15 с)",
+          "pair_timeout": "Времево ограничение за BLE сдвояване при настройка (по подразбиране: 30 с)",
+          "recipe_retries": "Брой повторни опити за четене/запис на рецепти (по подразбиране: 3)",
+          "initial_connect_delay": "Изчакване преди първия опит за свързване след настройка (по подразбиране: 3 с)"
+        }
+      }
     }
   },
   "entity": {
@@ -76,7 +122,7 @@
         "name": "Необходимо действие",
         "state": {
           "none": "Няма",
-          "brew_unit_removed": "Заварочният блок е извален",
+          "brew_unit_removed": "Заварочният блок е изваден",
           "trays_missing": "Тавите липсват",
           "empty_trays": "Изпразнете тавите",
           "fill_water": "Долейте вода",
@@ -115,43 +161,43 @@
         "name": "Изключи"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Постави филтър"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Смени филтър"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Премахни филтър"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Изпаряване"
       }
     },
     "select": {
       "recipe": {
         "name": "Рецепта",
         "state": {
-          "espresso": "Еспресо",
-          "ristretto": "Ристрето",
-          "lungo": "Лунго",
-          "espresso_doppio": "Еспресо Допио",
-          "ristretto_doppio": "Ристрето Допио",
-          "cafe_creme": "Кафе Крема",
-          "cafe_creme_doppio": "Кафе Крема Допио",
-          "americano": "Американо",
-          "americano_extra": "Американо Екстра",
-          "long_black": "Лонг Блек",
-          "red_eye": "Ред Ай",
-          "black_eye": "Блек Ай",
-          "dead_eye": "Дед Ай",
-          "cappuccino": "Капучино",
-          "espresso_macchiato": "Еспресо Макиато",
-          "caffe_latte": "Кафе Лате",
-          "cafe_au_lait": "Кафе о Ле",
-          "flat_white": "Флет Уайт",
-          "latte_macchiato": "Лате Макиато",
-          "latte_macchiato_extra": "Лате Макиато Екстра",
-          "latte_macchiato_triple": "Лате Макиато Трипъл",
+          "espresso": "Espresso",
+          "ristretto": "Ristretto",
+          "lungo": "Lungo",
+          "espresso_doppio": "Espresso Doppio",
+          "ristretto_doppio": "Ristretto Doppio",
+          "cafe_creme": "Café Crème",
+          "cafe_creme_doppio": "Café Crème Doppio",
+          "americano": "Americano",
+          "americano_extra": "Americano Extra",
+          "long_black": "Long Black",
+          "red_eye": "Red Eye",
+          "black_eye": "Black Eye",
+          "dead_eye": "Dead Eye",
+          "cappuccino": "Cappuccino",
+          "espresso_macchiato": "Espresso Macchiato",
+          "caffe_latte": "Caffè Latte",
+          "cafe_au_lait": "Café au Lait",
+          "flat_white": "Flat White",
+          "latte_macchiato": "Latte Macchiato",
+          "latte_macchiato_extra": "Latte Macchiato Extra",
+          "latte_macchiato_triple": "Latte Macchiato Triple",
           "milk": "Мляко",
           "milk_froth": "Млечна пяна",
           "hot_water": "Гореща вода"
@@ -169,16 +215,16 @@
         "name": "Температура на приготвяне"
       },
       "language": {
-        "name": "Language"
+        "name": "Език"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Часовник"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Изпрати време"
       },
       "filter": {
-        "name": "Filter"
+        "name": "Филтър"
       }
     },
     "switch": {
@@ -192,53 +238,7 @@
         "name": "Изплакването изключено"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Профил {profile_id} активен"
       }
     }
   }

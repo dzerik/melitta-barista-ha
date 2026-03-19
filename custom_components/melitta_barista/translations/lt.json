@@ -27,14 +27,60 @@
     },
     "error": {
       "invalid_address": "Neteisingas Bluetooth MAC adresas",
-      "cannot_connect": "Nepavyko prisijungti prie įrenginio",
-      "unknown": "Netikėta klaida",
-      "pairing_failed": "Susiejimas nepavyko. Įsitikinkite, kad aparatas yra susiejimo režime.",
-      "pairing_timeout": "Susiejimo laikas baigėsi. Įjunkite susiejimo režimą ir bandykite dar kartą."
+      "cannot_connect": "Nepavyko prisijungti prie įrenginio. Įsitikinkite, kad aparatas įjungtas ir yra Bluetooth veikimo zonoje.",
+      "pairing_failed": "Susiejimas nepavyko. Įsitikinkite, kad aparatas yra susiejimo režime, ir bandykite dar kartą.",
+      "pairing_timeout": "Susiejimo laikas baigėsi. Įjunkite susiejimo režimą aparate ir bandykite dar kartą.",
+      "unknown": "Netikėta klaida"
     },
     "abort": {
       "already_configured": "Įrenginys jau sukonfigūruotas",
       "no_devices_found": "Melitta įrenginių nerasta"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Melitta Barista nustatymai",
+        "description": "Pasirinkite nustatymų kategoriją",
+        "menu_options": {
+          "basic": "Pagrindiniai nustatymai",
+          "advanced": "Išplėstiniai nustatymai"
+        }
+      },
+      "basic": {
+        "title": "Pagrindiniai nustatymai",
+        "description": "Konfigūruokite apklausos ir pakartotinio prisijungimo parametrus",
+        "data": {
+          "poll_interval": "Būsenos apklausos intervalas (sekundės)",
+          "reconnect_initial_delay": "Pakartotinio prisijungimo pradinis delsa (sekundės)",
+          "reconnect_max_delay": "Pakartotinio prisijungimo maks. delsa (sekundės)",
+          "max_consecutive_errors": "Apklausos klaidų iki atjungimo",
+          "frame_timeout": "BLE kadro skirtasis laikas (sekundės)"
+        },
+        "data_description": {
+          "poll_interval": "Kaip dažnai apklausiamas aparato būsenos atnaujinimas (numatytasis: 5s)",
+          "reconnect_initial_delay": "Pradinė delsa prieš pakartotinio prisijungimo bandymą (numatytasis: 5s)",
+          "reconnect_max_delay": "Maksimali delsa tarp pakartotinio prisijungimo bandymų (numatytasis: 300s)",
+          "max_consecutive_errors": "Iš eilės einančių apklausos klaidų skaičius prieš priverstinį atjungimą (numatytasis: 3)",
+          "frame_timeout": "BLE kadro siuntimo/gavimo skirtasis laikas (numatytasis: 5s)"
+        }
+      },
+      "advanced": {
+        "title": "Išplėstiniai nustatymai",
+        "description": "Konfigūruokite BLE ryšio parametrus (keiskite tik esant ryšio problemoms)",
+        "data": {
+          "ble_connect_timeout": "BLE ryšio skirtasis laikas (sekundės)",
+          "pair_timeout": "Susiejimo skirtasis laikas (sekundės)",
+          "recipe_retries": "Recepto skaitymo/rašymo bandymai",
+          "initial_connect_delay": "Pradinio prisijungimo delsa (sekundės)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "BLE ryšio užmezgimo skirtasis laikas (numatytasis: 15s)",
+          "pair_timeout": "BLE susiejimo skirtasis laikas sąrankos metu (numatytasis: 30s)",
+          "recipe_retries": "Pakartotinių bandymų skaičius recepto skaitymo/rašymo operacijoms (numatytasis: 3)",
+          "initial_connect_delay": "Laukimo laikas prieš pirmą prisijungimo bandymą po sąrankos (numatytasis: 3s)"
+        }
+      }
     }
   },
   "entity": {
@@ -115,16 +161,16 @@
         "name": "Išjungti"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Įdėti filtrą"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Pakeisti filtrą"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Išimti filtrą"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Garinimas"
       }
     },
     "select": {
@@ -169,16 +215,16 @@
         "name": "Ruošimo temperatūra"
       },
       "language": {
-        "name": "Language"
+        "name": "Kalba"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Laikrodis"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Siųsti laikrodį"
       },
       "filter": {
-        "name": "Filter"
+        "name": "Filtras"
       }
     },
     "switch": {
@@ -192,53 +238,7 @@
         "name": "Skalavimas išjungtas"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Profilis {profile_id} aktyvus"
       }
     }
   }

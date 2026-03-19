@@ -10,9 +10,9 @@
       },
       "manual": {
         "title": "Configuração manual",
-        "description": "Introduza o endereço Bluetooth MAC da sua Melitta Barista Smart",
+        "description": "Introduza o endereço MAC Bluetooth da sua Melitta Barista Smart",
         "data": {
-          "address": "Endereço Bluetooth MAC",
+          "address": "Endereço MAC Bluetooth",
           "name": "Nome do dispositivo"
         }
       },
@@ -22,19 +22,65 @@
       },
       "pair": {
         "title": "Emparelhar com {name}",
-        "description": "Ative o modo de emparelhamento Bluetooth na sua máquina de café (no menu de configurações), depois pressione Enviar.\n\nDispositivo: **{name}** ({address})"
+        "description": "Ative o modo de emparelhamento Bluetooth na sua máquina de café (consulte o menu de configurações da máquina), depois pressione Enviar para emparelhar.\n\nDispositivo: **{name}** ({address})"
       }
     },
     "error": {
-      "invalid_address": "Endereço Bluetooth MAC inválido",
-      "cannot_connect": "Falha ao conectar ao dispositivo",
-      "unknown": "Erro inesperado",
-      "pairing_failed": "Emparelhamento falhou. Certifique-se de que a máquina está em modo de emparelhamento.",
-      "pairing_timeout": "Tempo de emparelhamento esgotado. Ative o modo de emparelhamento e tente novamente."
+      "invalid_address": "Endereço MAC Bluetooth inválido",
+      "cannot_connect": "Não foi possível conectar ao dispositivo. Certifique-se de que a máquina está ligada e dentro do alcance Bluetooth.",
+      "pairing_failed": "Emparelhamento falhou. Certifique-se de que a máquina está em modo de emparelhamento e tente novamente.",
+      "pairing_timeout": "Tempo de emparelhamento esgotado. Ative o modo de emparelhamento na máquina e tente novamente.",
+      "unknown": "Erro inesperado"
     },
     "abort": {
       "already_configured": "O dispositivo já está configurado",
       "no_devices_found": "Nenhum dispositivo Melitta encontrado"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Definições Melitta Barista",
+        "description": "Escolher categoria de definições",
+        "menu_options": {
+          "basic": "Definições básicas",
+          "advanced": "Definições avançadas"
+        }
+      },
+      "basic": {
+        "title": "Definições básicas",
+        "description": "Configurar parâmetros de sondagem e reconexão",
+        "data": {
+          "poll_interval": "Intervalo de sondagem de estado (segundos)",
+          "reconnect_initial_delay": "Atraso inicial de reconexão (segundos)",
+          "reconnect_max_delay": "Atraso máximo de reconexão (segundos)",
+          "max_consecutive_errors": "Erros de sondagem antes de desconectar",
+          "frame_timeout": "Tempo limite de frame BLE (segundos)"
+        },
+        "data_description": {
+          "poll_interval": "Frequência de sondagem da máquina para atualizações de estado (predefinido: 5s)",
+          "reconnect_initial_delay": "Atraso inicial antes da tentativa de reconexão (predefinido: 5s)",
+          "reconnect_max_delay": "Atraso máximo entre tentativas de reconexão (predefinido: 300s)",
+          "max_consecutive_errors": "Número de erros de sondagem consecutivos antes de forçar a desconexão (predefinido: 3)",
+          "frame_timeout": "Tempo limite para operações de envio/receção de frames BLE (predefinido: 5s)"
+        }
+      },
+      "advanced": {
+        "title": "Definições avançadas",
+        "description": "Configurar parâmetros de conexão BLE (alterar apenas se tiver problemas de conexão)",
+        "data": {
+          "ble_connect_timeout": "Tempo limite de conexão BLE (segundos)",
+          "pair_timeout": "Tempo limite de emparelhamento (segundos)",
+          "recipe_retries": "Tentativas de leitura/escrita de receita",
+          "initial_connect_delay": "Atraso de conexão inicial (segundos)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "Tempo limite para o estabelecimento da conexão BLE (predefinido: 15s)",
+          "pair_timeout": "Tempo limite para emparelhamento BLE durante a configuração (predefinido: 30s)",
+          "recipe_retries": "Número de tentativas para operações de leitura/escrita de receita (predefinido: 3)",
+          "initial_connect_delay": "Espera antes da primeira tentativa de conexão após a configuração (predefinido: 3s)"
+        }
+      }
     }
   },
   "entity": {
@@ -77,10 +123,10 @@
         "state": {
           "none": "Nenhuma",
           "brew_unit_removed": "Unidade de infusão removida",
-          "trays_missing": "Bandejas em falta",
-          "empty_trays": "Esvaziar bandejas",
-          "fill_water": "Encher água",
-          "close_powder_lid": "Fechar tampa",
+          "trays_missing": "Tabuleiros em falta",
+          "empty_trays": "Esvaziar tabuleiros",
+          "fill_water": "Encher o reservatório de água",
+          "close_powder_lid": "Fechar tampa do pó",
           "fill_powder": "Adicionar café"
         }
       },
@@ -115,16 +161,16 @@
         "name": "Desligar"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Inserir filtro"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Substituir filtro"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Remover filtro"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Evaporação"
       }
     },
     "select": {
@@ -147,7 +193,7 @@
           "cappuccino": "Cappuccino",
           "espresso_macchiato": "Espresso Macchiato",
           "caffe_latte": "Caffè Latte",
-          "cafe_au_lait": "Café com leite",
+          "cafe_au_lait": "Café com Leite",
           "flat_white": "Flat White",
           "latte_macchiato": "Latte Macchiato",
           "latte_macchiato_extra": "Latte Macchiato Extra",
@@ -169,16 +215,16 @@
         "name": "Temperatura de infusão"
       },
       "language": {
-        "name": "Language"
+        "name": "Idioma"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Relógio"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Enviar hora"
       },
       "filter": {
-        "name": "Filter"
+        "name": "Filtro"
       }
     },
     "switch": {
@@ -192,53 +238,7 @@
         "name": "Enxaguamento desativado"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Perfil {profile_id} ativo"
       }
     }
   }

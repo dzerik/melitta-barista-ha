@@ -27,14 +27,60 @@
     },
     "error": {
       "invalid_address": "Virheellinen Bluetooth MAC-osoite",
-      "cannot_connect": "Laitteeseen ei voitu yhdistää",
-      "unknown": "Odottamaton virhe",
-      "pairing_failed": "Pariliitos epäonnistui. Varmista, että kone on pariliitostilassa.",
-      "pairing_timeout": "Pariliitoksen aikakatkaisu. Ota pariliitostila käyttöön ja yritä uudelleen."
+      "cannot_connect": "Laitteeseen ei voitu yhdistää. Varmista, että kone on päällä ja Bluetooth-kantaman sisällä.",
+      "pairing_failed": "Pariliitos epäonnistui. Varmista, että kone on pariliitostilassa, ja yritä uudelleen.",
+      "pairing_timeout": "Pariliitoksen aikakatkaisu. Ota pariliitostila käyttöön koneessa ja yritä uudelleen.",
+      "unknown": "Odottamaton virhe"
     },
     "abort": {
       "already_configured": "Laite on jo määritetty",
       "no_devices_found": "Melitta-laitteita ei löytynyt"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Melitta Barista -asetukset",
+        "description": "Valitse asetuskategoria",
+        "menu_options": {
+          "basic": "Perusasetukset",
+          "advanced": "Lisäasetukset"
+        }
+      },
+      "basic": {
+        "title": "Perusasetukset",
+        "description": "Määritä kysely- ja uudelleenyhteysparametrit",
+        "data": {
+          "poll_interval": "Tilakyselyväli (sekuntia)",
+          "reconnect_initial_delay": "Uudelleenyhteys alkuviive (sekuntia)",
+          "reconnect_max_delay": "Uudelleenyhteys enimmäisviive (sekuntia)",
+          "max_consecutive_errors": "Kyselyvirheitä ennen katkaisua",
+          "frame_timeout": "BLE-kehyksen aikakatkaisu (sekuntia)"
+        },
+        "data_description": {
+          "poll_interval": "Kuinka usein koneen tila kysellään (oletus: 5s)",
+          "reconnect_initial_delay": "Alkuviive ennen uudelleenyhteysyritystä (oletus: 5s)",
+          "reconnect_max_delay": "Enimmäisviive uudelleenyhteysyritysten välillä (oletus: 300s)",
+          "max_consecutive_errors": "Peräkkäisten kyselyvirheiden määrä ennen pakotetua katkaisua (oletus: 3)",
+          "frame_timeout": "BLE-kehyksen lähetys-/vastaanottokeskeytys (oletus: 5s)"
+        }
+      },
+      "advanced": {
+        "title": "Lisäasetukset",
+        "description": "Määritä BLE-yhteysparametrit (muuta vain yhteysongelmissa)",
+        "data": {
+          "ble_connect_timeout": "BLE-yhteyden aikakatkaisu (sekuntia)",
+          "pair_timeout": "Pariliitoksen aikakatkaisu (sekuntia)",
+          "recipe_retries": "Reseptin luku-/kirjoitusyritykset",
+          "initial_connect_delay": "Ensimmäisen yhteyden viive (sekuntia)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "BLE-yhteyden muodostuksen aikakatkaisu (oletus: 15s)",
+          "pair_timeout": "BLE-pariliitoksen aikakatkaisu asennuksen aikana (oletus: 30s)",
+          "recipe_retries": "Uudelleenyritysten määrä reseptin luku-/kirjoitusoperaatioille (oletus: 3)",
+          "initial_connect_delay": "Odotusaika ennen ensimmäistä yhteysyritystä asennuksen jälkeen (oletus: 3s)"
+        }
+      }
     }
   },
   "entity": {
@@ -103,10 +149,10 @@
         "name": "Peruuta"
       },
       "easy_clean": {
-        "name": "Pikapesu"
+        "name": "Pikapuhdistus"
       },
       "intensive_clean": {
-        "name": "Tehopesu"
+        "name": "Tehopuhdistus"
       },
       "descaling": {
         "name": "Kalkinpoisto"
@@ -115,16 +161,16 @@
         "name": "Sammuta"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Aseta suodatin"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Vaihda suodatin"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Poista suodatin"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Höyrystys"
       }
     },
     "select": {
@@ -163,22 +209,22 @@
         "name": "Veden kovuus"
       },
       "auto_off_after": {
-        "name": "Auto pois jälkeen"
+        "name": "Automaattisammutus"
       },
       "brew_temperature": {
         "name": "Keittolämpötila"
       },
       "language": {
-        "name": "Language"
+        "name": "Kieli"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Kello"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Lähetä kello"
       },
       "filter": {
-        "name": "Filter"
+        "name": "Suodatin"
       }
     },
     "switch": {
@@ -186,59 +232,13 @@
         "name": "Energiansäästö"
       },
       "auto_bean_select": {
-        "name": "Auto papuvalinta"
+        "name": "Automaattinen papuvalinta"
       },
       "rinsing_disabled": {
         "name": "Huuhtelu pois käytöstä"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Profiili {profile_id} aktiivinen"
       }
     }
   }

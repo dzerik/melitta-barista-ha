@@ -27,14 +27,60 @@
     },
     "error": {
       "invalid_address": "Neplatná Bluetooth MAC adresa",
-      "cannot_connect": "Nepodařilo se připojit k zařízení",
-      "unknown": "Neočekávaná chyba",
-      "pairing_failed": "Párování se nezdařilo. Ujistěte se, že je stroj v režimu párování.",
-      "pairing_timeout": "Vypršel čas párování. Zapněte režim párování a zkuste to znovu."
+      "cannot_connect": "Nepodařilo se připojit k zařízení. Ujistěte se, že je kávovar zapnutý a v dosahu Bluetooth.",
+      "pairing_failed": "Párování se nezdařilo. Ujistěte se, že je stroj v režimu párování, a zkuste to znovu.",
+      "pairing_timeout": "Vypršel čas párování. Zapněte režim párování a zkuste to znovu.",
+      "unknown": "Neočekávaná chyba"
     },
     "abort": {
       "already_configured": "Zařízení je již nakonfigurováno",
       "no_devices_found": "Nebyla nalezena žádná zařízení Melitta"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavení Melitta Barista",
+        "description": "Vyberte kategorii nastavení",
+        "menu_options": {
+          "basic": "Základní nastavení",
+          "advanced": "Pokročilá nastavení"
+        }
+      },
+      "basic": {
+        "title": "Základní nastavení",
+        "description": "Konfigurace dotazování a parametrů opětovného připojení",
+        "data": {
+          "poll_interval": "Interval dotazování stavu (sekundy)",
+          "reconnect_initial_delay": "Počáteční prodleva opětovného připojení (sekundy)",
+          "reconnect_max_delay": "Max. prodleva opětovného připojení (sekundy)",
+          "max_consecutive_errors": "Chyb dotazování před odpojením",
+          "frame_timeout": "Časový limit BLE rámce (sekundy)"
+        },
+        "data_description": {
+          "poll_interval": "Jak často dotazovat kávovar na aktualizace stavu (výchozí: 5 s)",
+          "reconnect_initial_delay": "Počáteční prodleva před pokusem o opětovné připojení (výchozí: 5 s)",
+          "reconnect_max_delay": "Maximální prodleva mezi pokusy o opětovné připojení (výchozí: 300 s)",
+          "max_consecutive_errors": "Počet po sobě jdoucích chyb dotazování před vynuceným odpojením (výchozí: 3)",
+          "frame_timeout": "Časový limit pro operace odesílání/přijímání BLE rámců (výchozí: 5 s)"
+        }
+      },
+      "advanced": {
+        "title": "Pokročilá nastavení",
+        "description": "Parametry BLE připojení (měňte pouze při problémech s připojením)",
+        "data": {
+          "ble_connect_timeout": "Časový limit BLE připojení (sekundy)",
+          "pair_timeout": "Časový limit párování (sekundy)",
+          "recipe_retries": "Opakování čtení/zápisu receptů",
+          "initial_connect_delay": "Prodleva prvního připojení (sekundy)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "Časový limit pro navázání BLE připojení (výchozí: 15 s)",
+          "pair_timeout": "Časový limit BLE párování během nastavení (výchozí: 30 s)",
+          "recipe_retries": "Počet opakovaných pokusů o čtení/zápis receptů (výchozí: 3)",
+          "initial_connect_delay": "Čekání před prvním pokusem o připojení po nastavení (výchozí: 3 s)"
+        }
+      }
     }
   },
   "entity": {
@@ -76,7 +122,7 @@
         "name": "Vyžadována akce",
         "state": {
           "none": "Žádná",
-          "brew_unit_removed": "Vyjmutá spařovací jednotka",
+          "brew_unit_removed": "Spařovací jednotka vyjmuta",
           "trays_missing": "Chybí odkapávací miska",
           "empty_trays": "Vyprázdněte misku",
           "fill_water": "Doplňte vodu",
@@ -115,16 +161,16 @@
         "name": "Vypnout"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Vložit filtr"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Vyměnit filtr"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Odebrat filtr"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Odpařování"
       }
     },
     "select": {
@@ -163,22 +209,22 @@
         "name": "Tvrdost vody"
       },
       "auto_off_after": {
-        "name": "Auto vypnutí po"
+        "name": "Automatické vypnutí po"
       },
       "brew_temperature": {
         "name": "Teplota přípravy"
       },
       "language": {
-        "name": "Language"
+        "name": "Jazyk"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Hodiny"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Odeslat čas"
       },
       "filter": {
-        "name": "Filter"
+        "name": "Filtr"
       }
     },
     "switch": {
@@ -192,53 +238,7 @@
         "name": "Oplach vypnut"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Profil {profile_id} aktivní"
       }
     }
   }

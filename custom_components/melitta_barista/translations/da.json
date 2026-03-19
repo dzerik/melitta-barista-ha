@@ -27,14 +27,60 @@
     },
     "error": {
       "invalid_address": "Ugyldig Bluetooth MAC-adresse",
-      "cannot_connect": "Kunne ikke oprette forbindelse til enheden",
-      "unknown": "Uventet fejl",
-      "pairing_failed": "Parring mislykkedes. Sørg for, at maskinen er i parringstilstand.",
-      "pairing_timeout": "Timeout for parring. Aktivér parringstilstand og prøv igen."
+      "cannot_connect": "Kunne ikke oprette forbindelse til enheden. Sørg for, at maskinen er tændt og inden for Bluetooth-rækkevidde.",
+      "pairing_failed": "Parring mislykkedes. Sørg for, at maskinen er i parringstilstand, og prøv igen.",
+      "pairing_timeout": "Timeout for parring. Aktivér parringstilstand på maskinen og prøv igen.",
+      "unknown": "Uventet fejl"
     },
     "abort": {
       "already_configured": "Enheden er allerede konfigureret",
       "no_devices_found": "Ingen Melitta-enheder fundet"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Melitta Barista-indstillinger",
+        "description": "Vælg indstillingskategori",
+        "menu_options": {
+          "basic": "Grundindstillinger",
+          "advanced": "Avancerede indstillinger"
+        }
+      },
+      "basic": {
+        "title": "Grundindstillinger",
+        "description": "Konfigurér polling- og genforbindelsesparametre",
+        "data": {
+          "poll_interval": "Statuspolling-interval (sekunder)",
+          "reconnect_initial_delay": "Genforbindelse startforsinkelse (sekunder)",
+          "reconnect_max_delay": "Genforbindelse maks. backoff (sekunder)",
+          "max_consecutive_errors": "Pollingfejl før afbrydelse",
+          "frame_timeout": "BLE frame-timeout (sekunder)"
+        },
+        "data_description": {
+          "poll_interval": "Hvor ofte maskinen polles for statusopdateringer (standard: 5s)",
+          "reconnect_initial_delay": "Startforsinkelse før genforbindelsesforsøg (standard: 5s)",
+          "reconnect_max_delay": "Maksimal forsinkelse mellem genforbindelsesforsøg (standard: 300s)",
+          "max_consecutive_errors": "Antal pollingfejl i træk før tvungen afbrydelse (standard: 3)",
+          "frame_timeout": "Timeout for BLE frame-afsendelse/-modtagelse (standard: 5s)"
+        }
+      },
+      "advanced": {
+        "title": "Avancerede indstillinger",
+        "description": "Konfigurér BLE-forbindelsesparametre (ændr kun ved forbindelsesproblemer)",
+        "data": {
+          "ble_connect_timeout": "BLE-forbindelsestimeout (sekunder)",
+          "pair_timeout": "Parringstimeout (sekunder)",
+          "recipe_retries": "Opskrift læse-/skriveforsøg",
+          "initial_connect_delay": "Startforsinkelse for forbindelse (sekunder)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "Timeout for etablering af BLE-forbindelse (standard: 15s)",
+          "pair_timeout": "Timeout for BLE-parring under opsætning (standard: 30s)",
+          "recipe_retries": "Antal genforsøg for opskrift læse-/skriveoperationer (standard: 3)",
+          "initial_connect_delay": "Ventetid før første forbindelsesforsøg efter opsætning (standard: 3s)"
+        }
+      }
     }
   },
   "entity": {
@@ -115,16 +161,16 @@
         "name": "Sluk"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Indsæt filter"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Udskift filter"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Fjern filter"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Fordampning"
       }
     },
     "select": {
@@ -169,13 +215,13 @@
         "name": "Bryggetemperatur"
       },
       "language": {
-        "name": "Language"
+        "name": "Sprog"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Ur"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Send ur"
       },
       "filter": {
         "name": "Filter"
@@ -192,53 +238,7 @@
         "name": "Skylning deaktiveret"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Profil {profile_id} aktiv"
       }
     }
   }

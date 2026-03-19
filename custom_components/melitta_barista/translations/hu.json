@@ -27,14 +27,60 @@
     },
     "error": {
       "invalid_address": "Érvénytelen Bluetooth MAC-cím",
-      "cannot_connect": "Nem sikerült csatlakozni az eszközhöz",
-      "unknown": "Váratlan hiba",
-      "pairing_failed": "Párosítás sikertelen. Győződjön meg róla, hogy a gép párosítási módban van.",
-      "pairing_timeout": "Párosítás időtúllépés. Kapcsolja be a párosítási módot és próbálja újra."
+      "cannot_connect": "Nem sikerült csatlakozni az eszközhöz. Győződjön meg róla, hogy a gép be van kapcsolva és Bluetooth-hatótávolságon belül van.",
+      "pairing_failed": "Párosítás sikertelen. Győződjön meg róla, hogy a gép párosítási módban van, és próbálja újra.",
+      "pairing_timeout": "Párosítási időtúllépés. Kapcsolja be a párosítási módot a gépen és próbálja újra.",
+      "unknown": "Váratlan hiba"
     },
     "abort": {
       "already_configured": "Az eszköz már konfigurálva van",
       "no_devices_found": "Nem található Melitta eszköz"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Melitta Barista beállítások",
+        "description": "Válasszon beállítási kategóriát",
+        "menu_options": {
+          "basic": "Alapbeállítások",
+          "advanced": "Speciális beállítások"
+        }
+      },
+      "basic": {
+        "title": "Alapbeállítások",
+        "description": "Lekérdezési és újracsatlakozási paraméterek beállítása",
+        "data": {
+          "poll_interval": "Állapotlekérdezési időköz (másodperc)",
+          "reconnect_initial_delay": "Újracsatlakozás kezdő késleltetés (másodperc)",
+          "reconnect_max_delay": "Újracsatlakozás max. késleltetés (másodperc)",
+          "max_consecutive_errors": "Lekérdezési hibák lecsatlakozás előtt",
+          "frame_timeout": "BLE keret időtúllépés (másodperc)"
+        },
+        "data_description": {
+          "poll_interval": "Milyen gyakran kérdezze le a gép állapotát (alapértelmezett: 5s)",
+          "reconnect_initial_delay": "Kezdő késleltetés újracsatlakozási kísérlet előtt (alapértelmezett: 5s)",
+          "reconnect_max_delay": "Maximális késleltetés újracsatlakozási kísérletek között (alapértelmezett: 300s)",
+          "max_consecutive_errors": "Egymás utáni lekérdezési hibák száma kényszerített lecsatlakozás előtt (alapértelmezett: 3)",
+          "frame_timeout": "BLE keret küldési/fogadási időtúllépés (alapértelmezett: 5s)"
+        }
+      },
+      "advanced": {
+        "title": "Speciális beállítások",
+        "description": "BLE kapcsolati paraméterek beállítása (csak csatlakozási problémák esetén módosítsa)",
+        "data": {
+          "ble_connect_timeout": "BLE csatlakozási időtúllépés (másodperc)",
+          "pair_timeout": "Párosítási időtúllépés (másodperc)",
+          "recipe_retries": "Recept olvasási/írási kísérletek",
+          "initial_connect_delay": "Kezdő csatlakozási késleltetés (másodperc)"
+        },
+        "data_description": {
+          "ble_connect_timeout": "BLE kapcsolat létrehozásának időtúllépése (alapértelmezett: 15s)",
+          "pair_timeout": "BLE párosítás időtúllépése beállítás közben (alapértelmezett: 30s)",
+          "recipe_retries": "Újrapróbálkozások száma recept olvasási/írási műveletekhez (alapértelmezett: 3)",
+          "initial_connect_delay": "Várakozási idő az első csatlakozási kísérlet előtt a beállítás után (alapértelmezett: 3s)"
+        }
+      }
     }
   },
   "entity": {
@@ -103,7 +149,7 @@
         "name": "Mégse"
       },
       "easy_clean": {
-        "name": "Gyors tisztítás"
+        "name": "Gyorstisztítás"
       },
       "intensive_clean": {
         "name": "Intenzív tisztítás"
@@ -115,16 +161,16 @@
         "name": "Kikapcsolás"
       },
       "filter_insert": {
-        "name": "Filter Insert"
+        "name": "Szűrő behelyezése"
       },
       "filter_replace": {
-        "name": "Filter Replace"
+        "name": "Szűrő cseréje"
       },
       "filter_remove": {
-        "name": "Filter Remove"
+        "name": "Szűrő eltávolítása"
       },
       "evaporating": {
-        "name": "Evaporating"
+        "name": "Párologtatás"
       }
     },
     "select": {
@@ -163,22 +209,22 @@
         "name": "Vízkeménység"
       },
       "auto_off_after": {
-        "name": "Auto ki ennyi után"
+        "name": "Auto kikapcsolás után"
       },
       "brew_temperature": {
         "name": "Főzési hőmérséklet"
       },
       "language": {
-        "name": "Language"
+        "name": "Nyelv"
       },
       "clock": {
-        "name": "Clock"
+        "name": "Óra"
       },
       "clock_send": {
-        "name": "Clock Send"
+        "name": "Óra küldése"
       },
       "filter": {
-        "name": "Filter"
+        "name": "Szűrő"
       }
     },
     "switch": {
@@ -186,59 +232,13 @@
         "name": "Energiatakarékos"
       },
       "auto_bean_select": {
-        "name": "Auto babválasztás"
+        "name": "Automatikus babválasztás"
       },
       "rinsing_disabled": {
         "name": "Öblítés kikapcsolva"
       },
       "profile_activity": {
-        "name": "Profile {profile_id} Active"
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Melitta Barista Settings",
-        "description": "Choose settings category",
-        "menu_options": {
-          "basic": "Basic Settings",
-          "advanced": "Advanced Settings"
-        }
-      },
-      "basic": {
-        "title": "Basic Settings",
-        "description": "Configure polling and reconnect parameters",
-        "data": {
-          "poll_interval": "Status poll interval (seconds)",
-          "reconnect_initial_delay": "Reconnect initial delay (seconds)",
-          "reconnect_max_delay": "Reconnect max backoff (seconds)",
-          "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
-        },
-        "data_description": {
-          "poll_interval": "How often to poll the machine for status updates (default: 5s)",
-          "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
-          "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
-          "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
-        }
-      },
-      "advanced": {
-        "title": "Advanced Settings",
-        "description": "Configure BLE connection parameters (change only if you experience connection issues)",
-        "data": {
-          "ble_connect_timeout": "BLE connection timeout (seconds)",
-          "pair_timeout": "Pairing timeout (seconds)",
-          "recipe_retries": "Recipe read/write retries",
-          "initial_connect_delay": "Initial connect delay (seconds)"
-        },
-        "data_description": {
-          "ble_connect_timeout": "Timeout for BLE connection establishment (default: 15s)",
-          "pair_timeout": "Timeout for BLE pairing during setup (default: 30s)",
-          "recipe_retries": "Number of retry attempts for recipe read/write operations (default: 3)",
-          "initial_connect_delay": "Wait before first connection attempt after setup (default: 3s)"
-        }
+        "name": "Profil {profile_id} aktív"
       }
     }
   }
