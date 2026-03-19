@@ -1,9 +1,16 @@
 # Melitta Barista Smart for Home Assistant
 
-[![HACS Validation](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![License: MIT](https://img.shields.io/github/license/dzerik/melitta-barista-ha)](https://github.com/dzerik/melitta-barista-ha/blob/main/LICENSE)
-[![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha)](https://github.com/dzerik/melitta-barista-ha/releases)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dzerik&repository=melitta-barista-ha&category=integration)
+
+[![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha?style=flat-square)](https://github.com/dzerik/melitta-barista-ha/releases)
+[![GitHub Downloads](https://img.shields.io/github/downloads/dzerik/melitta-barista-ha/total?style=flat-square&label=downloads)](https://github.com/dzerik/melitta-barista-ha/releases)
+[![License](https://img.shields.io/github/license/dzerik/melitta-barista-ha?style=flat-square)](LICENSE)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square)](https://hacs.xyz)
+[![Home Assistant](https://img.shields.io/badge/HA-2024.1%2B-blue?style=flat-square)](https://www.home-assistant.io/)
+[![Tests](https://img.shields.io/badge/tests-371_passed-brightgreen?style=flat-square)](#)
+[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen?style=flat-square)](#)
+[![BLE](https://img.shields.io/badge/BLE-Bluetooth_LE-blue?style=flat-square)](#)
+[![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#)
 
 A custom Home Assistant integration for controlling **Melitta Barista T Smart** and **Melitta Barista TS Smart** coffee machines over Bluetooth Low Energy (BLE). Monitor machine status, brew recipes, adjust settings, and trigger maintenance -- all from your Home Assistant dashboard.
 
@@ -204,6 +211,151 @@ Once configured, the integration creates a device with all available entities fi
 | Profile 1-4 Name | T | User profile names (read/write, configuration). |
 | Profile 1-8 Name | TS | User profile names (read/write, configuration). |
 | Freestyle Name | T, TS | Custom name for the freestyle recipe. |
+
+## Services
+
+The integration provides three custom services for advanced brewing and recipe management.
+
+### `melitta_barista.brew_freestyle`
+
+Brew a custom recipe with fully configurable parameters.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `entity_id` | string | Yes | Any entity from the Melitta device |
+| `name` | string | Yes | Display name for the recipe |
+| `process1` | string | Yes | Primary process: `coffee`, `milk`, `water` |
+| `intensity1` | string | No | Intensity: `very_mild`, `mild`, `medium`, `strong`, `very_strong` |
+| `aroma1` | string | No | Aroma: `standard`, `intense` |
+| `temperature1` | string | No | Temperature: `cold`, `normal`, `high` |
+| `shots1` | string | No | Shots: `none`, `one`, `two`, `three` |
+| `portion1_ml` | int | No | Portion size in ml (20-300) |
+| `process2` | string | No | Secondary process (same options + `none`) |
+| `two_cups` | bool | No | Brew two cups (default: false) |
+
+### `melitta_barista.brew_directkey`
+
+Brew from a DirectKey profile slot (uses the active profile's personalized recipe).
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `entity_id` | string | Yes | Any entity from the Melitta device |
+| `category` | string | Yes | `espresso`, `cafe_creme`, `cappuccino`, `latte_macchiato`, `milk`, `milk_froth`, `water` |
+| `two_cups` | bool | No | Brew two cups (default: false) |
+
+### `melitta_barista.save_directkey`
+
+Save a recipe to a DirectKey profile slot.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `entity_id` | string | Yes | Any entity from the Melitta device |
+| `category` | string | Yes | Recipe category (same as brew_directkey) |
+| `profile_id` | int | No | Profile ID (default: active profile) |
+| (recipe params) | — | — | Same as brew_freestyle |
+
+## Options
+
+Configure the integration via **Settings → Devices & Services → Melitta Barista Smart → Configure**.
+
+### Basic Settings
+
+| Parameter | Default | Range | Description |
+|-----------|:-------:|:-----:|-------------|
+| Poll interval | 5s | 1-60s | How often to poll machine status |
+| Reconnect delay | 5s | 1-60s | Initial delay before reconnect attempt |
+| Reconnect max delay | 300s | 30-3600s | Maximum backoff between reconnects |
+| Poll errors before disconnect | 3 | 1-20 | Consecutive errors before forcing disconnect |
+| Frame timeout | 5s | 2-30s | BLE command response timeout |
+
+### Advanced Settings
+
+| Parameter | Default | Range | Description |
+|-----------|:-------:|:-----:|-------------|
+| BLE connect timeout | 15s | 5-60s | Timeout for BLE connection establishment |
+| Pairing timeout | 30s | 10-120s | Timeout for BLE pairing during setup |
+| Recipe retries | 3 | 1-10 | Retry attempts for recipe read/write operations |
+| Initial connect delay | 3s | 0-30s | Wait before first connection after setup |
+
+## How Data is Updated
+
+| Data | Method | Frequency |
+|------|--------|-----------|
+| Machine status | BLE push notifications | Every ~5 seconds |
+| Cup counters | Read after each brew completes | On brew finish |
+| Profile data | Read once on connect | On connection |
+| Settings | Read on entity setup | On demand |
+
+## Use Cases
+
+- **Smart Home Dashboard** — monitor coffee machine status, cup counters, and maintenance needs on your HA dashboard
+- **Morning Routine** — automated brewing at a scheduled time via HA automations
+- **Family Profiles** — switch between user profiles for personalized drinks
+- **Maintenance Alerts** — get notified when descaling, filter change, or other maintenance is needed
+- **Kiosk Mode** — use the [standalone PWA](https://github.com/dzerik/melitta-barista-app) on a wall-mounted tablet
+
+## Automation Examples
+
+### Morning Espresso
+
+```yaml
+automation:
+  - alias: "Morning Espresso at 7:00"
+    trigger:
+      - platform: time
+        at: "07:00"
+    condition:
+      - condition: state
+        entity_id: sensor.melitta_state
+        state: "ready"
+    action:
+      - service: button.press
+        target:
+          entity_id: button.melitta_brew_espresso
+```
+
+### Notify When Coffee is Ready
+
+```yaml
+automation:
+  - alias: "Coffee Ready Notification"
+    trigger:
+      - platform: state
+        entity_id: sensor.melitta_activity
+        from: "extracting"
+        to: "idle"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Your coffee is ready! ☕"
+```
+
+### Maintenance Reminder
+
+```yaml
+automation:
+  - alias: "Melitta Maintenance Reminder"
+    trigger:
+      - platform: state
+        entity_id: sensor.melitta_action_required
+    condition:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.melitta_action_required
+            state: "none"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Coffee machine needs attention: {{ states('sensor.melitta_action_required') }}"
+```
+
+## Removing the Integration
+
+1. Go to **Settings → Devices & Services → Melitta Barista Smart**
+2. Click the three-dot menu (⋮) → **Delete**
+3. The BLE connection will be closed and all entities removed automatically
+4. If installed via HACS: go to **HACS → Integrations → Melitta Barista Smart → Uninstall**
 
 ## Localization
 
