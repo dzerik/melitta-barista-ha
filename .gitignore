@@ -9,17 +9,6 @@ __pycache__/
 .idea/
 .vscode/
 
-
-
-*.zip
-
-
-
-
-# Debug scripts
-brew_espresso.py
-debug_brew.py
-
 # Local config
 CLAUDE.md
 /.mcp.json

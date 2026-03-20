@@ -323,7 +323,7 @@ RECIPE_KEY_MAP: dict[int, int] = {
 }
 
 # RecipeType byte → RecipeKey byte (for HJ write payload)
-Each RecipeType maps to a RecipeKey category
+# Each RecipeType maps to a RecipeKey category
 RECIPE_TYPE_TO_KEY: dict[int, int] = {
     0: 0, 1: 0, 2: 0, 3: 0, 4: 0,          # Espresso family → ESPRESSO(0)
     5: 1, 6: 1, 7: 1, 8: 1, 9: 1,          # Café Crème family → COFFEE(1)

@@ -268,7 +268,7 @@ HE  process=4, data=00020000000000000000000000000000
 Timeline: Grinding (sub=1) 0→9% → Coffee (sub=2) 9→100% → Ready (~48s total)
 ```
 
-## RecipeType 
+## RecipeType
 
 | Name | Value |
 |---|---|
@@ -298,7 +298,7 @@ Timeline: Grinding (sub=1) 0→9% → Coffee (sub=2) 9→100% → Ready (~48s to
 | WATER | 23 |
 | FREESTYLE | 24 |
 
-## RecipeKey 
+## RecipeKey
 
 | Name | Value |
 |---|---|

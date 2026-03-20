@@ -168,7 +168,7 @@ All notable changes to the Melitta Barista Smart HA Integration.
 ## [0.19.0] — 2026-03-09
 
 ### Fixed
-- HJ write_recipe: omit `recipe_key` byte for DirectKey slots (``recipeKey=null` skips the byte, components start at offset 3)
+- HJ write_recipe: omit `recipe_key` byte for DirectKey slots (`recipeKey=null` skips the byte, components start at offset 3)
 - Only TEMP_RECIPE writes (for brewing) include `recipe_key`; DK slot writes (save, reset, copy, update) do not
 - This fixes "ACK timeout" errors when saving DirectKey recipes
 
@@ -187,15 +187,15 @@ All notable changes to the Melitta Barista Smart HA Integration.
 ## [0.18.0] — 2026-03-09
 
 ### Added
-- Two cups (2x) mode: `two_cups` flag in HE startProcess payload at offset 6 
+- Two cups (2x) mode: `two_cups` flag in HE startProcess payload at offset 6
 - `two_cups` parameter in `brew_recipe`, `brew_directkey`, `brew_freestyle` methods
 - `two_cups` field in `brew_directkey` and `brew_freestyle` service schemas
 
 ## [0.17.1] — 2026-03-09
 
 ### Fixed
-- HC response parsing: remove incorrect recipe_key byte skip — HC payload is `id(2)+type(1)+comp1(8)+comp2(8)`, no recipe_key 
-- HJ write payload: pass correct `recipe_key` per RecipeType→RecipeKey mapping 
+- HC response parsing: remove incorrect recipe_key byte skip — HC payload is `id(2)+type(1)+comp1(8)+comp2(8)`, no recipe_key
+- HJ write payload: pass correct `recipe_key` per RecipeType→RecipeKey mapping
 - Fix `RECIPE_KEY_MAP`: Espresso Macchiato → CAPPUCCINO(2), not MACCHIATO(3)
 - Add `RECIPE_TYPE_TO_KEY` mapping and `get_recipe_key()` helper for all 25 recipe types
 - All `write_recipe` call sites now pass correct `recipe_key` (brew, DirectKey, freestyle, profile edit, copy, reset)
