@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.28.0] — 2026-03-20
+
+### Added
+- Dark theme brand icons (dark_icon.png, dark_logo.png + @2x variants)
+- GitHub community files: CODE_OF_CONDUCT, CONTRIBUTING, SECURITY, issue/PR templates
+- Milk category in brew_directkey service schema
+
+### Changed
+- Git history cleaned: removed scripts/, audit/, docs/QUALITY_SCALE_PLAN.md
+- Removed all decompilation/APK references from code, docs, and git history
+
 ## [0.27.0] — 2026-03-19
 
 ### Added

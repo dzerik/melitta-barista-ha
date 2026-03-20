@@ -25,5 +25,5 @@
     "bleak-retry-connector>=3.0.0",
     "pycryptodome>=3.0.0"
   ],
-  "version": "0.27.0"
+  "version": "0.28.0"
 }
