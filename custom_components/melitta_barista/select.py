@@ -20,6 +20,7 @@ from .const import (
     RecipeId,
     Aroma,
     ComponentProcess,
+    DirectKeyCategory,
     Intensity,
     Temperature,
     Shots,
@@ -73,6 +74,17 @@ _SHOTS_NAMES = {
     Shots.ONE: "one",
     Shots.TWO: "two",
     Shots.THREE: "three",
+}
+
+
+_DK_CATEGORY_NAMES: dict[int, str] = {
+    DirectKeyCategory.ESPRESSO: "Espresso",
+    DirectKeyCategory.CAFE_CREME: "Café Crème",
+    DirectKeyCategory.CAPPUCCINO: "Cappuccino",
+    DirectKeyCategory.LATTE_MACCHIATO: "Latte Macchiato",
+    DirectKeyCategory.MILK: "Milk",
+    DirectKeyCategory.MILK_FROTH: "Milk Froth",
+    DirectKeyCategory.WATER: "Hot Water",
 }
 
 
@@ -158,9 +170,12 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
     @property
     def extra_state_attributes(self) -> dict:
         attrs: dict = {}
-        # Include details of the selected recipe only
+        # Include details of the selected recipe
         if self._selected and self._selected in self._all_recipes:
             attrs.update(self._all_recipes[self._selected])
+        # Expose all preloaded recipes for external consumers (PWA app)
+        if self._all_recipes:
+            attrs["recipes"] = self._all_recipes
         return attrs
 
     async def async_added_to_hass(self) -> None:
@@ -260,7 +275,22 @@ class MelittaProfileSelect(MelittaDeviceMixin, SelectEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        return {"active_profile": self._client.active_profile}
+        attrs: dict = {"active_profile": self._client.active_profile}
+        # Expose DirectKey recipes for external consumers (PWA app)
+        dk = self._client.directkey_recipes
+        if dk:
+            dk_out: dict[int, dict[str, dict]] = {}
+            for pid, categories in dk.items():
+                dk_out[pid] = {}
+                for cat_int, recipe in categories.items():
+                    cat_name = _DK_CATEGORY_NAMES.get(cat_int, str(cat_int))
+                    entry: dict[str, str | int] = {"category": cat_int}
+                    entry.update(_component_attrs(recipe.component1, "c1"))
+                    entry.update(_component_attrs(recipe.component2, "c2"))
+                    dk_out[pid][cat_name] = entry
+                dk_out[pid] = dict(sorted(dk_out[pid].items()))
+            attrs["directkey_recipes"] = dk_out
+        return attrs
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
