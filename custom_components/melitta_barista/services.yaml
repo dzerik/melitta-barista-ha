@@ -11,7 +11,7 @@ brew_directkey:
           domain: button
     category:
       name: Category
-      description: "DirectKey category: espresso, cafe_creme, cappuccino, latte_macchiato, milk_froth, water"
+      description: "DirectKey category: espresso, cafe_creme, cappuccino, latte_macchiato, milk, milk_froth, water"
       required: true
       selector:
         select:
@@ -20,6 +20,7 @@ brew_directkey:
             - "cafe_creme"
             - "cappuccino"
             - "latte_macchiato"
+            - "milk"
             - "milk_froth"
             - "water"
     two_cups:
