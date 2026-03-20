@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.29.0] — 2026-03-20
+
+### Added
+- Recipe select entity: `recipes` attribute with all preloaded recipe details
+- Profile select entity: `directkey_recipes` attribute with per-profile DK data
+- Info-level logging for recipe preload progress
+
 ## [0.28.0] — 2026-03-20
 
 ### Added
