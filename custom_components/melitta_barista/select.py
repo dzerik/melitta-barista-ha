@@ -192,7 +192,7 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
 
     async def _preload_recipes(self) -> None:
         """Read all base recipe details from the machine (always profile 0)."""
-        _LOGGER.debug("Preloading base recipes...")
+        _LOGGER.info("Preloading %d base recipes...", len(self._attr_options))
         for option in self._attr_options:
             recipe_id = _NAME_TO_RECIPE.get(option)
             if recipe_id is None:
@@ -206,7 +206,7 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
                     self._all_recipes[option] = attrs
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Failed to preload recipe %s", option)
-        _LOGGER.debug("Preloaded %d base recipes", len(self._all_recipes))
+        _LOGGER.info("Preloaded %d/%d base recipes", len(self._all_recipes), len(self._attr_options))
         self.async_write_ha_state()
 
     async def async_select_option(self, option: str) -> None:
