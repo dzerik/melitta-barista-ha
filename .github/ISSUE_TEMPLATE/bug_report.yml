@@ -1,0 +1,60 @@
+name: Bug Report
+description: Report a bug with the Melitta Barista Smart integration
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the form below.
+  - type: input
+    id: version
+    attributes:
+      label: Integration version
+      placeholder: "e.g. 0.27.0"
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "e.g. 2026.3.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: machine_model
+    attributes:
+      label: Machine model
+      options:
+        - Barista T Smart
+        - Barista TS Smart
+        - Unknown / Other
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: BLE connection type
+      options:
+        - Local Bluetooth adapter
+        - ESPHome BLE proxy
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Enable debug logging and paste relevant logs:
+        ```yaml
+        logger:
+          logs:
+            melitta_barista: debug
+        ```
+      render: text

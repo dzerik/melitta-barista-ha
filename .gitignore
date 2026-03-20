@@ -12,3 +12,7 @@ __pycache__/
 # Local config
 CLAUDE.md
 /.mcp.json
+/scripts/
+/audit/
+/.venv/
+/.serena/
