@@ -1,0 +1,32 @@
+LEGAL NOTICE
+
+This project is an independent, open-source, non-commercial integration
+created for personal and educational purposes. It is not affiliated with,
+endorsed by, sponsored by, or connected to Melitta Group Management GmbH & Co. KG
+or any of its subsidiaries.
+
+TRADEMARKS
+
+"Melitta", "Barista T Smart", "Barista TS Smart", and the Melitta logo are
+registered trademarks of Melitta Group Management GmbH & Co. KG. All other
+product names, logos, and brands mentioned in this project are the property
+of their respective owners. Use of these names and marks is for identification
+and interoperability purposes only and does not imply endorsement.
+
+THIRD-PARTY ASSETS
+
+This project includes brand assets (logos and icons) that are the intellectual
+property of Melitta Group Management GmbH & Co. KG. These assets are used
+solely for the purpose of providing a compatible Home Assistant integration
+for Melitta coffee machines in a non-commercial context. No ownership of
+these assets is claimed.
+
+If you are a rights holder and believe that any content in this repository
+infringes your intellectual property rights, please open an issue or contact
+the maintainer directly, and the content will be promptly removed or replaced.
+
+NON-COMMERCIAL USE
+
+This software is provided free of charge and is not intended for commercial use
+or the generation of revenue. It is distributed under the MIT License for
+personal, educational, and home automation purposes only.

@@ -98,10 +98,40 @@ A standalone React PWA for controlling the coffee machine is available as a sepa
 
 - Connects to Home Assistant via WebSocket API using a long-lived access token
 - Auto-detects the Melitta machine from HA entities
-- Three tabs: **Brew** (recipe grid with SVG icons), **Freestyle** (custom drink builder), **Settings** (machine configuration)
+- Five tabs: **Brew**, **Freestyle**, **Stats**, **Service**, **Settings**
 - Real-time brewing progress with cancel support
 - Installable as a PWA on any device (Android, iOS, desktop)
 - Dark coffee-themed UI optimized for touch
+
+### Brew
+
+Browse all available recipes in a grid, list, or carousel view. Quick-access buttons for favorite recipes and user profiles at the top. Select a recipe and tap **Brew** to start.
+
+![Brew](docs/screenshots/brew.png)
+
+### Freestyle
+
+Build a custom drink from scratch with two configurable components. Adjust process type, portion size, intensity, aroma, temperature, and shots for each component. A live glass preview updates as you tweak the parameters.
+
+![Freestyle](docs/screenshots/freestyle.png)
+
+### Stats
+
+Cup counter dashboard showing total brewed cups and per-recipe statistics with progress bars.
+
+![Stats](docs/screenshots/stats.png)
+
+### Service
+
+Maintenance operations: easy clean, intensive clean, descaling, evaporating, water filter management, and power off.
+
+![Service](docs/screenshots/service.png)
+
+### Settings
+
+Machine configuration: energy saving, auto bean select, rinsing toggle, water hardness, auto-off timer, and brew temperature.
+
+![Settings](docs/screenshots/settings.png)
 
 ## Configuration
 
@@ -407,6 +437,14 @@ logger:
 ```
 
 Restart Home Assistant and reproduce the issue, then check the logs.
+
+## Disclaimer
+
+This project is an independent, open-source, non-commercial integration created for personal and home automation purposes. It is **not affiliated with, endorsed by, or connected to Melitta Group Management GmbH & Co. KG** or any of its subsidiaries.
+
+"Melitta", "Barista T Smart", "Barista TS Smart", and the Melitta logo are registered trademarks of Melitta Group Management GmbH & Co. KG. All product names, logos, brands, and graphical assets are the property of their respective owners and are used here solely for identification and interoperability purposes.
+
+This software is not intended for commercial use or the generation of revenue. See [NOTICE](NOTICE) for full legal details.
 
 ## Contributing
 
