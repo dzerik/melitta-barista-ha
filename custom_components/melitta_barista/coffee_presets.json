@@ -1,0 +1,281 @@
+[
+  {
+    "id": "melitta_bellacrema_espresso",
+    "brand": "Melitta",
+    "product": "BellaCrema Espresso",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy"]
+  },
+  {
+    "id": "melitta_bellacrema_lacrema",
+    "brand": "Melitta",
+    "product": "BellaCrema LaCrema",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["caramel", "honey"]
+  },
+  {
+    "id": "melitta_bellacrema_speciale",
+    "brand": "Melitta",
+    "product": "BellaCrema Speciale",
+    "roast": "light",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["floral", "fruity", "honey"]
+  },
+  {
+    "id": "melitta_barista_classic",
+    "brand": "Melitta",
+    "product": "Barista Classic",
+    "roast": "medium_dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "nutty"]
+  },
+  {
+    "id": "melitta_barista_forte",
+    "brand": "Melitta",
+    "product": "Barista Forte",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy", "earthy"]
+  },
+  {
+    "id": "lavazza_qualita_oro",
+    "brand": "Lavazza",
+    "product": "Qualità Oro",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["honey", "almond", "floral"]
+  },
+  {
+    "id": "lavazza_crema_e_aroma",
+    "brand": "Lavazza",
+    "product": "Crema e Aroma",
+    "roast": "medium",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "nutty", "earthy"]
+  },
+  {
+    "id": "lavazza_super_crema",
+    "brand": "Lavazza",
+    "product": "Super Crema",
+    "roast": "medium",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "flavor_notes": ["honey", "almond", "caramel"]
+  },
+  {
+    "id": "lavazza_oro_mountain_grown",
+    "brand": "Lavazza",
+    "product": "Qualità Oro Mountain Grown",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["fruity", "floral", "citrus"]
+  },
+  {
+    "id": "lavazza_espresso_italiano",
+    "brand": "Lavazza",
+    "product": "Espresso Italiano Classico",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["floral", "fruity"]
+  },
+  {
+    "id": "illy_classico",
+    "brand": "illy",
+    "product": "Classico",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["caramel", "chocolate", "floral"]
+  },
+  {
+    "id": "illy_intenso",
+    "brand": "illy",
+    "product": "Intenso",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy", "earthy"]
+  },
+  {
+    "id": "illy_forte",
+    "brand": "illy",
+    "product": "Forte",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "caramel", "spicy"]
+  },
+  {
+    "id": "dallmayr_prodomo",
+    "brand": "Dallmayr",
+    "product": "Prodomo",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "nutty"]
+  },
+  {
+    "id": "dallmayr_crema_d_oro",
+    "brand": "Dallmayr",
+    "product": "Crema d'Oro",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["honey", "caramel", "nutty"]
+  },
+  {
+    "id": "dallmayr_espresso_d_oro",
+    "brand": "Dallmayr",
+    "product": "Espresso d'Oro",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy"]
+  },
+  {
+    "id": "tchibo_barista_espresso",
+    "brand": "Tchibo",
+    "product": "Barista Espresso",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "nutty", "spicy"]
+  },
+  {
+    "id": "tchibo_barista_caffe_crema",
+    "brand": "Tchibo",
+    "product": "Barista Caffè Crema",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["caramel", "nutty"]
+  },
+  {
+    "id": "tchibo_beste_bohne",
+    "brand": "Tchibo",
+    "product": "Beste Bohne",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["nutty", "chocolate", "caramel"]
+  },
+  {
+    "id": "jacobs_barista_crema",
+    "brand": "Jacobs",
+    "product": "Barista Editions Crema",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "caramel"]
+  },
+  {
+    "id": "jacobs_barista_espresso",
+    "brand": "Jacobs",
+    "product": "Barista Editions Espresso",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy", "earthy"]
+  },
+  {
+    "id": "segafredo_intermezzo",
+    "brand": "Segafredo",
+    "product": "Intermezzo",
+    "roast": "medium_dark",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "nutty", "earthy"]
+  },
+  {
+    "id": "segafredo_zanetti_espresso",
+    "brand": "Segafredo",
+    "product": "Zanetti Espresso Casa",
+    "roast": "dark",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy"]
+  },
+  {
+    "id": "julius_meinl_wiener_melange",
+    "brand": "Julius Meinl",
+    "product": "Wiener Melange",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["honey", "nutty", "caramel"]
+  },
+  {
+    "id": "julius_meinl_espresso_premium",
+    "brand": "Julius Meinl",
+    "product": "Premium Collection Espresso",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy", "caramel"]
+  },
+  {
+    "id": "kimbo_extra_cream",
+    "brand": "Kimbo",
+    "product": "Extra Cream",
+    "roast": "medium",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "caramel", "nutty"]
+  },
+  {
+    "id": "kimbo_top_flavour",
+    "brand": "Kimbo",
+    "product": "Top Flavour",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["fruity", "floral", "honey"]
+  },
+  {
+    "id": "pellini_top",
+    "brand": "Pellini",
+    "product": "Top 100% Arabica",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["fruity", "floral", "honey"]
+  },
+  {
+    "id": "pellini_espresso_n82",
+    "brand": "Pellini",
+    "product": "Espresso Bar N. 82 Vivace",
+    "roast": "medium_dark",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy", "earthy"]
+  },
+  {
+    "id": "movenpick_caffe_crema",
+    "brand": "Mövenpick",
+    "product": "Caffè Crema",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "caramel"]
+  },
+  {
+    "id": "movenpick_espresso",
+    "brand": "Mövenpick",
+    "product": "Espresso",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "flavor_notes": ["chocolate", "spicy", "earthy"]
+  }
+]

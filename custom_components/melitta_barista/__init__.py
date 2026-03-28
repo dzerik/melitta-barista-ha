@@ -97,6 +97,29 @@ def _async_cleanup_legacy_recipe_buttons(
         _LOGGER.info("Cleaned up %d legacy recipe button entities", removed)
 
 
+@callback
+def _async_register_sommelier(hass: HomeAssistant) -> None:
+    """Register AI Coffee Sommelier WebSocket handlers (once).
+
+    DB initialization is deferred to the first WebSocket call to avoid
+    blocking HA setup and to work in test environments without aiosqlite.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get("sommelier_registered"):
+        return
+
+    try:
+        from .sommelier_api import async_register_websocket_handlers
+        async_register_websocket_handlers(hass)
+        domain_data["sommelier_registered"] = True
+        _LOGGER.debug("AI Coffee Sommelier WS handlers registered")
+    except Exception:
+        _LOGGER.warning(
+            "Could not register AI Coffee Sommelier handlers",
+            exc_info=True,
+        )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Melitta Barista Smart from a config entry."""
     address: str = entry.data[CONF_ADDRESS]
@@ -198,6 +221,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register freestyle service (once per integration)
     _async_register_services(hass)
+
+    # Register AI Coffee Sommelier WebSocket handlers (DB init is lazy on first call)
+    _async_register_sommelier(hass)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
@@ -491,6 +517,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         client: MelittaBleClient = entry.runtime_data
         await client.disconnect()
+
+    # Close Sommelier DB if this is the last config entry
+    remaining = [
+        e for e in hass.config_entries.async_entries(DOMAIN)
+        if e.entry_id != entry.entry_id
+    ]
+    if not remaining:
+        domain_data = hass.data.get(DOMAIN, {})
+        db = domain_data.pop("sommelier_db", None)
+        if db is not None:
+            await db.async_close()
+            _LOGGER.debug("Sommelier DB closed")
 
     return unload_ok
 

@@ -220,6 +220,8 @@ def _setup_patches(client=None):
     )
 
 
+
+
 async def _setup_entry_with_client(hass, mock_entry, client=None):
     """Set up the integration with a mock client and return the client."""
     if client is None:
