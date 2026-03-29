@@ -24,6 +24,35 @@ PORTION_MIN = 5
 PORTION_MAX = 250
 PORTION_STEP = 5
 
+# ── Valid extras ────────────────────────────────────────────────────────
+
+VALID_SYRUPS = {
+    "vanilla", "caramel", "hazelnut", "chocolate", "maple",
+    "lavender", "pumpkin_spice", "coconut", "almond", "peppermint",
+}
+VALID_TOPPINGS = {
+    "cinnamon_powder", "whipped_cream", "cocoa_powder", "nutmeg",
+    "chocolate_shavings", "marshmallow", "caramel_drizzle",
+}
+VALID_LIQUEURS = {
+    "baileys", "kahlua", "amaretto", "frangelico", "grand_marnier",
+}
+
+CUP_SIZE_VOLUMES: dict[str, tuple[int, int]] = {
+    "espresso_cup": (60, 90),
+    "cup": (150, 200),
+    "mug": (250, 350),
+    "tall_glass": (300, 400),
+    "travel": (350, 500),
+}
+VALID_CUP_SIZES = set(CUP_SIZE_VOLUMES.keys())
+
+VALID_TEMPERATURE_PREFS = {"hot", "iced", "auto"}
+VALID_MOODS = {"energizing", "relaxing", "dessert", "classic"}
+VALID_OCCASIONS = {"morning", "after_lunch", "guests", "romantic", "work"}
+VALID_CAFFEINE_PREFS = {"regular", "low", "decaf_evening"}
+VALID_DIETARY = {"no_sugar", "lactose_free", "low_calorie", "vegan"}
+
 
 def _build_prompt(
     hopper1_bean: dict[str, Any] | None,
@@ -32,6 +61,19 @@ def _build_prompt(
     mode: str,
     preference: str | None,
     count: int,
+    *,
+    extras: dict[str, list[str]] | None = None,
+    ice_available: bool = False,
+    cup_size: str = "mug",
+    temperature_pref: str = "auto",
+    mood: str | None = None,
+    occasion: str | None = None,
+    servings: int = 1,
+    dietary: list[str] | None = None,
+    caffeine_pref: str = "regular",
+    weather: dict[str, Any] | None = None,
+    people_home: int | None = None,
+    cups_today: int | None = None,
 ) -> str:
     """Build structured prompt for the LLM."""
     now = datetime.now(timezone.utc)
@@ -99,6 +141,120 @@ def _build_prompt(
     else:
         pref_section = "Mode: custom. No specific preference given."
 
+    # Cup size / volume constraints
+    cup_size = cup_size if cup_size in VALID_CUP_SIZES else "mug"
+    vol_min, vol_max = CUP_SIZE_VOLUMES[cup_size]
+    cup_section = (
+        f"## Cup Size\n"
+        f"Cup type: {cup_size} ({vol_min}-{vol_max}ml total volume).\n"
+        f"Total volume (component1 + component2) must fit within {vol_min}-{vol_max}ml."
+    )
+
+    # Extras section
+    extras_lines: list[str] = []
+    if extras:
+        for category, items in extras.items():
+            if items:
+                extras_lines.append(f"- {category.capitalize()}: {', '.join(items)}")
+    if ice_available:
+        extras_lines.append("- Ice: available")
+    extras_section = ""
+    if extras_lines:
+        extras_section = (
+            "\n## Available Extras\n"
+            + "\n".join(extras_lines)
+            + '\n\nInclude relevant extras in the "extras" field of each recipe.'
+        )
+
+    # Temperature preference
+    temp_pref_section = ""
+    temperature_pref = temperature_pref if temperature_pref in VALID_TEMPERATURE_PREFS else "auto"
+    if temperature_pref == "iced":
+        temp_pref_section = "\n## Temperature: iced\nPrefer cold/iced drinks."
+    elif temperature_pref == "hot":
+        temp_pref_section = "\n## Temperature: hot\nPrefer hot drinks only."
+
+    # Weather section
+    weather_section = ""
+    if weather:
+        temp_c = weather.get("temperature")
+        condition = weather.get("condition", "")
+        if temp_c is not None:
+            weather_section = f"\n## Weather\nCurrent: {temp_c}\u00b0C, {condition}"
+            if isinstance(temp_c, (int, float)):
+                if temp_c <= 10:
+                    weather_section += "\n-> Suggest warming, comforting drinks."
+                elif temp_c >= 25:
+                    weather_section += "\n-> Suggest iced/cold refreshing drinks."
+
+    # Mood / Occasion
+    mood_section = ""
+    if mood and mood in VALID_MOODS:
+        mood_section = f"\n## Mood: {mood}"
+    occasion_section = ""
+    if occasion and occasion in VALID_OCCASIONS:
+        occasion_section = f"\n## Occasion: {occasion}"
+
+    # Dietary
+    dietary_section = ""
+    if dietary:
+        valid = [d for d in dietary if d in VALID_DIETARY]
+        if valid:
+            dietary_section = (
+                f"\n## Dietary restrictions: {', '.join(valid)}\n"
+                "-> Respect these constraints: "
+            )
+            hints: list[str] = []
+            if "lactose_free" in valid or "vegan" in valid:
+                hints.append("use plant-based milk only")
+            if "no_sugar" in valid:
+                hints.append("no sugar syrups")
+            if "low_calorie" in valid:
+                hints.append("minimize calorie-dense extras")
+            dietary_section += ", ".join(hints) + "." if hints else "follow these restrictions."
+
+    # Caffeine preference
+    caffeine_section = ""
+    caffeine_pref = caffeine_pref if caffeine_pref in VALID_CAFFEINE_PREFS else "regular"
+    if caffeine_pref == "low":
+        caffeine_section = "\n## Caffeine preference: low\n-> Use fewer shots, milder intensity."
+    elif caffeine_pref == "decaf_evening":
+        caffeine_section = (
+            "\n## Caffeine preference: decaf_evening\n"
+            "Current time is evening -> suggest decaf/low-caffeine options."
+        )
+
+    # Servings
+    servings_section = ""
+    if servings > 1:
+        servings_section = (
+            f"\n## Servings: {servings}"
+            + (f" (for {people_home} people)" if people_home else "")
+            + "\nGenerate diverse recipes with different styles."
+        )
+
+    # Cups today
+    cups_section = ""
+    if cups_today is not None and cups_today > 0:
+        cups_section = (
+            f"\n## Coffee today: already had {cups_today} cups\n"
+            "Consider reducing caffeine. Suggest milk-based or decaf."
+        )
+
+    # Combine optional sections
+    optional_sections = "".join(filter(None, [
+        cup_section,
+        extras_section,
+        temp_pref_section,
+        weather_section,
+        mood_section,
+        occasion_section,
+        dietary_section,
+        caffeine_section,
+        servings_section,
+        cups_section,
+    ]))
+
     return f"""You are an expert barista and coffee sommelier. Generate exactly {count} unique coffee recipes for a Melitta Barista Smart coffee machine.
 
 ## Machine Capabilities
@@ -122,9 +278,11 @@ The "blend" field selects which bean hopper to use (see below).
 - {time_advice}
 - {pref_section}
 
+{optional_sections}
+
 ## Rules
 - Realistic portion sizes: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk portion 80-200ml
-- Match bean characteristics to recipe style (light roast → standard aroma, dark roast → intense aroma)
+- Match bean characteristics to recipe style (light roast -> standard aroma, dark roast -> intense aroma)
 - If milk is available, include at least one milk-based recipe (unless user prefers black)
 - For "none" process in component2, set all other fields to defaults (intensity="medium", aroma="standard", temperature="normal", shots="none", portion_ml=0)
 - Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile
@@ -139,7 +297,11 @@ Return ONLY a JSON array, no other text:
     "description": "Tasting notes and why this works",
     "blend": 1,
     "component1": {{"process": "coffee", "intensity": "strong", "aroma": "intense", "temperature": "normal", "shots": "two", "portion_ml": 30}},
-    "component2": {{"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120}}
+    "component2": {{"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120}},
+    "extras": {{"ice": false, "syrup": "caramel", "topping": "cinnamon_powder", "liqueur": null, "instruction": "Optional human instruction for extras"}},
+    "cup_type": "mug",
+    "estimated_caffeine": "medium",
+    "calories_approx": 120
   }}
 ]"""
 
@@ -237,6 +399,56 @@ def _validate_component(comp: dict[str, Any], is_comp2: bool = False) -> dict[st
     }
 
 
+def _validate_extras(raw_extras: Any) -> dict[str, Any] | None:
+    """Validate and normalize the extras field from LLM response."""
+    if not isinstance(raw_extras, dict):
+        return None
+
+    ice = bool(raw_extras.get("ice", False))
+
+    syrup = raw_extras.get("syrup")
+    if isinstance(syrup, str):
+        syrup = syrup.lower()
+        if syrup not in VALID_SYRUPS:
+            syrup = None
+    else:
+        syrup = None
+
+    topping = raw_extras.get("topping")
+    if isinstance(topping, str):
+        topping = topping.lower()
+        if topping not in VALID_TOPPINGS:
+            topping = None
+    else:
+        topping = None
+
+    liqueur = raw_extras.get("liqueur")
+    if isinstance(liqueur, str):
+        liqueur = liqueur.lower()
+        if liqueur not in VALID_LIQUEURS:
+            liqueur = None
+    else:
+        liqueur = None
+
+    instruction = raw_extras.get("instruction")
+    if not isinstance(instruction, str) or not instruction.strip():
+        instruction = None
+    else:
+        instruction = instruction.strip()[:200]
+
+    # If everything is empty/default, return None
+    if not ice and syrup is None and topping is None and liqueur is None and instruction is None:
+        return None
+
+    return {
+        "ice": ice,
+        "syrup": syrup,
+        "topping": topping,
+        "liqueur": liqueur,
+        "instruction": instruction,
+    }
+
+
 def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Validate and normalize a list of recipes from LLM."""
     validated = []
@@ -253,13 +465,37 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
         comp1 = _validate_component(raw.get("component1", {}), is_comp2=False)
         comp2 = _validate_component(raw.get("component2", {}), is_comp2=True)
 
-        validated.append({
+        extras = _validate_extras(raw.get("extras"))
+
+        cup_type = str(raw.get("cup_type", "mug")).lower()
+        if cup_type not in VALID_CUP_SIZES:
+            cup_type = "mug"
+
+        estimated_caffeine = str(raw.get("estimated_caffeine", "medium")).lower()
+        if estimated_caffeine not in {"low", "medium", "high", "none"}:
+            estimated_caffeine = "medium"
+
+        calories_approx: int | None = None
+        raw_cal = raw.get("calories_approx")
+        if raw_cal is not None:
+            try:
+                calories_approx = max(0, int(raw_cal))
+            except (TypeError, ValueError):
+                calories_approx = None
+
+        recipe: dict[str, Any] = {
             "name": name,
             "description": description,
             "blend": blend,
             "component1": comp1,
             "component2": comp2,
-        })
+            "extras": extras,
+            "cup_type": cup_type,
+            "estimated_caffeine": estimated_caffeine,
+            "calories_approx": calories_approx,
+        }
+
+        validated.append(recipe)
 
     return validated
 
@@ -273,6 +509,19 @@ async def async_generate_recipes(
     preference: str | None,
     count: int,
     llm_agent: str | None,
+    *,
+    extras: dict[str, list[str]] | None = None,
+    ice_available: bool = False,
+    cup_size: str = "mug",
+    temperature_pref: str = "auto",
+    mood: str | None = None,
+    occasion: str | None = None,
+    servings: int = 1,
+    dietary: list[str] | None = None,
+    caffeine_pref: str = "regular",
+    weather: dict[str, Any] | None = None,
+    people_home: int | None = None,
+    cups_today: int | None = None,
 ) -> list[dict[str, Any]]:
     """Generate freestyle recipes using HA conversation agent."""
     prompt = _build_prompt(
@@ -282,6 +531,18 @@ async def async_generate_recipes(
         mode=mode,
         preference=preference,
         count=count,
+        extras=extras,
+        ice_available=ice_available,
+        cup_size=cup_size,
+        temperature_pref=temperature_pref,
+        mood=mood,
+        occasion=occasion,
+        servings=servings,
+        dietary=dietary,
+        caffeine_pref=caffeine_pref,
+        weather=weather,
+        people_home=people_home,
+        cups_today=cups_today,
     )
 
     _LOGGER.debug("Sommelier prompt: %s", prompt[:200])

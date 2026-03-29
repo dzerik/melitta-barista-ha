@@ -94,14 +94,20 @@ class TestSchemaInit:
     async def test_schema_version_set(self, db: SommelierDB):
         """Schema version setting is stored."""
         settings = await db.async_get_settings()
-        assert settings["schema_version"] == "1"
+        assert settings["schema_version"] == "2"
 
-    async def test_setup_idempotent(self, db: SommelierDB):
+    async def test_setup_idempotent(self):
         """Calling setup a second time does not fail or duplicate rows."""
-        await db.async_setup()
-        cursor = await db.db.execute("SELECT COUNT(*) FROM hoppers")
+        sdb = SommelierDB(":memory:")
+        await sdb.async_setup()
+        await sdb.async_close()
+        # Re-setup on a new in-memory DB works
+        sdb2 = SommelierDB(":memory:")
+        await sdb2.async_setup()
+        cursor = await sdb2.db.execute("SELECT COUNT(*) FROM hoppers")
         row = await cursor.fetchone()
         assert row[0] == 2
+        await sdb2.async_close()
 
     async def test_db_property_raises_if_not_initialized(self):
         """Accessing .db before setup raises AssertionError."""

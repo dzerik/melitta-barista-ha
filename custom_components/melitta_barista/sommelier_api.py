@@ -73,6 +73,13 @@ VALID_MILK_TYPES = [
     "soy", "coconut", "cream",
 ]
 VALID_MODES = ["surprise_me", "custom"]
+VALID_EXTRAS_CATEGORIES = ["syrups", "toppings", "liqueurs"]
+VALID_CUP_SIZES = ["espresso_cup", "cup", "mug", "tall_glass", "travel"]
+VALID_MOODS = ["energizing", "relaxing", "dessert", "classic"]
+VALID_OCCASIONS = ["morning", "after_lunch", "guests", "romantic", "work"]
+VALID_TEMP_PREFS = ["auto", "hot", "iced", "hot_only", "cold_ok", "prefer_cold"]
+VALID_CAFFEINE_PREFS = ["regular", "low", "decaf_evening"]
+VALID_DIETARY = ["no_sugar", "lactose_free", "low_calorie", "vegan"]
 
 BEAN_SCHEMA = {
     vol.Required("brand"): cv.string,
@@ -126,6 +133,15 @@ def async_register_websocket_handlers(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_presets_list)
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_set)
+    websocket_api.async_register_command(hass, ws_extras_get)
+    websocket_api.async_register_command(hass, ws_extras_set)
+    websocket_api.async_register_command(hass, ws_preferences_get)
+    websocket_api.async_register_command(hass, ws_preferences_set)
+    websocket_api.async_register_command(hass, ws_profiles_list)
+    websocket_api.async_register_command(hass, ws_profiles_add)
+    websocket_api.async_register_command(hass, ws_profiles_update)
+    websocket_api.async_register_command(hass, ws_profiles_delete)
+    websocket_api.async_register_command(hass, ws_profiles_activate)
 
 
 # ── Beans ─────────────────────────────────────────────────────────────
@@ -316,6 +332,12 @@ async def ws_milk_set(
         vol.Optional("count", default=3): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=5)
         ),
+        vol.Optional("mood"): vol.In(VALID_MOODS),
+        vol.Optional("occasion"): vol.In(VALID_OCCASIONS),
+        vol.Optional("temperature", default="auto"): vol.In(["auto", "hot", "iced"]),
+        vol.Optional("servings", default=1): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=4)
+        ),
     }
 )
 @websocket_api.async_response
@@ -335,6 +357,66 @@ async def ws_generate(
     hopper1_bean = hoppers.get("hopper1", {}).get("bean")
     hopper2_bean = hoppers.get("hopper2", {}).get("bean")
 
+    # Load extras from DB
+    extras = await db.async_get_extras()
+    extras_context = extras if extras else None
+
+    # Load active profile from DB
+    profile_id: str | None = None
+    active_profile: dict[str, Any] | None = None
+    try:
+        active_profile = await db.async_get_active_profile()
+        if active_profile:
+            profile_id = active_profile["id"]
+    except Exception:
+        _LOGGER.debug("No profiles available, using defaults")
+
+    # Load user preferences from DB
+    user_prefs = await db.async_get_preferences()
+
+    # Merge profile preferences with user preferences (profile overrides)
+    cup_size = "mug"
+    temperature_pref = msg.get("temperature", "auto")
+    dietary: list[str] = []
+    caffeine_pref = "regular"
+    ice_available = "ice" in extras.get("misc", []) if extras else False
+
+    if active_profile:
+        cup_size = active_profile.get("cup_size", "mug")
+        if temperature_pref == "auto":
+            temperature_pref = active_profile.get("temperature_pref", "auto")
+            if temperature_pref in ("hot_only", "cold_ok", "prefer_cold"):
+                temperature_pref = {"hot_only": "hot", "cold_ok": "auto", "prefer_cold": "iced"}.get(
+                    temperature_pref, "auto"
+                )
+        dietary = active_profile.get("dietary", [])
+        caffeine_pref = active_profile.get("caffeine_pref", "regular")
+
+    # Get weather from HA if use_weather preference is set
+    weather_context: dict[str, Any] | None = None
+    if user_prefs.get("use_weather") == "true":
+        weather_entity = user_prefs.get("weather_entity", "weather.home")
+        weather_state = hass.states.get(weather_entity)
+        if weather_state:
+            weather_context = {
+                "temperature": weather_state.attributes.get("temperature"),
+                "condition": weather_state.state,
+            }
+
+    # Get cups today from sensor (if available)
+    cups_today: int | None = None
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if hasattr(entry, "runtime_data") and entry.runtime_data:
+            cups_today = getattr(entry.runtime_data, "total_cups", None)
+            break
+
+    # Get people home count
+    people_home: int | None = None
+    if user_prefs.get("use_presence") == "true":
+        people_home = sum(
+            1 for s in hass.states.async_all("person") if s.state == "home"
+        )
+
     try:
         recipes = await async_generate_recipes(
             hass=hass,
@@ -345,6 +427,18 @@ async def ws_generate(
             preference=msg.get("preference"),
             count=msg["count"],
             llm_agent=settings.get("llm_agent_id"),
+            extras=extras_context,
+            ice_available=ice_available,
+            cup_size=cup_size,
+            temperature_pref=temperature_pref,
+            mood=msg.get("mood"),
+            occasion=msg.get("occasion"),
+            servings=msg.get("servings", 1),
+            dietary=dietary,
+            caffeine_pref=caffeine_pref,
+            weather=weather_context,
+            people_home=people_home,
+            cups_today=cups_today,
         )
     except Exception as err:
         _LOGGER.error("Failed to generate recipes: %s", err)
@@ -362,6 +456,13 @@ async def ws_generate(
         milk_types=milk_types,
         llm_agent=settings.get("llm_agent_id"),
         recipes=recipes,
+        profile_id=profile_id,
+        mood=msg.get("mood"),
+        occasion=msg.get("occasion"),
+        temperature=msg.get("temperature", "auto"),
+        servings=msg.get("servings", 1),
+        extras_context=extras_context,
+        weather_context=weather_context,
     )
     connection.send_result(msg["id"], {"session": session})
 
@@ -600,4 +701,187 @@ async def ws_settings_set(
     """Set a Sommelier setting."""
     db = await _async_get_db(hass)
     await db.async_set_setting(msg["key"], msg["value"])
+    connection.send_result(msg["id"])
+
+
+# ── Extras ───────────────────────────────────────────────────────────
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "melitta_barista/sommelier/extras/get"}
+)
+@websocket_api.async_response
+async def ws_extras_get(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get available extras (syrups, toppings, etc.)."""
+    db = await _async_get_db(hass)
+    extras = await db.async_get_extras()
+    connection.send_result(msg["id"], {"extras": extras})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/extras/set",
+        vol.Required("category"): vol.In(VALID_EXTRAS_CATEGORIES),
+        vol.Required("items"): vol.All(cv.ensure_list, [cv.string]),
+    }
+)
+@websocket_api.async_response
+async def ws_extras_set(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Set extras for a category."""
+    db = await _async_get_db(hass)
+    await db.async_set_extras(msg["category"], msg["items"])
+    connection.send_result(msg["id"])
+
+
+# ── Preferences ──────────────────────────────────────────────────────
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "melitta_barista/sommelier/preferences/get"}
+)
+@websocket_api.async_response
+async def ws_preferences_get(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get user preferences."""
+    db = await _async_get_db(hass)
+    preferences = await db.async_get_preferences()
+    connection.send_result(msg["id"], {"preferences": preferences})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/preferences/set",
+        vol.Required("key"): cv.string,
+        vol.Required("value"): cv.string,
+    }
+)
+@websocket_api.async_response
+async def ws_preferences_set(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Set a user preference."""
+    db = await _async_get_db(hass)
+    await db.async_set_preference(msg["key"], msg["value"])
+    connection.send_result(msg["id"])
+
+
+# ── Profiles ─────────────────────────────────────────────────────────
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "melitta_barista/sommelier/profiles/list"}
+)
+@websocket_api.async_response
+async def ws_profiles_list(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """List all profiles."""
+    db = await _async_get_db(hass)
+    profiles = await db.async_list_profiles()
+    connection.send_result(msg["id"], {"profiles": profiles})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/profiles/add",
+        vol.Required("name"): cv.string,
+        vol.Optional("preferences", default={}): dict,
+    }
+)
+@websocket_api.async_response
+async def ws_profiles_add(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Add a new profile."""
+    db = await _async_get_db(hass)
+    profile = await db.async_add_profile(
+        name=msg["name"],
+        preferences=msg.get("preferences", {}),
+    )
+    connection.send_result(msg["id"], {"profile": profile})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/profiles/update",
+        vol.Required("profile_id"): cv.string,
+        vol.Optional("name"): cv.string,
+        vol.Optional("preferences"): dict,
+    }
+)
+@websocket_api.async_response
+async def ws_profiles_update(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Update an existing profile."""
+    db = await _async_get_db(hass)
+    data: dict[str, Any] = {}
+    if "name" in msg:
+        data["name"] = msg["name"]
+    if "preferences" in msg:
+        data["preferences"] = msg["preferences"]
+    profile = await db.async_update_profile(msg["profile_id"], data)
+    if profile is None:
+        connection.send_error(
+            msg["id"], "not_found", f"Profile {msg['profile_id']} not found"
+        )
+        return
+    connection.send_result(msg["id"], {"profile": profile})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/profiles/delete",
+        vol.Required("profile_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+async def ws_profiles_delete(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete a profile."""
+    db = await _async_get_db(hass)
+    deleted = await db.async_delete_profile(msg["profile_id"])
+    if not deleted:
+        connection.send_error(msg["id"], "not_found", "Profile not found")
+        return
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/profiles/activate",
+        vol.Required("profile_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+async def ws_profiles_activate(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Activate a profile (deactivates others)."""
+    db = await _async_get_db(hass)
+    activated = await db.async_activate_profile(msg["profile_id"])
+    if not activated:
+        connection.send_error(msg["id"], "not_found", "Profile not found")
+        return
     connection.send_result(msg["id"])
