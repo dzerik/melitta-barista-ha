@@ -1,44 +1,96 @@
-# Melitta Barista Smart for Home Assistant
+# Melitta Barista & Nivona for Home Assistant
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dzerik&repository=melitta-barista-ha&category=integration)
 
-[![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha?style=flat-square)](https://github.com/dzerik/melitta-barista-ha/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha?style=flat-square&include_prereleases)](https://github.com/dzerik/melitta-barista-ha/releases)
 [![GitHub Downloads](https://img.shields.io/github/downloads/dzerik/melitta-barista-ha/total?style=flat-square&label=downloads)](https://github.com/dzerik/melitta-barista-ha/releases)
-[![Tests](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=tests)](https://github.com/dzerik/melitta-barista-ha/actions/workflows/tests.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=686%20tests)](https://github.com/dzerik/melitta-barista-ha/actions/workflows/tests.yml)
 [![Validate](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=hassfest%2BHACS)](https://github.com/dzerik/melitta-barista-ha/actions)
 [![License](https://img.shields.io/github/license/dzerik/melitta-barista-ha?style=flat-square)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square)](https://hacs.xyz)
 [![Home Assistant](https://img.shields.io/badge/HA-2024.1%2B-blue?style=flat-square)](https://www.home-assistant.io/)
 [![BLE](https://img.shields.io/badge/BLE-Bluetooth_LE-blue?style=flat-square)](#)
-[![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#)
+[![Brands](https://img.shields.io/badge/brands-Melitta%20%2B%20Nivona-8b5a2b?style=flat-square)](#supported-brands-and-models)
+[![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#localization)
 
-A custom Home Assistant integration for controlling **Melitta Barista T Smart** and **Melitta Barista TS Smart** coffee machines over Bluetooth Low Energy (BLE). Monitor machine status, brew recipes, adjust settings, and trigger maintenance -- all from your Home Assistant dashboard.
+A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR/NIVO 8xxx** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance, generate AI recipes — all from your Home Assistant dashboard.
+
+> **⚠️ Nivona testers wanted.** Nivona support (v0.41.0) is shipped as **alpha** — cryptography and handshake are validated against upstream RE vectors, but the code path has not been live-tested on real Nivona hardware by the maintainer. If you own a **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx** machine, please try this release and [open a GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with your results (handshake / status / brew / prompts). See [Nivona support](#nivona-alpha-testers-wanted) below for details.
 
 ---
 
-## Supported Models
+## Supported brands and models
+
+### Melitta (stable)
 
 | Model | Type ID | BLE Prefixes | Recipes | Bean Hoppers |
 |-------|---------|--------------|---------|--------------|
 | **Barista T Smart** | 258 | 8301, 8311, 8401 | 21 | 1 (single) |
 | **Barista TS Smart** | 259 | 8501, 8601, 8604 | 24 | 2 (dual) |
 
-The machine model is automatically detected from the BLE device name and confirmed via the BLE protocol. All entities, recipes, and settings are filtered per model.
+### Nivona (alpha — testers wanted)
+
+| Family | Representative models | MyCoffee | Strength | Notes |
+|---|---|---|---|---|
+| **600** | NICR 660 / 670 / 675 / 680 | 1 | 3 | — |
+| **700** | NICR 756 / 758 / 759 / 768 / 769 / 778 / 779 / 788 / 789 | 4 | 3 | aroma balance |
+| **79x** | NICR 790–797, 799 | 4 | 5 | aroma balance |
+| **900** | NICR 920 / 930 | 4 | 5 | fluid ml×10 quirk |
+| **900-light** | NICR 960 / 965 / 970 | 4 | 3 | — |
+| **1030** / **1040** | NICR 1030 / 1040 | 4 | 5 | — |
+| **8000** | NIVO 8101 / 8103 / 8107 | 4 | 5 | different brew opcode |
+
+The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona `NIVONA-NNNNNNNNNN-----`) and confirmed via the BLE protocol. Nivona firmware does not expose recipe-editing opcodes, so recipe/freestyle/profile entities are suppressed for Nivona entries.
+
+## Nivona (alpha) — testers wanted
+
+**Status**: the Nivona `BrandProfile` shipped in v0.41.0 is **code-complete and cryptographically validated** against the upstream reverse-engineering vectors from [mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge), but the maintainer does **not own a Nivona machine** and cannot verify live BLE interop. The release is marked pre-release on GitHub.
+
+**What's validated in software**:
+
+- HU handshake verifier against the published vector `FA 48 D1 7B → 7E 6E` (upstream NICR 756)
+- RC4 runtime key `NIV_060616_V10_1*9#3!4$6+4res-?3` (recovered from `de.nivona.mobileapp` 3.8.6)
+- 7 family capability entries with per-family brew opcode / strength levels / fluid scaling
+- Serial-prefix tokenisation for all known model codes (4-char for NIVO 8xxx, 3-char for NICR 6xx/7xx/79x/9xx)
+
+**What live-testing should confirm**:
+
+- [ ] BLE pairing + D-Bus bonding completes
+- [ ] `HU` session setup succeeds on real hardware
+- [ ] `HX` status polling returns sensible `process`/`manipulation`/`progress` values
+- [ ] `HZ` cancel-brew works on an active brew
+- [ ] `HY` prompt confirmation works (flush / move cup)
+- [ ] `HD` register reset returns ACK
+- [ ] `HI` feature bits either return a payload or time out gracefully (both OK)
+
+**How to help**:
+
+1. Enable HACS **Pre-releases** (in HACS settings), install this repo, update to **v0.41.0**.
+2. Pair your Nivona via the normal config-flow — it should be auto-discovered.
+3. [Open an issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with the model, firmware version, and a log snippet filtered on `melitta_barista`.
+
+Crypto and handshake are identical in structure to Melitta; the risk is primarily per-firmware-family quirks in brew payload bytes and stats register IDs.
 
 ## Features
 
-- **Multi-model support** -- automatic detection of Barista T and Barista TS with model-specific entity filtering
-- **Real-time status monitoring** -- machine state, brewing activity, progress percentage, and required user actions via BLE push notifications
-- **21/24 built-in recipes** -- select a recipe from the dropdown and brew with one tap (3 extra recipes on TS model)
-- **Machine settings control** -- water hardness, brew temperature, auto-off timer, energy saving, and more
-- **Maintenance operations** -- easy clean, intensive clean, descaling, and power off
-- **BLE auto-discovery** -- the integration detects your Melitta machine automatically during setup
-- **Encrypted BLE protocol** -- full AES/RC4 encrypted communication as used by the official Melitta app
-- **User profiles** -- read and edit user profile names on the machine
-- **Freestyle recipes** -- build custom drinks with two configurable components (coffee/milk/water), adjustable intensity, temperature, shots, and portion sizes
-- **Custom Lovelace card** -- dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
-- **Standalone PWA** -- full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
-- **29 languages** -- full localization for all European and Slavic languages
+- **Multi-brand, multi-model** — Melitta Barista T/TS Smart + Nivona NICR/NIVO 8xxx (alpha) auto-detected from BLE advertisement; model-specific entity filtering per capability
+- **Real-time status monitoring** — machine state, brewing activity, progress percentage, required user actions, and machine prompts via BLE push notifications
+- **21 or 24 built-in recipes** (Melitta) — select from dropdown and brew with one tap (3 extra recipes on TS model)
+- **Freestyle recipes** (Melitta) — build custom drinks with two configurable components (coffee/milk/water), adjustable intensity, aroma, temperature, shots, and portion sizes
+- **Reset recipe to factory defaults** (Melitta, v0.33.0+) — HD opcode button with auto-refresh of cached recipe attributes
+- **Confirm machine prompts** (v0.34.0+) — dedicated `Confirm Prompt` button + `awaiting_confirmation` binary sensor + optional **global auto-confirm** for soft prompts (move cup, flush); hardware-blocking prompts (fill water, empty trays) remain manual
+- **Maintenance operations** — easy clean, intensive clean, descaling, filter insert/replace/remove, evaporating, power off
+- **Cancel in-flight brew** — HZ opcode, one-click cancel during any running process
+- **Machine settings control** — water hardness, brew temperature, auto-off timer, energy saving, auto-bean-select (TS)
+- **Feature capability read** (HI, v0.32.0+) — diagnostic sensor exposes machine capability bits (e.g. `IMAGE_TRANSFER`), graceful on firmwares that don't answer
+- **User profiles** (Melitta) — read and edit user profile names on the machine
+- **Cup counters** (Melitta) — total + per-recipe statistics, refreshed after each brew completion
+- **BLE auto-discovery** — integration detects your Melitta or Nivona machine automatically
+- **Encrypted BLE protocol** — full Eugster EFLibrary stack (AES customer-key bootstrap + RC4 stream cipher), per-brand HU verifier tables
+- **🤖 AI Coffee Sommelier** — generate personalised recipes from configured bean hoppers, milk types, syrups/toppings using any HA conversation agent (OpenAI, Anthropic, Google). 31 bundled European coffee presets incl. Lavazza, Melitta, Illy, Dallmayr, Tasty Coffee.
+- **Custom Lovelace card** — dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
+- **Standalone PWA** — full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
+- **29 languages** — full localization for all European and Slavic languages
 
 ## Supported Recipes
 
@@ -185,9 +237,17 @@ Once configured, the integration creates a device with all available entities fi
 | State | Current machine state: Ready, Brewing, Cleaning, Descaling, Off, etc. |
 | Activity | Current sub-process: Grinding, Extracting, Steaming, Dispensing Water, Preparing |
 | Progress | Brewing or cleaning progress as a percentage |
-| Action Required | Required user action: Fill Water, Empty Trays, Brew Unit Removed, etc. |
+| Action Required | Required user action: Fill Water, Empty Trays, Brew Unit Removed, Move Cup to Frother, Flush Required |
 | Connection | BLE connection status: Connected or Disconnected (diagnostic) |
 | Firmware | Firmware version reported by the machine (diagnostic) |
+| Features | Machine capability bits from HI response, plus raw byte in attributes (diagnostic, disabled by default) |
+| Total Cups | Total brewed count, per-recipe breakdown in attributes (Melitta only) |
+
+### Binary Sensors
+
+| Entity | Description |
+|--------|-------------|
+| Awaiting Confirmation | `on` when the machine is showing a user-confirmable prompt (fill water, move cup, flush, etc.) — pairs with the `Confirm Prompt` button (PROBLEM device class) |
 
 ### Select
 
@@ -206,15 +266,19 @@ Once configured, the integration creates a device with all available entities fi
 
 ### Buttons
 
-| Entity | Description |
-|--------|-------------|
-| Brew | Brew the recipe selected in the Recipe dropdown. Available when machine is Ready and a recipe is selected. |
-| Brew Freestyle | Brew the custom freestyle recipe using current freestyle parameters. |
-| Cancel | Cancel the currently running operation. |
-| Easy Clean | Start the easy clean cycle (configuration). |
-| Intensive Clean | Start the intensive clean cycle (configuration). |
-| Descaling | Start the descaling process (configuration). |
-| Switch Off | Power off the machine (configuration). |
+| Entity | Brand | Description |
+|--------|-------|-------------|
+| Brew | Melitta | Brew the recipe selected in the Recipe dropdown. Available when machine is Ready and a recipe is selected. |
+| Brew Freestyle | Melitta | Brew the custom freestyle recipe using current freestyle parameters. |
+| Cancel | both | Cancel the currently running operation (HZ). |
+| Confirm Prompt | both | Acknowledge an active machine prompt (move cup, flush, fill water, etc.) via HY. Available only when `awaiting_confirmation` binary sensor is on. |
+| Reset Recipe | Melitta | Reset the currently selected recipe to factory defaults (HD). Available when machine is Ready and a recipe is selected. Recipe cache auto-refreshes. |
+| Easy Clean | both | Start the easy clean cycle (configuration). |
+| Intensive Clean | both | Start the intensive clean cycle (configuration). |
+| Descaling | both | Start the descaling process (configuration). |
+| Filter Insert / Replace / Remove | both | Water filter operations (configuration). |
+| Evaporating | both | Steam evaporating cycle (configuration). |
+| Switch Off | both | Power off the machine (configuration). |
 
 ### Numbers
 
@@ -244,7 +308,24 @@ Once configured, the integration creates a device with all available entities fi
 
 ## Services
 
-The integration provides three custom services for advanced brewing and recipe management.
+The integration provides five custom services.
+
+### `melitta_barista.reset_recipe` (Melitta)
+
+Reset a recipe to factory defaults via the HD opcode. Recipe cache is auto-refreshed so the UI / PWA show factory values immediately.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `entity_id` | string | Yes | Any button entity of the target machine |
+| `recipe_id` | int (200–223) | No | Target recipe; defaults to currently selected |
+
+### `melitta_barista.confirm_prompt`
+
+Acknowledge an active machine prompt via HY (e.g. "move cup to frother", "flush required"). Fails with a `ServiceValidationError` if no prompt is active.
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `entity_id` | string | Yes | Any button entity of the target machine |
 
 ### `melitta_barista.brew_freestyle`
 
@@ -297,6 +378,7 @@ Configure the integration via **Settings → Devices & Services → Melitta Bari
 | Reconnect max delay | 300s | 30-3600s | Maximum backoff between reconnects |
 | Poll errors before disconnect | 3 | 1-20 | Consecutive errors before forcing disconnect |
 | Frame timeout | 5s | 2-30s | BLE command response timeout |
+| **Auto-confirm soft prompts** | off | bool | When on, the integration automatically sends HY for soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) stay manual. |
 
 ### Advanced Settings
 
@@ -315,6 +397,33 @@ Configure the integration via **Settings → Devices & Services → Melitta Bari
 | Cup counters | Read after each brew completes | On brew finish |
 | Profile data | Read once on connect | On connection |
 | Settings | Read on entity setup | On demand |
+
+## AI Coffee Sommelier
+
+Generate personalised espresso/latte/cappuccino recipes from any Home Assistant conversation agent (OpenAI, Anthropic, Google, local LLMs).
+
+**How it works**:
+
+1. Configure your bean hoppers (bean type, roast, origin) and available milk types in the integration's WebSocket API (or via the companion [PWA](https://github.com/dzerik/melitta-barista-app) Sommelier tab).
+2. Optionally add syrups, toppings, liqueurs, and machine profiles (cup size, dietary preferences).
+3. The integration pipes your configuration + current HA context (weather, mood, occasion) to your chosen conversation agent.
+4. The agent returns three recipes structured for the Melitta Freestyle builder — tap to brew.
+
+**Bundled**: 31 European coffee bean presets (Lavazza, illy, Melitta, Dallmayr, Tasty Coffee, and more). Extendable via WebSocket API.
+
+**Requirements**: at least one `conversation` integration configured in HA (e.g. [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)).
+
+**API**: 29 WebSocket commands for managing beans, hoppers, milk, favorites, history, generation. See the [PWA companion repo](https://github.com/dzerik/melitta-barista-app) for the Sommelier UI.
+
+## Architecture
+
+The integration is built on a **three-layer abstraction** (v0.40.0+) that cleanly separates:
+
+1. **BLE transport** (shared) — pairing, reconnect, write/notify GATT characteristics.
+2. **Eugster/EFLibrary core** (shared) — frame format `0x53…0x45`, one's-complement checksum, RC4 stream cipher, `HU/HV/HR/HW/HX/HE/HZ/HY/HD/HI/HA/HB` opcodes.
+3. **Brand profile** (pluggable) — RC4 runtime key, HU verifier table, advertisement regex, supported opcode extensions (`HC`/`HJ` for Melitta only), per-family machine capabilities.
+
+Adding a third Eugster OEM brand (e.g. if public RE emerges for Koenig, KitchenAid, etc.) is a matter of dropping a new file into `brands/`. See [`docs/adr/001-brand-profile-abstraction.md`](docs/adr/001-brand-profile-abstraction.md).
 
 ## Use Cases
 

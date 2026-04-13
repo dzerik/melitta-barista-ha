@@ -68,8 +68,6 @@ user-visible changes for existing Melitta Barista users.**
     `all_profiles`, `detect_from_advertisement`.
 - `docs/adr/001-brand-profile-abstraction.md` — architectural decision
   record (4 alternatives considered).
-- `docs/multi-brand-architecture.md` — full design doc with Mermaid
-  diagrams.
 - 21 new brand-profile unit tests (including a Nivona HU verifier
   vector guaranteed to match upstream RE).
 
