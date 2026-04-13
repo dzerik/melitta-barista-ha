@@ -18,3 +18,10 @@ CLAUDE.md
 /.serena/
 /.coverage
 /.playwright-mcp/
+
+# Docs intentionally kept out of git history (0.41.0)
+/docs/ai-coffee-sommelier.md
+/docs/habr-draft.md
+/docs/multi-brand-architecture.md
+/docs/oem-eugster-protocol.md
+/docs/roadmap-oem-features.md
