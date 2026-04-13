@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Genforbindelse startforsinkelse (sekunder)",
           "reconnect_max_delay": "Genforbindelse maks. backoff (sekunder)",
           "max_consecutive_errors": "Pollingfejl før afbrydelse",
-          "frame_timeout": "BLE frame-timeout (sekunder)"
+          "frame_timeout": "BLE frame-timeout (sekunder)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Hvor ofte maskinen polles for statusopdateringer (standard: 5s)",
           "reconnect_initial_delay": "Startforsinkelse før genforbindelsesforsøg (standard: 5s)",
           "reconnect_max_delay": "Maksimal forsinkelse mellem genforbindelsesforsøg (standard: 300s)",
           "max_consecutive_errors": "Antal pollingfejl i træk før tvungen afbrydelse (standard: 3)",
-          "frame_timeout": "Timeout for BLE frame-afsendelse/-modtagelse (standard: 5s)"
+          "frame_timeout": "Timeout for BLE frame-afsendelse/-modtagelse (standard: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Nulstil opskrift"
+      },
+      "confirm_prompt": {
+        "name": "Bekræft prompt"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktiv"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Afventer bekræftelse"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

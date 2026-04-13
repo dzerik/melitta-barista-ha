@@ -1053,6 +1053,79 @@ class TestConnectReadsFeatures:
         assert client.features is None
 
 
+class TestAutoConfirmPrompts:
+    """_maybe_auto_confirm logic in _on_status."""
+
+    def _client_with_status(self, manipulation, *, auto=True):
+        from custom_components.melitta_barista.const import Manipulation
+        from custom_components.melitta_barista.protocol import MachineStatus
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF", auto_confirm_prompts=auto,
+        )
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._protocol = MagicMock()
+        client._protocol.confirm_prompt = AsyncMock(return_value=True)
+        client._brew_lock = asyncio.Lock()
+        return client
+
+    async def test_disabled_does_not_fire(self):
+        from custom_components.melitta_barista.const import Manipulation
+        from custom_components.melitta_barista.protocol import MachineStatus
+        client = self._client_with_status(Manipulation.MOVE_CUP_TO_FROTHER, auto=False)
+
+        client._on_status(MachineStatus(manipulation=Manipulation.MOVE_CUP_TO_FROTHER))
+        await asyncio.sleep(0)  # let any spawned tasks run
+
+        client._protocol.confirm_prompt.assert_not_awaited()
+
+    async def test_soft_prompt_fires_once(self):
+        from custom_components.melitta_barista.const import Manipulation
+        from custom_components.melitta_barista.protocol import MachineStatus
+        client = self._client_with_status(Manipulation.NONE, auto=True)
+
+        # Prompt appears
+        client._on_status(MachineStatus(manipulation=Manipulation.MOVE_CUP_TO_FROTHER))
+        await asyncio.sleep(0.05)
+
+        client._protocol.confirm_prompt.assert_awaited_once()
+
+    async def test_debounce_same_prompt(self):
+        """Same active prompt across multiple status updates fires only once."""
+        from custom_components.melitta_barista.const import Manipulation
+        from custom_components.melitta_barista.protocol import MachineStatus
+        client = self._client_with_status(Manipulation.NONE, auto=True)
+
+        for _ in range(3):
+            client._on_status(MachineStatus(manipulation=Manipulation.FLUSH_REQUIRED))
+            await asyncio.sleep(0.02)
+
+        assert client._protocol.confirm_prompt.await_count == 1
+
+    async def test_hardware_prompt_skipped(self):
+        """FILL_WATER must not auto-fire even if option is on."""
+        from custom_components.melitta_barista.const import Manipulation
+        from custom_components.melitta_barista.protocol import MachineStatus
+        client = self._client_with_status(Manipulation.NONE, auto=True)
+
+        client._on_status(MachineStatus(manipulation=Manipulation.FILL_WATER))
+        await asyncio.sleep(0.05)
+
+        client._protocol.confirm_prompt.assert_not_awaited()
+
+    async def test_setter_disables(self):
+        """set_auto_confirm_prompts(False) stops further auto-confirm."""
+        from custom_components.melitta_barista.const import Manipulation
+        from custom_components.melitta_barista.protocol import MachineStatus
+        client = self._client_with_status(Manipulation.NONE, auto=True)
+
+        client.set_auto_confirm_prompts(False)
+        client._on_status(MachineStatus(manipulation=Manipulation.MOVE_CUP_TO_FROTHER))
+        await asyncio.sleep(0.05)
+
+        client._protocol.confirm_prompt.assert_not_awaited()
+
+
 # ---------------------------------------------------------------------------
 # disconnect (lines 392-410)
 # ---------------------------------------------------------------------------
@@ -1351,6 +1424,21 @@ class TestHighLevelAPI:
         """Returns False when disconnected, does not call protocol."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         result = await client.reset_recipe_default(213)
+        assert result is False
+
+    async def test_confirm_prompt_success(self, mock_bleak_client):
+        """confirm_prompt returns True on ACK."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.confirm_prompt = AsyncMock(return_value=True)
+
+        result = await client.confirm_prompt()
+        assert result is True
+        client._protocol.confirm_prompt.assert_awaited_once_with(client._write_ble)
+
+    async def test_confirm_prompt_not_connected(self):
+        """Returns False when disconnected."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.confirm_prompt()
         assert result is False
 
     async def test_read_setting_not_connected(self):

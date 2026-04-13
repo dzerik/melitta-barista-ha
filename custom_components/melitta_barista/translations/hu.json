@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Újracsatlakozás kezdő késleltetés (másodperc)",
           "reconnect_max_delay": "Újracsatlakozás max. késleltetés (másodperc)",
           "max_consecutive_errors": "Lekérdezési hibák lecsatlakozás előtt",
-          "frame_timeout": "BLE keret időtúllépés (másodperc)"
+          "frame_timeout": "BLE keret időtúllépés (másodperc)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Milyen gyakran kérdezze le a gép állapotát (alapértelmezett: 5s)",
           "reconnect_initial_delay": "Kezdő késleltetés újracsatlakozási kísérlet előtt (alapértelmezett: 5s)",
           "reconnect_max_delay": "Maximális késleltetés újracsatlakozási kísérletek között (alapértelmezett: 300s)",
           "max_consecutive_errors": "Egymás utáni lekérdezési hibák száma kényszerített lecsatlakozás előtt (alapértelmezett: 3)",
-          "frame_timeout": "BLE keret küldési/fogadási időtúllépés (alapértelmezett: 5s)"
+          "frame_timeout": "BLE keret küldési/fogadási időtúllépés (alapértelmezett: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Recept visszaállítása"
+      },
+      "confirm_prompt": {
+        "name": "Üzenet megerősítése"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktív"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Megerősítésre vár"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

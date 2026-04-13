@@ -20,6 +20,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "config": {
@@ -85,14 +88,16 @@
           "reconnect_initial_delay": "Reconnect initial delay (seconds)",
           "reconnect_max_delay": "Reconnect max backoff (seconds)",
           "max_consecutive_errors": "Poll errors before disconnect",
-          "frame_timeout": "BLE frame timeout (seconds)"
+          "frame_timeout": "BLE frame timeout (seconds)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "How often to poll the machine for status updates (default: 5s)",
           "reconnect_initial_delay": "Initial delay before reconnect attempt (default: 5s)",
           "reconnect_max_delay": "Maximum delay between reconnect attempts (default: 300s)",
           "max_consecutive_errors": "Number of consecutive poll errors before forcing disconnect (default: 3)",
-          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)"
+          "frame_timeout": "Timeout for BLE frame send/receive operations (default: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -174,6 +179,11 @@
         "name": "Features"
       }
     },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Awaiting Confirmation"
+      }
+    },
     "button": {
       "brew": {
         "name": "Brew"
@@ -183,6 +193,9 @@
       },
       "reset_recipe": {
         "name": "Reset Recipe"
+      },
+      "confirm_prompt": {
+        "name": "Confirm Prompt"
       },
       "easy_clean": {
         "name": "Easy Clean"

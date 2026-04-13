@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Αρχική καθυστέρηση επανασύνδεσης (δευτερόλεπτα)",
           "reconnect_max_delay": "Μέγιστη καθυστέρηση επανασύνδεσης (δευτερόλεπτα)",
           "max_consecutive_errors": "Σφάλματα ανίχνευσης πριν την αποσύνδεση",
-          "frame_timeout": "Χρονικό όριο πλαισίου BLE (δευτερόλεπτα)"
+          "frame_timeout": "Χρονικό όριο πλαισίου BLE (δευτερόλεπτα)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Πόσο συχνά γίνεται ανίχνευση κατάστασης της μηχανής (προεπιλογή: 5s)",
           "reconnect_initial_delay": "Αρχική καθυστέρηση πριν την απόπειρα επανασύνδεσης (προεπιλογή: 5s)",
           "reconnect_max_delay": "Μέγιστη καθυστέρηση μεταξύ αποπειρών επανασύνδεσης (προεπιλογή: 300s)",
           "max_consecutive_errors": "Αριθμός διαδοχικών σφαλμάτων ανίχνευσης πριν την αναγκαστική αποσύνδεση (προεπιλογή: 3)",
-          "frame_timeout": "Χρονικό όριο αποστολής/λήψης πλαισίου BLE (προεπιλογή: 5s)"
+          "frame_timeout": "Χρονικό όριο αποστολής/λήψης πλαισίου BLE (προεπιλογή: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Επαναφορά συνταγής"
+      },
+      "confirm_prompt": {
+        "name": "Επιβεβαίωση"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Προφίλ {profile_id} ενεργό"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Αναμονή επιβεβαίωσης"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

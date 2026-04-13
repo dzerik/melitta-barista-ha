@@ -19,6 +19,7 @@ from .const import (
     BLE_MTU,
     CMD_ACK,
     CMD_CANCEL_PROCESS,
+    CMD_CONFIRM_PROMPT,
     CMD_HANDSHAKE,
     CMD_NACK,
     CMD_READ_ALPHA,
@@ -738,3 +739,14 @@ class MelittaProtocol:
         """
         payload = struct.pack(">h", value_id)
         return await self.send_and_wait_ack(CMD_RESET_DEFAULT, payload, write_func)
+
+    async def confirm_prompt(self, write_func) -> bool:
+        """Send HY command to confirm an active machine prompt.
+
+        Payload: 4 zero bytes. Machine responds ``A``/``N``. Used to
+        acknowledge prompts like "move cup to frother" or "flush
+        required" so the brew flow can proceed.
+        """
+        return await self.send_and_wait_ack(
+            CMD_CONFIRM_PROMPT, b"\x00\x00\x00\x00", write_func,
+        )

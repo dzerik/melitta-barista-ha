@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Почетно кашњење поновног повезивања (секунде)",
           "reconnect_max_delay": "Макс. кашњење поновног повезивања (секунде)",
           "max_consecutive_errors": "Грешака испитивања пре прекида везе",
-          "frame_timeout": "Временско ограничење BLE оквира (секунде)"
+          "frame_timeout": "Временско ограничење BLE оквира (секунде)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Колико често испитивати апарат за ажурирање статуса (подразумевано: 5 с)",
           "reconnect_initial_delay": "Почетно кашњење пре покушаја поновног повезивања (подразумевано: 5 с)",
           "reconnect_max_delay": "Максимално кашњење између покушаја поновног повезивања (подразумевано: 300 с)",
           "max_consecutive_errors": "Број узастопних грешака испитивања пре принудног прекида везе (подразумевано: 3)",
-          "frame_timeout": "Временско ограничење за операције слања/примања BLE оквира (подразумевано: 5 с)"
+          "frame_timeout": "Временско ограничење за операције слања/примања BLE оквира (подразумевано: 5 с)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Resetuj recept"
+      },
+      "confirm_prompt": {
+        "name": "Potvrdi upit"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Профил {profile_id} активан"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Čeka potvrdu"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

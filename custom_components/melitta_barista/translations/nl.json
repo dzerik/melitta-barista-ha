@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Initiële herverbindingsvertraging (seconden)",
           "reconnect_max_delay": "Maximale herverbindingsvertraging (seconden)",
           "max_consecutive_errors": "Pollingfouten voor verbreking",
-          "frame_timeout": "BLE-frame-timeout (seconden)"
+          "frame_timeout": "BLE-frame-timeout (seconden)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Hoe vaak de machine wordt gepolled voor statusupdates (standaard: 5s)",
           "reconnect_initial_delay": "Initiële vertraging voor herverbindingspoging (standaard: 5s)",
           "reconnect_max_delay": "Maximale vertraging tussen herverbindingspogingen (standaard: 300s)",
           "max_consecutive_errors": "Aantal opeenvolgende pollingfouten voor geforceerde verbreking (standaard: 3)",
-          "frame_timeout": "Timeout voor BLE-frame-verzend-/ontvangstbewerkingen (standaard: 5s)"
+          "frame_timeout": "Timeout voor BLE-frame-verzend-/ontvangstbewerkingen (standaard: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Recept resetten"
+      },
+      "confirm_prompt": {
+        "name": "Bevestig melding"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profiel {profile_id} actief"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Wacht op bevestiging"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

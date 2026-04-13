@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Počáteční prodleva opětovného připojení (sekundy)",
           "reconnect_max_delay": "Max. prodleva opětovného připojení (sekundy)",
           "max_consecutive_errors": "Chyb dotazování před odpojením",
-          "frame_timeout": "Časový limit BLE rámce (sekundy)"
+          "frame_timeout": "Časový limit BLE rámce (sekundy)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Jak často dotazovat kávovar na aktualizace stavu (výchozí: 5 s)",
           "reconnect_initial_delay": "Počáteční prodleva před pokusem o opětovné připojení (výchozí: 5 s)",
           "reconnect_max_delay": "Maximální prodleva mezi pokusy o opětovné připojení (výchozí: 300 s)",
           "max_consecutive_errors": "Počet po sobě jdoucích chyb dotazování před vynuceným odpojením (výchozí: 3)",
-          "frame_timeout": "Časový limit pro operace odesílání/přijímání BLE rámců (výchozí: 5 s)"
+          "frame_timeout": "Časový limit pro operace odesílání/přijímání BLE rámců (výchozí: 5 s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Obnovit recept"
+      },
+      "confirm_prompt": {
+        "name": "Potvrdit výzvu"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktivní"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Čeká potvrzení"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

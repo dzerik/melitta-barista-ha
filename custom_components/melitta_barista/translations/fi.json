@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Uudelleenyhteys alkuviive (sekuntia)",
           "reconnect_max_delay": "Uudelleenyhteys enimmäisviive (sekuntia)",
           "max_consecutive_errors": "Kyselyvirheitä ennen katkaisua",
-          "frame_timeout": "BLE-kehyksen aikakatkaisu (sekuntia)"
+          "frame_timeout": "BLE-kehyksen aikakatkaisu (sekuntia)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Kuinka usein koneen tila kysellään (oletus: 5s)",
           "reconnect_initial_delay": "Alkuviive ennen uudelleenyhteysyritystä (oletus: 5s)",
           "reconnect_max_delay": "Enimmäisviive uudelleenyhteysyritysten välillä (oletus: 300s)",
           "max_consecutive_errors": "Peräkkäisten kyselyvirheiden määrä ennen pakotetua katkaisua (oletus: 3)",
-          "frame_timeout": "BLE-kehyksen lähetys-/vastaanottokeskeytys (oletus: 5s)"
+          "frame_timeout": "BLE-kehyksen lähetys-/vastaanottokeskeytys (oletus: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Palauta resepti"
+      },
+      "confirm_prompt": {
+        "name": "Vahvista kehote"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profiili {profile_id} aktiivinen"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Odottaa vahvistusta"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

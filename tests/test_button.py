@@ -549,3 +549,54 @@ async def test_reset_recipe_button_press_nack_logs_warning(
 
     assert any("NACK" in rec.message or "timeout" in rec.message
                for rec in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# MelittaConfirmPromptButton (HY command)
+# ---------------------------------------------------------------------------
+
+async def test_confirm_prompt_button_available_on_active_prompt(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Available when manipulation is in PROMPT_MANIPULATIONS."""
+    from custom_components.melitta_barista.button import MelittaConfirmPromptButton
+    from custom_components.melitta_barista.const import Manipulation
+
+    status = MachineStatus(
+        process=MachineProcess.READY, manipulation=Manipulation.FILL_WATER,
+    )
+    client = _mock_client(status=status)
+    client.confirm_prompt = AsyncMock(return_value=True)
+    btn = MelittaConfirmPromptButton(client, mock_entry, "Test")
+    assert btn.available is True
+
+
+async def test_confirm_prompt_button_unavailable_when_idle(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Unavailable when no prompt active (manipulation NONE)."""
+    from custom_components.melitta_barista.button import MelittaConfirmPromptButton
+
+    client = _mock_client()  # default status: READY + NONE
+    client.confirm_prompt = AsyncMock(return_value=True)
+    btn = MelittaConfirmPromptButton(client, mock_entry, "Test")
+    assert btn.available is False
+
+
+async def test_confirm_prompt_button_press(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Pressing button calls client.confirm_prompt() once."""
+    from custom_components.melitta_barista.button import MelittaConfirmPromptButton
+    from custom_components.melitta_barista.const import Manipulation
+
+    status = MachineStatus(
+        process=MachineProcess.READY,
+        manipulation=Manipulation.MOVE_CUP_TO_FROTHER,
+    )
+    client = _mock_client(status=status)
+    client.confirm_prompt = AsyncMock(return_value=True)
+    btn = MelittaConfirmPromptButton(client, mock_entry, "Test")
+    await btn.async_press()
+
+    client.confirm_prompt.assert_awaited_once()

@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import (
-    FREESTYLE_RECIPE_TYPE, RECIPE_NAMES, MachineProcess,
+    FREESTYLE_RECIPE_TYPE, PROMPT_MANIPULATIONS, RECIPE_NAMES, MachineProcess,
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
 )
 from .entity import MelittaDeviceMixin
@@ -49,6 +49,9 @@ async def async_setup_entry(
 
     # Reset current recipe to factory defaults (HD command)
     entities.append(MelittaResetRecipeButton(client, entry, name))
+
+    # Confirm machine prompt (HY command)
+    entities.append(MelittaConfirmPromptButton(client, entry, name))
 
     # Maintenance buttons
     entities.append(MelittaMaintenanceButton(
@@ -286,6 +289,40 @@ class MelittaResetRecipeButton(_MelittaButtonBase):
                 )
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("BLE error while resetting recipe %s", recipe_name)
+
+
+class MelittaConfirmPromptButton(_MelittaButtonBase):
+    """Confirm an active machine prompt (move cup, flush, fill water...) via HY."""
+
+    _attr_name = "Confirm Prompt"
+    _attr_icon = "mdi:check-circle-outline"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_confirm_prompt"
+
+    @property
+    def available(self) -> bool:
+        if not self._client.connected or not self._client.status:
+            return False
+        return self._client.status.manipulation in PROMPT_MANIPULATIONS
+
+    async def async_press(self) -> None:
+        status = self._client.status
+        manip = status.manipulation if status else None
+        if manip is None or manip not in PROMPT_MANIPULATIONS:
+            _LOGGER.debug("No active prompt to confirm")
+            return
+        _LOGGER.info("Confirming prompt: %s", manip.name)
+        try:
+            success = await self._client.confirm_prompt()
+            if not success:
+                _LOGGER.warning(
+                    "Confirm prompt %s: machine returned NACK or timeout",
+                    manip.name,
+                )
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error while confirming prompt %s", manip.name)
 
 
 class MelittaMaintenanceButton(_MelittaButtonBase):

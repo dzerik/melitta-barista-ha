@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Gjenoppkobling startforsinkelse (sekunder)",
           "reconnect_max_delay": "Gjenoppkobling maks. backoff (sekunder)",
           "max_consecutive_errors": "Pollingfeil før frakobling",
-          "frame_timeout": "BLE frame-tidsavbrudd (sekunder)"
+          "frame_timeout": "BLE frame-tidsavbrudd (sekunder)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Hvor ofte maskinen polles for statusoppdateringer (standard: 5s)",
           "reconnect_initial_delay": "Startforsinkelse før gjenoppkoblingsforsøk (standard: 5s)",
           "reconnect_max_delay": "Maksimal forsinkelse mellom gjenoppkoblingsforsøk (standard: 300s)",
           "max_consecutive_errors": "Antall pollingfeil på rad før tvungen frakobling (standard: 3)",
-          "frame_timeout": "Tidsavbrudd for BLE frame-sending/-mottak (standard: 5s)"
+          "frame_timeout": "Tidsavbrudd for BLE frame-sending/-mottak (standard: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Tilbakestill oppskrift"
+      },
+      "confirm_prompt": {
+        "name": "Bekreft varsel"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktiv"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Venter på bekreftelse"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

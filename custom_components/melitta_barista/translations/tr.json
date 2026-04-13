@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Yeniden bağlanma başlangıç gecikmesi (saniye)",
           "reconnect_max_delay": "Yeniden bağlanma maks. gecikme (saniye)",
           "max_consecutive_errors": "Bağlantı kesilmeden önce sorgulama hataları",
-          "frame_timeout": "BLE çerçeve zaman aşımı (saniye)"
+          "frame_timeout": "BLE çerçeve zaman aşımı (saniye)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Makinenin durum güncellemeleri için ne sıklıkta sorgulanacağı (varsayılan: 5s)",
           "reconnect_initial_delay": "Yeniden bağlanma denemesi öncesi başlangıç gecikmesi (varsayılan: 5s)",
           "reconnect_max_delay": "Yeniden bağlanma denemeleri arasındaki maksimum gecikme (varsayılan: 300s)",
           "max_consecutive_errors": "Zorla bağlantı kesilmeden önceki ardışık sorgulama hatası sayısı (varsayılan: 3)",
-          "frame_timeout": "BLE çerçeve gönderme/alma zaman aşımı (varsayılan: 5s)"
+          "frame_timeout": "BLE çerçeve gönderme/alma zaman aşımı (varsayılan: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Tarifi sıfırla"
+      },
+      "confirm_prompt": {
+        "name": "İstemi onayla"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktif"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Onay bekliyor"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

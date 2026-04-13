@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Anfängliche Wiederverbindungsverzögerung (Sekunden)",
           "reconnect_max_delay": "Maximale Wiederverbindungsverzögerung (Sekunden)",
           "max_consecutive_errors": "Abfragefehler vor Trennung",
-          "frame_timeout": "BLE-Frame-Zeitlimit (Sekunden)"
+          "frame_timeout": "BLE-Frame-Zeitlimit (Sekunden)",
+          "auto_confirm_prompts": "Sanfte Aufforderungen automatisch bestätigen"
         },
         "data_description": {
           "poll_interval": "Wie oft die Maschine nach Statusaktualisierungen abgefragt wird (Standard: 5s)",
           "reconnect_initial_delay": "Anfängliche Verzögerung vor dem Wiederverbindungsversuch (Standard: 5s)",
           "reconnect_max_delay": "Maximale Verzögerung zwischen Wiederverbindungsversuchen (Standard: 300s)",
           "max_consecutive_errors": "Anzahl aufeinanderfolgender Abfragefehler vor erzwungener Trennung (Standard: 3)",
-          "frame_timeout": "Zeitlimit für BLE-Frame-Sende-/Empfangsvorgänge (Standard: 5s)"
+          "frame_timeout": "Zeitlimit für BLE-Frame-Sende-/Empfangsvorgänge (Standard: 5s)",
+          "auto_confirm_prompts": "Sanfte Aufforderungen (Tasse umstellen, Spülung) automatisch bestätigen. Hardware-Aufforderungen (Wasser nachfüllen, Tropfschale leeren) nur manuell."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Rezept zurücksetzen"
+      },
+      "confirm_prompt": {
+        "name": "Aufforderung bestätigen"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktiv"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Wartet auf Bestätigung"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Gerät hat das Zurücksetzen abgelehnt (NACK oder Timeout). Diese Firmware unterstützt HD möglicherweise nicht."
+    },
+    "confirm_failed": {
+      "message": "Gerät hat die Bestätigung abgelehnt (NACK oder Timeout). Diese Firmware unterstützt HY möglicherweise nicht."
     }
   },
   "issues": {

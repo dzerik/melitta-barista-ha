@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Återanslutning startfördröjning (sekunder)",
           "reconnect_max_delay": "Återanslutning max backoff (sekunder)",
           "max_consecutive_errors": "Pollingfel före frånkoppling",
-          "frame_timeout": "BLE frame-timeout (sekunder)"
+          "frame_timeout": "BLE frame-timeout (sekunder)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Hur ofta maskinen pollas för statusuppdateringar (standard: 5s)",
           "reconnect_initial_delay": "Startfördröjning innan återanslutningsförsök (standard: 5s)",
           "reconnect_max_delay": "Maximal fördröjning mellan återanslutningsförsök (standard: 300s)",
           "max_consecutive_errors": "Antal pollingfel i rad innan tvingad frånkoppling (standard: 3)",
-          "frame_timeout": "Timeout för BLE frame-sändning/-mottagning (standard: 5s)"
+          "frame_timeout": "Timeout för BLE frame-sändning/-mottagning (standard: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Återställ recept"
+      },
+      "confirm_prompt": {
+        "name": "Bekräfta uppmaning"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profil {profile_id} aktiv"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Väntar på bekräftelse"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

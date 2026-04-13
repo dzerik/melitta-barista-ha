@@ -36,6 +36,8 @@ from .const import (
     MACHINE_TYPE_SETTING_ID,
     MachineProcess,
     MachineType,
+    Manipulation,
+    SOFT_AUTO_CONFIRM_MANIPULATIONS,
     PROFILE_NAMES,
     RecipeId,
     detect_machine_type_from_name,
@@ -70,6 +72,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         reconnect_delay: float = DEFAULT_RECONNECT_DELAY,
         reconnect_max_delay: float = DEFAULT_RECONNECT_MAX_DELAY,
         recipe_retries: int = DEFAULT_RECIPE_RETRIES,
+        auto_confirm_prompts: bool = False,
     ) -> None:
         self._address = address
         self._device_name = device_name
@@ -93,6 +96,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._firmware: str | None = None
         self._features: FeatureFlags | None = None
         self._machine_type: MachineType | None = None
+        self._auto_confirm_prompts: bool = auto_confirm_prompts
+        self._last_auto_confirmed: Manipulation = Manipulation.NONE
         self._status_callbacks: list[Callable[[MachineStatus], None]] = []
         self._connection_callbacks: list[Callable[[bool], None]] = []
         self._poll_task: asyncio.Task | None = None
@@ -159,6 +164,16 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         — not all machines support this command.
         """
         return self._features
+
+    @property
+    def auto_confirm_prompts(self) -> bool:
+        return self._auto_confirm_prompts
+
+    def set_auto_confirm_prompts(self, value: bool) -> None:
+        """Update the auto-confirm flag (used by Options Flow listener)."""
+        self._auto_confirm_prompts = bool(value)
+        if not value:
+            self._last_auto_confirmed = Manipulation.NONE
 
     @property
     def machine_type(self) -> MachineType | None:
@@ -261,11 +276,42 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         ):
             task = asyncio.create_task(self.read_cup_counters())
             task.add_done_callback(self._on_cup_refresh_done)
+        self._maybe_auto_confirm(status)
         for cb in self._status_callbacks:
             try:
                 cb(status)
             except Exception:  # noqa: BLE900 — callback from user code
                 _LOGGER.exception("Error in status callback")
+
+    def _maybe_auto_confirm(self, status: MachineStatus) -> None:
+        """Auto-fire HY for soft prompts when the global option is enabled.
+
+        Debounced: each soft prompt is auto-confirmed once per "appearance"
+        — we don't re-trigger while the same code is still being reported
+        by the machine.
+        """
+        if not self._auto_confirm_prompts:
+            return
+        manip = status.manipulation
+        if manip not in SOFT_AUTO_CONFIRM_MANIPULATIONS:
+            # Reset debounce when the prompt clears or switches to a non-soft one
+            self._last_auto_confirmed = Manipulation.NONE
+            return
+        if manip == self._last_auto_confirmed:
+            return
+        self._last_auto_confirmed = manip
+        _LOGGER.info("Auto-confirming prompt %s", manip.name)
+        asyncio.create_task(self._auto_confirm_task(manip))
+
+    async def _auto_confirm_task(self, manip: Manipulation) -> None:
+        try:
+            success = await self.confirm_prompt()
+            if not success:
+                _LOGGER.warning(
+                    "Auto-confirm %s: NACK or timeout", manip.name,
+                )
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("Auto-confirm %s failed", manip.name)
 
     @staticmethod
     def _on_cup_refresh_done(task: asyncio.Task) -> None:

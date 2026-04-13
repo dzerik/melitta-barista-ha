@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Початкова затримка перепідключення (секунди)",
           "reconnect_max_delay": "Макс. затримка перепідключення (секунди)",
           "max_consecutive_errors": "Помилок опитування до відключення",
-          "frame_timeout": "Таймаут BLE-фрейму (секунди)"
+          "frame_timeout": "Таймаут BLE-фрейму (секунди)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Як часто опитувати машину для оновлення статусу (за замовчуванням: 5 с)",
           "reconnect_initial_delay": "Початкова затримка перед спробою перепідключення (за замовчуванням: 5 с)",
           "reconnect_max_delay": "Максимальна затримка між спробами перепідключення (за замовчуванням: 300 с)",
           "max_consecutive_errors": "Кількість послідовних помилок опитування до примусового відключення (за замовчуванням: 3)",
-          "frame_timeout": "Таймаут операцій надсилання/отримання BLE-фреймів (за замовчуванням: 5 с)"
+          "frame_timeout": "Таймаут операцій надсилання/отримання BLE-фреймів (за замовчуванням: 5 с)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Скинути рецепт"
+      },
+      "confirm_prompt": {
+        "name": "Підтвердити запит"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Профіль {profile_id} активний"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Очікує підтвердження"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

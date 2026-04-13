@@ -28,6 +28,7 @@ from .const import (
     CONF_PAIR_TIMEOUT,
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
+    CONF_AUTO_CONFIRM_PROMPTS,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
@@ -37,6 +38,7 @@ from .const import (
     DEFAULT_PAIR_TIMEOUT,
     DEFAULT_RECIPE_RETRIES,
     DEFAULT_INITIAL_CONNECT_DELAY,
+    DEFAULT_AUTO_CONFIRM_PROMPTS,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -333,6 +335,12 @@ class MelittaOptionsFlow(OptionsFlow):
                     CONF_FRAME_TIMEOUT,
                     default=options.get(CONF_FRAME_TIMEOUT, DEFAULT_FRAME_TIMEOUT),
                 ): vol.All(int, vol.Range(min=2, max=30)),
+                vol.Optional(
+                    CONF_AUTO_CONFIRM_PROMPTS,
+                    default=options.get(
+                        CONF_AUTO_CONFIRM_PROMPTS, DEFAULT_AUTO_CONFIRM_PROMPTS,
+                    ),
+                ): bool,
             }),
         )
 

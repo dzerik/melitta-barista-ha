@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Retardo inicial de reconexión (segundos)",
           "reconnect_max_delay": "Retardo máximo de reconexión (segundos)",
           "max_consecutive_errors": "Errores de sondeo antes de desconectar",
-          "frame_timeout": "Tiempo de espera de trama BLE (segundos)"
+          "frame_timeout": "Tiempo de espera de trama BLE (segundos)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Frecuencia de sondeo de la máquina para actualizaciones de estado (por defecto: 5s)",
           "reconnect_initial_delay": "Retardo inicial antes del intento de reconexión (por defecto: 5s)",
           "reconnect_max_delay": "Retardo máximo entre intentos de reconexión (por defecto: 300s)",
           "max_consecutive_errors": "Número de errores de sondeo consecutivos antes de forzar la desconexión (por defecto: 3)",
-          "frame_timeout": "Tiempo de espera para operaciones de envío/recepción de tramas BLE (por defecto: 5s)"
+          "frame_timeout": "Tiempo de espera para operaciones de envío/recepción de tramas BLE (por defecto: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Restablecer receta"
+      },
+      "confirm_prompt": {
+        "name": "Confirmar aviso"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Perfil {profile_id} activo"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Esperando confirmación"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

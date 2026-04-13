@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Taasühenduse algviivitus (sekundid)",
           "reconnect_max_delay": "Taasühenduse maks. viivitus (sekundid)",
           "max_consecutive_errors": "Küsitlusvigu enne katkestust",
-          "frame_timeout": "BLE kaadri ajalõpp (sekundid)"
+          "frame_timeout": "BLE kaadri ajalõpp (sekundid)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Kui tihti küsitletakse masina olekut (vaikimisi: 5s)",
           "reconnect_initial_delay": "Algviivitus enne taasühenduskatset (vaikimisi: 5s)",
           "reconnect_max_delay": "Maksimaalne viivitus taasühenduskatsete vahel (vaikimisi: 300s)",
           "max_consecutive_errors": "Järjestikuste küsitlusvigade arv enne sundkatkestust (vaikimisi: 3)",
-          "frame_timeout": "BLE kaadri saatmise/vastuvõtmise ajalõpp (vaikimisi: 5s)"
+          "frame_timeout": "BLE kaadri saatmise/vastuvõtmise ajalõpp (vaikimisi: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Lähtesta retsept"
+      },
+      "confirm_prompt": {
+        "name": "Kinnita teade"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profiil {profile_id} aktiivne"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Ootab kinnitust"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

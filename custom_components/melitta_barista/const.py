@@ -67,6 +67,7 @@ CMD_CANCEL_PROCESS = "HZ"
 CMD_HANDSHAKE = "HU"
 CMD_READ_FEATURES = "HI"
 CMD_RESET_DEFAULT = "HD"
+CMD_CONFIRM_PROMPT = "HY"
 
 # Protocol encryption keys
 AES_KEY_PART_B = bytes([
@@ -146,6 +147,30 @@ class Manipulation(IntEnum):
     FILL_WATER = 4
     CLOSE_POWDER_LID = 5
     FILL_POWDER = 6
+    MOVE_CUP_TO_FROTHER = 11
+    FLUSH_REQUIRED = 20
+
+
+# Codes that warrant surfacing "awaiting confirmation" UI / button.
+PROMPT_MANIPULATIONS: frozenset[Manipulation] = frozenset({
+    Manipulation.BU_REMOVED,
+    Manipulation.TRAYS_MISSING,
+    Manipulation.EMPTY_TRAYS,
+    Manipulation.FILL_WATER,
+    Manipulation.CLOSE_POWDER_LID,
+    Manipulation.FILL_POWDER,
+    Manipulation.MOVE_CUP_TO_FROTHER,
+    Manipulation.FLUSH_REQUIRED,
+})
+
+# Soft prompts that are safe to auto-confirm via HY when the global
+# option is enabled. Hardware-blocking prompts (fill water, empty
+# trays, etc.) are intentionally excluded — auto-confirming them when
+# the underlying issue still exists would just loop.
+SOFT_AUTO_CONFIRM_MANIPULATIONS: frozenset[Manipulation] = frozenset({
+    Manipulation.MOVE_CUP_TO_FROTHER,
+    Manipulation.FLUSH_REQUIRED,
+})
 
 
 class RecipeId(IntEnum):
@@ -489,6 +514,8 @@ CONF_BLE_CONNECT_TIMEOUT = "ble_connect_timeout"
 CONF_PAIR_TIMEOUT = "pair_timeout"
 CONF_RECIPE_RETRIES = "recipe_retries"
 CONF_INITIAL_CONNECT_DELAY = "initial_connect_delay"
+CONF_AUTO_CONFIRM_PROMPTS = "auto_confirm_prompts"
+DEFAULT_AUTO_CONFIRM_PROMPTS = False
 
 # Defaults
 DEFAULT_RECONNECT_DELAY: float = 5.0

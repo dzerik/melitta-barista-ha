@@ -53,6 +53,8 @@ MANIPULATION_LABELS: dict[Manipulation, str] = {
     Manipulation.FILL_WATER: "Fill Water",
     Manipulation.CLOSE_POWDER_LID: "Close Powder Lid",
     Manipulation.FILL_POWDER: "Fill Powder",
+    Manipulation.MOVE_CUP_TO_FROTHER: "Move Cup to Frother",
+    Manipulation.FLUSH_REQUIRED: "Flush Required",
 }
 
 

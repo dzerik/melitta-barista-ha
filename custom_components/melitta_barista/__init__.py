@@ -31,6 +31,7 @@ from .const import (
     CONF_BLE_CONNECT_TIMEOUT,
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
+    CONF_AUTO_CONFIRM_PROMPTS,
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
     DEFAULT_MAX_CONSECUTIVE_ERRORS,
@@ -38,12 +39,14 @@ from .const import (
     DEFAULT_BLE_CONNECT_TIMEOUT,
     DEFAULT_RECIPE_RETRIES,
     DEFAULT_INITIAL_CONNECT_DELAY,
+    DEFAULT_AUTO_CONFIRM_PROMPTS,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
+    Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.SELECT,
     Platform.NUMBER,
@@ -155,6 +158,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         reconnect_delay=opts.get(CONF_RECONNECT_DELAY, DEFAULT_RECONNECT_DELAY),
         reconnect_max_delay=opts.get(CONF_RECONNECT_MAX_DELAY, DEFAULT_RECONNECT_MAX_DELAY),
         recipe_retries=opts.get(CONF_RECIPE_RETRIES, DEFAULT_RECIPE_RETRIES),
+        auto_confirm_prompts=opts.get(
+            CONF_AUTO_CONFIRM_PROMPTS, DEFAULT_AUTO_CONFIRM_PROMPTS,
+        ),
     )
 
     # Register bluetooth callback to keep BLEDevice reference fresh.
@@ -304,6 +310,7 @@ SERVICE_BREW_FREESTYLE = "brew_freestyle"
 SERVICE_BREW_DIRECTKEY = "brew_directkey"
 SERVICE_SAVE_DIRECTKEY = "save_directkey"
 SERVICE_RESET_RECIPE = "reset_recipe"
+SERVICE_CONFIRM_PROMPT = "confirm_prompt"
 
 _PROCESS_MAP = PROCESS_MAP
 _INTENSITY_MAP = INTENSITY_MAP
@@ -325,6 +332,10 @@ BREW_DIRECTKEY_SCHEMA = vol.Schema({
 RESET_RECIPE_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
     vol.Optional("recipe_id"): vol.All(int, vol.Range(min=200, max=223)),
+})
+
+CONFIRM_PROMPT_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
 })
 
 SAVE_DIRECTKEY_SCHEMA = vol.Schema({
@@ -539,9 +550,29 @@ def _async_register_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SAVE_DIRECTKEY, _handle_save_directkey,
         schema=SAVE_DIRECTKEY_SCHEMA,
     )
+    async def _handle_confirm_prompt(call: ServiceCall) -> None:
+        """Handle confirm_prompt service call."""
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+            )
+        success = await client.confirm_prompt()
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="confirm_failed",
+            )
+        _LOGGER.info("Confirmed machine prompt via service call")
+
     hass.services.async_register(
         DOMAIN, SERVICE_RESET_RECIPE, _handle_reset_recipe,
         schema=RESET_RECIPE_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_CONFIRM_PROMPT, _handle_confirm_prompt,
+        schema=CONFIRM_PROMPT_SCHEMA,
     )
 
 

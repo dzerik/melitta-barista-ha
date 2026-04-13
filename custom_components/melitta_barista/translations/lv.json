@@ -62,14 +62,16 @@
           "reconnect_initial_delay": "Atkārtotas savienošanas sākotnējā aizkave (sekundes)",
           "reconnect_max_delay": "Atkārtotas savienošanas maks. aizkave (sekundes)",
           "max_consecutive_errors": "Aptaujas kļūdas pirms atvienošanas",
-          "frame_timeout": "BLE kadra noildze (sekundes)"
+          "frame_timeout": "BLE kadra noildze (sekundes)",
+          "auto_confirm_prompts": "Auto-confirm soft prompts"
         },
         "data_description": {
           "poll_interval": "Cik bieži aptaujāt iekārtu statusa atjauninājumiem (noklusējums: 5s)",
           "reconnect_initial_delay": "Sākotnējā aizkave pirms atkārtotas savienošanas mēģinājuma (noklusējums: 5s)",
           "reconnect_max_delay": "Maksimālā aizkave starp atkārtotas savienošanas mēģinājumiem (noklusējums: 300s)",
           "max_consecutive_errors": "Secīgu aptaujas kļūdu skaits pirms piespiedu atvienošanas (noklusējums: 3)",
-          "frame_timeout": "BLE kadra sūtīšanas/saņemšanas noildze (noklusējums: 5s)"
+          "frame_timeout": "BLE kadra sūtīšanas/saņemšanas noildze (noklusējums: 5s)",
+          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
         }
       },
       "advanced": {
@@ -184,6 +186,9 @@
       },
       "reset_recipe": {
         "name": "Atiestatīt recepti"
+      },
+      "confirm_prompt": {
+        "name": "Apstiprināt paziņojumu"
       }
     },
     "select": {
@@ -253,6 +258,11 @@
       "profile_activity": {
         "name": "Profils {profile_id} aktīvs"
       }
+    },
+    "binary_sensor": {
+      "awaiting_confirmation": {
+        "name": "Gaida apstiprinājumu"
+      }
     }
   },
   "exceptions": {
@@ -270,6 +280,9 @@
     },
     "reset_failed": {
       "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+    },
+    "confirm_failed": {
+      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
     }
   },
   "issues": {

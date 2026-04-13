@@ -226,6 +226,12 @@ class BleCommandsMixin(_MixinBase):
             return False
         return await self._protocol.reset_default(self._write_ble, recipe_id)
 
+    async def confirm_prompt(self) -> bool:
+        """Send HY to confirm the current machine prompt (move cup, flush, ...)."""
+        if not self.connected:
+            return False
+        return await self._protocol.confirm_prompt(self._write_ble)
+
     # Maintenance operations
 
     async def start_easy_clean(self) -> bool:

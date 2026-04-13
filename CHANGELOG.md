@@ -2,6 +2,29 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.34.0] — 2026-04-13
+
+### Added
+- **HY confirm-prompt** protocol command (`CMD_CONFIRM_PROMPT`) +
+  `protocol.confirm_prompt()` + client mixin `confirm_prompt()`.
+- **`Awaiting Confirmation` binary_sensor** (PROBLEM device class) that
+  turns on whenever `MachineStatus.manipulation` reports any active
+  prompt (codes 1–6, 11, 20).
+- **`Confirm Prompt` button** — manual acknowledgement, available only
+  when a prompt is active.
+- **`melitta_barista.confirm_prompt` service** for automation use.
+- **Global `Auto-confirm soft prompts` Options Flow toggle** — when
+  enabled, the integration automatically sends HY for soft prompts
+  (`MOVE_CUP_TO_FROTHER`, `FLUSH_REQUIRED`) so brew flow proceeds
+  without user intervention. Hardware-blocking prompts (fill water,
+  empty trays, etc.) intentionally still require manual confirmation.
+- Auto-confirm uses per-code debounce — each prompt is auto-confirmed
+  only once per "appearance" to avoid loops if the machine reasserts.
+- Two new `Manipulation` enum members: `MOVE_CUP_TO_FROTHER = 11`,
+  `FLUSH_REQUIRED = 20`.
+- New platform: `Platform.BINARY_SENSOR`.
+- Translations (29 languages) for new entities, options, errors.
+
 ## [0.33.0] — 2026-04-13
 
 ### Added

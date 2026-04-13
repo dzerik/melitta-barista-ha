@@ -203,6 +203,44 @@ class TestKnownCommands:
         assert KNOWN_COMMANDS["HI"] == (10, True)
 
 
+class TestConfirmPromptFrame:
+    """HY command for confirming a machine prompt."""
+
+    def test_payload_is_4_zero_bytes(self):
+        """HY request payload is exactly 4 zero bytes."""
+        payload = b"\x00\x00\x00\x00"
+        assert len(payload) == 4
+        assert all(b == 0 for b in payload)
+
+
+class TestManipulationExtras:
+    """New Manipulation members added in Phase 3."""
+
+    def test_move_cup_to_frother_is_11(self):
+        from custom_components.melitta_barista.const import Manipulation
+        assert int(Manipulation.MOVE_CUP_TO_FROTHER) == 11
+
+    def test_flush_required_is_20(self):
+        from custom_components.melitta_barista.const import Manipulation
+        assert int(Manipulation.FLUSH_REQUIRED) == 20
+
+    def test_prompt_set_includes_all_codes(self):
+        from custom_components.melitta_barista.const import (
+            Manipulation, PROMPT_MANIPULATIONS,
+        )
+        for code in (1, 2, 3, 4, 5, 6, 11, 20):
+            assert Manipulation(code) in PROMPT_MANIPULATIONS
+
+    def test_soft_set_excludes_hardware(self):
+        from custom_components.melitta_barista.const import (
+            Manipulation, SOFT_AUTO_CONFIRM_MANIPULATIONS,
+        )
+        assert Manipulation.MOVE_CUP_TO_FROTHER in SOFT_AUTO_CONFIRM_MANIPULATIONS
+        assert Manipulation.FLUSH_REQUIRED in SOFT_AUTO_CONFIRM_MANIPULATIONS
+        assert Manipulation.FILL_WATER not in SOFT_AUTO_CONFIRM_MANIPULATIONS
+        assert Manipulation.EMPTY_TRAYS not in SOFT_AUTO_CONFIRM_MANIPULATIONS
+
+
 class TestResetDefaultFrame:
     """HD command for reset-to-default."""
 

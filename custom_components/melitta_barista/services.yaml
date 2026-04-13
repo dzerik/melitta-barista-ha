@@ -383,3 +383,15 @@ reset_recipe:
           min: 200
           max: 223
           step: 1
+
+confirm_prompt:
+  name: Confirm Machine Prompt
+  description: Send HY to acknowledge an active machine prompt (move cup, flush, fill water...).
+  fields:
+    entity_id:
+      name: Entity
+      description: A brew button entity of the target machine.
+      required: true
+      selector:
+        entity:
+          domain: button
