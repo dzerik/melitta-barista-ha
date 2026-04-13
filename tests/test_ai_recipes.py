@@ -591,3 +591,34 @@ class TestCoffeePresetsJson:
             assert preset["bean_type"] in valid_types, (
                 f"Preset {preset['id']}: unexpected bean_type '{preset['bean_type']}'"
             )
+
+
+# ── Timeout behavior ──────────────────────────────────────────────────
+
+class TestAsyncGenerateRecipesTimeout:
+    """Verify LLM call wraps in asyncio.wait_for with timeout."""
+
+    @pytest.mark.asyncio
+    async def test_timeout_raises_runtime_error(self):
+        """If conversation.process hangs past LLM_TIMEOUT, RuntimeError is raised."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+        from custom_components.melitta_barista.ai_recipes import (
+            async_generate_recipes,
+        )
+
+        hass = MagicMock()
+        hass.services.async_call = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        with patch("custom_components.melitta_barista.ai_recipes.LLM_TIMEOUT", 0.01):
+            with pytest.raises(RuntimeError, match="timed out"):
+                await async_generate_recipes(
+                    hass=hass,
+                    hopper1_bean=None,
+                    hopper2_bean=None,
+                    milk_types=[],
+                    mode="discovery",
+                    preference=None,
+                    count=1,
+                    llm_agent=None,
+                )

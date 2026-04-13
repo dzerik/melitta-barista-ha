@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -11,6 +12,8 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger("melitta_barista")
+
+LLM_TIMEOUT = 60.0
 
 # ── Valid freestyle parameter values ──────────────────────────────────
 
@@ -553,13 +556,21 @@ async def async_generate_recipes(
         service_data["agent_id"] = llm_agent
 
     try:
-        response = await hass.services.async_call(
-            "conversation",
-            "process",
-            service_data,
-            blocking=True,
-            return_response=True,
+        response = await asyncio.wait_for(
+            hass.services.async_call(
+                "conversation",
+                "process",
+                service_data,
+                blocking=True,
+                return_response=True,
+            ),
+            timeout=LLM_TIMEOUT,
         )
+    except asyncio.TimeoutError as err:
+        raise RuntimeError(
+            f"LLM request timed out after {LLM_TIMEOUT:.0f}s. "
+            "The conversation agent did not respond in time."
+        ) from err
     except Exception as err:
         raise RuntimeError(
             f"Failed to call conversation.process: {err}. "
