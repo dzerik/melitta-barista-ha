@@ -77,6 +77,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         recipe_retries: int = DEFAULT_RECIPE_RETRIES,
         auto_confirm_prompts: bool = False,
         brand: "BrandProfile | None" = None,
+        family_override: str | None = None,
     ) -> None:
         self._address = address
         self._device_name = device_name
@@ -104,6 +105,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._firmware: str | None = None
         self._features: FeatureFlags | None = None
         self._machine_type: MachineType | None = None
+        self._dis_info: dict[str, str] = {}
+        self._capabilities = None  # type: ignore[assignment]  # MachineCapabilities | None
+        self._family_override: str | None = (family_override or None)
         self._auto_confirm_prompts: bool = auto_confirm_prompts
         self._last_auto_confirmed: Manipulation = Manipulation.NONE
         self._status_callbacks: list[Callable[[MachineStatus], None]] = []
@@ -199,9 +203,26 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
     @property
     def model_name(self) -> str:
+        # Prefer brand/family-resolved capability name (v0.43.0+)
+        if self._capabilities is not None:
+            return self._capabilities.model_name
+        # DIS-provided model, if machine advertised one
+        if self._dis_info.get("model"):
+            return self._dis_info["model"]
+        # Legacy Melitta machine-type table
         if self._machine_type:
             return MACHINE_MODEL_NAMES.get(self._machine_type, "Melitta Barista")
-        return "Melitta Barista"
+        return self._brand.brand_name + " Barista" if hasattr(self, "_brand") else "Melitta Barista"
+
+    @property
+    def capabilities(self):
+        """Resolved MachineCapabilities (family-level + per-model overrides)."""
+        return self._capabilities
+
+    @property
+    def dis_info(self) -> dict[str, str]:
+        """Device Information Service read snapshot (empty if not yet read)."""
+        return dict(self._dis_info)
 
     @property
     def total_cups(self) -> int | None:
@@ -598,6 +619,20 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._firmware = await self._protocol.read_version(self._write_ble)
             _LOGGER.debug("Firmware: %s", self._firmware)
 
+            # Read Device Information Service (0x180A) for precise
+            # manufacturer / model / serial / FW-HW-SW revision strings.
+            await self._read_dis_service()
+
+            # Resolve capabilities via brand (advertisement + DIS + override).
+            self._capabilities = self._resolve_capabilities()
+            if self._capabilities is not None:
+                _LOGGER.info(
+                    "Resolved capabilities: %s (family=%s, slots=%d)",
+                    self._capabilities.model_name,
+                    self._capabilities.family_key,
+                    self._capabilities.my_coffee_slots,
+                )
+
             # Read feature capability bits (HI — optional, may time out)
             self._features = await self._protocol.read_features(self._write_ble)
             if self._features is not None:
@@ -709,6 +744,69 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             except (BleakError, OSError):
                 _LOGGER.debug("Error during disconnect", exc_info=True)
         self._disconnecting = False
+
+    # ── Device Information Service (0x180A) ──────────────────────────
+
+    # Standard Bluetooth SIG characteristic UUIDs
+    _DIS_CHARS: dict[str, str] = {
+        "manufacturer": "00002a29-0000-1000-8000-00805f9b34fb",
+        "model":        "00002a24-0000-1000-8000-00805f9b34fb",
+        "serial":       "00002a25-0000-1000-8000-00805f9b34fb",
+        "hw_revision":  "00002a27-0000-1000-8000-00805f9b34fb",
+        "fw_revision":  "00002a26-0000-1000-8000-00805f9b34fb",
+        "sw_revision":  "00002a28-0000-1000-8000-00805f9b34fb",
+    }
+
+    async def _read_dis_service(self) -> None:
+        """Read standard Device Information Service characteristics.
+
+        Best-effort — each characteristic read is guarded; missing chars
+        are silently skipped. Populates ``self._dis_info`` dict.
+        """
+        client = self._client
+        if client is None or not client.is_connected:
+            return
+        for key, uuid in self._DIS_CHARS.items():
+            try:
+                raw = await client.read_gatt_char(uuid)
+                text = bytes(raw).rstrip(b"\x00").decode("utf-8", errors="replace").strip()
+                if text:
+                    self._dis_info[key] = text
+            except Exception:  # noqa: BLE001 — char may not exist
+                _LOGGER.debug("DIS read failed for %s", key, exc_info=True)
+        if self._dis_info:
+            _LOGGER.info("DIS: %s", self._dis_info)
+
+    def _resolve_capabilities(self):
+        """Resolve MachineCapabilities from brand + DIS + override."""
+        profile = self._brand
+        # 1. Explicit user override
+        if self._family_override and self._family_override in profile.families:
+            _LOGGER.info(
+                "Using family override %s from Options Flow",
+                self._family_override,
+            )
+            return profile.capabilities_for(self._family_override)
+        # 2. Nivona-style per-model lookup (serial-prefix cascade) if supported
+        model_lookup = getattr(profile, "capabilities_for_model", None)
+        if model_lookup is not None:
+            # Try DIS serial first (most accurate), then advertisement name.
+            for candidate in (self._dis_info.get("serial"), self._device_name):
+                if not candidate:
+                    continue
+                try:
+                    caps = model_lookup(candidate, self._dis_info)
+                except Exception:  # noqa: BLE001
+                    caps = None
+                if caps is not None:
+                    return caps
+        # 3. Family detect via ble_name
+        family = profile.detect_family(
+            self._device_name or "", self._dis_info or None,
+        )
+        if family:
+            return profile.capabilities_for(family)
+        return None
 
     async def poll_status(self) -> MachineStatus | None:
         if not self.connected:

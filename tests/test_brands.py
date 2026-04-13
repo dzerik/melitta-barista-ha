@@ -244,6 +244,73 @@ def test_nivona_capabilities_for_unknown_model_returns_none():
     assert np_.capabilities_for_model("NIVONA-0000000000-----") is None
 
 
+# ---------------------------------------------------------------------------
+# Recipe + MyCoffee layouts (Gap #5, #6)
+# ---------------------------------------------------------------------------
+
+def test_nivona_standard_recipe_layout_700():
+    """700-family standard recipe layout matches upstream offsets."""
+    np_ = NivonaProfile()
+    layout = np_.standard_recipe_layout("700")
+    assert layout is not None
+    assert layout.strength_offset == 1
+    assert layout.profile_offset == 2
+    assert layout.temperature_offset == 3
+    assert layout.two_cups_offset == 4
+    assert layout.coffee_amount_offset == 5
+    assert layout.water_amount_offset == 6
+    assert layout.milk_amount_offset == 7
+    assert layout.milk_foam_amount_offset == 8
+
+
+def test_nivona_standard_recipe_layout_900_extended():
+    """900-family uses per-fluid temperatures + overall_temperature."""
+    np_ = NivonaProfile()
+    layout = np_.standard_recipe_layout("900")
+    assert layout.coffee_temperature_offset == 5
+    assert layout.milk_foam_temperature_offset == 8
+    assert layout.overall_temperature_offset == 13
+    assert layout.fluid_write_scale_10 is True
+
+
+def test_nivona_standard_recipe_register():
+    """Register = 10000 + selector*100 + offset."""
+    np_ = NivonaProfile()
+    # 700-family Cappuccino (selector=4), strength (offset=1) → 10000+400+1 = 10401
+    assert np_.standard_recipe_register(4, 1) == 10401
+    # 700-family Hot Water (selector=7), milk_foam_amount (offset=8) → 10000+700+8 = 10708
+    assert np_.standard_recipe_register(7, 8) == 10708
+
+
+def test_nivona_mycoffee_layout_700():
+    np_ = NivonaProfile()
+    layout = np_.mycoffee_layout("700")
+    assert layout.enabled_offset == 0
+    assert layout.icon_offset == 1
+    assert layout.name_offset == 2
+    assert layout.strength_offset == 4
+
+
+def test_nivona_mycoffee_register():
+    """MyCoffee register = 20000 + slot*100 + offset."""
+    np_ = NivonaProfile()
+    # Slot 3, strength (offset=4) → 20000+300+4 = 20304
+    assert np_.mycoffee_register(3, 4) == 20304
+
+
+def test_nivona_layouts_cover_all_families():
+    np_ = NivonaProfile()
+    for fk in ("600", "700", "79x", "900", "900-light", "1030", "1040", "8000"):
+        assert np_.standard_recipe_layout(fk) is not None, f"{fk} missing recipe layout"
+        assert np_.mycoffee_layout(fk) is not None, f"{fk} missing MyCoffee layout"
+
+
+def test_nivona_unknown_family_layout_returns_none():
+    np_ = NivonaProfile()
+    assert np_.standard_recipe_layout("1234") is None
+    assert np_.mycoffee_layout("1234") is None
+
+
 def test_nivona_recipe_contains_espresso():
     """Every family has Espresso at selector 0."""
     np_ = NivonaProfile()

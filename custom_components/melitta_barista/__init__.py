@@ -33,6 +33,7 @@ from .const import (
     CONF_INITIAL_CONNECT_DELAY,
     CONF_AUTO_CONFIRM_PROMPTS,
     CONF_BRAND,
+    CONF_FAMILY_OVERRIDE,
     DEFAULT_BRAND,
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
@@ -191,6 +192,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_AUTO_CONFIRM_PROMPTS, DEFAULT_AUTO_CONFIRM_PROMPTS,
         ),
         brand=brand,
+        family_override=(opts.get(CONF_FAMILY_OVERRIDE) or None),
     )
 
     # Register bluetooth callback to keep BLEDevice reference fresh.
@@ -341,6 +343,16 @@ SERVICE_BREW_DIRECTKEY = "brew_directkey"
 SERVICE_SAVE_DIRECTKEY = "save_directkey"
 SERVICE_RESET_RECIPE = "reset_recipe"
 SERVICE_CONFIRM_PROMPT = "confirm_prompt"
+SERVICE_WRITE_RECIPE_PARAM = "nivona_write_recipe_param"
+SERVICE_WRITE_MYCOFFEE_PARAM = "nivona_write_mycoffee_param"
+
+_NIVONA_PARAM_KEYS = [
+    "strength", "profile", "two_cups", "temperature",
+    "coffee_temperature", "water_temperature", "milk_temperature",
+    "milk_foam_temperature", "overall_temperature",
+    "coffee_amount", "water_amount", "milk_amount", "milk_foam_amount",
+    "preparation", "enabled", "icon",
+]
 
 _PROCESS_MAP = PROCESS_MAP
 _INTENSITY_MAP = INTENSITY_MAP
@@ -366,6 +378,20 @@ RESET_RECIPE_SCHEMA = vol.Schema({
 
 CONFIRM_PROMPT_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
+})
+
+NIVONA_WRITE_RECIPE_PARAM_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Required("selector"): vol.All(int, vol.Range(min=0, max=255)),
+    vol.Required("param_key"): vol.In(_NIVONA_PARAM_KEYS),
+    vol.Required("value"): vol.All(int, vol.Range(min=-32768, max=2147483647)),
+})
+
+NIVONA_WRITE_MYCOFFEE_PARAM_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Required("slot"): vol.All(int, vol.Range(min=0, max=31)),
+    vol.Required("param_key"): vol.In(_NIVONA_PARAM_KEYS),
+    vol.Required("value"): vol.All(int, vol.Range(min=-32768, max=2147483647)),
 })
 
 SAVE_DIRECTKEY_SCHEMA = vol.Schema({
@@ -600,9 +626,53 @@ def _async_register_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_RESET_RECIPE, _handle_reset_recipe,
         schema=RESET_RECIPE_SCHEMA,
     )
+    async def _handle_write_recipe_param(call: ServiceCall) -> None:
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="device_not_found",
+            )
+        success = await client.write_standard_recipe_param(
+            call.data["selector"], call.data["param_key"], call.data["value"],
+        )
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="write_failed",
+            )
+        _LOGGER.info(
+            "Wrote standard recipe param: selector=%d, %s=%d",
+            call.data["selector"], call.data["param_key"], call.data["value"],
+        )
+
+    async def _handle_write_mycoffee_param(call: ServiceCall) -> None:
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="device_not_found",
+            )
+        success = await client.write_mycoffee_param(
+            call.data["slot"], call.data["param_key"], call.data["value"],
+        )
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="write_failed",
+            )
+        _LOGGER.info(
+            "Wrote MyCoffee param: slot=%d, %s=%d",
+            call.data["slot"], call.data["param_key"], call.data["value"],
+        )
+
     hass.services.async_register(
         DOMAIN, SERVICE_CONFIRM_PROMPT, _handle_confirm_prompt,
         schema=CONFIRM_PROMPT_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_WRITE_RECIPE_PARAM, _handle_write_recipe_param,
+        schema=NIVONA_WRITE_RECIPE_PARAM_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_WRITE_MYCOFFEE_PARAM, _handle_write_mycoffee_param,
+        schema=NIVONA_WRITE_MYCOFFEE_PARAM_SCHEMA,
     )
 
 

@@ -23,6 +23,9 @@
     },
     "confirm_failed": {
       "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+    },
+    "write_failed": {
+      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
     }
   },
   "config": {

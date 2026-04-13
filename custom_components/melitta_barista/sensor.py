@@ -78,6 +78,14 @@ async def async_setup_entry(
         MelittaTotalCupsSensor(client, entry, name),
     ]
 
+    # Brand-capability-driven stat sensors (Nivona). Melitta has its own
+    # hand-tailored total_cups + per-recipe counters; generic stat sensors
+    # only register for non-Melitta brands with populated stats tables.
+    caps = client.capabilities
+    if caps is not None and caps.stats and client.brand.brand_slug != "melitta":
+        for descriptor in caps.stats:
+            entities.append(BrandStatSensor(client, entry, name, descriptor))
+
     async_add_entities(entities)
 
 
@@ -314,3 +322,77 @@ class MelittaTotalCupsSensor(_MelittaSensorBase):
         if not counters:
             return {}
         return {name: count for name, count in counters.items() if count > 0}
+
+
+# ---------------------------------------------------------------------------
+# Brand capability-driven generic stat sensor
+# ---------------------------------------------------------------------------
+
+class BrandStatSensor(_MelittaSensorBase):
+    """Generic stat sensor driven by a ``StatDescriptor`` from the active
+    BrandProfile capabilities. Polls via HR at integration's poll interval
+    plus refreshes on connection events. Used for Nivona families that
+    expose per-recipe cup counters, maintenance counters, and percent/flag
+    gauges through the shared Eugster numeric-register protocol.
+    """
+
+    def __init__(self, client: MelittaBleClient, entry, name: str, descriptor) -> None:
+        super().__init__(client, entry, name)
+        self._desc = descriptor
+        self._value: int | None = None
+        self._attr_name = descriptor.title
+        if descriptor.is_diagnostic:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        if descriptor.unit == "%":
+            self._attr_native_unit_of_measurement = PERCENTAGE
+        elif descriptor.unit == "count":
+            self._attr_native_unit_of_measurement = None
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        elif descriptor.unit is None:
+            # flag (0/1) — render as binary count
+            self._attr_native_unit_of_measurement = None
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_stat_{self._desc.key}"
+
+    @property
+    def native_value(self) -> int | None:
+        return self._value
+
+    @property
+    def icon(self) -> str:
+        unit = self._desc.unit
+        if unit == "%":
+            return "mdi:percent"
+        if unit == "count":
+            return "mdi:counter"
+        return "mdi:alert-circle-outline"   # flag
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if self._client.connected:
+            await self._refresh()
+
+    @callback
+    def _on_status_update(self, status) -> None:
+        # Status updates arrive every poll; piggyback to refresh the
+        # stat lazily (rate-limited by HR single-flight lock upstream).
+        super()._on_status_update(status)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        super()._on_connection_change(connected)
+        if connected:
+            self.hass.async_create_task(self._refresh())
+
+    async def _refresh(self) -> None:
+        try:
+            value = await self._client.read_setting(self._desc.stat_id)
+            if value is not None:
+                self._value = value
+                self.async_write_ha_state()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug(
+                "BrandStatSensor %s refresh failed", self._desc.key, exc_info=True,
+            )

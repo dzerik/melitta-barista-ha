@@ -283,6 +283,9 @@
     },
     "confirm_failed": {
       "message": "Gerät hat die Bestätigung abgelehnt (NACK oder Timeout). Diese Firmware unterstützt HY möglicherweise nicht."
+    },
+    "write_failed": {
+      "message": "Gerät hat den Parameter-Write abgelehnt (NACK oder Timeout). Prüfen Sie Marke/Familie, Selektor/Slot und Parameter-Key."
     }
   },
   "issues": {

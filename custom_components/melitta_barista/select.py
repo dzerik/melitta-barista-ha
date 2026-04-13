@@ -121,6 +121,17 @@ async def async_setup_entry(
             MelittaRecipeSelect(client, entry, name),
             MelittaProfileSelect(client, entry, name),
         ])
+    # Brand capability-driven settings selects (Nivona + future brands).
+    # For Melitta these are already exposed via the legacy MelittaSettingSwitch
+    # / hand-coded number entities; we only register generic settings selects
+    # when the brand has a populated per-family table AND Melitta-native
+    # setting entities have not claimed the same IDs (i.e. Nivona only).
+    caps = client.capabilities
+    if caps is not None and caps.settings and client.brand.brand_slug != "melitta":
+        for descriptor in caps.settings:
+            entities.append(
+                BrandSettingSelect(client, entry, name, descriptor)
+            )
     if "HJ" in client.brand.supported_extensions:
         entities.extend([
             # Freestyle parameter selects
@@ -390,3 +401,91 @@ class MelittaFreestyleSelect(MelittaDeviceMixin, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         setattr(self._client, self._client_attr, option)
         self.async_write_ha_state()
+
+
+# ---------------------------------------------------------------------------
+# Brand capability-driven generic setting select
+# (used for Nivona; Melitta has its own hand-tailored entities)
+# ---------------------------------------------------------------------------
+
+class BrandSettingSelect(MelittaDeviceMixin, SelectEntity):
+    """Generic setting select driven by a ``SettingDescriptor`` tuple from
+    the active BrandProfile's capabilities. Reads via HR, writes via HW."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = None
+
+    def __init__(self, client: MelittaBleClient, entry: ConfigEntry, name: str, descriptor) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = name
+        self._desc = descriptor
+        self._value_code: int | None = None
+        # option_label → value_code for write path
+        self._label_to_code: dict[str, int] = {label: code for code, label in descriptor.options}
+        self._code_to_label: dict[int, str] = {code: label for code, label in descriptor.options}
+        self._attr_options = list(self._label_to_code.keys())
+        self._attr_name = descriptor.title
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_setting_{self._desc.key}"
+
+    @property
+    def icon(self) -> str:
+        return "mdi:tune"
+
+    @property
+    def current_option(self) -> str | None:
+        if self._value_code is None:
+            return None
+        # Low-16-bit decode per upstream (ReadSettingAsync rule)
+        code = self._value_code & 0xFFFF
+        return self._code_to_label.get(code)
+
+    @property
+    def available(self) -> bool:
+        return self._client.connected
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_connection_callback(self._on_connection_change)
+        if self._client.connected:
+            await self._refresh()
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._client.remove_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        if connected:
+            self.hass.async_create_task(self._refresh())
+        self.async_write_ha_state()
+
+    async def _refresh(self) -> None:
+        try:
+            value = await self._client.read_setting(self._desc.setting_id)
+            if value is not None:
+                self._value_code = value
+                self.async_write_ha_state()
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug(
+                "BrandSettingSelect %s refresh failed", self._desc.key, exc_info=True,
+            )
+
+    async def async_select_option(self, option: str) -> None:
+        code = self._label_to_code.get(option)
+        if code is None:
+            _LOGGER.warning("Unknown option %s for %s", option, self._desc.key)
+            return
+        try:
+            success = await self._client.write_setting(self._desc.setting_id, code)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error writing %s", self._desc.key)
+            return
+        if success:
+            self._value_code = code
+            self.async_write_ha_state()
+        else:
+            _LOGGER.warning(
+                "Machine rejected %s=%s (NACK/timeout)", self._desc.key, option,
+            )

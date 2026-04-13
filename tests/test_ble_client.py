@@ -33,9 +33,9 @@ from custom_components.melitta_barista.protocol import MachineRecipe, MachineSta
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_connected_client(mock_bleak_client) -> MelittaBleClient:
+def _make_connected_client(mock_bleak_client, *, brand=None) -> MelittaBleClient:
     """Return a MelittaBleClient that looks connected."""
-    client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+    client = MelittaBleClient("AA:BB:CC:DD:EE:FF", brand=brand)
     client._connected = True
     client._client = mock_bleak_client
     client._protocol = MagicMock()
@@ -1473,6 +1473,70 @@ class TestHighLevelAPI:
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         result = await client.confirm_prompt()
         assert result is False
+
+    async def test_write_standard_recipe_param_nivona(self, mock_bleak_client):
+        """Nivona write_standard_recipe_param computes correct register."""
+        from custom_components.melitta_barista.brands import get_profile
+        from custom_components.melitta_barista.brands.base import MachineCapabilities
+
+        client = _make_connected_client(mock_bleak_client, brand=get_profile("nivona"))
+        client._protocol.write_numerical = AsyncMock(return_value=True)
+        client._capabilities = MachineCapabilities(
+            family_key="700", model_name="NICR 756",
+            supports_recipe_writes=False, supports_stats=True,
+            my_coffee_slots=1, strength_levels=3,
+        )
+
+        # 700-family Cappuccino (selector=4), strength (offset=1)
+        result = await client.write_standard_recipe_param(4, "strength", 2)
+        assert result is True
+        client._protocol.write_numerical.assert_awaited_once_with(
+            client._write_ble, 10401, 2,
+        )
+
+    async def test_write_standard_recipe_param_melitta_returns_false(
+        self, mock_bleak_client,
+    ):
+        """Melitta brand has no standard_recipe_layout attr → False gracefully."""
+        client = _make_connected_client(mock_bleak_client)
+        result = await client.write_standard_recipe_param(213, "strength", 3)
+        assert result is False
+
+    async def test_write_mycoffee_param_respects_slot_bounds(
+        self, mock_bleak_client,
+    ):
+        """MyCoffee slot index out of range → False."""
+        from custom_components.melitta_barista.brands import get_profile
+        from custom_components.melitta_barista.brands.base import MachineCapabilities
+
+        client = _make_connected_client(mock_bleak_client, brand=get_profile("nivona"))
+        client._capabilities = MachineCapabilities(
+            family_key="700", model_name="NICR 756",
+            my_coffee_slots=1, strength_levels=3,
+        )
+        # slot=5 > my_coffee_slots=1 → reject
+        result = await client.write_mycoffee_param(5, "strength", 2)
+        assert result is False
+
+    async def test_write_mycoffee_param_writes_correct_register(
+        self, mock_bleak_client,
+    ):
+        """MyCoffee write uses 20000 + slot*100 + offset."""
+        from custom_components.melitta_barista.brands import get_profile
+        from custom_components.melitta_barista.brands.base import MachineCapabilities
+
+        client = _make_connected_client(mock_bleak_client, brand=get_profile("nivona"))
+        client._protocol.write_numerical = AsyncMock(return_value=True)
+        client._capabilities = MachineCapabilities(
+            family_key="1040", model_name="NICR 1040",
+            my_coffee_slots=18, strength_levels=5,
+        )
+        # Slot 3, name (offset=2 on 1040) → register 20000+300+2 = 20302
+        result = await client.write_mycoffee_param(3, "name", 42)
+        assert result is True
+        client._protocol.write_numerical.assert_awaited_once_with(
+            client._write_ble, 20302, 42,
+        )
 
     async def test_read_setting_not_connected(self):
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")

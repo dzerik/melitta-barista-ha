@@ -45,6 +45,44 @@ class StatDescriptor:
 
 
 @dataclass(frozen=True)
+class RecipeFieldLayout:
+    """Per-family byte offsets for standard-recipe and MyCoffee slot
+    parameters (strength / profile / temperature / fluid amounts...).
+
+    Each field holds the byte-offset inside the recipe slot register
+    block (`base_register + offset`). ``None`` means the family does
+    not expose that parameter. Populated from upstream
+    `resolveStandardRecipeLayout` / `resolveMyCoffeeLayout`.
+    """
+    family_key: str
+    # Shared fields (always present on all families)
+    strength_offset: int | None = None
+    profile_offset: int | None = None
+    two_cups_offset: int | None = None
+    # Temperature (single byte on 600/700/79x/8000; per-fluid on 900/1030/1040)
+    temperature_offset: int | None = None
+    coffee_temperature_offset: int | None = None
+    water_temperature_offset: int | None = None
+    milk_temperature_offset: int | None = None
+    milk_foam_temperature_offset: int | None = None
+    overall_temperature_offset: int | None = None
+    # Fluid amounts
+    coffee_amount_offset: int | None = None
+    water_amount_offset: int | None = None
+    milk_amount_offset: int | None = None
+    milk_foam_amount_offset: int | None = None
+    # Misc
+    preparation_offset: int | None = None
+    # MyCoffee-only fields
+    enabled_offset: int | None = None
+    icon_offset: int | None = None
+    name_offset: int | None = None
+    type_offset: int | None = None
+    # Write-path helpers
+    fluid_write_scale_10: bool = False
+
+
+@dataclass(frozen=True)
 class MachineCapabilities:
     """Per-machine-family capability bag.
 

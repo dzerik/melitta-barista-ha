@@ -2,6 +2,86 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.43.0] — 2026-04-14 — Nivona gaps 1-6 closed
+
+Closes the six remaining Nivona-support gaps from the upstream RE port:
+entity wiring for settings/stats descriptors, DIS service reads at
+connect, family-override in Options Flow, experimental recipe-write
+path, and experimental MyCoffee-slot write path. The
+manufacturer_data advertisement matcher (gap 4) is documented as
+deferred pending real Nivona adv captures.
+
+### Added
+
+- **Generic `BrandSettingSelect`** driven by `SettingDescriptor` tuples
+  from the active brand's `MachineCapabilities`. Reads via HR, writes
+  via HW. For Nivona, instantiated for every setting in the per-family
+  table (up to 10 entries on 1040). Melitta continues to use its
+  hand-tailored setting entities.
+- **Generic `BrandStatSensor`** driven by `StatDescriptor` tuples.
+  Per-recipe cup counters, maintenance counters, and
+  percentage/flag gauges for Nivona 700/79x/8000 families. Up to 27
+  new diagnostic sensors on NIVO 8xxx.
+- **Device Information Service (0x180A) read at connect**: Manufacturer
+  / Model / Serial / HW / FW / SW revision strings. Used to refine
+  capability detection via serial-prefix cascade AND to populate HA
+  Device Registry with precise model information (no longer generic
+  "Nivona Barista").
+- **`BleCoffeeClient.capabilities` property** exposes the resolved
+  `MachineCapabilities` (family-level + per-model overrides).
+- **`BleCoffeeClient.dis_info` property** exposes the DIS snapshot.
+- **Options Flow family override** (`family_override`, Basic Settings):
+  dropdown of the active brand's family keys. Empty = auto-detect.
+  Unblocks future / misdetected models without waiting for a release.
+- **Experimental write-path services** for Nivona:
+  - `melitta_barista.nivona_write_recipe_param` — write a single byte
+    of a standard recipe slot via HW. 14 supported param keys:
+    strength / profile / two_cups / temperature (+ per-fluid temps on
+    900 family) / overall_temperature / coffee_amount /
+    water_amount / milk_amount / milk_foam_amount / preparation.
+  - `melitta_barista.nivona_write_mycoffee_param` — write a single
+    byte of a MyCoffee user slot. Additional param keys: enabled, icon.
+  - Both services marked EXPERIMENTAL in description — offsets are
+    ported from upstream RE but have NOT been validated on real Nivona
+    hardware; writes persist. Use at your own risk.
+- **`RecipeFieldLayout` dataclass** in `brands/base.py` with all 14
+  per-family byte offsets.
+- **Per-family standard-recipe and MyCoffee layouts** in
+  `brands/nivona.py` covering all 8 Nivona families. Fluid writes on
+  900-family families multiplied ×10 per upstream quirk.
+- **`NivonaProfile.standard_recipe_layout`, `.mycoffee_layout`,
+  `.standard_recipe_register`, `.mycoffee_register`** helper methods.
+- **`write_standard_recipe_param` / `write_mycoffee_param`** client
+  mixin methods (brand-gated, graceful False on missing layout).
+
+### Changed
+
+- `BleCoffeeClient.model_name` now prefers resolved
+  `capabilities.model_name`, falling back to DIS model string, then to
+  legacy `MACHINE_MODEL_NAMES`.
+- `MelittaDeviceMixin.device_info.model` now reflects the precise
+  per-model name for Nivona entries (e.g. "NICR 756", "NICR 1040",
+  "NIVO 8101" instead of generic "Nivona NICR 7xx").
+
+### Deferred (documented)
+
+- **Gap #4 — manufacturer_data advertisement matcher**: upstream's
+  `CheckDiscovered` inspects a non-standard adv structure `0x0D` with
+  Eugster-proprietary `customerId=65535`. That structure has no clean
+  mapping to HA's `BluetoothMatcher` schema, and reconstructing the
+  exact byte layout without real Nivona adv captures is unreliable.
+  `local_name` regex continues to cover all standard advertisements.
+  A manufacturer_data-based secondary matcher can be added once a
+  real capture is available.
+
+### Tests
+
+- 692 → 703 (+11).
+- New: recipe layout validation per-family (8 families × 14 offsets),
+  MyCoffee layout validation, register calculation (10000+ and
+  20000+), write_standard_recipe_param / write_mycoffee_param happy
+  path + slot-bounds / family-gating edge cases.
+
 ## [0.42.0] — 2026-04-14 — Nivona data-completeness
 
 Completes the port of Nivona-specific data from upstream

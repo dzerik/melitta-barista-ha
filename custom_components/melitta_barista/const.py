@@ -521,6 +521,9 @@ DEFAULT_AUTO_CONFIRM_PROMPTS = False
 CONF_BRAND = "brand"
 DEFAULT_BRAND = "melitta"
 
+# Family key override for misdetected machines (v0.43.0+).
+CONF_FAMILY_OVERRIDE = "family_override"
+
 # Defaults
 DEFAULT_RECONNECT_DELAY: float = 5.0
 DEFAULT_RECONNECT_MAX_DELAY: float = 300.0

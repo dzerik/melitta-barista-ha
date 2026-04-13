@@ -256,6 +256,84 @@ class BleCommandsMixin(_MixinBase):
             return False
         return await self._protocol.confirm_prompt(self._write_ble)
 
+    # ── Nivona experimental recipe-write primitives (v0.43.0+) ──────
+    #
+    # These methods expose the per-family byte-offset layouts for
+    # standard-recipe and MyCoffee slots (upstream resolveStandardRecipeLayout
+    # and resolveMyCoffeeLayout). They are EXPERIMENTAL and have not been
+    # validated on live Nivona hardware by the maintainer. HW writes to
+    # the 10000+ / 20000+ register space are persistent; incorrect
+    # offsets could leave a slot in an odd state, recoverable only via
+    # the machine's "Reset Recipes" menu.
+    #
+    # Param keys (must match RecipeFieldLayout attribute names):
+    #   strength, profile, two_cups, temperature,
+    #   coffee_temperature, water_temperature, milk_temperature,
+    #   milk_foam_temperature, overall_temperature,
+    #   coffee_amount, water_amount, milk_amount, milk_foam_amount,
+    #   preparation, enabled, icon (MyCoffee only)
+
+    async def write_standard_recipe_param(
+        self, selector: int, param_key: str, value: int,
+    ) -> bool:
+        """Write a single byte of a standard recipe slot via HW.
+
+        Returns False (no exception) when the active brand does not
+        expose recipe layouts, the family is unknown, or the param_key
+        is not supported by this family.
+        """
+        if not self.connected:
+            return False
+        layout_fn = getattr(self._brand, "standard_recipe_layout", None)
+        if layout_fn is None:
+            return False
+        caps = getattr(self, "_capabilities", None)
+        if caps is None:
+            return False
+        layout = layout_fn(caps.family_key)
+        if layout is None:
+            return False
+        return await self._write_param_via_layout(
+            layout, selector, param_key, value,
+            base_register_fn=self._brand.standard_recipe_register,
+        )
+
+    async def write_mycoffee_param(
+        self, slot: int, param_key: str, value: int,
+    ) -> bool:
+        """Write a single byte of a MyCoffee slot via HW."""
+        if not self.connected:
+            return False
+        layout_fn = getattr(self._brand, "mycoffee_layout", None)
+        register_fn = getattr(self._brand, "mycoffee_register", None)
+        caps = getattr(self, "_capabilities", None)
+        if layout_fn is None or register_fn is None or caps is None:
+            return False
+        if slot < 0 or slot >= caps.my_coffee_slots:
+            return False
+        layout = layout_fn(caps.family_key)
+        if layout is None:
+            return False
+        return await self._write_param_via_layout(
+            layout, slot, param_key, value, base_register_fn=register_fn,
+        )
+
+    async def _write_param_via_layout(
+        self, layout, slot_or_selector: int, param_key: str, value: int,
+        *, base_register_fn,
+    ) -> bool:
+        offset_attr = f"{param_key}_offset"
+        offset = getattr(layout, offset_attr, None)
+        if offset is None:
+            return False
+        # Fluid amounts on 900 family are written as ml×10 per upstream.
+        if layout.fluid_write_scale_10 and param_key.endswith("_amount"):
+            value = value * 10
+        register = base_register_fn(slot_or_selector, offset)
+        return await self._protocol.write_numerical(
+            self._write_ble, register, value,
+        )
+
     # Maintenance operations
 
     async def start_easy_clean(self) -> bool:

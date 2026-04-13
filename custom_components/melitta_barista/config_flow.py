@@ -29,6 +29,8 @@ from .const import (
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
     CONF_AUTO_CONFIRM_PROMPTS,
+    CONF_BRAND,
+    CONF_FAMILY_OVERRIDE,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
@@ -347,8 +349,23 @@ class MelittaOptionsFlow(OptionsFlow):
                         CONF_AUTO_CONFIRM_PROMPTS, DEFAULT_AUTO_CONFIRM_PROMPTS,
                     ),
                 ): bool,
+                vol.Optional(
+                    CONF_FAMILY_OVERRIDE,
+                    default=options.get(CONF_FAMILY_OVERRIDE, ""),
+                ): self._family_override_selector(),
             }),
         )
+
+    def _family_override_selector(self):
+        """Build a brand-aware family-key dropdown (empty = auto-detect)."""
+        from .brands import get_profile  # noqa: PLC0415
+        brand_slug = self._config_entry.data.get(CONF_BRAND, "melitta")
+        try:
+            profile = get_profile(brand_slug)
+            families = sorted(profile.families.keys())
+        except Exception:
+            families = []
+        return vol.In([""] + families)
 
     async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None

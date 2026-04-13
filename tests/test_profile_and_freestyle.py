@@ -301,6 +301,7 @@ class TestBleClientFreestyle:
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         client._connected = True
         client._client = MagicMock(is_connected=True)
+        client._client.write_gatt_char = AsyncMock()
         client._status = MachineStatus(process=MachineProcess.READY)
         client._protocol.write_recipe = AsyncMock(return_value=True)
         client._protocol.write_alphanumeric = AsyncMock(return_value=True)
@@ -310,6 +311,8 @@ class TestBleClientFreestyle:
         comp2 = RecipeComponent(process=2, shots=0, portion=20)
 
         result = await client.brew_freestyle("My Drink", 24, comp1, comp2)
+        # Stop the background poll loop started by brew_freestyle's finally-block.
+        client._stop_polling()
         assert result is True
         client._protocol.write_recipe.assert_awaited_once()
         client._protocol.write_alphanumeric.assert_awaited_once_with(

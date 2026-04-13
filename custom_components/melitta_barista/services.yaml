@@ -395,3 +395,125 @@ confirm_prompt:
       selector:
         entity:
           domain: button
+
+nivona_write_recipe_param:
+  name: Nivona — Write standard-recipe param (experimental)
+  description: >
+    EXPERIMENTAL. Write a single byte of a Nivona standard recipe slot.
+    Writes persist on the machine. Offsets are based on upstream
+    reverse-engineering and have not been validated by this project on
+    real Nivona hardware. Use at your own risk. Nivona only.
+  fields:
+    entity_id:
+      name: Entity
+      description: Any button entity of the target Nivona machine.
+      required: true
+      selector:
+        entity:
+          domain: button
+    selector:
+      name: Recipe selector
+      description: Recipe selector byte (0..255, per family table).
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 255
+          step: 1
+    param_key:
+      name: Parameter key
+      description: >
+        One of: strength, profile, two_cups, temperature,
+        coffee_temperature, water_temperature, milk_temperature,
+        milk_foam_temperature, overall_temperature,
+        coffee_amount, water_amount, milk_amount, milk_foam_amount,
+        preparation.
+      required: true
+      selector:
+        select:
+          options:
+            - strength
+            - profile
+            - two_cups
+            - temperature
+            - coffee_temperature
+            - water_temperature
+            - milk_temperature
+            - milk_foam_temperature
+            - overall_temperature
+            - coffee_amount
+            - water_amount
+            - milk_amount
+            - milk_foam_amount
+            - preparation
+    value:
+      name: Value
+      description: Numeric value to write. Fluid amounts are in ml.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 32767
+          step: 1
+
+nivona_write_mycoffee_param:
+  name: Nivona — Write MyCoffee slot param (experimental)
+  description: >
+    EXPERIMENTAL. Write a single byte of a Nivona MyCoffee user slot.
+    Writes persist on the machine. Offsets are based on upstream
+    reverse-engineering and have not been validated by this project on
+    real Nivona hardware. Use at your own risk. Nivona only.
+  fields:
+    entity_id:
+      name: Entity
+      description: Any button entity of the target Nivona machine.
+      required: true
+      selector:
+        entity:
+          domain: button
+    slot:
+      name: MyCoffee slot
+      description: MyCoffee slot index (0..N, depends on model).
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 31
+          step: 1
+    param_key:
+      name: Parameter key
+      description: >
+        One of: enabled, icon, strength, profile, two_cups, temperature,
+        coffee_temperature, water_temperature, milk_temperature,
+        milk_foam_temperature, overall_temperature,
+        coffee_amount, water_amount, milk_amount, milk_foam_amount,
+        preparation.
+      required: true
+      selector:
+        select:
+          options:
+            - enabled
+            - icon
+            - strength
+            - profile
+            - two_cups
+            - temperature
+            - coffee_temperature
+            - water_temperature
+            - milk_temperature
+            - milk_foam_temperature
+            - overall_temperature
+            - coffee_amount
+            - water_amount
+            - milk_amount
+            - milk_foam_amount
+            - preparation
+    value:
+      name: Value
+      description: Numeric value to write.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 32767
+          step: 1

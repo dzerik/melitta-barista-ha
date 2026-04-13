@@ -43,6 +43,15 @@ def all_profiles() -> dict[str, BrandProfile]:
 def detect_from_advertisement(local_name: str | None) -> BrandProfile | None:
     """Return the matching BrandProfile for a BLE advertisement local_name,
     or None if no profile recognises it.
+
+    Note: upstream esp-coffee-bridge additionally inspects a non-standard
+    advertisement structure (type 0x0D with Eugster-proprietary customerId)
+    via `CheckDiscovered`. That structure has no clean mapping to Home
+    Assistant's BluetoothMatcher schema, and reconstructing its exact
+    byte layout without real Nivona adv captures is unreliable.
+    `local_name` matching covers all advertisements seen in upstream test
+    vectors so far; a manufacturer_data-based secondary matcher can be
+    added once a real capture is available.
     """
     if not local_name:
         return None

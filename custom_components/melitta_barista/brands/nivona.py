@@ -22,7 +22,13 @@ from typing import ClassVar
 
 from dataclasses import replace
 
-from .base import MachineCapabilities, RecipeDescriptor, SettingDescriptor, StatDescriptor
+from .base import (
+    MachineCapabilities,
+    RecipeDescriptor,
+    RecipeFieldLayout,
+    SettingDescriptor,
+    StatDescriptor,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -420,6 +426,183 @@ MY_COFFEE_SLOT_STRIDE = 100
 
 
 # ---------------------------------------------------------------------------
+# Per-family standard-recipe layouts (resolveStandardRecipeLayout upstream).
+# Maps family_key → RecipeFieldLayout with byte-offsets inside
+# `RECIPE_BASE_REGISTER + selector*RECIPE_SLOT_STRIDE`.
+# ---------------------------------------------------------------------------
+
+_STANDARD_RECIPE_LAYOUTS: dict[str, RecipeFieldLayout] = {
+    "600": RecipeFieldLayout(
+        family_key="600",
+        strength_offset=1, profile_offset=2, temperature_offset=3,
+        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
+        milk_foam_amount_offset=8, preparation_offset=9,
+    ),
+    "700": RecipeFieldLayout(
+        family_key="700",
+        strength_offset=1, profile_offset=2, temperature_offset=3,
+        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
+        milk_amount_offset=7, milk_foam_amount_offset=8,
+    ),
+    "79x": RecipeFieldLayout(
+        family_key="79x",
+        strength_offset=1, profile_offset=2, temperature_offset=3,
+        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
+        milk_amount_offset=7, milk_foam_amount_offset=8,
+    ),
+    "900": RecipeFieldLayout(
+        family_key="900",
+        strength_offset=1, profile_offset=2, preparation_offset=3,
+        two_cups_offset=4,
+        coffee_temperature_offset=5, water_temperature_offset=6,
+        milk_temperature_offset=7, milk_foam_temperature_offset=8,
+        coffee_amount_offset=9, water_amount_offset=10,
+        milk_amount_offset=11, milk_foam_amount_offset=12,
+        overall_temperature_offset=13,
+        fluid_write_scale_10=True,
+    ),
+    "900-light": RecipeFieldLayout(
+        family_key="900-light",
+        strength_offset=1, profile_offset=2, preparation_offset=3,
+        two_cups_offset=4,
+        coffee_temperature_offset=5, water_temperature_offset=6,
+        milk_temperature_offset=7, milk_foam_temperature_offset=8,
+        coffee_amount_offset=9, water_amount_offset=10,
+        milk_amount_offset=11, milk_foam_amount_offset=12,
+        overall_temperature_offset=13,
+    ),
+    "1030": RecipeFieldLayout(
+        family_key="1030",
+        strength_offset=1, profile_offset=2, preparation_offset=3,
+        two_cups_offset=4,
+        coffee_temperature_offset=5, water_temperature_offset=6,
+        milk_temperature_offset=7, milk_foam_temperature_offset=8,
+        coffee_amount_offset=9, water_amount_offset=10,
+        milk_amount_offset=11, milk_foam_amount_offset=12,
+    ),
+    "1040": RecipeFieldLayout(
+        family_key="1040",
+        strength_offset=1, profile_offset=2, preparation_offset=3,
+        two_cups_offset=4,
+        coffee_temperature_offset=5, water_temperature_offset=6,
+        milk_temperature_offset=7, milk_foam_temperature_offset=8,
+        coffee_amount_offset=9, water_amount_offset=10,
+        milk_amount_offset=11, milk_foam_amount_offset=12,
+    ),
+    "8000": RecipeFieldLayout(
+        family_key="8000",
+        strength_offset=1, profile_offset=2, temperature_offset=3,
+        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
+        milk_amount_offset=7, milk_foam_amount_offset=8,
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
+# Per-family MyCoffee slot layouts (resolveMyCoffeeLayout upstream).
+# Offsets inside `MY_COFFEE_BASE_REGISTER + slot*MY_COFFEE_SLOT_STRIDE`.
+# ---------------------------------------------------------------------------
+
+_MYCOFFEE_LAYOUTS: dict[str, RecipeFieldLayout] = {
+    "600": RecipeFieldLayout(
+        family_key="600",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, temperature_offset=6,
+        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
+        milk_foam_amount_offset=11, preparation_offset=12,
+    ),
+    "700": RecipeFieldLayout(
+        family_key="700",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, temperature_offset=6,
+        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
+        milk_amount_offset=10, milk_foam_amount_offset=11,
+    ),
+    "79x": RecipeFieldLayout(
+        family_key="79x",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, temperature_offset=6,
+        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
+        milk_amount_offset=10, milk_foam_amount_offset=11,
+    ),
+    "900": RecipeFieldLayout(
+        family_key="900",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, preparation_offset=6,
+        two_cups_offset=7,
+        coffee_temperature_offset=8, water_temperature_offset=9,
+        milk_temperature_offset=10, milk_foam_temperature_offset=11,
+        coffee_amount_offset=12, water_amount_offset=13,
+        milk_amount_offset=14, milk_foam_amount_offset=15,
+        overall_temperature_offset=16,
+        fluid_write_scale_10=True,
+    ),
+    "900-light": RecipeFieldLayout(
+        family_key="900-light",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, preparation_offset=6,
+        two_cups_offset=7,
+        coffee_temperature_offset=8, water_temperature_offset=9,
+        milk_temperature_offset=10, milk_foam_temperature_offset=11,
+        coffee_amount_offset=12, water_amount_offset=13,
+        milk_amount_offset=14, milk_foam_amount_offset=15,
+        overall_temperature_offset=16,
+    ),
+    "1030": RecipeFieldLayout(
+        family_key="1030",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, preparation_offset=6,
+        two_cups_offset=7,
+        coffee_temperature_offset=8, water_temperature_offset=9,
+        milk_temperature_offset=10, milk_foam_temperature_offset=11,
+        coffee_amount_offset=12, water_amount_offset=13,
+        milk_amount_offset=14, milk_foam_amount_offset=15,
+    ),
+    "1040": RecipeFieldLayout(
+        family_key="1040",
+        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
+        strength_offset=4, profile_offset=5, preparation_offset=6,
+        two_cups_offset=7,
+        coffee_temperature_offset=8, water_temperature_offset=9,
+        milk_temperature_offset=10, milk_foam_temperature_offset=11,
+        coffee_amount_offset=12, water_amount_offset=13,
+        milk_amount_offset=14, milk_foam_amount_offset=15,
+    ),
+    "8000": RecipeFieldLayout(
+        family_key="8000",
+        enabled_offset=0, name_offset=2, icon_offset=3, type_offset=3,
+        strength_offset=4, profile_offset=5, temperature_offset=6,
+        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
+        milk_amount_offset=10, milk_foam_amount_offset=11,
+    ),
+}
+
+
+def standard_recipe_register(selector: int, offset: int) -> int:
+    """Compute absolute register ID for ``(selector, offset)`` in the
+    standard-recipe region. Returns ``10000 + selector*100 + offset``.
+    """
+    return RECIPE_BASE_REGISTER + selector * RECIPE_SLOT_STRIDE + offset
+
+
+def mycoffee_register(slot: int, offset: int) -> int:
+    """Compute absolute register ID for ``(slot, offset)`` in the
+    MyCoffee region. Returns ``20000 + slot*100 + offset``.
+    """
+    return MY_COFFEE_BASE_REGISTER + slot * MY_COFFEE_SLOT_STRIDE + offset
+
+
+def standard_recipe_layout(family_key: str) -> RecipeFieldLayout | None:
+    """Look up the standard-recipe layout for a family key. None if unknown."""
+    return _STANDARD_RECIPE_LAYOUTS.get(family_key)
+
+
+def mycoffee_layout(family_key: str) -> RecipeFieldLayout | None:
+    """Look up the MyCoffee slot layout for a family key. None if unknown."""
+    return _MYCOFFEE_LAYOUTS.get(family_key)
+
+
+# ---------------------------------------------------------------------------
 # Per-family settings + stats dispatch
 # ---------------------------------------------------------------------------
 
@@ -652,6 +835,23 @@ class NivonaProfile:
 
     def capabilities_for(self, family_key: str) -> MachineCapabilities:
         return _NIVONA_FAMILIES[family_key]
+
+    # Recipe / MyCoffee write-path helpers (experimental — see mixin docs)
+    @staticmethod
+    def standard_recipe_layout(family_key: str):
+        return standard_recipe_layout(family_key)
+
+    @staticmethod
+    def mycoffee_layout(family_key: str):
+        return mycoffee_layout(family_key)
+
+    @staticmethod
+    def standard_recipe_register(selector: int, offset: int) -> int:
+        return standard_recipe_register(selector, offset)
+
+    @staticmethod
+    def mycoffee_register(slot: int, offset: int) -> int:
+        return mycoffee_register(slot, offset)
 
     def capabilities_for_model(
         self, ble_name: str, dis: dict[str, str] | None = None,
