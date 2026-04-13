@@ -111,6 +111,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._cup_counters: dict[str, int] = {}  # recipe_name -> count
         self._total_cups: int | None = None
         self._cups_callbacks: list[Callable[[], None]] = []
+        # Called after a base recipe is (re-)read post-HD reset; consumers use
+        # this to refresh cached attributes in select entities / attributes.
+        self._recipe_refresh_callbacks: list[
+            Callable[[int, "MachineRecipe"], None]
+        ] = []
 
         # Profile data: names and DirectKey recipes per profile
         self._profile_names: dict[int, str] = {0: PROFILE_NAMES[0]}
@@ -223,6 +228,19 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     def remove_cups_callback(self, callback: Callable[[], None]) -> None:
         try:
             self._cups_callbacks.remove(callback)
+        except ValueError:
+            pass
+
+    def add_recipe_refresh_callback(
+        self, callback: Callable[[int, MachineRecipe], None],
+    ) -> None:
+        self._recipe_refresh_callbacks.append(callback)
+
+    def remove_recipe_refresh_callback(
+        self, callback: Callable[[int, MachineRecipe], None],
+    ) -> None:
+        try:
+            self._recipe_refresh_callbacks.remove(callback)
         except ValueError:
             pass
 

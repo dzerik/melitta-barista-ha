@@ -6,6 +6,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from bleak.exc import BleakError
+
 if TYPE_CHECKING:
     from ._ble_typing import BleClientProtocol
 
@@ -219,12 +221,34 @@ class BleCommandsMixin(_MixinBase):
     async def reset_recipe_default(self, recipe_id: int) -> bool:
         """Reset a recipe to factory defaults via HD command.
 
+        On ACK, the recipe is re-read via HC so that subscribers of
+        ``add_recipe_refresh_callback`` (e.g. the Recipe select entity's
+        cached ``recipes`` attribute) see factory values without waiting
+        for a full reconnect.
+
         Returns True if the machine ACKed (A), False on NACK/timeout/
         disconnected state.
         """
         if not self.connected:
             return False
-        return await self._protocol.reset_default(self._write_ble, recipe_id)
+        success = await self._protocol.reset_default(self._write_ble, recipe_id)
+        if not success:
+            return False
+        try:
+            recipe = await self._protocol.read_recipe(self._write_ble, recipe_id)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.debug(
+                "Failed to re-read recipe %d after HD ACK", recipe_id,
+                exc_info=True,
+            )
+            recipe = None
+        if recipe is not None:
+            for cb in self._recipe_refresh_callbacks:
+                try:
+                    cb(recipe_id, recipe)
+                except Exception:  # noqa: BLE001 — callback from user code
+                    _LOGGER.exception("Error in recipe refresh callback")
+        return True
 
     async def confirm_prompt(self) -> bool:
         """Send HY to confirm the current machine prompt (move cup, flush, ...)."""

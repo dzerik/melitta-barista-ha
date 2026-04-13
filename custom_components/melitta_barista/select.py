@@ -180,14 +180,28 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
+        self._client.add_recipe_refresh_callback(self._on_recipe_refresh)
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)
+        self._client.remove_recipe_refresh_callback(self._on_recipe_refresh)
 
     @callback
     def _on_connection_change(self, connected: bool) -> None:
         if connected:
             self.hass.async_create_task(self._preload_recipes())
+        self.async_write_ha_state()
+
+    @callback
+    def _on_recipe_refresh(self, recipe_id: int, recipe) -> None:
+        """Update cached attributes when a recipe has been re-read (post-HD)."""
+        name = RECIPE_NAMES.get(recipe_id)
+        if name is None:
+            return
+        attrs: dict[str, str | int] = {}
+        attrs.update(_component_attrs(recipe.component1, "c1"))
+        attrs.update(_component_attrs(recipe.component2, "c2"))
+        self._all_recipes[name] = attrs
         self.async_write_ha_state()
 
     async def _preload_recipes(self) -> None:

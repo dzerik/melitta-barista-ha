@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.34.1] — 2026-04-13
+
+### Fixed
+- **Stale recipe cache after HD reset**: after `reset_recipe_default`
+  received an ACK, the Recipe select entity's cached `recipes`
+  attribute kept showing pre-reset values until a reconnect. Now the
+  client re-reads the recipe via HC and notifies subscribers through
+  a new `add_recipe_refresh_callback` hook; `MelittaRecipeSelect`
+  subscribes and refreshes its cached attributes immediately.
+
 ## [0.34.0] — 2026-04-13
 
 ### Added

@@ -1402,15 +1402,48 @@ class TestHighLevelAPI:
         assert result is True
 
     async def test_reset_recipe_default_success(self, mock_bleak_client):
-        """HD success returns True."""
+        """HD success returns True and re-reads recipe."""
         client = _make_connected_client(mock_bleak_client)
         client._protocol.reset_default = AsyncMock(return_value=True)
+        client._protocol.read_recipe = AsyncMock(return_value=MagicMock())
 
         result = await client.reset_recipe_default(213)
         assert result is True
         client._protocol.reset_default.assert_awaited_once_with(
             client._write_ble, 213,
         )
+        client._protocol.read_recipe.assert_awaited_once_with(
+            client._write_ble, 213,
+        )
+
+    async def test_reset_recipe_default_notifies_callback(self, mock_bleak_client):
+        """On HD ACK, subscribers of recipe_refresh receive the re-read recipe."""
+        client = _make_connected_client(mock_bleak_client)
+        fake_recipe = MagicMock()
+        client._protocol.reset_default = AsyncMock(return_value=True)
+        client._protocol.read_recipe = AsyncMock(return_value=fake_recipe)
+
+        received: list = []
+        client.add_recipe_refresh_callback(
+            lambda rid, r: received.append((rid, r)),
+        )
+
+        await client.reset_recipe_default(213)
+        assert received == [(213, fake_recipe)]
+
+    async def test_reset_recipe_default_no_callback_on_nack(self, mock_bleak_client):
+        """NACK path does not re-read and does not call refresh callbacks."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.reset_default = AsyncMock(return_value=False)
+        client._protocol.read_recipe = AsyncMock()
+
+        cb = MagicMock()
+        client.add_recipe_refresh_callback(cb)
+
+        result = await client.reset_recipe_default(213)
+        assert result is False
+        client._protocol.read_recipe.assert_not_awaited()
+        cb.assert_not_called()
 
     async def test_reset_recipe_default_nack(self, mock_bleak_client):
         """HD NACK / timeout returns False, no exception."""
