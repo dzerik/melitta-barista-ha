@@ -2,6 +2,50 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.41.0] — 2026-04-13 — Nivona support (alpha)
+
+First public release with **Nivona NICR / NIVO 8xxx** machines as a
+supported brand alongside Melitta. Ships the Nivona profile that has
+been in the codebase since 0.40.0 but inactive, plus polish for proper
+multi-brand device-registry rendering.
+
+### Added (Nivona-specific)
+
+- `NivonaProfile` is now active in the BrandRegistry and advertised via
+  `bluetooth: local_name: "NIVONA-*"` in `manifest.json`. Home Assistant
+  will auto-discover Nivona machines and offer to set them up.
+- Seven family capability entries (`600`, `700`, `79x`, `900`,
+  `900-light`, `1030`, `1040`, `8000`) with per-family brew command
+  mode, MyCoffee slot count, strength levels, and aroma-balance flag.
+- Nivona-specific HU verifier with the upstream 256-byte S-box and
+  `+0x5D`/`+0xA7` fold offsets — independently validated against the
+  published `seed FA 48 D1 7B → verifier 7E 6E` vector.
+- Runtime RC4 stream key `NIV_060616_V10_1*9#3!4$6+4res-?3` (recovered
+  from `de.nivona.mobileapp` 3.8.6 in upstream RE).
+
+### Changed
+
+- `MelittaDeviceMixin` now renders `manufacturer` from the active brand
+  profile instead of hard-coded `"Melitta"` — Nivona entries show up
+  correctly as `Nivona` in the HA Device Registry.
+
+### Known limitations / not in this release
+
+- **Alpha status**: this release has not yet been validated on real
+  Nivona hardware by the maintainer. The crypto + handshake
+  implementations match the upstream reference against published test
+  vectors, but live BLE interop (pair, handshake, brew) is unverified.
+  Please report via GitHub issue if you own a NICR / NIVO machine.
+- **No recipe editing**: Nivona firmware does not expose `HC`/`HJ`
+  recipe read/write opcodes, so the Recipe Select, Freestyle builder,
+  and Profile Activity switches do not appear on Nivona entries. Only
+  maintenance actions, HY prompt confirmation, HD reset, and settings
+  (HR/HW) are available.
+- **Cup counters**: Nivona 700+ families expose stats via different
+  register IDs than Melitta. Currently the `Total Cups` sensor shows
+  `unknown` on Nivona; family-specific stats entities are planned for
+  a future release.
+
 ## [0.40.0] — 2026-04-13 — Multi-brand refactor
 
 Internal architecture refactor introducing pluggable **BrandProfile**

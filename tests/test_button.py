@@ -42,6 +42,7 @@ def _mock_client(status=None, selected_recipe=None):
     # Brand profile mock (Melitta default — supports HC/HJ)
     client.brand = MagicMock()
     client.brand.brand_slug = "melitta"
+    client.brand.brand_name = "Melitta"
     client.brand.supported_extensions = frozenset({"HC", "HJ"})
     return client
 

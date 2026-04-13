@@ -16,10 +16,17 @@ class MelittaDeviceMixin:
 
     @property
     def device_info(self) -> DeviceInfo:
+        # Manufacturer tracks the active brand profile so a Nivona-
+        # configured entry shows up in the UI as "Nivona" rather than
+        # hard-coded "Melitta".
+        manufacturer = getattr(self._client, "brand", None)
+        manufacturer_name = (
+            manufacturer.brand_name if manufacturer is not None else "Melitta"
+        )
         return DeviceInfo(
             identifiers={(DOMAIN, self._client.address)},
             name=self._machine_name,
-            manufacturer="Melitta",
+            manufacturer=manufacturer_name,
             model=self._client.model_name,
             sw_version=self._client.firmware_version,
         )

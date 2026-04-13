@@ -63,6 +63,7 @@ def _mock_client(machine_type=None):
     # Brand profile mock (Melitta default — supports HC/HJ)
     client.brand = MagicMock()
     client.brand.brand_slug = "melitta"
+    client.brand.brand_name = "Melitta"
     client.brand.supported_extensions = frozenset({"HC", "HJ"})
     client.directkey_recipes = {}
     client.total_cups = 0
