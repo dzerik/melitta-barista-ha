@@ -34,6 +34,7 @@ async def async_get_config_entry_diagnostics(
         "device": {
             "connected": client.connected,
             "firmware": client.firmware_version,
+            "features": str(client.features) if client.features is not None else None,
             "machine_type": str(client.machine_type) if client.machine_type else None,
             "model_name": client.model_name,
         },

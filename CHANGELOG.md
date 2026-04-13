@@ -2,6 +2,40 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.33.0] — 2026-04-13
+
+### Added
+- **HD reset-to-default** protocol command (`CMD_RESET_DEFAULT`) +
+  `protocol.reset_default(value_id)` + client mixin method
+  `reset_recipe_default(recipe_id)`.
+- **`Reset Recipe` button** — config-category entity that sends HD for
+  the currently selected recipe. Available only when the machine is
+  ready and a recipe is selected. NACK/timeout logged as warning,
+  does not crash the entity.
+- **`melitta_barista.reset_recipe` service** with optional `recipe_id`
+  (defaults to currently selected). Raises `ServiceValidationError` if
+  no machine matched the entity or no recipe selected;
+  `HomeAssistantError` on NACK/timeout.
+- Translations (29 languages) for the new button and error messages.
+
+### Fixed
+- **Blocking file I/O in event loop**: `ws_presets_list` was reading
+  `coffee_presets.json` synchronously inside the event loop, triggering
+  HA warnings. Now cached in-memory after a single executor-thread load.
+
+## [0.32.0] — 2026-04-13
+
+### Added
+- **HI feature capability read** on connect — machine reports supported
+  capability bits (currently known: bit 0 = `IMAGE_TRANSFER`). Graceful
+  degradation via 3s timeout — some firmwares do not answer HI.
+- **`Features` diagnostic sensor** (disabled by default) exposing parsed
+  flags + raw byte in `extra_state_attributes`.
+- `features` field in diagnostics output.
+- `FeatureFlags` IntFlag enum in `const.py`.
+- `send_and_wait_response()` now accepts optional `timeout` override
+  (backwards-compatible).
+
 ## [0.29.0] — 2026-03-20
 
 ### Added

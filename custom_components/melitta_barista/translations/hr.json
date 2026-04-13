@@ -146,6 +146,9 @@
       },
       "firmware": {
         "name": "Firmware"
+      },
+      "features": {
+        "name": "Značajke"
       }
     },
     "button": {
@@ -178,6 +181,9 @@
       },
       "evaporating": {
         "name": "Isparavanje"
+      },
+      "reset_recipe": {
+        "name": "Resetiraj recept"
       }
     },
     "select": {
@@ -258,6 +264,12 @@
     },
     "save_failed": {
       "message": "Failed to save recipe. Check the BLE connection."
+    },
+    "no_recipe_selected": {
+      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+    },
+    "reset_failed": {
+      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
     }
   },
   "issues": {

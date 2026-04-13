@@ -303,6 +303,7 @@ async def _async_connect_and_poll(
 SERVICE_BREW_FREESTYLE = "brew_freestyle"
 SERVICE_BREW_DIRECTKEY = "brew_directkey"
 SERVICE_SAVE_DIRECTKEY = "save_directkey"
+SERVICE_RESET_RECIPE = "reset_recipe"
 
 _PROCESS_MAP = PROCESS_MAP
 _INTENSITY_MAP = INTENSITY_MAP
@@ -319,6 +320,11 @@ BREW_DIRECTKEY_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
     vol.Required("category"): vol.In(_DIRECTKEY_CATEGORIES),
     vol.Optional("two_cups", default=False): cv.boolean,
+})
+
+RESET_RECIPE_SCHEMA = vol.Schema({
+    vol.Required("entity_id"): cv.entity_id,
+    vol.Optional("recipe_id"): vol.All(int, vol.Range(min=200, max=223)),
 })
 
 SAVE_DIRECTKEY_SCHEMA = vol.Schema({
@@ -500,6 +506,31 @@ def _async_register_services(hass: HomeAssistant) -> None:
             profile_id, call.data["category"],
         )
 
+    async def _handle_reset_recipe(call: ServiceCall) -> None:
+        """Handle reset_recipe service call."""
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+            )
+        recipe_id = call.data.get("recipe_id")
+        if recipe_id is None:
+            current = client.selected_recipe
+            if current is None:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="no_recipe_selected",
+                )
+            recipe_id = int(current)
+        success = await client.reset_recipe_default(recipe_id)
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="reset_failed",
+            )
+        _LOGGER.info("Reset recipe %d to factory defaults", recipe_id)
+
     hass.services.async_register(
         DOMAIN, SERVICE_BREW_DIRECTKEY, _handle_brew_directkey,
         schema=BREW_DIRECTKEY_SCHEMA,
@@ -507,6 +538,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_SAVE_DIRECTKEY, _handle_save_directkey,
         schema=SAVE_DIRECTKEY_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_RESET_RECIPE, _handle_reset_recipe,
+        schema=RESET_RECIPE_SCHEMA,
     )
 
 

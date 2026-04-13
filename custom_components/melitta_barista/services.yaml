@@ -362,3 +362,24 @@ brew_freestyle:
       default: false
       selector:
         boolean:
+
+reset_recipe:
+  name: Reset Recipe to Defaults
+  description: Reset a recipe to factory defaults via the HD command.
+  fields:
+    entity_id:
+      name: Entity
+      description: A brew button entity of the target machine.
+      required: true
+      selector:
+        entity:
+          domain: button
+    recipe_id:
+      name: Recipe ID
+      description: Recipe ID (200–223). Defaults to the currently selected recipe.
+      required: false
+      selector:
+        number:
+          min: 200
+          max: 223
+          step: 1

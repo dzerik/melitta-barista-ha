@@ -36,6 +36,7 @@ def _mock_client(status=None, selected_recipe=None):
     client.start_intensive_clean = AsyncMock(return_value=True)
     client.start_descaling = AsyncMock(return_value=True)
     client.switch_off = AsyncMock(return_value=True)
+    client.reset_recipe_default = AsyncMock(return_value=True)
     client.profile_names = {0: "My Coffee"}
     client.directkey_recipes = {}
     return client
@@ -491,3 +492,60 @@ async def test_freestyle_brew_button_ble_error(
     await btn.async_press()
 
     client.brew_freestyle.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# MelittaResetRecipeButton (HD command)
+# ---------------------------------------------------------------------------
+
+async def test_reset_recipe_button_available_when_recipe_selected(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Reset button is available when client is ready and recipe selected."""
+    from custom_components.melitta_barista.button import MelittaResetRecipeButton
+
+    client = _mock_client(selected_recipe=RecipeId.CAPPUCCINO)
+    btn = MelittaResetRecipeButton(client, mock_entry, "Test")
+    assert btn.available is True
+
+
+async def test_reset_recipe_button_unavailable_when_no_selection(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Reset button is unavailable without selected recipe."""
+    from custom_components.melitta_barista.button import MelittaResetRecipeButton
+
+    client = _mock_client(selected_recipe=None)
+    btn = MelittaResetRecipeButton(client, mock_entry, "Test")
+    assert btn.available is False
+
+
+async def test_reset_recipe_button_press_calls_reset(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Pressing button invokes reset_recipe_default with selected recipe id."""
+    from custom_components.melitta_barista.button import MelittaResetRecipeButton
+
+    client = _mock_client(selected_recipe=RecipeId.CAPPUCCINO)
+    btn = MelittaResetRecipeButton(client, mock_entry, "Test")
+    await btn.async_press()
+
+    client.reset_recipe_default.assert_awaited_once_with(int(RecipeId.CAPPUCCINO))
+
+
+async def test_reset_recipe_button_press_nack_logs_warning(
+    hass: HomeAssistant, mock_entry: MockConfigEntry, caplog
+) -> None:
+    """NACK from machine produces a warning but does not raise."""
+    import logging
+    from custom_components.melitta_barista.button import MelittaResetRecipeButton
+
+    client = _mock_client(selected_recipe=RecipeId.CAPPUCCINO)
+    client.reset_recipe_default = AsyncMock(return_value=False)
+    btn = MelittaResetRecipeButton(client, mock_entry, "Test")
+
+    with caplog.at_level(logging.WARNING, logger="melitta_barista"):
+        await btn.async_press()
+
+    assert any("NACK" in rec.message or "timeout" in rec.message
+               for rec in caplog.records)

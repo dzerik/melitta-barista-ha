@@ -216,6 +216,16 @@ class BleCommandsMixin(_MixinBase):
     async def cancel_brewing(self) -> bool:
         return await self.cancel_process(MachineProcess.PRODUCT)
 
+    async def reset_recipe_default(self, recipe_id: int) -> bool:
+        """Reset a recipe to factory defaults via HD command.
+
+        Returns True if the machine ACKed (A), False on NACK/timeout/
+        disconnected state.
+        """
+        if not self.connected:
+            return False
+        return await self._protocol.reset_default(self._write_ble, recipe_id)
+
     # Maintenance operations
 
     async def start_easy_clean(self) -> bool:

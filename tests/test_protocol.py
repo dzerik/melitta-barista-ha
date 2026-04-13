@@ -195,5 +195,45 @@ class TestAlphanumericValue:
 
 class TestKnownCommands:
     def test_all_commands_present(self):
-        expected = {"A", "N", "HA", "HC", "HR", "HV", "HX", "HU", "HF", "HL", "HQ", "HP"}
+        expected = {"A", "N", "HA", "HC", "HR", "HV", "HX", "HU", "HI",
+                    "HF", "HL", "HQ", "HP"}
         assert set(KNOWN_COMMANDS.keys()) == expected
+
+    def test_hi_size_10_encrypted(self):
+        assert KNOWN_COMMANDS["HI"] == (10, True)
+
+
+class TestResetDefaultFrame:
+    """HD command for reset-to-default."""
+
+    def test_payload_is_2_byte_be_register_id(self):
+        """HD request payload = 2-byte big-endian register ID."""
+        import struct
+        # Cappuccino RecipeId = 213 = 0x00D5
+        assert struct.pack(">h", 213) == b"\x00\xd5"
+        # Edge: min recipe 200, max 223
+        assert struct.pack(">h", 200) == b"\x00\xc8"
+        assert struct.pack(">h", 223) == b"\x00\xdf"
+
+
+class TestFeatureFlags:
+    """Parse HI response (10-byte capability bitmap)."""
+
+    def test_image_transfer_only(self):
+        from custom_components.melitta_barista.const import FeatureFlags
+        flags = FeatureFlags(0x01)
+        assert flags & FeatureFlags.IMAGE_TRANSFER
+        assert flags == FeatureFlags.IMAGE_TRANSFER
+
+    def test_no_features(self):
+        from custom_components.melitta_barista.const import FeatureFlags
+        flags = FeatureFlags(0x00)
+        assert not (flags & FeatureFlags.IMAGE_TRANSFER)
+        assert int(flags) == 0
+
+    def test_unknown_bits_accepted(self):
+        """Unknown future bits must not raise — IntFlag is open."""
+        from custom_components.melitta_barista.const import FeatureFlags
+        flags = FeatureFlags(0xFF)
+        assert int(flags) == 0xFF
+        assert flags & FeatureFlags.IMAGE_TRANSFER  # bit 0 still set

@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
-from .const import InfoMessage, MachineProcess, Manipulation, SubProcess
+from .const import FeatureFlags, InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
 
@@ -72,6 +72,7 @@ async def async_setup_entry(
         MelittaActionRequiredSensor(client, entry, name),
         MelittaConnectionSensor(client, entry, name),
         MelittaFirmwareSensor(client, entry, name),
+        MelittaFeaturesSensor(client, entry, name),
         MelittaTotalCupsSensor(client, entry, name),
     ]
 
@@ -243,6 +244,34 @@ class MelittaFirmwareSensor(_MelittaSensorBase):
     @property
     def native_value(self) -> str | None:
         return self._client.firmware_version
+
+
+class MelittaFeaturesSensor(_MelittaSensorBase):
+    """Machine capability flags (HI). Disabled by default."""
+
+    _attr_name = "Features"
+    _attr_icon = "mdi:feature-search-outline"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_features"
+
+    @property
+    def native_value(self) -> str | None:
+        f = self._client.features
+        if f is None:
+            return None
+        names = [flag.name for flag in FeatureFlags if flag in f and flag.name]
+        return ", ".join(names) if names else "none"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        f = self._client.features
+        if f is None:
+            return {}
+        return {"raw": f"0x{int(f):02x}"}
 
 
 class MelittaTotalCupsSensor(_MelittaSensorBase):

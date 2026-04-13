@@ -65,6 +65,8 @@ CMD_WRITE_NUMERICAL = "HW"
 CMD_READ_STATUS = "HX"
 CMD_CANCEL_PROCESS = "HZ"
 CMD_HANDSHAKE = "HU"
+CMD_READ_FEATURES = "HI"
+CMD_RESET_DEFAULT = "HD"
 
 # Protocol encryption keys
 AES_KEY_PART_B = bytes([
@@ -123,6 +125,16 @@ class InfoMessage(IntFlag):
     EASY_CLEAN = 1 << 2
     POWDER_FILLED = 1 << 3
     PREPARATION_CANCELLED = 1 << 4
+
+
+class FeatureFlags(IntFlag):
+    """Machine capability bits read via HI (byte 0).
+
+    Only bit 0 is defined in the Nivona Android app 3.8.6 RE
+    (see docs/oem-eugster-protocol.md). Higher bits remain raw until
+    observed on real machines.
+    """
+    IMAGE_TRANSFER = 1 << 0
 
 
 class Manipulation(IntEnum):

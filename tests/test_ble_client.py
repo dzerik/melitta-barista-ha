@@ -604,6 +604,7 @@ class TestConnect:
         mock_protocol = MagicMock()
         mock_protocol.perform_handshake = AsyncMock(return_value=True)
         mock_protocol.read_version = AsyncMock(return_value="1.2.3")
+        mock_protocol.read_features = AsyncMock(return_value=None)
         mock_protocol.read_numerical = AsyncMock(return_value=259)
         mock_protocol.set_status_callback = MagicMock()
 
@@ -717,6 +718,7 @@ class TestConnect:
         mock_protocol = MagicMock()
         mock_protocol.perform_handshake = AsyncMock(return_value=True)
         mock_protocol.read_version = AsyncMock(return_value="1.0.0")
+        mock_protocol.read_features = AsyncMock(return_value=None)
         mock_protocol.read_numerical = AsyncMock(return_value=9999)  # unknown type
         mock_protocol.set_status_callback = MagicMock()
 
@@ -750,6 +752,7 @@ class TestConnect:
         mock_protocol = MagicMock()
         mock_protocol.perform_handshake = AsyncMock(return_value=True)
         mock_protocol.read_version = AsyncMock(return_value="1.0.0")
+        mock_protocol.read_features = AsyncMock(return_value=None)
         mock_protocol.read_numerical = AsyncMock(return_value=259)
         mock_protocol.set_status_callback = MagicMock()
 
@@ -981,6 +984,73 @@ class TestReconnect:
 
         mock_start_polling.assert_called_once()
         assert client._connected is True
+
+
+class TestConnectReadsFeatures:
+    """HI feature bits integration with connect flow."""
+
+    async def test_connect_stores_feature_flags(self, mock_bleak_client):
+        """read_features returning IMAGE_TRANSFER is stored on client."""
+        from custom_components.melitta_barista.const import FeatureFlags
+
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+
+        mock_protocol = MagicMock()
+        mock_protocol.perform_handshake = AsyncMock(return_value=True)
+        mock_protocol.read_version = AsyncMock(return_value="1.0.0")
+        mock_protocol.read_features = AsyncMock(
+            return_value=FeatureFlags.IMAGE_TRANSFER,
+        )
+        mock_protocol.read_numerical = AsyncMock(return_value=259)
+        mock_protocol.set_status_callback = MagicMock()
+
+        with (
+            patch(
+                "custom_components.melitta_barista.ble_client.MelittaProtocol",
+                return_value=mock_protocol,
+            ),
+            patch.object(
+                client, "_establish_connection",
+                new=AsyncMock(return_value=mock_bleak_client),
+            ),
+            patch.object(client, "_start_notify", new=AsyncMock()),
+            patch.object(client, "read_cup_counters", new=AsyncMock(return_value=True)),
+            patch.object(client, "read_profile_data", new=AsyncMock()),
+        ):
+            result = await client._connect_impl()
+
+        assert result is True
+        assert client.features == FeatureFlags.IMAGE_TRANSFER
+
+    async def test_connect_features_none_does_not_fail(self, mock_bleak_client):
+        """read_features timeout (None) must not abort connect."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+
+        mock_protocol = MagicMock()
+        mock_protocol.perform_handshake = AsyncMock(return_value=True)
+        mock_protocol.read_version = AsyncMock(return_value="1.0.0")
+        mock_protocol.read_features = AsyncMock(return_value=None)
+        mock_protocol.read_numerical = AsyncMock(return_value=259)
+        mock_protocol.set_status_callback = MagicMock()
+
+        with (
+            patch(
+                "custom_components.melitta_barista.ble_client.MelittaProtocol",
+                return_value=mock_protocol,
+            ),
+            patch.object(
+                client, "_establish_connection",
+                new=AsyncMock(return_value=mock_bleak_client),
+            ),
+            patch.object(client, "_start_notify", new=AsyncMock()),
+            patch.object(client, "read_cup_counters", new=AsyncMock(return_value=True)),
+            patch.object(client, "read_profile_data", new=AsyncMock()),
+        ):
+            result = await client._connect_impl()
+
+        assert result is True
+        assert client.connected is True
+        assert client.features is None
 
 
 # ---------------------------------------------------------------------------
@@ -1257,6 +1327,31 @@ class TestHighLevelAPI:
 
         result = await client.cancel_brewing()
         assert result is True
+
+    async def test_reset_recipe_default_success(self, mock_bleak_client):
+        """HD success returns True."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.reset_default = AsyncMock(return_value=True)
+
+        result = await client.reset_recipe_default(213)
+        assert result is True
+        client._protocol.reset_default.assert_awaited_once_with(
+            client._write_ble, 213,
+        )
+
+    async def test_reset_recipe_default_nack(self, mock_bleak_client):
+        """HD NACK / timeout returns False, no exception."""
+        client = _make_connected_client(mock_bleak_client)
+        client._protocol.reset_default = AsyncMock(return_value=False)
+
+        result = await client.reset_recipe_default(213)
+        assert result is False
+
+    async def test_reset_recipe_default_not_connected(self):
+        """Returns False when disconnected, does not call protocol."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        result = await client.reset_recipe_default(213)
+        assert result is False
 
     async def test_read_setting_not_connected(self):
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")

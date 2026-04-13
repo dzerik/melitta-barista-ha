@@ -146,6 +146,9 @@
       },
       "firmware": {
         "name": "Firmware"
+      },
+      "features": {
+        "name": "Funktionen"
       }
     },
     "button": {
@@ -178,6 +181,9 @@
       },
       "evaporating": {
         "name": "Verdampfen"
+      },
+      "reset_recipe": {
+        "name": "Rezept zurücksetzen"
       }
     },
     "select": {
@@ -258,6 +264,12 @@
     },
     "save_failed": {
       "message": "Failed to save recipe. Check the BLE connection."
+    },
+    "no_recipe_selected": {
+      "message": "Kein Rezept ausgewählt. Wählen Sie ein Rezept oder geben Sie recipe_id an."
+    },
+    "reset_failed": {
+      "message": "Gerät hat das Zurücksetzen abgelehnt (NACK oder Timeout). Diese Firmware unterstützt HD möglicherweise nicht."
     }
   },
   "issues": {

@@ -146,6 +146,9 @@
       },
       "firmware": {
         "name": "Прошивка"
+      },
+      "features": {
+        "name": "Функции"
       }
     },
     "button": {
@@ -178,6 +181,9 @@
       },
       "evaporating": {
         "name": "Выпаривание"
+      },
+      "reset_recipe": {
+        "name": "Сбросить рецепт"
       }
     },
     "select": {
@@ -258,6 +264,12 @@
     },
     "save_failed": {
       "message": "Failed to save recipe. Check the BLE connection."
+    },
+    "no_recipe_selected": {
+      "message": "Рецепт не выбран. Выберите рецепт или передайте recipe_id явно."
+    },
+    "reset_failed": {
+      "message": "Машина отклонила сброс (NACK или таймаут). Эта прошивка может не поддерживать HD для данного регистра."
     }
   },
   "issues": {

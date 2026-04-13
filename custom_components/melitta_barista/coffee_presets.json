@@ -277,5 +277,110 @@
     "bean_type": "arabica",
     "origin": "blend",
     "flavor_notes": ["chocolate", "spicy", "earthy"]
+  },
+  {
+    "id": "tastycoffee_espresso_aroma",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Арома",
+    "roast": "dark",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "origin_country": "Бразилия + Уганда",
+    "composition": "60% арабика Бразилии Суль-де-Минас (натуральная), 40% робуста Уганды (натуральная)",
+    "flavor_notes": ["nutty", "spicy", "chocolate"]
+  },
+  {
+    "id": "tastycoffee_espresso_mild",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Милд",
+    "roast": "dark",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "origin_country": "Бразилия + Уганда",
+    "composition": "80% арабика Бразилии Суль-де-Минас (натуральная), 20% робуста Уганды (натуральная)",
+    "flavor_notes": ["nutty", "chocolate"]
+  },
+  {
+    "id": "tastycoffee_espresso_classic",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Классик",
+    "roast": "medium_dark",
+    "bean_type": "arabica_robusta",
+    "origin": "blend",
+    "composition": "70% арабика, 30% робуста",
+    "flavor_notes": ["chocolate", "nutty"]
+  },
+  {
+    "id": "tastycoffee_espresso_frutti",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Фрутти",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "origin_country": "Бразилия + Гватемала + Эфиопия",
+    "composition": "50% Бразилия Суль-де-Минас (нат.), 20% Гватемала Фуэго (мытая), 30% Эфиопия Оромия (мытая)",
+    "flavor_notes": ["fruity", "chocolate", "honey"]
+  },
+  {
+    "id": "tastycoffee_espresso_selection",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Селекшн",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "origin_country": "Доминикана + Гондурас + Боливия",
+    "composition": "100% арабика",
+    "flavor_notes": ["citrus", "floral", "fruity"]
+  },
+  {
+    "id": "tastycoffee_espresso_nutty",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Натти (для молочных напитков)",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "origin_country": "Бразилия",
+    "composition": "100% арабика, несколько лотов Бразилии натуральной обработки",
+    "flavor_notes": ["nutty", "chocolate", "caramel"]
+  },
+  {
+    "id": "tastycoffee_espresso_floral",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Флорал",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "blend",
+    "composition": "100% арабика",
+    "flavor_notes": ["floral", "fruity"]
+  },
+  {
+    "id": "tastycoffee_espresso_brazil_santos",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Бразилия Сантос",
+    "roast": "dark",
+    "bean_type": "arabica",
+    "origin": "single_origin",
+    "origin_country": "Бразилия",
+    "flavor_notes": ["nutty", "chocolate"]
+  },
+  {
+    "id": "tastycoffee_espresso_colombia_excelso",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Колумбия Эксельсо",
+    "roast": "medium_dark",
+    "bean_type": "arabica",
+    "origin": "single_origin",
+    "origin_country": "Колумбия",
+    "flavor_notes": ["chocolate", "nutty", "caramel"]
+  },
+  {
+    "id": "tastycoffee_espresso_ethiopia_sidamo",
+    "brand": "Tasty Coffee",
+    "product": "Эспрессо Эфиопия Сидамо",
+    "roast": "medium",
+    "bean_type": "arabica",
+    "origin": "single_origin",
+    "origin_country": "Эфиопия",
+    "flavor_notes": ["fruity", "floral", "berry", "citrus"]
   }
 ]

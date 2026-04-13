@@ -31,6 +31,7 @@ from .const import (
     DEFAULT_RECIPE_RETRIES,
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
+    FeatureFlags,
     MACHINE_MODEL_NAMES,
     MACHINE_TYPE_SETTING_ID,
     MachineProcess,
@@ -90,6 +91,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._brew_lock = asyncio.Lock()
         self._status: MachineStatus | None = None
         self._firmware: str | None = None
+        self._features: FeatureFlags | None = None
         self._machine_type: MachineType | None = None
         self._status_callbacks: list[Callable[[MachineStatus], None]] = []
         self._connection_callbacks: list[Callable[[bool], None]] = []
@@ -148,6 +150,15 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     @property
     def firmware_version(self) -> str | None:
         return self._firmware
+
+    @property
+    def features(self) -> FeatureFlags | None:
+        """Machine capability bits (read via HI once at connect).
+
+        ``None`` means the firmware did not answer HI within the timeout
+        — not all machines support this command.
+        """
+        return self._features
 
     @property
     def machine_type(self) -> MachineType | None:
@@ -509,6 +520,17 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # Read firmware version
             self._firmware = await self._protocol.read_version(self._write_ble)
             _LOGGER.debug("Firmware: %s", self._firmware)
+
+            # Read feature capability bits (HI — optional, may time out)
+            self._features = await self._protocol.read_features(self._write_ble)
+            if self._features is not None:
+                _LOGGER.info(
+                    "Machine features: %s (raw byte0=0x%02x)",
+                    self._features.name or "none",
+                    int(self._features),
+                )
+            else:
+                _LOGGER.debug("HI not supported or timed out — features=None")
 
             # Read machine type via HR id=6 (confirms BLE name detection)
             type_id = await self._protocol.read_numerical(

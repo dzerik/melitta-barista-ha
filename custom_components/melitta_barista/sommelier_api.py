@@ -10,7 +10,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PROCESS_MAP, SHOTS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP
@@ -648,24 +648,34 @@ async def ws_history_list(
 
 # ── Presets ───────────────────────────────────────────────────────────
 
+_PRESETS_CACHE: list[dict[str, Any]] | None = None
+
+
+def _load_presets_sync() -> list[dict[str, Any]]:
+    """Read and parse the bundled presets JSON (blocking I/O)."""
+    presets_path = Path(__file__).parent / "coffee_presets.json"
+    return json.loads(presets_path.read_text(encoding="utf-8"))
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): "melitta_barista/sommelier/presets/list"}
 )
-@callback
-def ws_presets_list(
+@websocket_api.async_response
+async def ws_presets_list(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """List built-in coffee presets."""
-    presets_path = Path(__file__).parent / "coffee_presets.json"
-    try:
-        presets = json.loads(presets_path.read_text(encoding="utf-8"))
-    except Exception as err:
-        _LOGGER.error("Failed to load presets: %s", err)
-        connection.send_error(msg["id"], "load_failed", str(err))
-        return
-    connection.send_result(msg["id"], {"presets": presets})
+    """List built-in coffee presets (cached; loaded via executor on first call)."""
+    global _PRESETS_CACHE
+    if _PRESETS_CACHE is None:
+        try:
+            _PRESETS_CACHE = await hass.async_add_executor_job(_load_presets_sync)
+        except Exception as err:
+            _LOGGER.error("Failed to load presets: %s", err)
+            connection.send_error(msg["id"], "load_failed", str(err))
+            return
+    connection.send_result(msg["id"], {"presets": _PRESETS_CACHE})
 
 
 # ── Settings ──────────────────────────────────────────────────────────

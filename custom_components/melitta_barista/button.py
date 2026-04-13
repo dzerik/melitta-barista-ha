@@ -47,6 +47,9 @@ async def async_setup_entry(
     # Cancel button
     entities.append(MelittaCancelButton(client, entry, name))
 
+    # Reset current recipe to factory defaults (HD command)
+    entities.append(MelittaResetRecipeButton(client, entry, name))
+
     # Maintenance buttons
     entities.append(MelittaMaintenanceButton(
         client, entry, name,
@@ -245,6 +248,44 @@ class MelittaCancelButton(_MelittaButtonBase):
                 await self._client.cancel_process(status.process)
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.exception("BLE error while cancelling")
+
+
+class MelittaResetRecipeButton(_MelittaButtonBase):
+    """Reset the currently selected recipe to factory defaults (HD)."""
+
+    _attr_name = "Reset Recipe"
+    _attr_icon = "mdi:restore"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_reset_recipe"
+
+    @property
+    def available(self) -> bool:
+        return (
+            self._client.connected
+            and self._client.status is not None
+            and self._client.status.is_ready
+            and self._client.selected_recipe is not None
+        )
+
+    async def async_press(self) -> None:
+        recipe_id = self._client.selected_recipe
+        if recipe_id is None:
+            _LOGGER.warning("No recipe selected, cannot reset")
+            return
+        recipe_name = RECIPE_NAMES.get(recipe_id, str(int(recipe_id)))
+        _LOGGER.info("Resetting recipe %s to defaults", recipe_name)
+        try:
+            success = await self._client.reset_recipe_default(int(recipe_id))
+            if not success:
+                _LOGGER.warning(
+                    "Reset recipe %s: machine returned NACK or timeout",
+                    recipe_name,
+                )
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error while resetting recipe %s", recipe_name)
 
 
 class MelittaMaintenanceButton(_MelittaButtonBase):

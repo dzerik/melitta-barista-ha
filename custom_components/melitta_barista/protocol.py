@@ -22,10 +22,12 @@ from .const import (
     CMD_HANDSHAKE,
     CMD_NACK,
     CMD_READ_ALPHA,
+    CMD_READ_FEATURES,
     CMD_READ_NUMERICAL,
     CMD_READ_RECIPE,
     CMD_READ_STATUS,
     CMD_READ_VERSION,
+    CMD_RESET_DEFAULT,
     CMD_START_PROCESS,
     CMD_WRITE_ALPHA,
     CMD_WRITE_NUMERICAL,
@@ -34,6 +36,7 @@ from .const import (
     FRAME_END,
     FRAME_START,
     FRAME_TIMEOUT,
+    FeatureFlags,
     InfoMessage,
     MachineProcess,
     Manipulation,
@@ -75,7 +78,7 @@ _CRC_TABLE = [
 KNOWN_COMMANDS: dict[str, tuple[int, bool]] = {
     "A": (0, False), "N": (0, False),
     "HA": (66, True), "HC": (66, True), "HR": (6, True), "HV": (11, True),
-    "HX": (8, True), "HU": (8, True),
+    "HX": (8, True), "HU": (8, True), "HI": (10, True),
     "HF": (16, True), "HL": (20, True), "HQ": (15, True), "HP": (14, True),
 }
 
@@ -589,8 +592,15 @@ class MelittaProtocol:
         command: str,
         payload: bytes | None,
         write_func: Callable[[bytes], Awaitable[None]],
+        timeout: float | None = None,
     ) -> bytes | None:
-        """Send a read command and wait for response frame."""
+        """Send a read command and wait for response frame.
+
+        ``timeout`` overrides the default ``self._frame_timeout`` for this
+        call only — used by optional commands (e.g. ``HI``) that may not
+        be answered on some firmwares.
+        """
+        effective_timeout = timeout if timeout is not None else self._frame_timeout
         async with self._lock:
             loop = asyncio.get_running_loop()
             future = loop.create_future()
@@ -602,7 +612,7 @@ class MelittaProtocol:
                 for chunk in chunks:
                     await write_func(chunk)
 
-                return await asyncio.wait_for(future, timeout=self._frame_timeout)
+                return await asyncio.wait_for(future, timeout=effective_timeout)
             except asyncio.TimeoutError:
                 _LOGGER.debug("Response timeout for %s", command)
                 return None
@@ -622,6 +632,24 @@ class MelittaProtocol:
         if data:
             return data.rstrip(b"\x00").decode("utf-8", errors="replace")
         return None
+
+    async def read_features(self, write_func) -> FeatureFlags | None:
+        """Read HI capability bits (10 bytes).
+
+        Returns ``None`` on timeout — some firmwares simply do not answer
+        this command (observed on Nivona NICR 756).
+
+        Only byte 0 is currently decoded into known flags; bytes [1..9]
+        are logged as raw hex for future decoding.
+        """
+        data = await self.send_and_wait_response(
+            CMD_READ_FEATURES, None, write_func, timeout=3.0,
+        )
+        if not data:
+            return None
+        if len(data) >= 10:
+            _LOGGER.debug("HI raw payload: %s", data.hex())
+        return FeatureFlags(data[0])
 
     async def read_numerical(self, write_func, value_id: int) -> int | None:
         payload = struct.pack(">h", value_id)
@@ -701,3 +729,12 @@ class MelittaProtocol:
     async def cancel_process(self, write_func, process_value: int) -> bool:
         payload = struct.pack(">h", process_value) + b"\x00\x00"
         return await self.send_and_wait_ack(CMD_CANCEL_PROCESS, payload, write_func)
+
+    async def reset_default(self, write_func, value_id: int) -> bool:
+        """Send HD command to reset a register to its factory default.
+
+        Payload: 2-byte big-endian register ID. Machine responds with
+        ``A`` (success) or ``N`` (not supported / invalid id).
+        """
+        payload = struct.pack(">h", value_id)
+        return await self.send_and_wait_ack(CMD_RESET_DEFAULT, payload, write_func)
