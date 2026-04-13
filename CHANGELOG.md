@@ -2,6 +2,71 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.42.0] — 2026-04-14 — Nivona data-completeness
+
+Completes the port of Nivona-specific data from upstream
+[mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge)
+`src/nivona.cpp`. Crypto + recipe lists landed in 0.40.0/0.41.0;
+this release ports per-family **settings register descriptors** and
+**stats register descriptors**, plus per-model capability overrides
+that are needed for correct MyCoffee slot counts.
+
+### Added
+
+- **Per-family settings tables** (`SettingDescriptor` tuples) with
+  4–10 entries per family covering water hardness, off-rinse, auto-off,
+  temperature, profile, and per-fluid temperatures (1030/1040). All
+  option enums (HARDNESS / AUTO_OFF / TEMPERATURE / PROFILE /
+  MILK_TEMPERATURE / MILK_FOAM_TEMPERATURE / POWER_ON_FROTHER_TIME) are
+  ported verbatim from upstream with value-code → label mapping.
+- **Per-family stats tables** for families with `supports_stats=True`:
+  27 counters on 8000, 25 on 700, 10 on 79x. Includes per-recipe cup
+  counters, maintenance counters (clean/descale/rinse/filter), and
+  percentage/flag registers for descale/brew-unit-clean/frother-clean/
+  filter progress + warnings.
+- **`NivonaProfile.capabilities_for_model(ble_name, dis)`** — per-model
+  refinement using upstream `MODEL_RULES`. Returns a
+  `MachineCapabilities` with correct `my_coffee_slots` and
+  `strength_levels` per individual model code (e.g. NICR 788 = 5 slots
+  vs 756 = 1 slot; NICR 1040 = 18 slots vs 920 = 9 slots).
+- Recipe/MyCoffee register base constants for future recipe-write
+  support: `RECIPE_BASE_REGISTER = 10000`, `MY_COFFEE_BASE_REGISTER =
+  20000`, both with `stride = 100`.
+- Fixed `_PREFIX_TO_FAMILY` mapping for NICR 1030/1040: serial prefix
+  is actually `"030"` / `"040"` per upstream, not `"1030"` / `"1040"`.
+
+### Tests
+
+- 688 → 692 (+6 Nivona coverage tests).
+- New tests: per-family settings count, per-family stats count, per-
+  model capability overrides (10 model codes covering all 8 families),
+  unknown model returns `None`.
+
+### Gaps deliberately not closed
+
+The following items remain `TODO` for future Nivona work:
+
+- **HN Flying Picture** — upstream itself does not implement it; only
+  the HI feature bit is known.
+- **Standard-recipe layout offsets** (per-family byte positions for
+  strength/profile/temperature in the HE payload) — data ported as
+  register-base constants, but the full `resolveStandardRecipeLayout`
+  write path is not wired through BleCoffeeClient yet. Requires live
+  Nivona hardware to validate HW byte-by-byte writes.
+- **Advertisement manufacturer_data customerId** — optional secondary
+  discovery matcher; local_name regex already works for standard
+  Nivona advertisements.
+- **DIS-service reads (0x180A)** — would populate device registry
+  with precise Manufacturer/Model/Serial/FW at connect time. Currently
+  we rely on BLE advertisement local_name only.
+- **HE factory-reset opcodes (0x0032/0x0033)** — destructive, user
+  explicitly deferred.
+- **Chilled add-ons (NICR 8xxx)** — upstream itself does not
+  implement; requires fresh APK RE.
+
+These are documented in the project's internal roadmap and remain
+parity with upstream esp-coffee-bridge as of 2026-04-14.
+
 ## [0.41.0] — 2026-04-13 — Nivona support (alpha)
 
 First public release with **Nivona NICR / NIVO 8xxx** machines as a

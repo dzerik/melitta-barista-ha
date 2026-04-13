@@ -111,6 +111,22 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 
 > Red Eye, Black Eye, and Dead Eye are only available on the Barista TS Smart (dual bean hopper model).
 
+### Nivona recipes per family (alpha)
+
+Nivona machines ship with a **fixed** set of recipes per family (no recipe editing). Selector IDs below are the machine-side byte values used in the brew command.
+
+| Family | Recipes |
+|---|---|
+| **600** | Espresso, Coffee, Americano, Cappuccino, Frothy Milk, Hot Water |
+| **700** | Espresso, Cream, Lungo, Americano, Cappuccino, Latte Macchiato, Milk, Hot Water |
+| **79x** | Espresso, Coffee, Americano, Cappuccino, Latte Macchiato, Milk, Hot Water |
+| **900** / **900-light** | Espresso, Coffee, Americano, Cappuccino, Caffè Latte, Latte Macchiato, Hot Milk, Hot Water |
+| **1030** | Espresso, Coffee, Americano, Cappuccino, Caffè Latte, Latte Macchiato, Hot Water, Warm Milk, Hot Milk, Frothy Milk |
+| **1040** | Espresso, Coffee, Americano, Cappuccino, Caffè Latte, Latte Macchiato, Hot Water, Warm Milk, Frothy Milk |
+| **8000** | Espresso, Coffee, Americano, Cappuccino, Caffè Latte, Latte Macchiato, Milk, Hot Water |
+
+Source: per-family recipe tables in [`brands/nivona.py`](custom_components/melitta_barista/brands/nivona.py), ported from the upstream [mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge/blob/main/src/nivona.cpp) RE effort.
+
 ## Requirements
 
 - **Home Assistant** 2024.1 or newer

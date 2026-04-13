@@ -20,7 +20,95 @@ import logging
 import re
 from typing import ClassVar
 
-from .base import MachineCapabilities
+from dataclasses import replace
+
+from .base import MachineCapabilities, RecipeDescriptor, SettingDescriptor, StatDescriptor
+
+
+# ---------------------------------------------------------------------------
+# Per-family recipe tables — selector byte → (key, display name).
+# Upstream: src/nivona.cpp:183-258. Each entry is (selector, key, title).
+# ---------------------------------------------------------------------------
+
+_RECIPES_600: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee"),
+    RecipeDescriptor(2, "Americano", "americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(4, "Frothy Milk", "milk_drink"),
+    RecipeDescriptor(5, "Hot Water", "water"),
+)
+
+_RECIPES_700: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Cream", "coffee"),
+    RecipeDescriptor(2, "Lungo", "coffee"),
+    RecipeDescriptor(3, "Americano", "americano"),
+    RecipeDescriptor(4, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
+    RecipeDescriptor(6, "Milk", "milk_drink"),
+    RecipeDescriptor(7, "Hot Water", "water"),
+)
+
+_RECIPES_79X: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee"),
+    RecipeDescriptor(2, "Americano", "americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
+    RecipeDescriptor(6, "Milk", "milk_drink"),
+    RecipeDescriptor(7, "Hot Water", "water"),
+)
+
+_RECIPES_900: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee"),
+    RecipeDescriptor(2, "Americano", "americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
+    RecipeDescriptor(6, "Hot Milk", "milk_drink"),
+    RecipeDescriptor(7, "Hot Water", "water"),
+)
+
+# 900-light family reuses the 900 table upstream (src/nivona.cpp near line 947).
+_RECIPES_900_LIGHT: tuple[RecipeDescriptor, ...] = _RECIPES_900
+
+_RECIPES_1030: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee"),
+    RecipeDescriptor(2, "Americano", "americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
+    RecipeDescriptor(6, "Hot Water", "water"),
+    RecipeDescriptor(7, "Warm Milk", "milk_drink"),
+    RecipeDescriptor(8, "Hot Milk", "milk_drink"),
+    RecipeDescriptor(9, "Frothy Milk", "milk_drink"),
+)
+
+_RECIPES_1040: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee"),
+    RecipeDescriptor(2, "Americano", "americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
+    RecipeDescriptor(6, "Hot Water", "water"),
+    RecipeDescriptor(7, "Warm Milk", "milk_drink"),
+    RecipeDescriptor(8, "Frothy Milk", "milk_drink"),
+)
+
+_RECIPES_8000: tuple[RecipeDescriptor, ...] = (
+    RecipeDescriptor(0, "Espresso", "espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee"),
+    RecipeDescriptor(2, "Americano", "americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
+    RecipeDescriptor(6, "Milk", "milk_drink"),
+    RecipeDescriptor(7, "Hot Water", "water"),
+)
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -70,6 +158,294 @@ assert len(_NIVONA_HU_TABLE) == 256, "Nivona HU table must be 256 bytes"
 #   - 600 has only 1 MyCoffee slot; 700/79x/900/8000 have 4.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Setting option enums (value_code → human label). Ported verbatim from
+# upstream src/nivona.cpp lines 35-128.
+# ---------------------------------------------------------------------------
+
+_HARDNESS_OPTIONS = ((0x0000, "soft"), (0x0001, "medium"), (0x0002, "hard"), (0x0003, "very hard"))
+_OFF_ON_OPTIONS = ((0x0000, "off"), (0x0001, "on"))
+_AUTO_OFF_8000_OPTIONS = (
+    (0x0000, "10 min"), (0x0001, "30 min"), (0x0002, "1 h"),
+    (0x0003, "2 h"), (0x0004, "4 h"), (0x0005, "6 h"),
+    (0x0006, "8 h"), (0x0007, "10 h"), (0x0008, "12 h"),
+    (0x0009, "14 h"), (0x0010, "16 h"),
+)
+_AUTO_OFF_STANDARD_OPTIONS = (
+    (0x0000, "10 min"), (0x0001, "30 min"), (0x0002, "1 h"),
+    (0x0003, "2 h"), (0x0004, "4 h"), (0x0005, "6 h"),
+    (0x0006, "8 h"), (0x0007, "10 h"), (0x0008, "12 h"),
+    (0x0009, "off"),
+)
+_TEMP_ON_OFF = ((0x0000, "off"), (0x0001, "on"))
+_TEMPERATURE_OPTIONS = ((0x0000, "normal"), (0x0001, "high"), (0x0002, "max"), (0x0003, "individual"))
+_PROFILE_STANDARD_OPTIONS = (
+    (0x0000, "dynamic"), (0x0001, "constant"),
+    (0x0002, "intense"), (0x0003, "individual"),
+)
+_PROFILE_1040_OPTIONS = (
+    (0x0000, "dynamic"), (0x0001, "constant"),
+    (0x0002, "intense"), (0x0003, "quick"), (0x0004, "individual"),
+)
+_MILK_TEMPERATURE_1030_OPTIONS = (
+    (0x0000, "high"), (0x0001, "max"), (0x0002, "individual"),
+)
+_MILK_TEMPERATURE_1040_OPTIONS = (
+    (0x0000, "normal"), (0x0001, "high"), (0x0002, "hot"),
+    (0x0003, "max"), (0x0004, "individual"),
+)
+_MILK_FOAM_TEMPERATURE_1040_OPTIONS = (
+    (0x0000, "warm"), (0x0001, "max"), (0x0002, "individual"),
+)
+_POWER_ON_FROTHER_TIME_1040_OPTIONS = (
+    (0x0000, "10 min"), (0x0001, "20 min"),
+    (0x0002, "30 min"), (0x0003, "40 min"),
+)
+
+
+# ---------------------------------------------------------------------------
+# Per-family settings register tables (HR-readable, HW-writable).
+# Ported from SETTINGS_*_PROBES in upstream src/nivona.cpp:128-177.
+# IDs are Nivona-specific and do NOT overlap with Melitta's setting IDs.
+# ---------------------------------------------------------------------------
+
+_SETTINGS_8000: tuple[SettingDescriptor, ...] = (
+    SettingDescriptor(101, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(104, "auto_off", "Auto-off", _AUTO_OFF_8000_OPTIONS),
+    SettingDescriptor(105, "coffee_temperature", "Coffee temperature", _TEMP_ON_OFF),
+)
+
+_SETTINGS_600_700_BASE: tuple[SettingDescriptor, ...] = (
+    SettingDescriptor(101, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(102, "temperature", "Temperature", _TEMPERATURE_OPTIONS),
+    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(104, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(106, "profile", "Profile", _PROFILE_STANDARD_OPTIONS),
+)
+
+_SETTINGS_900: tuple[SettingDescriptor, ...] = (
+    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+)
+
+_SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
+    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+)
+
+_SETTINGS_1030: tuple[SettingDescriptor, ...] = (
+    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(113, "profile", "Profile", _PROFILE_STANDARD_OPTIONS),
+    SettingDescriptor(114, "coffee_temperature", "Coffee temperature", _TEMPERATURE_OPTIONS),
+    SettingDescriptor(115, "water_temperature", "Water temperature", _TEMPERATURE_OPTIONS),
+    SettingDescriptor(116, "milk_temperature", "Milk temperature", _MILK_TEMPERATURE_1030_OPTIONS),
+)
+
+_SETTINGS_1040: tuple[SettingDescriptor, ...] = (
+    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(113, "profile", "Profile", _PROFILE_1040_OPTIONS),
+    SettingDescriptor(114, "coffee_temperature", "Coffee temperature", _TEMPERATURE_OPTIONS),
+    SettingDescriptor(115, "water_temperature", "Water temperature", _TEMPERATURE_OPTIONS),
+    SettingDescriptor(116, "milk_temperature", "Milk temperature", _MILK_TEMPERATURE_1040_OPTIONS),
+    SettingDescriptor(117, "milk_foam_temperature", "Milk foam temperature", _MILK_FOAM_TEMPERATURE_1040_OPTIONS),
+    SettingDescriptor(118, "power_on_rinse", "Power-on rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(119, "power_on_frother_time", "Power-on frother time", _POWER_ON_FROTHER_TIME_1040_OPTIONS),
+)
+
+
+# ---------------------------------------------------------------------------
+# Per-family stats register tables (HR-readable counters / percentages).
+# Ported from STATS_*_PROBES in upstream src/nivona.cpp:429-500.
+# Only families with supportsStats=true expose stats (600/900/900-light
+# /1030/1040 have empty tables upstream).
+# ---------------------------------------------------------------------------
+
+def _count(stat_id: int, key: str, title: str, section: str = "beverages") -> StatDescriptor:
+    return StatDescriptor(
+        stat_id=stat_id, key=key, title=title,
+        unit="count", is_diagnostic=(section == "maintenance"),
+    )
+
+
+def _pct(stat_id: int, key: str, title: str) -> StatDescriptor:
+    return StatDescriptor(
+        stat_id=stat_id, key=key, title=title,
+        unit="%", is_diagnostic=True,
+    )
+
+
+def _flag(stat_id: int, key: str, title: str) -> StatDescriptor:
+    return StatDescriptor(
+        stat_id=stat_id, key=key, title=title,
+        unit=None, is_diagnostic=True,
+    )
+
+
+_STATS_8000: tuple[StatDescriptor, ...] = (
+    _count(200, "espresso", "Espresso"),
+    _count(201, "coffee", "Coffee"),
+    _count(202, "americano", "Americano"),
+    _count(203, "cappuccino", "Cappuccino"),
+    _count(204, "caffe_latte", "Caffè latte"),
+    _count(205, "macchiato", "Latte macchiato"),
+    _count(206, "warm_milk", "Warm milk"),
+    _count(207, "hot_water", "Hot water"),
+    _count(208, "my_coffee", "My coffee"),
+    _count(209, "steam_drinks", "Steam drinks"),
+    _count(210, "powder_coffee", "Powder coffee"),
+    _count(213, "total_beverages", "Total beverages"),
+    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
+    _count(215, "clean_frother", "Clean frother", "maintenance"),
+    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
+    _count(219, "filter_changes", "Filter changes", "maintenance"),
+    _count(220, "descaling", "Descaling", "maintenance"),
+    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
+    _pct(600, "descale_percent", "Descale progress"),
+    _flag(601, "descale_warning", "Descale warning"),
+    _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
+    _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
+    _pct(620, "frother_clean_percent", "Frother clean progress"),
+    _flag(621, "frother_clean_warning", "Frother clean warning"),
+    _pct(640, "filter_percent", "Filter progress"),
+    _flag(641, "filter_warning", "Filter warning"),
+    _flag(642, "filter_dependency", "Filter dependency"),
+)
+
+_STATS_700: tuple[StatDescriptor, ...] = (
+    _count(200, "espresso", "Espresso"),
+    _count(201, "cream", "Cream"),
+    _count(202, "lungo", "Lungo"),
+    _count(203, "americano", "Americano"),
+    _count(204, "cappuccino", "Cappuccino"),
+    _count(205, "latte_macchiato", "Latte macchiato"),
+    _count(206, "milk", "Milk"),
+    _count(207, "hot_water", "Hot water"),
+    _count(208, "my_coffee", "My coffee"),
+    _count(213, "total_beverages", "Total beverages"),
+    _count(214, "clean_brewing_unit", "Cleaning brewing unit", "maintenance"),
+    _count(215, "clean_frother", "Cleaning frother", "maintenance"),
+    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
+    _count(219, "filter_changes", "Filter changes", "maintenance"),
+    _count(220, "descaling", "Descaling", "maintenance"),
+    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
+    _pct(600, "descale_percent", "Descaling progress"),
+    _flag(601, "descale_warning", "Descaling warning"),
+    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
+    _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
+    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
+    _flag(621, "frother_clean_warning", "Frother cleaning warning"),
+    _pct(640, "filter_percent", "Filter progress"),
+    _flag(641, "filter_warning", "Filter warning"),
+    _flag(105, "filter_dependency", "Filter dependency"),
+)
+
+_STATS_79X: tuple[StatDescriptor, ...] = (
+    _count(200, "espresso", "Espresso"),
+    _count(201, "coffee", "Coffee"),
+    _count(202, "americano", "Americano"),
+    _count(203, "cappuccino", "Cappuccino"),
+    _count(205, "latte_macchiato", "Latte macchiato"),
+    _count(206, "milk", "Milk"),
+    _count(207, "hot_water", "Hot water"),
+    _count(208, "my_coffee", "My coffee"),
+    _count(213, "total_beverages", "Total beverages"),
+    _flag(105, "filter_dependency", "Filter dependency"),
+)
+
+
+# ---------------------------------------------------------------------------
+# Per-model overrides (MODEL_RULES from upstream src/nivona.cpp:278-311).
+# Key: 3- or 4-char serial prefix; value: (my_coffee_slots, strength_levels).
+# Other fields are taken from the family default.
+# ---------------------------------------------------------------------------
+
+_MODEL_OVERRIDES: dict[str, dict] = {
+    # 4-char NIVO 8xxx
+    "8101": {"my_coffee_slots": 9, "strength_levels": 5},
+    "8103": {"my_coffee_slots": 9, "strength_levels": 5},
+    "8107": {"my_coffee_slots": 9, "strength_levels": 5},
+    # NICR 600
+    "660": {"my_coffee_slots": 1, "strength_levels": 3},
+    "670": {"my_coffee_slots": 5, "strength_levels": 3},
+    "675": {"my_coffee_slots": 5, "strength_levels": 3},
+    "680": {"my_coffee_slots": 5, "strength_levels": 3},
+    # NICR 700 (single-slot variants)
+    "756": {"my_coffee_slots": 1, "strength_levels": 3},
+    "758": {"my_coffee_slots": 1, "strength_levels": 3},
+    "759": {"my_coffee_slots": 1, "strength_levels": 3},
+    "768": {"my_coffee_slots": 1, "strength_levels": 3},
+    "769": {"my_coffee_slots": 1, "strength_levels": 3},
+    "778": {"my_coffee_slots": 1, "strength_levels": 3},
+    "779": {"my_coffee_slots": 1, "strength_levels": 3},
+    # NICR 700 (five-slot variants)
+    "788": {"my_coffee_slots": 5, "strength_levels": 5},
+    "789": {"my_coffee_slots": 5, "strength_levels": 5},
+    # NICR 79x
+    "790": {"my_coffee_slots": 5, "strength_levels": 5},
+    "791": {"my_coffee_slots": 5, "strength_levels": 5},
+    "792": {"my_coffee_slots": 5, "strength_levels": 5},
+    "793": {"my_coffee_slots": 5, "strength_levels": 5},
+    "794": {"my_coffee_slots": 5, "strength_levels": 5},
+    "795": {"my_coffee_slots": 5, "strength_levels": 5},
+    "796": {"my_coffee_slots": 5, "strength_levels": 5},
+    "797": {"my_coffee_slots": 5, "strength_levels": 5},
+    "799": {"my_coffee_slots": 5, "strength_levels": 5},
+    # NICR 900 / 900-light
+    "920": {"my_coffee_slots": 9, "strength_levels": 5},
+    "930": {"my_coffee_slots": 9, "strength_levels": 5},
+    "960": {"my_coffee_slots": 9, "strength_levels": 5},
+    "965": {"my_coffee_slots": 9, "strength_levels": 5},
+    "970": {"my_coffee_slots": 9, "strength_levels": 5},
+    # NICR 1030 / 1040
+    "030": {"my_coffee_slots": 18, "strength_levels": 5},
+    "040": {"my_coffee_slots": 18, "strength_levels": 5},
+}
+
+
+# ---------------------------------------------------------------------------
+# Register bases (for future read/write recipe support — not exposed yet).
+# Upstream: standard recipes at 10000 + selector*100; MyCoffee at 20000 + slot*100.
+# ---------------------------------------------------------------------------
+
+RECIPE_BASE_REGISTER = 10000
+RECIPE_SLOT_STRIDE = 100
+MY_COFFEE_BASE_REGISTER = 20000
+MY_COFFEE_SLOT_STRIDE = 100
+
+
+# ---------------------------------------------------------------------------
+# Per-family settings + stats dispatch
+# ---------------------------------------------------------------------------
+
+_FAMILY_SETTINGS: dict[str, tuple[SettingDescriptor, ...]] = {
+    "600": _SETTINGS_600_700_BASE,
+    "700": _SETTINGS_600_700_BASE,
+    "79x": _SETTINGS_600_700_BASE,
+    "900": _SETTINGS_900,
+    "900-light": _SETTINGS_900_LIGHT,
+    "1030": _SETTINGS_1030,
+    "1040": _SETTINGS_1040,
+    "8000": _SETTINGS_8000,
+}
+
+_FAMILY_STATS: dict[str, tuple[StatDescriptor, ...]] = {
+    "600": (),
+    "700": _STATS_700,
+    "79x": _STATS_79X,
+    "900": (),
+    "900-light": (),
+    "1030": (),
+    "1040": (),
+    "8000": _STATS_8000,
+}
+
+
 _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
     "600": MachineCapabilities(
         family_key="600",
@@ -80,6 +456,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         strength_levels=3,
         has_aroma_balance=False,
         brew_command_mode=0x0B,
+        recipes=_RECIPES_600,
+        settings=_FAMILY_SETTINGS['600'],
+        stats=_FAMILY_STATS['600'],
     ),
     "700": MachineCapabilities(
         family_key="700",
@@ -90,6 +469,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         strength_levels=3,
         has_aroma_balance=True,
         brew_command_mode=0x0B,
+        recipes=_RECIPES_700,
+        settings=_FAMILY_SETTINGS['700'],
+        stats=_FAMILY_STATS['700'],
     ),
     "79x": MachineCapabilities(
         family_key="79x",
@@ -100,6 +482,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         strength_levels=5,
         has_aroma_balance=True,
         brew_command_mode=0x0B,
+        recipes=_RECIPES_79X,
+        settings=_FAMILY_SETTINGS['79x'],
+        stats=_FAMILY_STATS['79x'],
     ),
     "900": MachineCapabilities(
         family_key="900",
@@ -111,6 +496,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         has_aroma_balance=False,
         brew_command_mode=0x0B,
         fluid_scale_factor=10,
+        recipes=_RECIPES_900,
+        settings=_FAMILY_SETTINGS['900'],
+        stats=_FAMILY_STATS['900'],
     ),
     "900-light": MachineCapabilities(
         family_key="900-light",
@@ -120,6 +508,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         my_coffee_slots=4,
         strength_levels=3,
         brew_command_mode=0x0B,
+        recipes=_RECIPES_900_LIGHT,
+        settings=_FAMILY_SETTINGS['900-light'],
+        stats=_FAMILY_STATS['900-light'],
     ),
     "1030": MachineCapabilities(
         family_key="1030",
@@ -129,6 +520,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         my_coffee_slots=4,
         strength_levels=5,
         brew_command_mode=0x0B,
+        recipes=_RECIPES_1030,
+        settings=_FAMILY_SETTINGS['1030'],
+        stats=_FAMILY_STATS['1030'],
     ),
     "1040": MachineCapabilities(
         family_key="1040",
@@ -138,6 +532,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         my_coffee_slots=4,
         strength_levels=5,
         brew_command_mode=0x0B,
+        recipes=_RECIPES_1040,
+        settings=_FAMILY_SETTINGS['1040'],
+        stats=_FAMILY_STATS['1040'],
     ),
     "8000": MachineCapabilities(
         family_key="8000",
@@ -147,6 +544,9 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         my_coffee_slots=4,
         strength_levels=5,
         brew_command_mode=0x04,    # NIVO8000 uses different brew opcode byte
+        recipes=_RECIPES_8000,
+        settings=_FAMILY_SETTINGS['8000'],
+        stats=_FAMILY_STATS['8000'],
     ),
 }
 
@@ -164,8 +564,8 @@ _PREFIX_TO_FAMILY: dict[str, str] = {
     "794": "79x", "795": "79x", "796": "79x", "797": "79x", "799": "79x",
     "920": "900", "930": "900",
     "960": "900-light", "965": "900-light", "970": "900-light",
-    "1030": "1030",
-    "1040": "1040",
+    "030": "1030",
+    "040": "1040",
 }
 
 
@@ -252,3 +652,28 @@ class NivonaProfile:
 
     def capabilities_for(self, family_key: str) -> MachineCapabilities:
         return _NIVONA_FAMILIES[family_key]
+
+    def capabilities_for_model(
+        self, ble_name: str, dis: dict[str, str] | None = None,
+    ) -> MachineCapabilities | None:
+        """Return model-refined capabilities for a specific serial/advert.
+
+        Looks up the family first, then applies model-specific overrides
+        (from MODEL_RULES upstream) — primarily ``my_coffee_slots`` and
+        ``strength_levels``, which vary per model within a family.
+        Returns None if the family cannot be resolved.
+        """
+        family = self.detect_family(ble_name, dis)
+        if family is None:
+            return None
+        caps = _NIVONA_FAMILIES[family]
+        # Look up model override by the same prefix cascade used in detect_family
+        serial = ble_name[len("NIVONA-"):] if ble_name.startswith("NIVONA-") else ble_name
+        override: dict | None = None
+        if len(serial) >= 4:
+            override = _MODEL_OVERRIDES.get(serial[:4])
+        if override is None and len(serial) >= 3:
+            override = _MODEL_OVERRIDES.get(serial[:3])
+        if override is None:
+            return caps
+        return replace(caps, **override)

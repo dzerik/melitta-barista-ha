@@ -172,6 +172,88 @@ def test_nivona_capabilities_per_family():
     assert f900.fluid_scale_factor == 10    # 900 writes ml×10
 
 
+def test_nivona_recipes_populated_per_family():
+    """Every Nivona family has a non-empty recipe table."""
+    np_ = NivonaProfile()
+    expected_sizes = {
+        "600": 6, "700": 8, "79x": 7,
+        "900": 8, "900-light": 8,
+        "1030": 10, "1040": 9, "8000": 8,
+    }
+    for family_key, count in expected_sizes.items():
+        caps = np_.capabilities_for(family_key)
+        assert len(caps.recipes) == count, (
+            f"Nivona family {family_key} expected {count} recipes, "
+            f"got {len(caps.recipes)}"
+        )
+
+
+def test_nivona_settings_per_family():
+    """Every Nivona family has a settings descriptor table."""
+    np_ = NivonaProfile()
+    expected_min_sizes = {
+        "600": 5, "700": 5, "79x": 5,
+        "900": 3, "900-light": 2,
+        "1030": 7, "1040": 10, "8000": 4,
+    }
+    for fk, size in expected_min_sizes.items():
+        caps = np_.capabilities_for(fk)
+        assert len(caps.settings) == size, (
+            f"Nivona family {fk} expected {size} settings, got {len(caps.settings)}"
+        )
+
+
+def test_nivona_stats_for_stats_families():
+    """Only families with supports_stats=True have non-empty stats tables."""
+    np_ = NivonaProfile()
+    # Families declared with supports_stats=True:
+    assert len(np_.capabilities_for("700").stats) == 25
+    assert len(np_.capabilities_for("79x").stats) == 10
+    assert len(np_.capabilities_for("8000").stats) == 27
+    # Others: empty
+    for fk in ("600", "900", "900-light", "1030", "1040"):
+        assert np_.capabilities_for(fk).stats == ()
+
+
+def test_nivona_per_model_capabilities_overrides():
+    """capabilities_for_model returns per-model my_coffee_slots / strength."""
+    np_ = NivonaProfile()
+    cases = [
+        # (serial_suffix, expected_slots, expected_strength, expected_family)
+        ("756", 1, 3, "700"),    # NICR 756 — single slot
+        ("788", 5, 5, "700"),    # NICR 788 — five slots, five strength
+        ("790", 5, 5, "79x"),
+        ("920", 9, 5, "900"),
+        ("965", 9, 5, "900-light"),
+        ("030", 18, 5, "1030"),
+        ("040", 18, 5, "1040"),
+        ("8101", 9, 5, "8000"),  # NIVO 8101
+        ("670", 5, 3, "600"),
+        ("660", 1, 3, "600"),
+    ]
+    for suffix, slots, strength, fkey in cases:
+        caps = np_.capabilities_for_model(f"NIVONA-{suffix}0000000-----")
+        assert caps is not None, f"{suffix} not detected"
+        assert caps.my_coffee_slots == slots, f"{suffix} slots"
+        assert caps.strength_levels == strength, f"{suffix} strength"
+        assert caps.family_key == fkey, f"{suffix} family"
+
+
+def test_nivona_capabilities_for_unknown_model_returns_none():
+    np_ = NivonaProfile()
+    assert np_.capabilities_for_model("NIVONA-0000000000-----") is None
+
+
+def test_nivona_recipe_contains_espresso():
+    """Every family has Espresso at selector 0."""
+    np_ = NivonaProfile()
+    for family_key in ("600", "700", "79x", "900", "1030", "1040", "8000"):
+        caps = np_.capabilities_for(family_key)
+        first = caps.recipes[0]
+        assert first.recipe_id == 0
+        assert first.name == "Espresso"
+
+
 # ---------------------------------------------------------------------------
 # Error sugar
 # ---------------------------------------------------------------------------
