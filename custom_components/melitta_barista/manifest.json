@@ -4,6 +4,9 @@
   "bluetooth": [
     {
       "service_uuid": "0000ad00-b35c-11e4-9813-0002a5d5c51b"
+    },
+    {
+      "local_name": "NIVONA-*"
     }
   ],
   "codeowners": [
@@ -26,5 +29,5 @@
     "pycryptodome>=3.0.0",
     "aiosqlite>=0.19.0"
   ],
-  "version": "0.34.1"
+  "version": "0.40.0"
 }

@@ -37,20 +37,24 @@ async def async_setup_entry(
     name = entry.data.get(CONF_NAME, "Melitta Barista")
 
     entities: list[ButtonEntity] = []
+    supports_recipe = "HC" in client.brand.supported_extensions
 
-    # Brew button (works with Recipe select entity)
-    entities.append(MelittaBrewButton(client, entry, name))
+    # Brew button (works with Recipe select entity) — Melitta-style only.
+    if supports_recipe:
+        entities.append(MelittaBrewButton(client, entry, name))
 
-    # Brew Freestyle button
-    entities.append(MelittaBrewFreestyleButton(client, entry, name))
+    # Brew Freestyle button — requires HJ recipe writes.
+    if "HJ" in client.brand.supported_extensions:
+        entities.append(MelittaBrewFreestyleButton(client, entry, name))
 
-    # Cancel button
+    # Cancel button — generic
     entities.append(MelittaCancelButton(client, entry, name))
 
-    # Reset current recipe to factory defaults (HD command)
-    entities.append(MelittaResetRecipeButton(client, entry, name))
+    # Reset current recipe to factory defaults (HD command) — needs recipe context.
+    if supports_recipe:
+        entities.append(MelittaResetRecipeButton(client, entry, name))
 
-    # Confirm machine prompt (HY command)
+    # Confirm machine prompt (HY command) — generic
     entities.append(MelittaConfirmPromptButton(client, entry, name))
 
     # Maintenance buttons

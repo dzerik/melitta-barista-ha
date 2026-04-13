@@ -25,6 +25,10 @@ def _mock_client(status=None):
     client.add_connection_callback = MagicMock()
     client.remove_status_callback = MagicMock()
     client.remove_connection_callback = MagicMock()
+    # Brand profile mock (Melitta default — supports HC/HJ)
+    client.brand = MagicMock()
+    client.brand.brand_slug = "melitta"
+    client.brand.supported_extensions = frozenset({"HC", "HJ"})
     return client
 
 

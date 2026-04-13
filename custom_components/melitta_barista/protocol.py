@@ -8,6 +8,10 @@ import os
 import struct
 import time
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .brands.base import BrandProfile
 from dataclasses import dataclass, field
 
 from Crypto.Cipher import AES  # nosec B413 — pycryptodome (actively maintained fork)
@@ -273,20 +277,38 @@ class AlphanumericValue:
         return cls(vid, val)
 
 
-class MelittaProtocol:
-    """Protocol handler for Melitta Barista BLE communication.
+class EugsterProtocol:
+    """Generic Eugster/EFLibrary protocol handler shared across brands.
+
+    Brand-specific behaviour (RC4 key, HU verifier table, supported
+    optional opcodes) is provided by a ``BrandProfile`` instance passed
+    at construction. With no profile specified, falls back to
+    :class:`MelittaProfile` for backward compatibility.
 
     Frame format (outgoing):
         S + command + [key_prefix(2)] + [payload] + checksum + E
-        Then RC4-encrypt everything after command bytes (key_prefix + payload + checksum).
+        Then RC4-encrypt everything after command bytes (key_prefix +
+        payload + checksum).
 
     Handshake (HU):
-        1. App sends HU with 6-byte payload: challenge(4) + crc(2)
-        2. Machine responds HU with 8 bytes: challenge(4) + key_prefix(2) + validation(2)
-        3. key_prefix is used in all subsequent encrypted frames.
+        1. App sends HU with 6-byte payload: challenge(4) + verifier(2)
+        2. Machine responds HU with 8 bytes: challenge(4) + key_prefix(2) + verifier(2)
+        3. ``key_prefix`` is used in all subsequent encrypted frames.
     """
 
-    def __init__(self, *, frame_timeout: int = FRAME_TIMEOUT) -> None:
+    def __init__(
+        self,
+        *,
+        frame_timeout: int = FRAME_TIMEOUT,
+        brand: "BrandProfile | None" = None,
+    ) -> None:
+        # Lazy import to avoid circular dependency: brands → base does
+        # not need protocol, but protocol needs brands at runtime.
+        if brand is None:
+            from .brands import get_profile  # noqa: PLC0415
+            brand = get_profile("melitta")
+        self._brand: BrandProfile = brand
+
         self._rc4_key: bytes | None = None
         self._key_prefix: bytes | None = None
         self._recv_buffer = bytearray()
@@ -299,13 +321,22 @@ class MelittaProtocol:
         self._frame_timeout = frame_timeout
         self._init_encryption()
 
+    @property
+    def brand(self) -> "BrandProfile":
+        return self._brand
+
     def _init_encryption(self) -> None:
-        """Initialize RC4 key from hardcoded AES blob."""
+        """Initialise RC4 key from the active brand profile."""
         try:
-            self._rc4_key = _derive_rc4_key()
-            _LOGGER.debug("RC4 key derived (%d bytes)", len(self._rc4_key))
-        except (ValueError, KeyError):
-            _LOGGER.exception("Failed to derive RC4 key")
+            self._rc4_key = self._brand.runtime_rc4_key
+            _LOGGER.debug(
+                "RC4 key loaded for brand %s (%d bytes)",
+                self._brand.brand_slug, len(self._rc4_key),
+            )
+        except Exception:  # noqa: BLE001 — defensive; brand init shouldn't fail
+            _LOGGER.exception(
+                "Failed to load RC4 key for brand %s", self._brand.brand_slug,
+            )
             self._rc4_key = None
 
     @property
@@ -538,8 +569,8 @@ class MelittaProtocol:
         self._key_prefix = None
 
         challenge = os.urandom(4)
-        crc = _compute_handshake_crc(len(challenge), challenge)
-        hu_payload = challenge + crc  # 6 bytes
+        verifier = self._brand.hu_verifier(challenge, 0, len(challenge))
+        hu_payload = challenge + verifier  # 6 bytes
 
         frame = self.build_frame(CMD_HANDSHAKE, hu_payload, include_key_prefix=False)
         chunks = self.chunk_for_ble(frame)
@@ -669,6 +700,9 @@ class MelittaProtocol:
         return None
 
     async def read_recipe(self, write_func, recipe_id: int) -> MachineRecipe | None:
+        if "HC" not in self._brand.supported_extensions:
+            from .brands.base import FeatureNotSupported  # noqa: PLC0415
+            raise FeatureNotSupported("HC", self._brand.brand_slug)
         payload = struct.pack(">h", recipe_id)
         data = await self.send_and_wait_response(CMD_READ_RECIPE, payload, write_func)
         if data:
@@ -693,10 +727,16 @@ class MelittaProtocol:
     ) -> bool:
         """Write recipe via HJ command (66-byte payload).
 
+        Raises ``FeatureNotSupported`` when the active brand does not
+        advertise the ``HJ`` opcode (e.g. Nivona).
+
         Layout: recipe_id(2) + recipe_type(1) [+ recipe_key(1)] + comp1(8) + comp2(8) [+ comp3(8)].
         When recipe_key is None, the byte is omitted (used for DirectKey slots).
         When recipe_key is set, it's included (used for TEMP_RECIPE brewing).
         """
+        if "HJ" not in self._brand.supported_extensions:
+            from .brands.base import FeatureNotSupported  # noqa: PLC0415
+            raise FeatureNotSupported("HJ", self._brand.brand_slug)
         payload = bytearray(66)
         struct.pack_into(">h", payload, 0, recipe_id)
         payload[2] = recipe_type & 0xFF
@@ -750,3 +790,8 @@ class MelittaProtocol:
         return await self.send_and_wait_ack(
             CMD_CONFIRM_PROMPT, b"\x00\x00\x00\x00", write_func,
         )
+
+
+# Backward-compatibility alias — existing imports continue to work.
+# New code should import EugsterProtocol and pass an explicit brand.
+MelittaProtocol = EugsterProtocol

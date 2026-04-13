@@ -60,6 +60,10 @@ def _mock_client(machine_type=None):
     client.remove_cups_callback = MagicMock()
     client.remove_status_callback = MagicMock()
     client.profile_names = {0: "My Coffee"}
+    # Brand profile mock (Melitta default — supports HC/HJ)
+    client.brand = MagicMock()
+    client.brand.brand_slug = "melitta"
+    client.brand.supported_extensions = frozenset({"HC", "HJ"})
     client.directkey_recipes = {}
     client.total_cups = 0
     client.cup_counters = {}

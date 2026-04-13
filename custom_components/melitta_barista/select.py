@@ -115,21 +115,27 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME, "Melitta Barista")
 
-    async_add_entities([
-        MelittaRecipeSelect(client, entry, name),
-        MelittaProfileSelect(client, entry, name),
-        # Freestyle parameter selects
-        MelittaFreestyleSelect(client, entry, name, "process_1", "Process 1", "mdi:coffee", _PROCESS_OPTIONS, "freestyle_process1"),
-        MelittaFreestyleSelect(client, entry, name, "intensity_1", "Intensity 1", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity1"),
-        MelittaFreestyleSelect(client, entry, name, "aroma_1", "Aroma 1", "mdi:scent", _AROMA_OPTIONS, "freestyle_aroma1"),
-        MelittaFreestyleSelect(client, entry, name, "temperature_1", "Temperature 1", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature1"),
-        MelittaFreestyleSelect(client, entry, name, "shots_1", "Shots 1", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots1"),
-        MelittaFreestyleSelect(client, entry, name, "process_2", "Process 2", "mdi:coffee-outline", _PROCESS_OPTIONS_WITH_NONE, "freestyle_process2"),
-        MelittaFreestyleSelect(client, entry, name, "intensity_2", "Intensity 2", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity2"),
-        MelittaFreestyleSelect(client, entry, name, "aroma_2", "Aroma 2", "mdi:scent", _AROMA_OPTIONS, "freestyle_aroma2"),
-        MelittaFreestyleSelect(client, entry, name, "temperature_2", "Temperature 2", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature2"),
-        MelittaFreestyleSelect(client, entry, name, "shots_2", "Shots 2", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots2"),
-    ])
+    entities: list = []
+    if "HC" in client.brand.supported_extensions:
+        entities.extend([
+            MelittaRecipeSelect(client, entry, name),
+            MelittaProfileSelect(client, entry, name),
+        ])
+    if "HJ" in client.brand.supported_extensions:
+        entities.extend([
+            # Freestyle parameter selects
+            MelittaFreestyleSelect(client, entry, name, "process_1", "Process 1", "mdi:coffee", _PROCESS_OPTIONS, "freestyle_process1"),
+            MelittaFreestyleSelect(client, entry, name, "intensity_1", "Intensity 1", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity1"),
+            MelittaFreestyleSelect(client, entry, name, "aroma_1", "Aroma 1", "mdi:scent", _AROMA_OPTIONS, "freestyle_aroma1"),
+            MelittaFreestyleSelect(client, entry, name, "temperature_1", "Temperature 1", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature1"),
+            MelittaFreestyleSelect(client, entry, name, "shots_1", "Shots 1", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots1"),
+            MelittaFreestyleSelect(client, entry, name, "process_2", "Process 2", "mdi:coffee-outline", _PROCESS_OPTIONS_WITH_NONE, "freestyle_process2"),
+            MelittaFreestyleSelect(client, entry, name, "intensity_2", "Intensity 2", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity2"),
+            MelittaFreestyleSelect(client, entry, name, "aroma_2", "Aroma 2", "mdi:scent", _AROMA_OPTIONS, "freestyle_aroma2"),
+            MelittaFreestyleSelect(client, entry, name, "temperature_2", "Temperature 2", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature2"),
+            MelittaFreestyleSelect(client, entry, name, "shots_2", "Shots 2", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots2"),
+        ])
+    async_add_entities(entities)
 
 
 class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):

@@ -517,6 +517,10 @@ CONF_INITIAL_CONNECT_DELAY = "initial_connect_delay"
 CONF_AUTO_CONFIRM_PROMPTS = "auto_confirm_prompts"
 DEFAULT_AUTO_CONFIRM_PROMPTS = False
 
+# Brand selection (multi-brand support, added in 0.40.0).
+CONF_BRAND = "brand"
+DEFAULT_BRAND = "melitta"
+
 # Defaults
 DEFAULT_RECONNECT_DELAY: float = 5.0
 DEFAULT_RECONNECT_MAX_DELAY: float = 300.0

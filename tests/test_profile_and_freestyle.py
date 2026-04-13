@@ -52,6 +52,10 @@ def _mock_client(status=None, selected_recipe=None):
     client.read_alpha = AsyncMock(return_value=None)
     client.profile_names = {0: "My Coffee"}
     client.directkey_recipes = {}
+    # Brand profile mock (Melitta default — supports HC/HJ)
+    client.brand = MagicMock()
+    client.brand.brand_slug = "melitta"
+    client.brand.supported_extensions = frozenset({"HC", "HJ"})
     return client
 
 

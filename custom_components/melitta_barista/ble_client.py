@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from .brands.base import BrandProfile
 
 from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
@@ -73,12 +76,17 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         reconnect_max_delay: float = DEFAULT_RECONNECT_MAX_DELAY,
         recipe_retries: int = DEFAULT_RECIPE_RETRIES,
         auto_confirm_prompts: bool = False,
+        brand: "BrandProfile | None" = None,
     ) -> None:
         self._address = address
         self._device_name = device_name
         self._ble_device: BLEDevice | None = ble_device
         self._client: BleakClient | None = None
-        self._protocol = MelittaProtocol(frame_timeout=frame_timeout)
+        if brand is None:
+            from .brands import get_profile  # noqa: PLC0415
+            brand = get_profile("melitta")
+        self._brand: BrandProfile = brand
+        self._protocol = MelittaProtocol(frame_timeout=frame_timeout, brand=brand)
 
         # Configurable parameters
         self._poll_interval = poll_interval
@@ -160,6 +168,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     @property
     def firmware_version(self) -> str | None:
         return self._firmware
+
+    @property
+    def brand(self) -> "BrandProfile":
+        """Active BrandProfile (Melitta by default)."""
+        return self._brand
 
     @property
     def features(self) -> FeatureFlags | None:
@@ -473,7 +486,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
         Returns True on success, False on failure (cleans up client).
         """
-        self._protocol = MelittaProtocol(frame_timeout=self._frame_timeout)
+        self._protocol = MelittaProtocol(frame_timeout=self._frame_timeout, brand=self._brand)
         self._protocol.set_status_callback(self._on_status)
 
         try:

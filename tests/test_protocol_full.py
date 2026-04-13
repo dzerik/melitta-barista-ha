@@ -310,7 +310,7 @@ class TestSendAndWait:
 # ---------------------------------------------------------------------------
 
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 
 from custom_components.melitta_barista.const import (
     CMD_ACK,
@@ -420,13 +420,14 @@ class TestInitEncryptionFailure:
     """Cover _init_encryption exception path (lines 303-305)."""
 
     def test_init_encryption_failure_sets_rc4_key_none(self):
-        """When _derive_rc4_key raises, rc4_key is set to None."""
-        with patch(
-            "custom_components.melitta_barista.protocol._derive_rc4_key",
+        """When the brand profile fails to provide a key, rc4_key is None."""
+        broken_brand = MagicMock()
+        broken_brand.brand_slug = "broken"
+        type(broken_brand).runtime_rc4_key = PropertyMock(
             side_effect=ValueError("bad key"),
-        ):
-            proto = MelittaProtocol()
-            assert proto._rc4_key is None
+        )
+        proto = MelittaProtocol(brand=broken_brand)
+        assert proto._rc4_key is None
 
 
 class TestProcessByteEdgeCases:

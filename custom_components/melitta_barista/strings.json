@@ -290,5 +290,9 @@
         "name": "Profile {profile_id} Active"
       }
     }
+  },
+  "brand": {
+    "melitta": "Melitta",
+    "nivona": "Nivona"
   }
 }

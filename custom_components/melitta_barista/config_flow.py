@@ -49,7 +49,7 @@ PAIR_TIMEOUT = DEFAULT_PAIR_TIMEOUT
 class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Melitta Barista Smart."""
 
-    VERSION = 1
+    VERSION = 2
 
     @staticmethod
     @callback
@@ -206,11 +206,17 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             pair_result = await self._async_try_pair()
 
             if pair_result == "ok":
+                from .brands import detect_from_advertisement  # noqa: PLC0415
+                from .const import CONF_BRAND, DEFAULT_BRAND  # noqa: PLC0415
+
+                profile = detect_from_advertisement(self._name)
+                brand_slug = profile.brand_slug if profile else DEFAULT_BRAND
                 return self.async_create_entry(
                     title=self._name or "Melitta Barista Smart",
                     data={
                         CONF_ADDRESS: self._address,
                         CONF_NAME: self._name,
+                        CONF_BRAND: brand_slug,
                     },
                 )
             else:

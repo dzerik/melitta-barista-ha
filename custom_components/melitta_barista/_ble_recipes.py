@@ -388,8 +388,14 @@ class BleRecipesMixin(_MixinBase):
     # Profile data bulk read
 
     async def read_profile_data(self) -> None:
-        """Read profile names and DirectKey recipes for all profiles."""
+        """Read profile names and DirectKey recipes for all profiles.
+
+        Gated on HC support: brands without recipe-read (e.g. Nivona)
+        return immediately.
+        """
         if not self.connected:
+            return
+        if "HC" not in self._brand.supported_extensions:
             return
         profile_count = get_user_profile_count(self._machine_type)
         for i in range(1, profile_count + 1):
@@ -424,8 +430,14 @@ class BleRecipesMixin(_MixinBase):
     # Cup counters
 
     async def read_cup_counters(self) -> bool:
-        """Read cup counters from the machine (HR IDs 100-123 + 150)."""
+        """Read cup counters from the machine (HR IDs 100-123 + 150).
+
+        Cup counter IDs are Melitta-specific. For brands without HC
+        recipe support (e.g. Nivona), this is a no-op.
+        """
         if not self.connected:
+            return False
+        if "HC" not in self._brand.supported_extensions:
             return False
         counters: dict[str, int] = {}
         for offset, name in CUP_COUNTER_RECIPES.items():

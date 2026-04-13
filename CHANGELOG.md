@@ -2,6 +2,59 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.40.0] — 2026-04-13 — Multi-brand refactor
+
+Internal architecture refactor introducing pluggable **BrandProfile**
+abstraction, preparing the integration for adding Nivona (0.41.0) and
+potentially other OEM Eugster/EFLibrary-family brands later. **No
+user-visible changes for existing Melitta Barista users.**
+
+### Added
+- `custom_components/melitta_barista/brands/` package:
+  - `base.py` — `BrandProfile` Protocol + `MachineCapabilities` /
+    `RecipeDescriptor` / `SettingDescriptor` / `StatDescriptor` PODs
+    + `FeatureNotSupported` exception.
+  - `melitta.py` — `MelittaProfile` hosting Melitta-specific crypto
+    (RC4 key, HU CRC table, verifier algorithm), advertisement regex
+    (`8301/8311/8401/8501/8601/8604`), 2 family capability entries
+    (`barista_t`, `barista_ts`), supported extensions `{"HC", "HJ"}`.
+  - `nivona.py` — `NivonaProfile` (alpha — code-complete, untested on
+    real hardware; see 0.41.0).
+  - `__init__.py` — `BrandRegistry` with `get_profile`,
+    `all_profiles`, `detect_from_advertisement`.
+- `docs/adr/001-brand-profile-abstraction.md` — architectural decision
+  record (4 alternatives considered).
+- `docs/multi-brand-architecture.md` — full design doc with Mermaid
+  diagrams.
+- 21 new brand-profile unit tests (including a Nivona HU verifier
+  vector guaranteed to match upstream RE).
+
+### Changed
+- `MelittaProtocol` → `EugsterProtocol(brand=...)` (brand-agnostic
+  Eugster/EFLibrary core). `MelittaProtocol` retained as backward-compat
+  alias — all existing imports continue to work.
+- `MelittaBleClient` accepts `brand: BrandProfile | None` kwarg; all
+  crypto is delegated to the active profile.
+- `HC` / `HJ` opcodes (recipe read/write) now gated on
+  `brand.supported_extensions` — future Nivona clients will not try to
+  issue commands the firmware doesn't understand.
+- Entity registration (`button.py`, `select.py`, `text.py`,
+  `number.py`, `switch.py`) filters Melitta-only entities (recipe
+  select, freestyle builder, profile activity switches, cup counters
+  via HC) when `"HC"` / `"HJ"` is not in the brand's supported set.
+- `bluetooth` matchers in `manifest.json` now include `local_name:
+  "NIVONA-*"` in addition to the shared service UUID.
+
+### Migration
+- Config entries automatically upgrade from v1 → v2 via
+  `async_migrate_entry`: all pre-existing entries receive
+  `data["brand"] = "melitta"`. No action required from users.
+- Entity unique IDs are stable — all existing automations continue to
+  work.
+
+### Tests
+- 665 → 686 (+21 brand-profile tests).
+
 ## [0.34.1] — 2026-04-13
 
 ### Fixed

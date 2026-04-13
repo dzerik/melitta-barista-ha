@@ -32,6 +32,8 @@ from .const import (
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
     CONF_AUTO_CONFIRM_PROMPTS,
+    CONF_BRAND,
+    DEFAULT_BRAND,
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
     DEFAULT_MAX_CONSECUTIVE_ERRORS,
@@ -123,13 +125,40 @@ def _async_register_sommelier(hass: HomeAssistant) -> None:
         )
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate config entries forward.
+
+    v1 → v2: introduce ``brand`` field. All pre-existing entries are
+    Melitta (the only previously supported brand).
+    """
+    if entry.version < 2:
+        new_data = {**entry.data}
+        new_data.setdefault(CONF_BRAND, DEFAULT_BRAND)
+        hass.config_entries.async_update_entry(entry, data=new_data, version=2)
+        _LOGGER.info(
+            "Migrated entry %s to v2 (brand=%s)",
+            entry.entry_id, new_data[CONF_BRAND],
+        )
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Melitta Barista Smart from a config entry."""
+    from .brands import get_profile  # noqa: PLC0415
+
     address: str = entry.data[CONF_ADDRESS]
     device_name: str | None = entry.data.get(CONF_NAME)
+    brand_slug: str = entry.data.get(CONF_BRAND, DEFAULT_BRAND)
+    try:
+        brand = get_profile(brand_slug)
+    except KeyError:
+        _LOGGER.error("Unknown brand %r in config entry; falling back to %s",
+                      brand_slug, DEFAULT_BRAND)
+        brand = get_profile(DEFAULT_BRAND)
 
     _LOGGER.info(
-        "Setting up Melitta Barista for %s (%s)", device_name or "unknown", address
+        "Setting up %s for %s (%s)",
+        brand.brand_name, device_name or "unknown", address,
     )
 
     # Get initial BLEDevice from HA bluetooth cache (may be None)
@@ -161,6 +190,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         auto_confirm_prompts=opts.get(
             CONF_AUTO_CONFIRM_PROMPTS, DEFAULT_AUTO_CONFIRM_PROMPTS,
         ),
+        brand=brand,
     )
 
     # Register bluetooth callback to keep BLEDevice reference fresh.

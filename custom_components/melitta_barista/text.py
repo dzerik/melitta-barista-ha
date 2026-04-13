@@ -30,13 +30,16 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME, "Melitta Barista")
 
-    profile_count = get_user_profile_count(client.machine_type)
-
-    entities = [
-        MelittaProfileNameText(client, entry, name, profile_num)
-        for profile_num in range(1, profile_count + 1)
-    ]
-    entities.append(MelittaFreestyleNameText(client, entry, name))
+    entities: list = []
+    if "HA" in client.brand.supported_extensions or "HC" in client.brand.supported_extensions:
+        # Profile names + freestyle name require Melitta-style HA strings & HJ writes
+        profile_count = get_user_profile_count(client.machine_type)
+        entities = [
+            MelittaProfileNameText(client, entry, name, profile_num)
+            for profile_num in range(1, profile_count + 1)
+        ]
+        if "HJ" in client.brand.supported_extensions:
+            entities.append(MelittaFreestyleNameText(client, entry, name))
     async_add_entities(entities)
 
 

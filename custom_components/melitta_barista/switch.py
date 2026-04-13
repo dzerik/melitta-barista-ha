@@ -63,10 +63,11 @@ async def async_setup_entry(
         )
     ]
 
-    # Profile activity switches (profiles 1..N)
-    profile_count = get_user_profile_count(client.machine_type)
-    for i in range(1, profile_count + 1):
-        entities.append(MelittaProfileActivitySwitch(client, entry, name, i))
+    # Profile activity switches (profiles 1..N) — Melitta-specific.
+    if "HC" in client.brand.supported_extensions:
+        profile_count = get_user_profile_count(client.machine_type)
+        for i in range(1, profile_count + 1):
+            entities.append(MelittaProfileActivitySwitch(client, entry, name, i))
 
     async_add_entities(entities)
 

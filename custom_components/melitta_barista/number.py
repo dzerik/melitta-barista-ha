@@ -105,19 +105,21 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME, "Melitta Barista")
 
-    entities = [
+    # Settings (HR/HW) — generic Eugster, every brand supports them.
+    entities: list = [
         MelittaSettingNumber(client, entry, name, defn)
         for defn in SETTING_DEFINITIONS
     ]
-    # Freestyle portion entities
-    entities.append(MelittaFreestyleNumber(
-        client, entry, name, "portion_1", "Freestyle Portion 1",
-        "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
-    ))
-    entities.append(MelittaFreestyleNumber(
-        client, entry, name, "portion_2", "Freestyle Portion 2",
-        "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
-    ))
+    # Freestyle portion entities require HJ recipe writes.
+    if "HJ" in client.brand.supported_extensions:
+        entities.append(MelittaFreestyleNumber(
+            client, entry, name, "portion_1", "Freestyle Portion 1",
+            "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
+        ))
+        entities.append(MelittaFreestyleNumber(
+            client, entry, name, "portion_2", "Freestyle Portion 2",
+            "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
+        ))
     async_add_entities(entities)
 
 

@@ -290,5 +290,9 @@
       "title": "Unstable BLE connection",
       "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
     }
+  },
+  "brand": {
+    "melitta": "Melitta",
+    "nivona": "Nivona"
   }
 }
