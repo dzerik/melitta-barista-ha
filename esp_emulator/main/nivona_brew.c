@@ -187,6 +187,32 @@ static void brew_task(void *arg) {
                  s_arg.selector,
                  (int)nivona_store_get_num(sel_id),
                  (int)nivona_store_get_num(213));
+
+        // Phase B-lite — maintenance gauge degradation per brew.
+        // NOTE: exact degradation rates on real hardware are UNKNOWN
+        // without a community BLE trace (would need repeated HR reads
+        // while logging brews). Values below are a heuristic:
+        //   filter       -1 % per brew    (~100 brews → prompt)
+        //   brew_unit    -1 % per 2 brews (~200 brews → service)
+        //   descale      -1 % per 5 brews (~500 brews → descale)
+        // Warning flags auto-raise under the thresholds mirrored from
+        // brands/nivona.py typical values.
+        int32_t total = nivona_store_get_num(213);
+
+        int32_t filter_pct = nivona_store_get_num(640);
+        if (filter_pct > 0) nivona_store_set_num(640, filter_pct - 1);
+        if (nivona_store_get_num(640) < 10) nivona_store_set_num(641, 1);
+
+        if ((total & 1) == 0) {  // every other brew
+            int32_t bu = nivona_store_get_num(610);
+            if (bu > 0) nivona_store_set_num(610, bu - 1);
+            if (nivona_store_get_num(610) < 20) nivona_store_set_num(611, 1);
+        }
+        if ((total % 5) == 0) {
+            int32_t ds = nivona_store_get_num(600);
+            if (ds > 0) nivona_store_set_num(600, ds - 1);
+            if (nivona_store_get_num(600) < 20) nivona_store_set_num(601, 1);
+        }
     }
 
     // After every brew the maintenance orchestrator re-checks all

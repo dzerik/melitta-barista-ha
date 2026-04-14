@@ -10,6 +10,7 @@ idf_component_register(
         "nivona_families.c"
         "nivona_consumables.c"
         "nivona_maint.c"
+        "nivona_maint_cycle.c"
         "nivona_fsm.c"
         "nivona_store.c"
         "nivona_brew.c"

@@ -19,6 +19,7 @@
 #include "nivona_fsm.h"
 #include "nivona_consumables.h"
 #include "nivona_maint.h"
+#include "nivona_maint_cycle.h"
 #include "nivona_store.h"
 #include "nivona_brew.h"
 #include "nivona_cli.h"
@@ -101,6 +102,7 @@ void app_main(void) {
     nivona_consumables_init();
     nivona_store_init();
     nivona_brew_init();
+    nivona_maint_cycle_init();
     // Cold-start sequence — raises FLUSH_REQUIRED (soft) if no hard
     // prompt is pending. HA's first HY clears it.
     nivona_maint_cold_start();

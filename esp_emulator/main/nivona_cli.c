@@ -3,6 +3,7 @@
 #include "nivona_families.h"
 #include "nivona_fsm.h"
 #include "nivona_maint.h"
+#include "nivona_maint_cycle.h"
 #include "nivona_store.h"
 #include "nivona_brew.h"
 
@@ -330,6 +331,61 @@ static int cmd_tanks_dump(int argc, char **argv) {
 // reconnect. If the user really wants a full factory wipe there's
 // already `forget` (BLE bonds) + the stock `nvs_erase` esptool flow.
 
+// ---- maint <cycle> (Phase E) ------------------------------------------
+
+static struct {
+    struct arg_str *name;
+    struct arg_end *end;
+} s_maint_args;
+
+static int cmd_maint(int argc, char **argv) {
+    int nerr = arg_parse(argc, argv, (void **)&s_maint_args);
+    if (nerr) { arg_print_errors(stderr, s_maint_args.end, "maint"); return 1; }
+    const char *name = s_maint_args.name->sval[0];
+    int kind = nivona_maint_cycle_from_name(name);
+    if (kind < 0) {
+        printf("unknown cycle: %s\n", name);
+        printf("available: descale, easy_clean, intensive_clean, "
+               "filter_insert, filter_replace, filter_remove, "
+               "evaporating, rinse\n");
+        return 1;
+    }
+    if (!nivona_maint_cycle_start((nivona_cycle_kind_t)kind)) {
+        printf("cycle rejected (already active or brew in progress)\n");
+        return 1;
+    }
+    printf("started %s — HX progress notifications streaming\n", name);
+    return 0;
+}
+
+// ---- stats (Phase B-lite) --------------------------------------------
+
+static int cmd_stats(int argc, char **argv) {
+    (void)argc; (void)argv;
+    printf("Stat counters (HR id -> value):\n");
+    static const struct { int16_t id; const char *label; } STAT_TABLE[] = {
+        {200, "espresso"}, {201, "coffee/cream"}, {202, "lungo/americano"},
+        {203, "americano/cappuccino"}, {204, "cappuccino/latte"},
+        {205, "latte_macchiato"}, {206, "milk"}, {207, "hot_water"},
+        {208, "my_coffee"}, {213, "total_beverages"},
+        {214, "clean_coffee_system"}, {215, "clean_frother"},
+        {216, "rinse_cycles"}, {219, "filter_changes"},
+        {220, "descaling"}, {221, "beverages_via_app"},
+        {600, "descale_%"}, {601, "descale_warn"},
+        {610, "brew_unit_%"}, {611, "brew_unit_warn"},
+        {620, "frother_%"}, {621, "frother_warn"},
+        {640, "filter_%"}, {641, "filter_warn"},
+    };
+    for (size_t i = 0; i < sizeof(STAT_TABLE)/sizeof(STAT_TABLE[0]); i++) {
+        int32_t v = nivona_store_get_num(STAT_TABLE[i].id);
+        if (v != 0 || STAT_TABLE[i].id >= 600) {  // always show gauges
+            printf("  %3d  %-22s %d\n",
+                   STAT_TABLE[i].id, STAT_TABLE[i].label, (int)v);
+        }
+    }
+    return 0;
+}
+
 static int cmd_factory_reset(int argc, char **argv) {
     (void)argc; (void)argv;
     printf("wiping emulator NVS namespaces…\n");
@@ -475,6 +531,24 @@ void nivona_cli_start(void) {
         .func = cmd_factory_reset,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&c_factory));
+
+    // maint <cycle>
+    s_maint_args.name = arg_str1(NULL, NULL, "<cycle>",
+        "descale|easy_clean|intensive_clean|filter_insert|filter_replace|filter_remove|evaporating|rinse");
+    s_maint_args.end = arg_end(2);
+    const esp_console_cmd_t c_maint = {
+        .command = "maint",
+        .help = "Start a maintenance cycle (Phase E)",
+        .func = cmd_maint, .argtable = &s_maint_args,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_maint));
+
+    const esp_console_cmd_t c_stats = {
+        .command = "stats",
+        .help = "Dump HR stat counters (Phase B)",
+        .func = cmd_stats,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_stats));
 
     ESP_ERROR_CHECK(esp_console_register_help_command());
     ESP_ERROR_CHECK(esp_console_start_repl(repl));

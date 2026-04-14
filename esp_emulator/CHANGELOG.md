@@ -6,6 +6,53 @@ fixes, new brand-emulation coverage, and protocol-fidelity work happen
 here without touching the integration's release cycle, and vice versa.
 Emulator releases are tagged `emu-v<MAJOR>.<MINOR>.<PATCH>`.
 
+## [0.6.0] — 2026-04-14 — Phase E (maintenance cycles) + Phase B-lite (stat gauges)
+
+### Added
+
+- **`nivona_maint_cycle.{h,c}`** — long-running maintenance cycle
+  runner. Eight cycle kinds (`descale` / `easy_clean` /
+  `intensive_clean` / `filter_insert` / `filter_replace` /
+  `filter_remove` / `evaporating` / `rinse`) each with their own
+  duration, prep-prompt, and on-completion stat updates (counter
+  tick + gauge reset to 100 % + warning flag clear).
+- **CLI `maint <cycle>`** — start a cycle. Refuses if a brew is
+  active or another cycle is running.
+- **CLI `stats`** — dump all HR stat counters and gauges.
+- **Gauge seeding** — `descale_%` / `brew_unit_clean_%` /
+  `frother_clean_%` / `filter_%` seeded to 100 % on first boot
+  (preserved across reboots after that).
+- **Per-brew gauge degradation** (heuristic; see comments) —
+  filter `-1 %`, brew_unit `-1 %/2 brews`, descale `-1 %/5 brews`.
+  Warning flags auto-raise under thresholds (< 10 / < 20 / < 20 %).
+
+### Explicitly NOT done
+
+Cycle **process codes** (10 / 17 / 19 / 11 / 12 / 13 / 20 / 9) are
+borrowed from the **Melitta** `MachineProcess` IntEnum — the
+decompiled Nivona Android app's cleaning-code tables were not
+resolved at the time of writing. **These values are TBD and
+will likely change** once a real-hw BLE trace becomes available.
+Marked as such in the header comment.
+
+The HA integration's `NivonaProfile.parse_status` is **not**
+extended to recognise these codes for Nivona — per our
+"emulator mimics real machine, not integration" principle we
+will not paper over the gap. Real Nivona may use completely
+different cycle codes; we'd rather HA show `unknown` than pretend
+Melitta codes are correct for Nivona.
+
+Degradation rates, gauge seed values (100 %), and warning
+thresholds are also heuristic — none are validated against a
+real machine.
+
+### Binary
+
+ESP32-C6 clean build, 1.32 MB (+9 KB over `emu-v0.5.0`; still 13 %
+partition headroom).
+
+---
+
 ## [0.5.0] — 2026-04-14 — Persistence: state survives reboots + cup counters tick
 
 A real machine remembers its water level and cup counters between power

@@ -75,6 +75,29 @@ static void seed_defaults(void) {
         int16_t id = (int16_t)(0x0100 + i);  // placeholder range
         nivona_store_set_alpha(id, (const uint8_t *)names[i], strlen(names[i]));
     }
+
+    // Phase B-lite — seed maintenance gauges to "fresh" (100 %) on
+    // first boot. After that the brew task degrades them and the
+    // cycle task resets them on descale / filter-replace / clean.
+    // Percentage IDs: 600 descale, 610 brew_unit_clean, 620 frother,
+    // 640 filter. Warning flags (601/611/621/641) start at 0 = OK.
+    //
+    // NOTE: real machine values at power-on are UNKNOWN without a
+    // BLE-capture of an actual Nivona's HR read; 100 % is the
+    // heuristic "factory fresh" assumption and must be validated
+    // against a community trace before we promote it out of "TBD".
+    static const int16_t PCT_IDS[]  = { 600, 610, 620, 640 };
+    static const int16_t WARN_IDS[] = { 601, 611, 621, 641 };
+    for (size_t i = 0; i < sizeof(PCT_IDS)/sizeof(PCT_IDS[0]); i++) {
+        if (!nivona_store_has_num(PCT_IDS[i])) {
+            nivona_store_set_num(PCT_IDS[i], 100);
+        }
+    }
+    for (size_t i = 0; i < sizeof(WARN_IDS)/sizeof(WARN_IDS[0]); i++) {
+        if (!nivona_store_has_num(WARN_IDS[i])) {
+            nivona_store_set_num(WARN_IDS[i], 0);
+        }
+    }
 }
 
 void nivona_store_init(void) {
@@ -92,6 +115,13 @@ int32_t nivona_store_get_num(int16_t id) {
         if (s_num[i].used && s_num[i].id == id) return s_num[i].value;
     }
     return 0;
+}
+
+bool nivona_store_has_num(int16_t id) {
+    for (int i = 0; i < NUM_CAP; i++) {
+        if (s_num[i].used && s_num[i].id == id) return true;
+    }
+    return false;
 }
 
 void nivona_store_set_num(int16_t id, int32_t value) {
