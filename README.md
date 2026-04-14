@@ -91,6 +91,7 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 - **Custom Lovelace card** — dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
 - **Standalone PWA** — full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
 - **29 languages** — full localization for all European and Slavic languages
+- **🧪 ESP32 BLE emulator** (unique) — a bundled ESP-IDF firmware that impersonates a real Nivona machine at the BLE layer (ADV, AD00 service, encrypted frames, HU handshake, HX status, HE brew). Lets you develop, pair, and brew against Home Assistant **and** the official Nivona Android app without any physical machine. See [`esp_emulator/`](esp_emulator/).
 
 ## Supported Recipes
 
@@ -202,6 +203,27 @@ Maintenance operations: easy clean, intensive clean, descaling, evaporating, wat
 Machine configuration: energy saving, auto bean select, rinsing toggle, water hardness, auto-off timer, and brew temperature.
 
 ![Settings](docs/screenshots/settings.png)
+
+## ESP32 BLE Emulator (unique)
+
+This repository ships a **bundled ESP-IDF firmware** ([`esp_emulator/`](esp_emulator/)) that impersonates a real Nivona coffee machine at the BLE layer — useful for developing, pairing, brewing, and stress-testing without any physical machine.
+
+To the best of the maintainer's knowledge, no other open-source Home Assistant coffee-machine integration ships a paired emulator of the hardware it drives.
+
+**What it emulates**
+
+- Advertisement: byte-exact ADV + scan response (company ID `0x0319`, customer ID `0xFFFF`, Eugster manufacturer payload, DIS in SR) — discovered by HA *and* by the official **Nivona Android app** just like a real machine
+- GATT: AD00 service with AD01 (write), AD02 (notify), DIS (0x180A) with manufacturer / model / serial
+- Protocol: full Eugster/EFLibrary stack — frame parser, RC4 stream cipher, AES customer-key bootstrap, HU handshake with per-brand verifier, HR/HW/HX/HE/HA/HB opcodes
+- State: a small FSM ramps `process`/`progress` during HE brew (3 → 4 → 3 for NIVO 8000, 8 → 11 → 8 for other Nivona families) and emits unsolicited HX notifications
+
+**What you get**
+
+- End-to-end pair → discover → brew flow against HA with no hardware
+- Regression harness for the BLE client, config flow, and brand-aware HX parser
+- Ground truth for the multi-brand architecture: because the emulator speaks Nivona on a bench next to a real Melitta, protocol differences cannot silently regress
+
+Supported targets: **ESP32-C6** (primary) and **ESP32-S3**. Build with `idf.py -p /dev/ttyUSB0 flash monitor`. Full setup, pinouts, and troubleshooting in [`esp_emulator/README.md`](esp_emulator/README.md).
 
 ## Configuration
 

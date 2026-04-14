@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.47.1] — 2026-04-14 — Highlight the ESP32 BLE emulator in README
+
+- Added a Features bullet and a dedicated `## ESP32 BLE Emulator
+  (unique)` section in README.md describing the bundled ESP-IDF
+  firmware (`esp_emulator/`) that impersonates a real Nivona machine
+  at the BLE layer — byte-exact ADV, AD00 GATT, full Eugster/EFLibrary
+  encrypted protocol, HU handshake, HX FSM, HE brew ramp. Discovered
+  and controlled by HA **and** the official Nivona Android app, so
+  the whole pair → discover → brew flow works without physical
+  hardware.
+
 ## [0.47.0] — 2026-04-14 — Brand-neutral UI, docs, and legal notices
 
 Comprehensive de-branding sweep — no more "Melitta Barista" strings shown
