@@ -4,6 +4,7 @@
 #include "nivona_fsm.h"
 #include "nivona_frame.h"
 #include "nivona_maint.h"
+#include "nivona_store.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -171,6 +172,22 @@ static void brew_task(void *arg) {
     // Back to family-specific READY.
     nivona_fsm_set_process(ready_code, 0);
     nivona_fsm_set_progress(0);
+
+    // Cup-counter tick — only on non-cancelled completion. HR stat
+    // IDs follow the decompiled app tables (brands/nivona.py
+    // _STATS_8000 / _STATS_700 / …): selector → 200+selector, plus
+    // the cross-family total_beverages at id 213. The HR response
+    // dispatcher reads straight from nivona_store, so HA's stat
+    // sensors pick these up without any further wiring.
+    if (!s_cancel) {
+        int16_t sel_id = (int16_t)(200 + s_arg.selector);
+        nivona_store_set_num(sel_id, nivona_store_get_num(sel_id) + 1);
+        nivona_store_set_num(213, nivona_store_get_num(213) + 1);
+        ESP_LOGI(TAG, "cup counter: selector %u → %d, total → %d",
+                 s_arg.selector,
+                 (int)nivona_store_get_num(sel_id),
+                 (int)nivona_store_get_num(213));
+    }
 
     // After every brew the maintenance orchestrator re-checks all
     // consumables. If the water tank just dropped below 10 %, a

@@ -6,12 +6,18 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "nvs.h"
 
 static const char *TAG = "nivona_consum";
 
-// In-memory state — no persistence across reboot (emulator is a dev
-// tool; realistic wear starts fresh every boot). Can be upgraded to
-// NVS-backed if needed later.
+// NVS-backed state (emu-v0.5.0+). On boot consumables resume where
+// they left off — a real machine keeps its water level and cup
+// counters across power cycles. `factory_reset` CLI wipes the
+// namespace to restart fresh.
+#define NS_CONSUM "niv_consum"
+#define KEY_TANKS "tanks"   // blob, NIVONA_CONSUM_COUNT bytes
+#define KEY_PARTS "parts"   // blob, NIVONA_PART_COUNT bytes
+
 static uint8_t s_consum[NIVONA_CONSUM_COUNT];
 static bool    s_parts[NIVONA_PART_COUNT];
 static SemaphoreHandle_t s_mutex = NULL;
@@ -37,9 +43,57 @@ static uint8_t clamp8(int v) {
     return (uint8_t)v;
 }
 
+// Snapshot the whole state to NVS. Called on every change — NVS is
+// wear-levelled and tank updates happen at most a few times per minute,
+// so this is well within safety margins.
+static void persist(void) {
+    nvs_handle_t h;
+    if (nvs_open(NS_CONSUM, NVS_READWRITE, &h) != ESP_OK) return;
+    nvs_set_blob(h, KEY_TANKS, s_consum, sizeof(s_consum));
+    // Pack bool[] → uint8[] for blob write.
+    uint8_t parts[NIVONA_PART_COUNT];
+    for (int i = 0; i < NIVONA_PART_COUNT; i++) parts[i] = s_parts[i] ? 1 : 0;
+    nvs_set_blob(h, KEY_PARTS, parts, sizeof(parts));
+    nvs_commit(h);
+    nvs_close(h);
+}
+
+// Load. Returns true if any state was restored; false → caller
+// should fall back to factory defaults.
+static bool restore(void) {
+    nvs_handle_t h;
+    if (nvs_open(NS_CONSUM, NVS_READONLY, &h) != ESP_OK) return false;
+    size_t sz = sizeof(s_consum);
+    bool ok = (nvs_get_blob(h, KEY_TANKS, s_consum, &sz) == ESP_OK &&
+               sz == sizeof(s_consum));
+    if (ok) {
+        uint8_t parts[NIVONA_PART_COUNT];
+        sz = sizeof(parts);
+        if (nvs_get_blob(h, KEY_PARTS, parts, &sz) == ESP_OK &&
+            sz == sizeof(parts)) {
+            for (int i = 0; i < NIVONA_PART_COUNT; i++) {
+                s_parts[i] = parts[i] != 0;
+            }
+        } else {
+            for (int i = 0; i < NIVONA_PART_COUNT; i++) s_parts[i] = true;
+        }
+    }
+    nvs_close(h);
+    return ok;
+}
+
 void nivona_consumables_init(void) {
     s_mutex = xSemaphoreCreateMutex();
-    nivona_consumables_reset();
+    if (!restore()) {
+        ESP_LOGI(TAG, "no persisted state → factory defaults");
+        nivona_consumables_reset();
+    } else {
+        ESP_LOGI(TAG, "restored: water=%u beans=%u tray=%u filter=%u",
+                 s_consum[NIVONA_CONSUM_WATER],
+                 s_consum[NIVONA_CONSUM_BEANS],
+                 s_consum[NIVONA_CONSUM_TRAY],
+                 s_consum[NIVONA_CONSUM_FILTER]);
+    }
 }
 
 void nivona_consumables_reset(void) {
@@ -52,6 +106,7 @@ void nivona_consumables_reset(void) {
     s_parts[NIVONA_PART_TRAYS]      = true;
     s_parts[NIVONA_PART_POWDER_LID] = true;
     unlock();
+    persist();
     ESP_LOGI(TAG, "reset: all tanks full, parts present");
 }
 
@@ -70,12 +125,14 @@ bool nivona_part_get(nivona_part_t p) {
 void nivona_consumable_set(nivona_consumable_t c, uint8_t pct) {
     if (c >= NIVONA_CONSUM_COUNT) return;
     lock(); s_consum[c] = clamp8(pct); unlock();
+    persist();
     ESP_LOGI(TAG, "set %s=%u", CONSUM_NAMES[c], pct);
 }
 
 void nivona_part_set(nivona_part_t p, bool present) {
     if (p >= NIVONA_PART_COUNT) return;
     lock(); s_parts[p] = present; unlock();
+    persist();
     ESP_LOGI(TAG, "set %s=%s", PART_NAMES[p], present ? "present" : "absent");
 }
 
@@ -85,6 +142,7 @@ void nivona_consumable_adjust(nivona_consumable_t c, int delta) {
     int v = (int)s_consum[c] + delta;
     s_consum[c] = clamp8(v);
     unlock();
+    persist();
 }
 
 // ---- Consumption hooks ------------------------------------------------

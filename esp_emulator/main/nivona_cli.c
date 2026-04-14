@@ -13,6 +13,9 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "argtable3/argtable3.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "nvs.h"
 #include "services/gap/ble_svc_gap.h"
 #include "host/ble_store.h"
 #include "host/ble_gap.h"
@@ -319,6 +322,38 @@ static int cmd_tanks_dump(int argc, char **argv) {
     return 0;
 }
 
+// ---- factory_reset ----------------------------------------------------
+//
+// Wipe all emulator-owned NVS namespaces and reboot. Does NOT touch
+// `nvs.net80211` (WiFi creds) or NimBLE's own namespaces — those
+// belong to IDF components and clearing them would brick OTA / auto-
+// reconnect. If the user really wants a full factory wipe there's
+// already `forget` (BLE bonds) + the stock `nvs_erase` esptool flow.
+
+static int cmd_factory_reset(int argc, char **argv) {
+    (void)argc; (void)argv;
+    printf("wiping emulator NVS namespaces…\n");
+    const char *namespaces[] = {
+        "niv_num",     // HR numerical store
+        "niv_alpha",   // HA alpha store
+        "niv_consum",  // consumables + parts
+        "niv_fam",     // last-selected family
+    };
+    for (size_t i = 0; i < sizeof(namespaces)/sizeof(namespaces[0]); i++) {
+        nvs_handle_t h;
+        if (nvs_open(namespaces[i], NVS_READWRITE, &h) == ESP_OK) {
+            nvs_erase_all(h);
+            nvs_commit(h);
+            nvs_close(h);
+            printf("  cleared %s\n", namespaces[i]);
+        }
+    }
+    printf("rebooting in 1s…\n");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    esp_restart();
+    return 0;  // unreachable
+}
+
 // ---- start ----
 
 void nivona_cli_start(void) {
@@ -433,6 +468,13 @@ void nivona_cli_start(void) {
         .func = cmd_tanks_dump,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&c_tanks));
+
+    const esp_console_cmd_t c_factory = {
+        .command = "factory_reset",
+        .help = "Wipe emulator NVS (consumables/family/store) + reboot",
+        .func = cmd_factory_reset,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_factory));
 
     ESP_ERROR_CHECK(esp_console_register_help_command());
     ESP_ERROR_CHECK(esp_console_start_repl(repl));

@@ -6,6 +6,40 @@ fixes, new brand-emulation coverage, and protocol-fidelity work happen
 here without touching the integration's release cycle, and vice versa.
 Emulator releases are tagged `emu-v<MAJOR>.<MINOR>.<PATCH>`.
 
+## [0.5.0] — 2026-04-14 — Persistence: state survives reboots + cup counters tick
+
+A real machine remembers its water level and cup counters between power
+cycles. The emulator now does too.
+
+### Added
+
+- **`niv_consum` NVS namespace** — `nivona_consumables` persists the
+  full state (water / beans / tray / filter levels + brew_unit /
+  trays / powder_lid part presence) on every change and restores on
+  init. No persisted blob → factory defaults (all tanks full).
+- **`niv_fam` NVS namespace** — `nivona_family_set` writes the last-
+  selected family key; `nivona_family_current` lazily restores on
+  first call. Default on fresh NVS: NIVO 8000. Boot after `family 700`
+  now re-advertises as NICR 759 / emits process=8 codes without
+  needing to repeat the CLI command.
+- **Cup counter tick** — `brew_task` on successful completion
+  increments `HR stat_id = 200 + selector` (per-recipe) and `213`
+  (total_beverages) via the existing NVS-backed `nivona_store`. HA's
+  Nivona stat sensors (declared in `brands/nivona.py::_STATS_*`)
+  finally return non-zero values — `sensor.*_espresso`,
+  `sensor.*_total_beverages` etc. tick up on every brew.
+- **`factory_reset` CLI command** — wipes the four emulator-owned NVS
+  namespaces (`niv_num`, `niv_alpha`, `niv_consum`, `niv_fam`) and
+  reboots. Does NOT touch WiFi creds or NimBLE bonds — use `forget`
+  for the latter.
+
+### Binary
+
+ESP32-C6 clean build, 1.32 MB (+1.6 KB over `emu-v0.4.0`; still 13 %
+partition headroom).
+
+---
+
 ## [0.4.0] — 2026-04-14 — Phase D: realistic consumables + maintenance FSM
 
 Third slice of the Nivona full-emulation roadmap. The emulator now

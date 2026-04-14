@@ -2,6 +2,14 @@
 
 #include <string.h>
 
+#include "esp_log.h"
+#include "nvs.h"
+
+static const char *TAG = "nivona_fam";
+
+#define NS_FAM "niv_fam"
+#define KEY_FAM_CUR "current"
+
 // Per-family table — single source of truth for the emulator.
 //
 // Process codes (process_ready / process_brewing) come from the
@@ -114,9 +122,31 @@ const size_t NIVONA_FAMILIES_COUNT =
 
 // Default: NIVO 8000 (matches the historical hardcoded FSM values
 // and the app's default scan target). CLI `family <key>` overrides.
+// On first nivona_family_current() call we opportunistically restore
+// the last-selected family from NVS — lazy so callers before
+// nvs_flash_init don't crash.
 static const nivona_family_t *s_current = &NIVONA_FAMILIES[7];
+static bool s_restored = false;
+
+static void restore_once(void) {
+    if (s_restored) return;
+    s_restored = true;
+    nvs_handle_t h;
+    if (nvs_open(NS_FAM, NVS_READONLY, &h) != ESP_OK) return;
+    char key[16] = {0};
+    size_t sz = sizeof(key) - 1;
+    if (nvs_get_str(h, KEY_FAM_CUR, key, &sz) == ESP_OK) {
+        const nivona_family_t *f = nivona_family_find(key);
+        if (f != NULL) {
+            s_current = f;
+            ESP_LOGI(TAG, "restored family=%s from NVS", key);
+        }
+    }
+    nvs_close(h);
+}
 
 const nivona_family_t *nivona_family_current(void) {
+    restore_once();
     return s_current;
 }
 
@@ -134,6 +164,13 @@ int nivona_family_set(const char *key) {
     const nivona_family_t *f = nivona_family_find(key);
     if (f == NULL) return -1;
     s_current = f;
+    s_restored = true; // prevent a later restore_once from stomping this
+    nvs_handle_t h;
+    if (nvs_open(NS_FAM, NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_str(h, KEY_FAM_CUR, key);
+        nvs_commit(h);
+        nvs_close(h);
+    }
     return 0;
 }
 
