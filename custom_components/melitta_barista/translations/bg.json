@@ -151,6 +151,123 @@
       },
       "features": {
         "name": "Функции"
+      },
+      "espresso": {
+        "name": "Espresso"
+      },
+      "coffee": {
+        "name": "Coffee"
+      },
+      "cream": {
+        "name": "Cream"
+      },
+      "lungo": {
+        "name": "Lungo"
+      },
+      "americano": {
+        "name": "Americano"
+      },
+      "cappuccino": {
+        "name": "Cappuccino"
+      },
+      "caffe_latte": {
+        "name": "Caffè latte"
+      },
+      "macchiato": {
+        "name": "Latte macchiato"
+      },
+      "latte_macchiato": {
+        "name": "Latte macchiato"
+      },
+      "warm_milk": {
+        "name": "Warm milk"
+      },
+      "hot_milk": {
+        "name": "Hot milk"
+      },
+      "milk": {
+        "name": "Milk"
+      },
+      "milk_foam": {
+        "name": "Milk foam"
+      },
+      "hot_water": {
+        "name": "Hot water"
+      },
+      "my_coffee": {
+        "name": "My coffee"
+      },
+      "steam_drinks": {
+        "name": "Steam drinks"
+      },
+      "powder_coffee": {
+        "name": "Powder coffee"
+      },
+      "single_cup": {
+        "name": "Single cup brews"
+      },
+      "double_cup": {
+        "name": "Double cup brews"
+      },
+      "total_beverages": {
+        "name": "Total beverages"
+      },
+      "clean_coffee_system": {
+        "name": "Clean coffee system"
+      },
+      "clean_brewing_unit": {
+        "name": "Clean brewing unit"
+      },
+      "clean_frother": {
+        "name": "Clean frother"
+      },
+      "rinse_cycles": {
+        "name": "Rinse cycles"
+      },
+      "rinse_frother": {
+        "name": "Rinse frother"
+      },
+      "rinse_filter": {
+        "name": "Rinse filter"
+      },
+      "filter_changes": {
+        "name": "Filter changes"
+      },
+      "descaling": {
+        "name": "Descaling"
+      },
+      "beverages_via_app": {
+        "name": "Beverages via app"
+      },
+      "beverages_via_kanne": {
+        "name": "Beverages via Kanne"
+      },
+      "descale_percent": {
+        "name": "Descale progress"
+      },
+      "descale_warning": {
+        "name": "Descale warning"
+      },
+      "brew_unit_clean_percent": {
+        "name": "Brew unit clean progress"
+      },
+      "brew_unit_clean_warning": {
+        "name": "Brew unit clean warning"
+      },
+      "frother_clean_percent": {
+        "name": "Frother clean progress"
+      },
+      "frother_clean_warning": {
+        "name": "Frother clean warning"
+      },
+      "filter_percent": {
+        "name": "Filter progress"
+      },
+      "filter_warning": {
+        "name": "Filter warning"
+      },
+      "filter_dependency": {
+        "name": "Filter dependency"
       }
     },
     "button": {
@@ -220,6 +337,66 @@
           "milk_froth": "Млечна пяна",
           "hot_water": "Гореща вода"
         }
+      },
+      "water_hardness": {
+        "name": "Water hardness"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "off_rinse": {
+        "name": "Off-rinse"
+      },
+      "auto_off": {
+        "name": "Auto-off"
+      },
+      "coffee_temperature": {
+        "name": "Coffee temperature"
+      },
+      "water_temperature": {
+        "name": "Water temperature"
+      },
+      "milk_temperature": {
+        "name": "Milk temperature"
+      },
+      "milk_foam_temperature": {
+        "name": "Milk foam temperature"
+      },
+      "profile": {
+        "name": "Profile"
+      },
+      "save_energy": {
+        "name": "Save energy"
+      },
+      "tank_light": {
+        "name": "Tank light"
+      },
+      "tank_light_color": {
+        "name": "Tank light color"
+      },
+      "tank_light_brightness": {
+        "name": "Tank light brightness"
+      },
+      "touch_lock": {
+        "name": "Touch lock"
+      },
+      "cup_heater": {
+        "name": "Cup heater"
+      },
+      "milk_products_active": {
+        "name": "Milk products active"
+      },
+      "direct_start_deactivated": {
+        "name": "Direct-start deactivated"
+      },
+      "auto_on_deactivated": {
+        "name": "Auto-on deactivated"
+      },
+      "power_on_rinse": {
+        "name": "Power-on rinse"
+      },
+      "power_on_frother_time": {
+        "name": "Power-on frother time"
       }
     },
     "number": {
@@ -243,6 +420,12 @@
       },
       "filter": {
         "name": "Филтър"
+      },
+      "auto_on_hours": {
+        "name": "Auto-on hours"
+      },
+      "auto_on_minutes": {
+        "name": "Auto-on minutes"
       }
     },
     "switch": {

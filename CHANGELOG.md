@@ -2,6 +2,91 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.0] — 2026-04-14 — Nivona accuracy pass + new entities for every family
+
+Closes the prioritised findings of `docs/NIVONA_HA_INTEGRATION_AUDIT.md`.
+The biggest item is a critical fix: `NivonaBrewOverrideNumber` no
+longer corrupts the persistent standard-recipe slots on real
+hardware. Most of the rest is bringing per-family stats / settings
+into line with what the machines actually expose.
+
+### Fixed (CRITICAL)
+
+- **Temp-recipe HW writes go to the dedicated 9001-based register**
+  instead of the persistent `10000 + selector*100 + offset` slot. The
+  previous code permanently rewrote the standard recipe definition
+  on the machine whenever a user adjusted a Nivona override number
+  entity. New flow announces the recipe class at register 9001 first,
+  then writes per-field offsets into the same temp slot, then issues
+  HE — matching how the official app builds a temporary recipe.
+
+### Fixed (HIGH)
+
+- **Stat tables now exist for `600`, `900`, `900-light`, `1030`,
+  `1040`** — these previously rendered zero stat sensors on any
+  Nivona of that family. New tables expose 7–24 recipe / cumulative
+  counters plus the universal 600/610/620/640 maintenance gauges per
+  family.
+- **`_STATS_700` no longer over-includes IDs 213-221** that don't
+  exist on 700-family hardware (would have shown 7 broken sensors).
+- **`_STATS_79X` rebuilt** — adds 202 Lungo, drops the spurious 213,
+  adds the universal maintenance gauges; selector 4 (Cappuccino)
+  remains absent, matching real 79X hardware.
+- **`strength_levels` corrected for 8 NICR models** (660 / 670 / 675
+  / 680 / 768 / 769 / 778 / 779) from 3 to 5 — previously truncated
+  the strength dropdown for these owners.
+- **HX parser is `>hhhh`** on the Nivona side — bytes 4-5 are a
+  single 16-bit Message field, not info(U8)+manip(U8). Old shape
+  worked for currently observed Message values 0/11/20 but would
+  have silently lost any future ≥256 value.
+- **NICR 8107 chilled recipes** — selectors 8/9/10 are now exposed
+  via the recipe select on NICR 8107 entries; HE flag byte switches
+  to 0x00 (chilled) for those selectors.
+
+### Added — settings
+
+- **`_SETTINGS_900`** expanded from 3 → 11 entries (tank lighting
+  accents, save_energy, touch lock, AutoOn deactivated +
+  hours/minutes pair).
+- **`_SETTINGS_900_LIGHT`** expanded from 2 → 6 entries
+  (save_energy, AutoOn-deactivated + pair).
+- **`_SETTINGS_1030` and `_SETTINGS_1040`** expanded from 7/10 to
+  14/17 entries (cup heater, milk-products toggle,
+  direct-start-deactivated, touch lock, AutoOn pair).
+- **`_SETTINGS_79X`** is now its own table (not the 700 alias) —
+  drops id 103 (off-rinse) which 79X hardware does not expose.
+- **NICR 758 drops setting 106** (profile) via a new per-model
+  filter — that specific model omits the aroma-balance feature and
+  HR-reading id 106 would NACK on real hardware.
+
+### Added — entity wiring
+
+- New `BrandSettingNumber` in `number.py` for options-less
+  capability settings (auto_on_hours / auto_on_minutes; future
+  numeric settings). `BrandSettingSelect` in `select.py` is now
+  gated to descriptors that carry an options list — previously it
+  would have crashed on options-less entries.
+
+### Changed — docs / hygiene
+
+- `Manipulation` enum docstring flags values 1-6 as Melitta-derived
+  (only 0 / 11 / 20 are observed identical on Nivona); future
+  per-brand overrides may rebind 1-6.
+- `confirm_prompt` docstring spells out the fire-and-forget contract
+  — a False return is "the write didn't ACK", not "the prompt is
+  still showing"; callers should poll HX for authoritative state.
+- `reset_recipe_default` swallows `FeatureNotSupported` on the HC
+  re-read step so calling HD on a Nivona machine no longer raises.
+- `fluid_write_scale_10` reverted to False on 900 / 900-Light —
+  the ×10 scaling assumption was unverified by observed behaviour.
+
+### Translations
+
+- All entity translation keys (sensor / select / number) added to
+  `strings.json`; the same keys mirrored into all 29 translation
+  files with English fallback. Native translations for the new
+  strings will land as community contributions.
+
 ## [0.48.1] — 2026-04-14 — Decouple emulator versioning
 
 **Policy change:** the ESP32 BLE emulator under `esp_emulator/` now

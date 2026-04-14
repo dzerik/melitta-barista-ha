@@ -111,6 +111,19 @@ async def async_setup_entry(
         MelittaSettingNumber(client, entry, name, defn)
         for defn in SETTING_DEFINITIONS
     ]
+    # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
+    # hours/minutes and any future options-less setting descriptor).
+    # Options-bearing descriptors become selects in select.py; here we
+    # handle only the raw-number ones.
+    caps = client.capabilities
+    if caps is not None and caps.settings and client.brand.brand_slug != "melitta":
+        for descriptor in caps.settings:
+            if descriptor.options:
+                continue
+            entities.append(
+                BrandSettingNumber(client, entry, name, descriptor),
+            )
+
     # Nivona brew-override inputs — persist local values used by brew button.
     if client.brand.brand_slug == "nivona":
         entities.append(NivonaBrewOverrideNumber(
@@ -202,6 +215,90 @@ class MelittaSettingNumber(MelittaDeviceMixin, NumberEntity):
             _LOGGER.debug("Failed to read setting %d", self._setting_id)
 
     async def async_set_native_value(self, value: float) -> None:
+        if await self._client.write_setting(self._setting_id, int(value)):
+            self._attr_native_value = value
+            self.async_write_ha_state()
+
+
+class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
+    """Number entity for a brand capability setting without a discrete
+    options list (e.g. AutoOn hour / minute fields on Nivona 900 /
+    900-Light / 1030 / 1040).
+
+    Range is derived from the key name — hours → 0..23, minutes → 0..59,
+    otherwise 0..255 as a safe fallback.
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_native_step = 1
+    _attr_mode = NumberMode.BOX
+
+    def __init__(
+        self,
+        client: MelittaBleClient,
+        entry: ConfigEntry,
+        machine_name: str,
+        descriptor,
+    ) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+        self._desc = descriptor
+        self._setting_id: int = descriptor.setting_id
+        self._attr_translation_key = descriptor.key
+        self._attr_name = descriptor.title
+        if "hour" in descriptor.key:
+            self._attr_native_min_value = 0
+            self._attr_native_max_value = 23
+            self._attr_native_unit_of_measurement = UnitOfTime.HOURS
+            self._attr_icon = "mdi:clock-outline"
+        elif "minute" in descriptor.key:
+            self._attr_native_min_value = 0
+            self._attr_native_max_value = 59
+            self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
+            self._attr_icon = "mdi:clock-time-four-outline"
+        else:
+            self._attr_native_min_value = 0
+            self._attr_native_max_value = 255
+            self._attr_icon = "mdi:cog"
+        if descriptor.unit:
+            self._attr_native_unit_of_measurement = descriptor.unit
+        self._attr_native_value: float | None = None
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_brand_setting_{self._setting_id}"
+
+    @property
+    def available(self) -> bool:
+        return self._client.connected
+
+    async def async_added_to_hass(self) -> None:
+        self._client.add_connection_callback(self._on_connection_change)
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._client.remove_connection_callback(self._on_connection_change)
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        if connected:
+            self.hass.async_create_task(self._async_read_value())
+        self.async_write_ha_state()
+
+    async def _async_read_value(self) -> None:
+        try:
+            value = await self._client.read_setting(self._setting_id)
+            if value is not None:
+                self._attr_native_value = float(value)
+                self.async_write_ha_state()
+        except Exception:  # noqa: BLE001 — defensive against driver errors
+            _LOGGER.debug("BrandSettingNumber read failed id=%d", self._setting_id)
+
+    async def async_set_native_value(self, value: float) -> None:
+        if not self._desc.is_writable:
+            return
         if await self._client.write_setting(self._setting_id, int(value)):
             self._attr_native_value = value
             self.async_write_ha_state()

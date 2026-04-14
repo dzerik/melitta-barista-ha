@@ -139,16 +139,24 @@ class FeatureFlags(IntFlag):
 
 
 class Manipulation(IntEnum):
-    """Manipulation states requiring user action."""
+    """Manipulation states requiring user action.
+
+    Values 0 / 11 / 20 are observed and named the same way on both
+    Melitta and Nivona hardware. Values 1–6 are Melitta-derived labels;
+    real Nivona machines may emit different codes or a different
+    1-6 → meaning mapping. HA currently applies the Melitta labels
+    for any value in 1..6; this is a best-effort placeholder until
+    per-brand parse_status overrides verify the mapping.
+    """
     NONE = 0
-    BU_REMOVED = 1
-    TRAYS_MISSING = 2
-    EMPTY_TRAYS = 3
-    FILL_WATER = 4
-    CLOSE_POWDER_LID = 5
-    FILL_POWDER = 6
-    MOVE_CUP_TO_FROTHER = 11
-    FLUSH_REQUIRED = 20
+    BU_REMOVED = 1            # Melitta-observed
+    TRAYS_MISSING = 2         # Melitta-observed
+    EMPTY_TRAYS = 3           # Melitta-observed
+    FILL_WATER = 4            # Melitta-observed
+    CLOSE_POWDER_LID = 5      # Melitta-observed
+    FILL_POWDER = 6           # Melitta-observed
+    MOVE_CUP_TO_FROTHER = 11  # observed on both brands
+    FLUSH_REQUIRED = 20       # observed on both brands
 
 
 # Codes that warrant surfacing "awaiting confirmation" UI / button.

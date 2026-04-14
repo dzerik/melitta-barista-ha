@@ -341,6 +341,10 @@ class BrandStatSensor(_MelittaSensorBase):
         self._desc = descriptor
         self._value: int | None = None
         self._attr_name = descriptor.title
+        # Translation key so HA looks up localized names under
+        # `entity.sensor.<descriptor.key>.name` in translations/*.json.
+        # Falls back to `_attr_name` (English) for keys not present.
+        self._attr_translation_key = descriptor.key
         if descriptor.is_diagnostic:
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
         if descriptor.unit == "%":

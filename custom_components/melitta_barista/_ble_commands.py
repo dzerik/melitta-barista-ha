@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 from bleak.exc import BleakError
 
+from .brands.base import FeatureNotSupported
+
 if TYPE_CHECKING:
     from ._ble_typing import BleClientProtocol
 
@@ -120,10 +122,41 @@ class BleCommandsMixin(_MixinBase):
         async with self._brew_lock:
             self._stop_polling()
             try:
-                # Pre-write temp-recipe overrides via HW
+                # Pre-write temp-recipe overrides via HW. The machine
+                # exposes a single fixed temp slot shared across all
+                # selectors:
+                #   1. Announce the recipe class by HW-writing the
+                #      selector at the temp-recipe TYPE register.
+                #   2. For each override field, HW-write at
+                #      TEMP_BASE + offset with the int32 value.
+                #   3. Issue HE with payload[3] = selector.
+                # Previously HA wrote to 10000 + selector*100 + offset
+                # (the PERSISTENT standard-recipe slot) and silently
+                # corrupted the machine's default recipe definitions.
+                # Fixed in v0.49.0 after audit Finding 10.
                 if overrides and family_key and hasattr(self._brand, "temp_recipe_register"):
+                    from .brands.nivona import TEMP_RECIPE_TYPE_REGISTER  # noqa: PLC0415
+
                     scale = getattr(self._brand, "fluid_write_scale",
                                     lambda _: 1)(family_key)
+
+                    # Step 1 — announce the recipe type with the
+                    # selector as the value. write_numerical packs
+                    # int32 BE; the machine reads the low byte of the
+                    # pair so passing the selector suffices.
+                    type_ok = await self._protocol.write_numerical(
+                        self._write_ble,
+                        TEMP_RECIPE_TYPE_REGISTER,
+                        int(recipe_selector),
+                    )
+                    if not type_ok:
+                        _LOGGER.warning(
+                            "Temp-recipe type announce at reg %d failed",
+                            TEMP_RECIPE_TYPE_REGISTER,
+                        )
+                    await asyncio.sleep(0.08)
+
+                    # Step 2 — per-field overrides at 9001 + offset.
                     for field, value in overrides.items():
                         if value is None:
                             continue
@@ -132,8 +165,8 @@ class BleCommandsMixin(_MixinBase):
                         )
                         if reg is None:
                             _LOGGER.debug(
-                                "Skip override %s: no register for family=%s recipe=%d",
-                                field, family_key, recipe_selector,
+                                "Skip override %s: no register for family=%s",
+                                field, family_key,
                             )
                             continue
                         scaled = int(value)
@@ -150,8 +183,15 @@ class BleCommandsMixin(_MixinBase):
                             )
                         await asyncio.sleep(0.08)
 
+                # Chilled-brew flag (selectors 8/9/10 on NICR 8107).
+                # Other brands / families have no chilled concept.
+                is_chilled = bool(
+                    hasattr(self._brand, "is_chilled_selector")
+                    and self._brand.is_chilled_selector(recipe_selector)
+                )
                 return await self._protocol.start_process_nivona(
                     self._write_ble, recipe_selector, brew_mode,
+                    chilled=is_chilled,
                 )
             finally:
                 if self.connected:
@@ -303,8 +343,19 @@ class BleCommandsMixin(_MixinBase):
         success = await self._protocol.reset_default(self._write_ble, recipe_id)
         if not success:
             return False
+        # HC (read_recipe) is a Melitta-only opcode — Nivona brand
+        # profiles have an empty `supported_extensions` tuple and the
+        # protocol layer raises FeatureNotSupported. Swallow that so
+        # the caller doesn't blow up when HD is wired for a brand
+        # that can't follow up with HC.
         try:
             recipe = await self._protocol.read_recipe(self._write_ble, recipe_id)
+        except FeatureNotSupported:
+            _LOGGER.debug(
+                "Recipe %d post-HD re-read skipped: brand does not expose HC",
+                recipe_id,
+            )
+            recipe = None
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.debug(
                 "Failed to re-read recipe %d after HD ACK", recipe_id,
@@ -320,7 +371,15 @@ class BleCommandsMixin(_MixinBase):
         return True
 
     async def confirm_prompt(self) -> bool:
-        """Send HY to confirm the current machine prompt (move cup, flush, ...)."""
+        """Send HY to confirm the current machine prompt (move cup, flush, ...).
+
+        The real machine treats HY as fire-and-forget — it always ACKs
+        and the caller is expected to poll HX for the post-confirm
+        state change rather than treat the ACK as "prompt cleared".
+        The returned bool only reflects the ACK/NACK of the write
+        itself; the caller should not interpret False as "the prompt
+        is still showing". A subsequent status poll is authoritative.
+        """
         if not self.connected:
             return False
         return await self._protocol.confirm_prompt(self._write_ble)

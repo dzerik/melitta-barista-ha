@@ -116,6 +116,17 @@ _RECIPES_8000: tuple[RecipeDescriptor, ...] = (
     RecipeDescriptor(7, "Hot Water", "water"),
 )
 
+# NICR 8107 additionally exposes chilled-brew selectors 8/9/10.
+# These recipes are brewed with a distinct HE flags byte (byte[5]=0,
+# not 0x01) — see `start_process_nivona` for the chilled-mode wiring.
+_RECIPES_8000_CHILLED: tuple[RecipeDescriptor, ...] = _RECIPES_8000 + (
+    RecipeDescriptor(8,  "Chilled Espresso",  "espresso"),
+    RecipeDescriptor(9,  "Chilled Lungo",     "coffee"),
+    RecipeDescriptor(10, "Chilled Americano", "americano"),
+)
+# Selectors that require the chilled-brew flag byte when sent as HE.
+_CHILLED_SELECTORS: frozenset[int] = frozenset({8, 9, 10})
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 
@@ -208,6 +219,20 @@ _POWER_ON_FROTHER_TIME_1040_OPTIONS = (
     (0x0002, "30 min"), (0x0003, "40 min"),
 )
 
+# 900 family — tank-lighting accent + save-energy add-ons that do not
+# exist on other Nivona families.
+_TANK_LIGHT_COLOR_900_OPTIONS = (
+    (0x0000, "white"), (0x0001, "red"),    (0x0002, "orange"),
+    (0x0003, "yellow"), (0x0004, "green"), (0x0005, "cyan"),
+    (0x0006, "blue"),   (0x0007, "violet"),(0x0008, "rainbow"),
+)
+_TANK_LIGHT_BRIGHTNESS_900_OPTIONS = (
+    (0x0000, "low"), (0x0001, "medium"), (0x0002, "high"),
+)
+# "Minutes since midnight" bucket for AutoOn hour/minute pair. Raw
+# values go through unchanged (0..59 / 0..23); we surface them as a
+# number entity rather than an options list.
+
 
 # ---------------------------------------------------------------------------
 # Per-family settings register tables (HR-readable, HW-writable).
@@ -222,7 +247,10 @@ _SETTINGS_8000: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(105, "coffee_temperature", "Coffee temperature", _TEMP_ON_OFF),
 )
 
-_SETTINGS_600_700_BASE: tuple[SettingDescriptor, ...] = (
+# 600 and 700 families share most settings. 600 carries the same 5
+# entries the 700 family does. 79X differs — no 103 off-rinse exposed.
+# NICR758 additionally has no 106 profile (handled per-model later).
+_SETTINGS_600: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(101, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(102, "temperature", "Temperature", _TEMPERATURE_OPTIONS),
     SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
@@ -230,31 +258,77 @@ _SETTINGS_600_700_BASE: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(106, "profile", "Profile", _PROFILE_STANDARD_OPTIONS),
 )
 
+# 700-proper: identical to 600.
+_SETTINGS_700: tuple[SettingDescriptor, ...] = _SETTINGS_600
+
+# 79X: drops id 103 (off-rinse not exposed on 79X hardware).
+_SETTINGS_79X: tuple[SettingDescriptor, ...] = tuple(
+    s for s in _SETTINGS_700 if s.setting_id != 103
+)
+
+# Legacy alias kept only to avoid breaking imports in older tests /
+# docstrings. Points at the 600/700 table.
+_SETTINGS_600_700_BASE: tuple[SettingDescriptor, ...] = _SETTINGS_600
+
+# 900 family — 8 settings including tank-lighting accents and
+# AutoOn hours/minutes pair (111/112).
 _SETTINGS_900: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
+    SettingDescriptor(105, "tank_light", "Tank light", _OFF_ON_OPTIONS),
+    SettingDescriptor(106, "tank_light_color", "Tank light color", _TANK_LIGHT_COLOR_900_OPTIONS),
+    SettingDescriptor(107, "tank_light_brightness", "Tank light brightness", _TANK_LIGHT_BRIGHTNESS_900_OPTIONS),
+    SettingDescriptor(108, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
     SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
+    # Hours / minutes for AutoOn time. No options list — numeric.
+    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
+    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
 )
 
+# 900-Light — strip the tank-lighting / touch-lock accents; keep
+# save-energy + AutoOn.
 _SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
+    SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
     SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
+    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
+    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
 )
 
+# 1030 — adds cup-heater / milk-active / direct-start / touch-lock /
+# AutoOn pair versus the previous skeleton.
 _SETTINGS_1030: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(104, "cup_heater", "Cup heater", _OFF_ON_OPTIONS),
+    SettingDescriptor(105, "milk_products_active", "Milk products active", _OFF_ON_OPTIONS),
+    SettingDescriptor(106, "direct_start_deactivated", "Direct-start deactivated", _OFF_ON_OPTIONS),
+    SettingDescriptor(107, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
     SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
+    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
+    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
     SettingDescriptor(113, "profile", "Profile", _PROFILE_STANDARD_OPTIONS),
     SettingDescriptor(114, "coffee_temperature", "Coffee temperature", _TEMPERATURE_OPTIONS),
     SettingDescriptor(115, "water_temperature", "Water temperature", _TEMPERATURE_OPTIONS),
     SettingDescriptor(116, "milk_temperature", "Milk temperature", _MILK_TEMPERATURE_1030_OPTIONS),
 )
 
+# 1040 — 1030 superset plus the frothing / power-on extras.
 _SETTINGS_1040: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
+    SettingDescriptor(104, "cup_heater", "Cup heater", _OFF_ON_OPTIONS),
+    SettingDescriptor(105, "milk_products_active", "Milk products active", _OFF_ON_OPTIONS),
+    SettingDescriptor(106, "direct_start_deactivated", "Direct-start deactivated", _OFF_ON_OPTIONS),
+    SettingDescriptor(107, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
     SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
+    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
+    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
     SettingDescriptor(113, "profile", "Profile", _PROFILE_1040_OPTIONS),
     SettingDescriptor(114, "coffee_temperature", "Coffee temperature", _TEMPERATURE_OPTIONS),
     SettingDescriptor(115, "water_temperature", "Water temperature", _TEMPERATURE_OPTIONS),
@@ -267,9 +341,12 @@ _SETTINGS_1040: tuple[SettingDescriptor, ...] = (
 
 # ---------------------------------------------------------------------------
 # Per-family stats register tables (HR-readable counters / percentages).
-# Ported from STATS_*_PROBES in upstream src/nivona.cpp:429-500.
-# Only families with supportsStats=true expose stats (600/900/900-light
-# /1030/1040 have empty tables upstream).
+# Each family exposes a different set of HR IDs — stat IDs overlap across
+# families but describe different counters (e.g. id 213 is
+# "total beverages" on 8000/900 but "single-cup brews" on 1000-family).
+# Maintenance gauges 600/601/610/611/620/621/640/641 are universal; only
+# the "filter dependency" id varies (642 on 8000, 101 on 900/1000,
+# 105 on 700/79X/600).
 # ---------------------------------------------------------------------------
 
 def _count(stat_id: int, key: str, title: str, section: str = "beverages") -> StatDescriptor:
@@ -323,9 +400,12 @@ _STATS_8000: tuple[StatDescriptor, ...] = (
     _flag(642, "filter_dependency", "Filter dependency"),
 )
 
+# 700 family — recipe counters 200..208 only; no 213-221 cumulative
+# counters on this hardware. Maintenance gauges universal; 105 is the
+# filter dependency.
 _STATS_700: tuple[StatDescriptor, ...] = (
     _count(200, "espresso", "Espresso"),
-    _count(201, "cream", "Cream"),
+    _count(201, "cream", "Cream"),                          # "Creme" (700-proper)
     _count(202, "lungo", "Lungo"),
     _count(203, "americano", "Americano"),
     _count(204, "cappuccino", "Cappuccino"),
@@ -333,13 +413,6 @@ _STATS_700: tuple[StatDescriptor, ...] = (
     _count(206, "milk", "Milk"),
     _count(207, "hot_water", "Hot water"),
     _count(208, "my_coffee", "My coffee"),
-    _count(213, "total_beverages", "Total beverages"),
-    _count(214, "clean_brewing_unit", "Cleaning brewing unit", "maintenance"),
-    _count(215, "clean_frother", "Cleaning frother", "maintenance"),
-    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
-    _count(219, "filter_changes", "Filter changes", "maintenance"),
-    _count(220, "descaling", "Descaling", "maintenance"),
-    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
     _pct(600, "descale_percent", "Descaling progress"),
     _flag(601, "descale_warning", "Descaling warning"),
     _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
@@ -351,17 +424,135 @@ _STATS_700: tuple[StatDescriptor, ...] = (
     _flag(105, "filter_dependency", "Filter dependency"),
 )
 
+# 79X family — like 700 but id 201 is "Kaffee" (not "Creme"),
+# selector 204 (Cappuccino) is absent, and there are no cumulative
+# counters (213-221) — recipe counters only.
 _STATS_79X: tuple[StatDescriptor, ...] = (
     _count(200, "espresso", "Espresso"),
-    _count(201, "coffee", "Coffee"),
-    _count(202, "americano", "Americano"),
-    _count(203, "cappuccino", "Cappuccino"),
+    _count(201, "coffee", "Coffee"),                        # "Kaffee" on 79X
+    _count(202, "lungo", "Lungo"),
+    _count(203, "americano", "Americano"),
+    # selector 204 absent on 79X hardware
     _count(205, "latte_macchiato", "Latte macchiato"),
     _count(206, "milk", "Milk"),
     _count(207, "hot_water", "Hot water"),
     _count(208, "my_coffee", "My coffee"),
-    _count(213, "total_beverages", "Total beverages"),
+    _pct(600, "descale_percent", "Descaling progress"),
+    _flag(601, "descale_warning", "Descaling warning"),
+    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
+    _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
+    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
+    _flag(621, "frother_clean_warning", "Frother cleaning warning"),
+    _pct(640, "filter_percent", "Filter progress"),
+    _flag(641, "filter_warning", "Filter warning"),
     _flag(105, "filter_dependency", "Filter dependency"),
+)
+
+# 600 family — 7 recipe counters (gaps at 202, 205 because those
+# recipes don't exist on 600 hardware). Same maintenance gauges as
+# 700/79X, with 105 dependency.
+_STATS_600: tuple[StatDescriptor, ...] = (
+    _count(200, "espresso", "Espresso"),
+    _count(201, "coffee", "Coffee"),
+    _count(203, "americano", "Americano"),
+    _count(204, "cappuccino", "Cappuccino"),
+    _count(206, "milk", "Milk"),
+    _count(207, "hot_water", "Hot water"),
+    _count(208, "my_coffee", "My coffee"),
+    _pct(600, "descale_percent", "Descaling progress"),
+    _flag(601, "descale_warning", "Descaling warning"),
+    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
+    _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
+    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
+    _flag(621, "frother_clean_warning", "Frother cleaning warning"),
+    _pct(640, "filter_percent", "Filter progress"),
+    _flag(641, "filter_warning", "Filter warning"),
+    _flag(105, "filter_dependency", "Filter dependency"),
+)
+
+# 900 / 900-Light family — 21 counters (recipe 200..208 + cumulative
+# 209..221), maintenance gauges, 101 dependency.
+_STATS_900: tuple[StatDescriptor, ...] = (
+    _count(200, "espresso", "Espresso"),
+    _count(201, "coffee", "Coffee"),
+    _count(202, "americano", "Americano"),
+    _count(203, "cappuccino", "Cappuccino"),
+    _count(204, "caffe_latte", "Caffè latte"),
+    _count(205, "macchiato", "Latte macchiato"),
+    _count(206, "milk", "Milk"),
+    _count(207, "hot_water", "Hot water"),
+    _count(208, "my_coffee", "My coffee"),
+    _count(209, "steam_drinks", "Steam drinks"),
+    _count(210, "powder_coffee", "Powder coffee"),
+    _count(211, "single_cup", "Single cup brews"),
+    _count(212, "double_cup", "Double cup brews"),
+    _count(213, "total_beverages", "Total beverages"),
+    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
+    _count(215, "clean_frother", "Clean frother", "maintenance"),
+    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
+    _count(217, "rinse_frother", "Rinse frother", "maintenance"),
+    _count(218, "rinse_filter", "Rinse filter", "maintenance"),
+    _count(219, "filter_changes", "Filter changes", "maintenance"),
+    _count(220, "descaling", "Descaling", "maintenance"),
+    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
+    _pct(600, "descale_percent", "Descale progress"),
+    _flag(601, "descale_warning", "Descale warning"),
+    _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
+    _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
+    _pct(620, "frother_clean_percent", "Frother clean progress"),
+    _flag(621, "frother_clean_warning", "Frother clean warning"),
+    _pct(640, "filter_percent", "Filter progress"),
+    _flag(641, "filter_warning", "Filter warning"),
+    _flag(101, "filter_dependency", "Filter dependency"),
+)
+
+# 900-Light shares the same stats table as 900 (same hardware counter
+# set on both variants).
+_STATS_900_LIGHT: tuple[StatDescriptor, ...] = _STATS_900
+
+# 1030 family — 24 counters, distinctly numbered from 8000/900:
+# id 213 is "single cup" (not Total), 215 is Total, 222 is Descaling.
+# Filter dependency is 101.
+_STATS_1030: tuple[StatDescriptor, ...] = (
+    _count(200, "espresso", "Espresso"),
+    _count(201, "lungo", "Lungo"),
+    _count(202, "americano", "Americano"),
+    _count(203, "cappuccino", "Cappuccino"),
+    _count(204, "caffe_latte", "Caffè latte"),
+    _count(205, "macchiato", "Latte macchiato"),
+    _count(206, "warm_milk", "Warm milk"),
+    _count(207, "hot_milk", "Hot milk"),
+    _count(208, "milk_foam", "Milk foam"),
+    _count(209, "hot_water", "Hot water"),
+    _count(211, "steam_drinks", "Steam drinks"),
+    _count(212, "powder_coffee", "Powder coffee"),
+    _count(213, "single_cup", "Single cup brews"),
+    _count(214, "double_cup", "Double cup brews"),
+    _count(215, "total_beverages", "Total beverages"),
+    _count(216, "clean_coffee_system", "Clean coffee system", "maintenance"),
+    _count(217, "clean_frother", "Clean frother", "maintenance"),
+    _count(218, "rinse_cycles", "Rinse cycles", "maintenance"),
+    _count(219, "rinse_frother", "Rinse frother", "maintenance"),
+    _count(220, "rinse_filter", "Rinse filter", "maintenance"),
+    _count(221, "filter_changes", "Filter changes", "maintenance"),
+    _count(222, "descaling", "Descaling", "maintenance"),
+    _count(223, "beverages_via_app", "Beverages via app", "maintenance"),
+    _count(224, "beverages_via_kanne", "Beverages via Kanne", "maintenance"),
+    _pct(600, "descale_percent", "Descale progress"),
+    _flag(601, "descale_warning", "Descale warning"),
+    _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
+    _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
+    _pct(620, "frother_clean_percent", "Frother clean progress"),
+    _flag(621, "frother_clean_warning", "Frother clean warning"),
+    _pct(640, "filter_percent", "Filter progress"),
+    _flag(641, "filter_warning", "Filter warning"),
+    _flag(101, "filter_dependency", "Filter dependency"),
+)
+
+# 1040 family — identical to 1030 minus selector 207 (HeisseMilch):
+# 1040 doesn't expose a separate hot-milk counter.
+_STATS_1040: tuple[StatDescriptor, ...] = tuple(
+    s for s in _STATS_1030 if s.stat_id != 207
 )
 
 
@@ -376,19 +567,21 @@ _MODEL_OVERRIDES: dict[str, dict] = {
     "8101": {"my_coffee_slots": 9, "strength_levels": 5},
     "8103": {"my_coffee_slots": 9, "strength_levels": 5},
     "8107": {"my_coffee_slots": 9, "strength_levels": 5},
-    # NICR 600
-    "660": {"my_coffee_slots": 1, "strength_levels": 3},
-    "670": {"my_coffee_slots": 5, "strength_levels": 3},
-    "675": {"my_coffee_slots": 5, "strength_levels": 3},
-    "680": {"my_coffee_slots": 5, "strength_levels": 3},
-    # NICR 700 (single-slot variants)
+    # NICR 600 — all 5 strength levels; MyCoffee slot count varies.
+    "660": {"my_coffee_slots": 1, "strength_levels": 5},
+    "670": {"my_coffee_slots": 5, "strength_levels": 5},
+    "675": {"my_coffee_slots": 5, "strength_levels": 5},
+    "680": {"my_coffee_slots": 5, "strength_levels": 5},
+    # NICR 700 (single-slot variants, 3 strength levels)
     "756": {"my_coffee_slots": 1, "strength_levels": 3},
     "758": {"my_coffee_slots": 1, "strength_levels": 3},
     "759": {"my_coffee_slots": 1, "strength_levels": 3},
-    "768": {"my_coffee_slots": 1, "strength_levels": 3},
-    "769": {"my_coffee_slots": 1, "strength_levels": 3},
-    "778": {"my_coffee_slots": 1, "strength_levels": 3},
-    "779": {"my_coffee_slots": 1, "strength_levels": 3},
+    # NICR 700 late revisions — single MyCoffee slot but full
+    # 5-band strength range (hardware parity with 788/789 and up).
+    "768": {"my_coffee_slots": 1, "strength_levels": 5},
+    "769": {"my_coffee_slots": 1, "strength_levels": 5},
+    "778": {"my_coffee_slots": 1, "strength_levels": 5},
+    "779": {"my_coffee_slots": 1, "strength_levels": 5},
     # NICR 700 (five-slot variants)
     "788": {"my_coffee_slots": 5, "strength_levels": 5},
     "789": {"my_coffee_slots": 5, "strength_levels": 5},
@@ -421,6 +614,23 @@ _MODEL_OVERRIDES: dict[str, dict] = {
 
 RECIPE_BASE_REGISTER = 10000
 RECIPE_SLOT_STRIDE = 100
+
+# Per-brew temporary-override slot.
+#
+# The machine exposes a SINGLE fixed register (9001) for per-brew
+# overrides — strength, two_cups, fluid amounts, temperatures — which
+# is consumed by the next HE start_process and then discarded.
+#
+# Writing the same fields into the persistent per-selector slot
+# (`10000 + selector*100 + offset`) permanently rewrites the standard
+# recipe definition on the machine, which is why HA's previous
+# implementation was data-destructive when users adjusted the Nivona
+# override number entities.
+TEMP_RECIPE_BASE_REGISTER = 9001  # overrides land at this + field offset
+TEMP_RECIPE_TYPE_REGISTER = 9001  # same register, written first with
+                                  # the recipe-class selector, telling
+                                  # the firmware which recipe the
+                                  # subsequent offsets belong to
 MY_COFFEE_BASE_REGISTER = 20000
 MY_COFFEE_SLOT_STRIDE = 100
 
@@ -459,7 +669,12 @@ _STANDARD_RECIPE_LAYOUTS: dict[str, RecipeFieldLayout] = {
         coffee_amount_offset=9, water_amount_offset=10,
         milk_amount_offset=11, milk_foam_amount_offset=12,
         overall_temperature_offset=13,
-        fluid_write_scale_10=True,
+        # fluid_write_scale_10: previously set True here; the upstream
+        # RE flagged it but the observed machine behaviour does not
+        # apply a ×10 scaling to fluid amounts in HW writes. Reverted
+        # to the default of False until a live trace confirms a
+        # family that actually needs it.
+        fluid_write_scale_10=False,
     ),
     "900-light": RecipeFieldLayout(
         family_key="900-light",
@@ -535,7 +750,12 @@ _MYCOFFEE_LAYOUTS: dict[str, RecipeFieldLayout] = {
         coffee_amount_offset=12, water_amount_offset=13,
         milk_amount_offset=14, milk_foam_amount_offset=15,
         overall_temperature_offset=16,
-        fluid_write_scale_10=True,
+        # fluid_write_scale_10: previously set True here; the upstream
+        # RE flagged it but the observed machine behaviour does not
+        # apply a ×10 scaling to fluid amounts in HW writes. Reverted
+        # to the default of False until a live trace confirms a
+        # family that actually needs it.
+        fluid_write_scale_10=False,
     ),
     "900-light": RecipeFieldLayout(
         family_key="900-light",
@@ -607,9 +827,9 @@ def mycoffee_layout(family_key: str) -> RecipeFieldLayout | None:
 # ---------------------------------------------------------------------------
 
 _FAMILY_SETTINGS: dict[str, tuple[SettingDescriptor, ...]] = {
-    "600": _SETTINGS_600_700_BASE,
-    "700": _SETTINGS_600_700_BASE,
-    "79x": _SETTINGS_600_700_BASE,
+    "600": _SETTINGS_600,
+    "700": _SETTINGS_700,
+    "79x": _SETTINGS_79X,
     "900": _SETTINGS_900,
     "900-light": _SETTINGS_900_LIGHT,
     "1030": _SETTINGS_1030,
@@ -617,14 +837,22 @@ _FAMILY_SETTINGS: dict[str, tuple[SettingDescriptor, ...]] = {
     "8000": _SETTINGS_8000,
 }
 
+# Per-model settings overrides applied on top of the family table.
+# Currently the only surgical filter is dropping `profile` (id 106)
+# for NICR758 — that specific model omits the aroma-balance profile
+# feature, so reading id 106 would NACK/timeout on real hardware.
+_MODEL_SETTINGS_EXCLUDE: dict[str, frozenset[int]] = {
+    "758": frozenset({106}),
+}
+
 _FAMILY_STATS: dict[str, tuple[StatDescriptor, ...]] = {
-    "600": (),
+    "600": _STATS_600,
     "700": _STATS_700,
     "79x": _STATS_79X,
-    "900": (),
-    "900-light": (),
-    "1030": (),
-    "1040": (),
+    "900": _STATS_900,
+    "900-light": _STATS_900_LIGHT,
+    "1030": _STATS_1030,
+    "1040": _STATS_1040,
     "8000": _STATS_8000,
 }
 
@@ -844,12 +1072,27 @@ class NivonaProfile:
         return _NIVONA_FAMILIES[family_key]
 
     def parse_status(self, family_key, data):
-        """Map Nivona-family raw process codes to abstract MachineProcess.
+        """Map Nivona HX payload to an abstract MachineStatus.
 
-        NIVO 8000: 3 = READY, 4 = PRODUCT.
-        Other Nivona families (600/700/79x/900/1030/1040): 8 = READY,
-        11 = PRODUCT. Unknown codes → process=None (status still returned
-        so sub_process / info / manipulation remain usable).
+        HX is 8 bytes of four big-endian int16 fields:
+            process, sub_process, message, progress.
+
+        Family-specific process codes:
+            NIVO 8000:  3 = READY, 4  = PRODUCT.
+            Other Nivona (600/700/79x/900/1030/1040):
+                        8 = READY, 11 = PRODUCT.
+
+        Message is a 16-bit "what does the machine want from the user"
+        field. Only values 0 (none), 11 (move cup to frother) and 20
+        (flush required) are surfaced today; the remaining Manipulation
+        enum values (1–6) are derived from the Melitta side and have
+        not been verified on real Nivona hardware — if a Nivona machine
+        reports a Message ≥ 256 we fall back to Manipulation.NONE
+        rather than silently splitting high and low bytes into
+        mis-assigned fields (what the old ``>hhBBh`` parser did).
+
+        Unknown process codes → process=None (status still returned so
+        sub_process / manipulation / progress remain usable).
         """
         import struct  # noqa: PLC0415
         from ..const import (  # noqa: PLC0415
@@ -860,8 +1103,8 @@ class NivonaProfile:
         if len(data) < 8:
             return MachineStatus()
 
-        process_val, sub_val, info_byte, manip_byte, progress = (
-            struct.unpack(">hhBBh", data[:8])
+        process_val, sub_val, message, progress = (
+            struct.unpack(">hhhh", data[:8])
         )
 
         if family_key == "8000":
@@ -874,15 +1117,23 @@ class NivonaProfile:
             sub_process = SubProcess(sub_val)
         except ValueError:
             sub_process = None
-        try:
-            manipulation = Manipulation(manip_byte)
-        except ValueError:
-            manipulation = Manipulation.NONE
 
+        # Map Message → Manipulation when the value fits; high bytes
+        # above 0 only appear on firmware that extended the enum past
+        # 255 — we don't try to guess what that means for Nivona.
+        manipulation: Manipulation = Manipulation.NONE
+        if 0 <= message <= 0xFF:
+            try:
+                manipulation = Manipulation(message)
+            except ValueError:
+                manipulation = Manipulation.NONE
+
+        # ``info_messages`` is a Melitta-side info-flag bitmap that is
+        # NOT emitted by Nivona firmware — always zero for Nivona.
         return MachineStatus(
             process=process,
             sub_process=sub_process,
-            info_messages=InfoMessage(info_byte),
+            info_messages=InfoMessage(0),
             manipulation=manipulation,
             progress=progress,
         )
@@ -904,20 +1155,32 @@ class NivonaProfile:
     def temp_recipe_register(
         family_key: str, recipe_id: int, field: str,
     ) -> int | None:
-        """Return HW register ID for a recipe field, or None if unsupported.
+        """Return HW register ID for a **temporary-override** recipe field.
+
+        Per-brew overrides (strength / two_cups / fluid amounts /
+        temperatures) go into a single fixed temp slot, with the
+        family-specific field offset added. ``recipe_id`` is kept in
+        the signature for API compatibility but is IGNORED — the temp
+        slot is selector-independent.
 
         ``field`` is one of the layout field names without the ``_offset``
-        suffix, e.g. ``"strength"``, ``"coffee_amount"``, ``"temperature"``,
-        ``"two_cups"``, ``"milk_amount"``. The Android app writes these via
-        HW before issuing HE (SendTemporaryRecipe flow).
+        suffix (``"strength"``, ``"coffee_amount"``, ``"temperature"``,
+        ``"two_cups"``, ``"milk_amount"``, …). Returns ``None`` if the
+        family does not expose that field.
+
+        **Bug history:** previous implementation returned
+        ``RECIPE_BASE_REGISTER + recipe_id*RECIPE_SLOT_STRIDE + offset``
+        — the persistent slot — which silently corrupted the standard
+        recipe definitions on real hardware. Fixed in v0.49.0.
         """
+        del recipe_id  # explicitly ignored — see docstring.
         layout = _STANDARD_RECIPE_LAYOUTS.get(family_key)
         if layout is None:
             return None
         offset = getattr(layout, f"{field}_offset", None)
         if offset is None:
             return None
-        return RECIPE_BASE_REGISTER + recipe_id * RECIPE_SLOT_STRIDE + offset
+        return TEMP_RECIPE_BASE_REGISTER + offset
 
     @staticmethod
     def fluid_write_scale(family_key: str) -> int:
@@ -947,11 +1210,37 @@ class NivonaProfile:
         caps = _NIVONA_FAMILIES[family]
         # Look up model override by the same prefix cascade used in detect_family
         serial = ble_name[len("NIVONA-"):] if ble_name.startswith("NIVONA-") else ble_name
+        model_prefix: str | None = None
         override: dict | None = None
         if len(serial) >= 4:
-            override = _MODEL_OVERRIDES.get(serial[:4])
+            model_prefix = serial[:4]
+            override = _MODEL_OVERRIDES.get(model_prefix)
         if override is None and len(serial) >= 3:
-            override = _MODEL_OVERRIDES.get(serial[:3])
+            model_prefix = serial[:3]
+            override = _MODEL_OVERRIDES.get(model_prefix)
+
+        # Per-model settings filter — e.g. NICR758 lacks id 106 (profile).
+        # Apply by building a new tuple without the excluded ids.
+        excluded = _MODEL_SETTINGS_EXCLUDE.get(model_prefix or "", frozenset())
+        if excluded:
+            filtered = tuple(
+                s for s in caps.settings if s.setting_id not in excluded
+            )
+            caps = replace(caps, settings=filtered)
+
+        # NICR 8107 — the only 8000-family model that exposes
+        # chilled-brew recipe selectors (8/9/10). Swap in the extended
+        # recipe table so NivonaRecipeSelect lists them.
+        if model_prefix == "8107":
+            caps = replace(caps, recipes=_RECIPES_8000_CHILLED)
+
         if override is None:
             return caps
         return replace(caps, **override)
+
+    @staticmethod
+    def is_chilled_selector(selector: int) -> bool:
+        """True if `selector` requires the chilled-brew flag byte (0x00)
+        instead of the normal-brew flag (0x01) when building the HE
+        payload. Only relevant on NICR 8107."""
+        return selector in _CHILLED_SELECTORS

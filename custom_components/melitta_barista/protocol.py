@@ -774,28 +774,30 @@ class EugsterProtocol:
 
     async def start_process_nivona(
         self, write_func, recipe_selector: int, brew_mode: int = 0x0B,
+        chilled: bool = False,
     ) -> bool:
-        """Start brewing on Nivona via HE with Nivona-specific 18-byte layout.
+        """Start brewing on Nivona via HE with the 18-byte payload shape.
 
-        Per APK decompilation (EugsterMobileApp.decompiled.cs:6464-6524) and
-        upstream nivona.cpp::buildHeMakeCoffeePayload:
+        Layout:
 
             payload[0] = 0
             payload[1] = brew_mode (0x04 for NIVO 8000, 0x0B for all others)
             payload[2] = 0
-            payload[3] = recipe_selector (0=espresso, 1=coffee, 2=americano, ...)
+            payload[3] = recipe_selector
             payload[4] = 0
-            payload[5] = 0x01
+            payload[5] = 0x01 for the normal path, 0x00 for chilled-brew
+                         (used by NICR 8107 chilled recipes — selectors
+                         8/9/10 — where the machine reads `byte[5]=0` as
+                         the "cold-prepare" mode toggle).
             payload[6..17] = 0
 
-        Temperature / strength / volumes / two_cups are set separately via
-        HW writes to temporary-recipe registers BEFORE this call (matches
-        the SendTemporaryRecipe() flow in the official Android app).
+        Temperature / strength / volumes / two_cups are written separately
+        via HW into the temporary-recipe registers BEFORE this call.
         """
         payload = bytearray(18)
         payload[1] = brew_mode & 0xFF
         payload[3] = recipe_selector & 0xFF
-        payload[5] = 0x01
+        payload[5] = 0x00 if chilled else 0x01
         return await self.send_and_wait_ack(CMD_START_PROCESS, bytes(payload), write_func)
 
     async def cancel_process(self, write_func, process_value: int) -> bool:

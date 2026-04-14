@@ -196,14 +196,22 @@ def test_nivona_recipes_populated_per_family():
 
 
 def test_nivona_settings_per_family():
-    """Every Nivona family has a settings descriptor table."""
+    """Every Nivona family has a settings descriptor table with the
+    expected cardinality per authoritative mapping (v0.49.0+).
+    """
     np_ = NivonaProfile()
-    expected_min_sizes = {
-        "600": 5, "700": 5, "79x": 5,
-        "900": 3, "900-light": 2,
-        "1030": 7, "1040": 10, "8000": 4,
+    expected_sizes = {
+        "600": 5,       # 101/102/103/104/106
+        "700": 5,       # same as 600
+        "79x": 4,       # 700 minus 103 (off-rinse absent on 79X)
+        "900": 11,      # tank-light accents + AutoOn pair
+        "900-light": 6, # strip lights, keep save_energy + AutoOn
+        "1030": 14,     # 1000-family with cup_heater + AutoOn +
+                        # profile/temps
+        "1040": 17,     # 1030 + frother-temp + power-on extras
+        "8000": 4,
     }
-    for fk, size in expected_min_sizes.items():
+    for fk, size in expected_sizes.items():
         caps = np_.capabilities_for(fk)
         assert len(caps.settings) == size, (
             f"Nivona family {fk} expected {size} settings, got {len(caps.settings)}"
@@ -211,15 +219,26 @@ def test_nivona_settings_per_family():
 
 
 def test_nivona_stats_for_stats_families():
-    """Only families with supports_stats=True have non-empty stats tables."""
+    """Every Nivona family exposes its authoritative stat ID set
+    (v0.49.0+). Sizes are the per-family counts from the canonical
+    stats-factory mapping.
+    """
     np_ = NivonaProfile()
-    # Families declared with supports_stats=True:
-    assert len(np_.capabilities_for("700").stats) == 25
-    assert len(np_.capabilities_for("79x").stats) == 10
-    assert len(np_.capabilities_for("8000").stats) == 27
-    # Others: empty
-    for fk in ("600", "900", "900-light", "1030", "1040"):
-        assert np_.capabilities_for(fk).stats == ()
+    expected_sizes = {
+        "600": 16,       # 7 recipes + 8 gauges + 105 dep
+        "700": 18,       # 9 recipes + 8 gauges + 105 dep
+        "79x": 17,       # 700 minus selector 204 (Cappuccino)
+        "900": 31,       # 22 counters + 8 gauges + 101 dep
+        "900-light": 31,
+        "1030": 33,      # 24 counters + 8 gauges + 101 dep
+        "1040": 32,      # 1030 minus id 207 (HeisseMilch)
+        "8000": 27,
+    }
+    for fk, size in expected_sizes.items():
+        caps = np_.capabilities_for(fk)
+        assert len(caps.stats) == size, (
+            f"Nivona family {fk} expected {size} stats, got {len(caps.stats)}"
+        )
 
 
 def test_nivona_per_model_capabilities_overrides():
@@ -227,16 +246,17 @@ def test_nivona_per_model_capabilities_overrides():
     np_ = NivonaProfile()
     cases = [
         # (serial_suffix, expected_slots, expected_strength, expected_family)
-        ("756", 1, 3, "700"),    # NICR 756 — single slot
-        ("788", 5, 5, "700"),    # NICR 788 — five slots, five strength
+        ("756", 1, 3, "700"),    # NICR 756 — 3 strength bands
+        ("788", 5, 5, "700"),    # NICR 788 — 5 slots, 5 strength
         ("790", 5, 5, "79x"),
         ("920", 9, 5, "900"),
         ("965", 9, 5, "900-light"),
         ("030", 18, 5, "1030"),
         ("040", 18, 5, "1040"),
         ("8101", 9, 5, "8000"),  # NIVO 8101
-        ("670", 5, 3, "600"),
-        ("660", 1, 3, "600"),
+        # 600-family: all 5 strength bands (v0.49.0 correction)
+        ("670", 5, 5, "600"),
+        ("660", 1, 5, "600"),
     ]
     for suffix, slots, strength, fkey in cases:
         caps = np_.capabilities_for_model(f"NIVONA-{suffix}0000000-----")
@@ -277,7 +297,9 @@ def test_nivona_standard_recipe_layout_900_extended():
     assert layout.coffee_temperature_offset == 5
     assert layout.milk_foam_temperature_offset == 8
     assert layout.overall_temperature_offset == 13
-    assert layout.fluid_write_scale_10 is True
+    # v0.49.0: the *10 fluid scaling flag was reverted to False —
+    # the assumption was not confirmed by observed machine behaviour.
+    assert layout.fluid_write_scale_10 is False
 
 
 def test_nivona_standard_recipe_register():

@@ -136,6 +136,12 @@ async def async_setup_entry(
     caps = client.capabilities
     if caps is not None and caps.settings and client.brand.brand_slug != "melitta":
         for descriptor in caps.settings:
+            # Only descriptors with a discrete options list become
+            # selects. Options-less descriptors (raw numeric settings
+            # like AutoOn hours/minutes) are surfaced as number
+            # entities in number.py instead.
+            if not descriptor.options:
+                continue
             entities.append(
                 BrandSettingSelect(client, entry, name, descriptor)
             )
@@ -440,6 +446,9 @@ class BrandSettingSelect(MelittaDeviceMixin, SelectEntity):
         self._code_to_label: dict[int, str] = {code: label for code, label in descriptor.options}
         self._attr_options = list(self._label_to_code.keys())
         self._attr_name = descriptor.title
+        # Localized entity name lookup path — HA reads
+        # `entity.select.<descriptor.key>.name` from translations.
+        self._attr_translation_key = descriptor.key
 
     @property
     def unique_id(self) -> str:
