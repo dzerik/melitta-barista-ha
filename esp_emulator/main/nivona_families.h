@@ -19,6 +19,36 @@
 extern "C" {
 #endif
 
+// Sub-process codes emitted during brew ramp. Must match SubProcess
+// enum in the HA integration (const.py:113) and the values the real
+// Nivona firmware reports in the HX sub_process field during brew.
+typedef enum {
+    NIVONA_SUB_IDLE     = 0,
+    NIVONA_SUB_GRINDING = 1,
+    NIVONA_SUB_COFFEE   = 2,
+    NIVONA_SUB_STEAM    = 3,
+    NIVONA_SUB_WATER    = 4,
+    NIVONA_SUB_PREPARE  = 5,
+} nivona_sub_process_t;
+
+// Recipe category → brew ramp shape. Each stage executes in sequence,
+// each gets an even share of the total brew time.
+typedef enum {
+    NIVONA_CAT_ESPRESSO,   // GRINDING → COFFEE                 (short)
+    NIVONA_CAT_COFFEE,     // GRINDING → COFFEE                 (medium)
+    NIVONA_CAT_AMERICANO,  // GRINDING → COFFEE → WATER
+    NIVONA_CAT_MILK_DRINK, // GRINDING → COFFEE → STEAM         (cappuccino, latte, …)
+    NIVONA_CAT_MILK_ONLY,  // STEAM                             (hot milk / foam)
+    NIVONA_CAT_WATER,      // WATER                             (hot water)
+    NIVONA_CAT_UNKNOWN,    // Unknown selector — reject with NACK
+} nivona_recipe_category_t;
+
+typedef struct {
+    uint8_t                  selector;   // HE payload byte[3]
+    const char              *name;       // Display
+    nivona_recipe_category_t category;
+} nivona_recipe_t;
+
 typedef struct {
     const char *key;            // "600" / "700" / "79x" / … / "8000"
     const char *ble_name;       // Advertised local_name — bare serial
@@ -31,9 +61,14 @@ typedef struct {
     int16_t process_brewing;    // NIVO 8000 = 4, others = 11
 
     // Phase C-lite — brew payload scaling (populated but not yet
-    // consumed; HE handler will read once Phase C lands).
+    // consumed; HW override handler will read it in a later slice).
     uint8_t fluid_scale;        // 900/1030/1040 = 10, others = 1
     uint8_t has_milk_system;    // 900/1030/1040/8000 = 1, others = 0
+
+    // Phase C-lite — per-family recipe table (selector → category).
+    // NULL-terminated semantics: iterate up to recipe_count.
+    const nivona_recipe_t *recipes;
+    size_t                 recipe_count;
 } nivona_family_t;
 
 // All known Nivona families. Size via NIVONA_FAMILIES_COUNT.
@@ -52,6 +87,12 @@ int nivona_family_set(const char *key);
 
 // Convenience lookup (read-only). Returns NULL on miss.
 const nivona_family_t *nivona_family_find(const char *key);
+
+// Resolve an HE-selector byte to a recipe in the current family.
+// Returns NULL if the selector is not known for this family — the
+// HE handler should NACK in that case.
+const nivona_recipe_t *nivona_family_recipe_by_selector(
+    const nivona_family_t *fam, uint8_t selector);
 
 #ifdef __cplusplus
 }

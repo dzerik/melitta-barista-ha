@@ -6,6 +6,59 @@ fixes, new brand-emulation coverage, and protocol-fidelity work happen
 here without touching the integration's release cycle, and vice versa.
 Emulator releases are tagged `emu-v<MAJOR>.<MINOR>.<PATCH>`.
 
+## [0.3.0] — 2026-04-14 — Phase C-lite: per-family brew recipes + multi-stage ramp
+
+Second slice of the Nivona full-emulation roadmap (see
+[`../docs/NIVONA_RE_NOTES.md`](../docs/NIVONA_RE_NOTES.md) §Phase
+C-lite). HE brew is now family- and recipe-aware: unknown selectors
+are rejected with NACK, and milk-capable recipes walk a proper
+GRINDING → COFFEE → STEAM sequence via `sub_process` transitions
+instead of a single flat ramp.
+
+### Added
+
+- `nivona_families.{h,c}` gained full per-family recipe tables
+  (RECIPES_600 / 700 / 79X / 900 / 1030 / 1040 / 8000), mirroring
+  `custom_components/melitta_barista/brands/nivona.py::_RECIPES_*`
+  so the C and Python sides stay in sync.
+- `nivona_recipe_category_t` enum (ESPRESSO / COFFEE / AMERICANO /
+  MILK_DRINK / MILK_ONLY / WATER) and per-category brew ramps
+  (stage list + total wall-clock).
+- `nivona_family_recipe_by_selector()` — lookup helper used by both
+  brew start (resolve category) and HE handler (validate selector).
+
+### Changed
+
+- **`nivona_brew_start(selector)`** now resolves the selector against
+  the active family's recipe table. Unknown selector → returns `false`,
+  which causes the HE dispatcher to reply NACK. Previously any
+  selector byte was silently accepted.
+- **`brew_task`** walks recipe-category stages, setting `sub_process`
+  per stage:
+  - ESPRESSO / COFFEE / milk-less: `GRINDING → COFFEE`
+  - AMERICANO: `GRINDING → COFFEE → WATER`
+  - MILK_DRINK: `GRINDING → COFFEE → STEAM`
+  - MILK_ONLY: `STEAM` only
+  - WATER: `WATER` only
+
+  Progress percentage (0–100) is linear across the whole brew.
+  Durations are heuristic (espresso 20s, milk drink 45s, etc.) and
+  await verification against a real-machine BLE trace.
+- **Dispatch `handle_he`** replies NACK when `nivona_brew_start`
+  refuses the request (unknown selector / brew in progress).
+
+### Requires
+
+- HA integration `v0.46.0+` (brand-aware HX parsing for `sub_process`
+  transitions to render correctly on non-8000 families).
+
+### Binary
+
+ESP32-C6 build clean, +1.8 KB over emu-v0.2.0 (still 13% partition
+headroom).
+
+---
+
 ## [0.2.0] — 2026-04-14 — Phase A: per-family FSM process codes
 
 First slice of the full Nivona emulation roadmap (see

@@ -51,6 +51,11 @@ static void send_ack(void) {
                       /*include_key_prefix=*/false, /*encrypt=*/false);
 }
 
+static void send_nack(void) {
+    nivona_frame_send(CMD_NACK, NULL, 0,
+                      /*include_key_prefix=*/false, /*encrypt=*/false);
+}
+
 // ---- Handshake --------------------------------------------------------
 
 static void handle_hu(const uint8_t *payload, size_t len) {
@@ -223,8 +228,16 @@ static void handle_he(const uint8_t *payload, size_t len) {
     ESP_LOGI(TAG, "HE mode=0x%02x recipe=%u flags=0x%02x",
              mode, recipe_selector, flags);
 
-    // Use recipe_selector as the sub_process for diagnostics during brew
-    nivona_brew_start((int16_t)recipe_selector, /*two_cups=*/false);
+    // brew_start returns false when the selector isn't in the current
+    // family's recipe table (Phase C-lite) or when a brew is already
+    // running. Reply NACK in both cases so the client can retry /
+    // surface the error rather than silently assuming success.
+    if (!nivona_brew_start((int16_t)recipe_selector, /*two_cups=*/false)) {
+        ESP_LOGW(TAG, "HE rejected (selector %u not in family recipes "
+                 "or brew already active)", recipe_selector);
+        send_nack();
+        return;
+    }
     send_ack();
 }
 

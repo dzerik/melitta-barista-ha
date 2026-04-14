@@ -23,32 +23,123 @@ static void push_status(void) {
                       /*include_key_prefix=*/false, /*encrypt=*/true);
 }
 
+// Per-category brew-ramp shape. Each entry is a sequence of stages;
+// each stage declares which sub_process code to emit and what share
+// of the total brew time it takes (weights summed across stages ≈ 1.0).
+// Total wall-clock duration is `total_ms`.
+typedef struct {
+    nivona_sub_process_t sub;
+    uint8_t              weight;   // arbitrary units; normalised at runtime
+} brew_stage_t;
+
+typedef struct {
+    nivona_recipe_category_t category;
+    uint32_t                 total_ms;
+    const brew_stage_t      *stages;
+    size_t                   stage_count;
+} brew_ramp_t;
+
+static const brew_stage_t S_ESPRESSO[]   = { {NIVONA_SUB_GRINDING, 3}, {NIVONA_SUB_COFFEE, 7} };
+static const brew_stage_t S_COFFEE[]     = { {NIVONA_SUB_GRINDING, 3}, {NIVONA_SUB_COFFEE, 7} };
+static const brew_stage_t S_AMERICANO[]  = { {NIVONA_SUB_GRINDING, 2}, {NIVONA_SUB_COFFEE, 5}, {NIVONA_SUB_WATER, 3} };
+static const brew_stage_t S_MILK_DRINK[] = { {NIVONA_SUB_GRINDING, 2}, {NIVONA_SUB_COFFEE, 4}, {NIVONA_SUB_STEAM, 4} };
+static const brew_stage_t S_MILK_ONLY[]  = { {NIVONA_SUB_STEAM, 10} };
+static const brew_stage_t S_WATER[]      = { {NIVONA_SUB_WATER, 10} };
+
+#define RAMP_COUNT(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+static const brew_ramp_t RAMPS[] = {
+    { NIVONA_CAT_ESPRESSO,   20000, S_ESPRESSO,   RAMP_COUNT(S_ESPRESSO)   },
+    { NIVONA_CAT_COFFEE,     28000, S_COFFEE,     RAMP_COUNT(S_COFFEE)     },
+    { NIVONA_CAT_AMERICANO,  35000, S_AMERICANO,  RAMP_COUNT(S_AMERICANO)  },
+    { NIVONA_CAT_MILK_DRINK, 45000, S_MILK_DRINK, RAMP_COUNT(S_MILK_DRINK) },
+    { NIVONA_CAT_MILK_ONLY,  20000, S_MILK_ONLY,  RAMP_COUNT(S_MILK_ONLY)  },
+    { NIVONA_CAT_WATER,      15000, S_WATER,      RAMP_COUNT(S_WATER)      },
+};
+
+static const brew_ramp_t *find_ramp(nivona_recipe_category_t cat) {
+    for (size_t i = 0; i < RAMP_COUNT(RAMPS); i++) {
+        if (RAMPS[i].category == cat) return &RAMPS[i];
+    }
+    return &RAMPS[1]; // fallback to "coffee"
+}
+
+// Brew-task argument (packs selector + resolved recipe pointer).
+typedef struct {
+    uint8_t                selector;
+    const nivona_recipe_t *recipe; // may be NULL when only selector known
+    bool                   two_cups;
+} brew_arg_t;
+
+static brew_arg_t s_arg;
+
 static void brew_task(void *arg) {
-    int16_t pv = (int16_t)(intptr_t)arg;
+    (void)arg; // args passed via s_arg to avoid intptr_t truncation
+
     // Snapshot current family's codes at brew start — if the CLI
     // switches family mid-brew the ramp still finishes consistently.
     const nivona_family_t *fam = nivona_family_current();
     const int16_t brew_code = fam->process_brewing;
     const int16_t ready_code = fam->process_ready;
-    ESP_LOGI(TAG, "brew start family=%s pv=%d brew=%d ready=%d",
-             fam->key, pv, brew_code, ready_code);
 
-    // READY → PREPARING per Nivona Android app expectation. The app
-    // re-reads HX ~650 ms post-HE and requires the family-specific
-    // brewing code (4 for NIVO 8000, 11 for other Nivona families).
-    nivona_fsm_set_process(brew_code, pv);
+    const nivona_recipe_t *recipe = s_arg.recipe;
+    const char *name = recipe ? recipe->name : "?";
+    nivona_recipe_category_t cat =
+        recipe ? recipe->category : NIVONA_CAT_COFFEE;
+    const brew_ramp_t *ramp = find_ramp(cat);
+
+    uint32_t total_ms = ramp->total_ms;
+    if (s_arg.two_cups) total_ms *= 2;
+
+    ESP_LOGI(TAG, "brew start family=%s selector=%u recipe=%s cat=%d "
+             "total=%ums stages=%u brew_code=%d",
+             fam->key, s_arg.selector, name, (int)cat,
+             (unsigned)total_ms, (unsigned)ramp->stage_count,
+             brew_code);
+
+    // Announce brewing state — the Nivona app re-reads HX ~650 ms after
+    // HE and requires the family-specific brewing code (4 / 11).
+    nivona_fsm_set_process(brew_code, (int16_t)s_arg.selector);
     nivona_fsm_set_progress(0);
+    nivona_fsm_set_info(0);
     push_status();
 
-    // Ramp progress 0 → 100 over ~30 s (≈ 60 ticks of 500 ms)
-    for (int p = 0; p <= 100; p += 2) {
-        if (s_cancel) break;
-        nivona_fsm_set_progress((int16_t)p);
-        push_status();
-        vTaskDelay(pdMS_TO_TICKS(500));
+    // Compute per-stage wall-clock budget from weights.
+    uint32_t weight_sum = 0;
+    for (size_t i = 0; i < ramp->stage_count; i++) {
+        weight_sum += ramp->stages[i].weight;
+    }
+    if (weight_sum == 0) weight_sum = 1;
+
+    uint32_t elapsed_ms = 0;
+    for (size_t i = 0; i < ramp->stage_count && !s_cancel; i++) {
+        const brew_stage_t *st = &ramp->stages[i];
+        uint32_t stage_ms = (total_ms * st->weight) / weight_sum;
+        // sub_process code reflects the current stage; HX readers
+        // (HA's SubProcess enum, Android app UI) observe the change.
+        nivona_fsm_set_process(brew_code, (int16_t)st->sub);
+        ESP_LOGI(TAG, "  stage[%u/%u] sub=%d duration=%ums",
+                 (unsigned)(i + 1), (unsigned)ramp->stage_count,
+                 (int)st->sub, (unsigned)stage_ms);
+
+        // Tick at 500 ms inside the stage, updating progress as a
+        // percentage of the whole brew (so ramp 0→100 across all stages).
+        const uint32_t TICK_MS = 500;
+        uint32_t stage_elapsed = 0;
+        while (stage_elapsed < stage_ms && !s_cancel) {
+            uint32_t step = stage_ms - stage_elapsed;
+            if (step > TICK_MS) step = TICK_MS;
+            vTaskDelay(pdMS_TO_TICKS(step));
+            stage_elapsed += step;
+            elapsed_ms += step;
+            int16_t pct = (int16_t)((elapsed_ms * 100) / total_ms);
+            if (pct > 100) pct = 100;
+            nivona_fsm_set_progress(pct);
+            push_status();
+        }
     }
 
-    // Back to family-specific READY (3 for NIVO 8000, 8 for others).
+    // Back to family-specific READY.
     nivona_fsm_set_process(ready_code, 0);
     nivona_fsm_set_progress(0);
     push_status();
@@ -67,13 +158,25 @@ bool nivona_brew_start(int16_t process_value, bool two_cups) {
         ESP_LOGW(TAG, "brew already active, rejecting");
         return false;
     }
+    // Resolve selector → recipe descriptor in the current family.
+    // process_value carries the selector byte from HE payload[3].
+    const nivona_family_t *fam = nivona_family_current();
+    uint8_t sel = (uint8_t)(process_value & 0xFF);
+    const nivona_recipe_t *recipe = nivona_family_recipe_by_selector(fam, sel);
+    if (recipe == NULL) {
+        ESP_LOGW(TAG, "unknown selector %u on family %s — rejecting brew",
+                 sel, fam->key);
+        return false;
+    }
+
+    s_arg.selector = sel;
+    s_arg.recipe = recipe;
+    s_arg.two_cups = two_cups;
+
     s_active = true;
     s_cancel = false;
-    // Pass process_value through task arg. two_cups currently only doubles
-    // the ramp length — leave as TODO for Phase 7 polish.
-    (void)two_cups;
     xTaskCreate(brew_task, "nivona_brew", 4096,
-                (void *)(intptr_t)process_value, 5, &s_task);
+                NULL, 5, &s_task);
     return true;
 }
 
