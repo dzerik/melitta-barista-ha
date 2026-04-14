@@ -138,14 +138,18 @@ static struct {
 static const struct {
     const char *key; const char *ble_name; const char *model;
 } FAMILIES[] = {
-    { "600",       "NIVONA-6801000001-----", "NICR 680" },
-    { "700",       "NIVONA-7591000001-----", "NICR 759" },
-    { "79x",       "NIVONA-7951000001-----", "NICR 795" },
-    { "900",       "NIVONA-9301000001-----", "NICR 930" },
-    { "900-light", "NIVONA-9701000001-----", "NICR 970" },
-    { "1030",      "NIVONA-0301000001-----", "NICR 1030" },
-    { "1040",      "NIVONA-0401000001-----", "NICR 1040" },
-    { "8000",      "NIVONA-8107000001-----", "NIVO 8107" },
+    // BLE name format expected by the Nivona Android app: the serial
+    // number directly, no "NIVONA-" prefix. Trailing dashes are stripped
+    // by the app, Substring(0,4) must match "8101"/"8103"/"8107" and
+    // Substring(0,3) must match "030"/"040"/"660"/"670"/.../"979".
+    { "600",       "6801000001-----", "NICR 680" },
+    { "700",       "7591000001-----", "NICR 759" },
+    { "79x",       "7951000001-----", "NICR 795" },
+    { "900",       "9301000001-----", "NICR 930" },
+    { "900-light", "9701000001-----", "NICR 970" },
+    { "1030",      "0301000001-----", "NICR 1030" },
+    { "1040",      "0401000001-----", "NICR 1040" },
+    { "8000",      "8107000001-----", "NIVO 8107" },
 };
 
 static int cmd_family(int argc, char **argv) {
@@ -155,9 +159,8 @@ static int cmd_family(int argc, char **argv) {
     for (size_t i = 0; i < sizeof(FAMILIES) / sizeof(FAMILIES[0]); i++) {
         if (!strcmp(k, FAMILIES[i].key)) {
             ble_svc_gap_device_name_set(FAMILIES[i].ble_name);
-            // Sync DIS fields: serial = ble_name without "NIVONA-" prefix
+            // Sync DIS fields: BLE name IS the serial number now
             const char *serial = FAMILIES[i].ble_name;
-            if (!strncmp(serial, "NIVONA-", 7)) serial += 7;
             // Use EF-style values matching real Nivona machines
             nivona_dis_set("EF", "EF-BTLE", serial,
                            "1", "386", "EF_1.00R4__386");

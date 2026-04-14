@@ -27,9 +27,12 @@
 
 static const char *TAG = "nivona_emu";
 
-// Default serial prefix 8107 → family "8000" (NIVO 8xxx). Format required
-// by the integration's regex: NIVONA- + 10 digits + 5 dashes.
-#define DEFAULT_BLE_NAME "NIVONA-8107000001-----"
+// Default BLE name = serial number directly (no "NIVONA-" prefix).
+// The official Nivona Android app reads Peripheral.Name, strips trailing
+// dashes, and takes Substring(0,4) as the model code (8101/8103/8107 →
+// NICR 8xxx). A leading "NIVONA-" makes it read "NIVO" and fail
+// model detection (EugsterMobileApp.decompiled.cs:7381).
+#define DEFAULT_BLE_NAME "8107000001-----"
 
 void ble_store_config_init(void);
 
