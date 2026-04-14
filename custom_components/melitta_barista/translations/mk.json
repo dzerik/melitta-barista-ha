@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Апарат за кафе",
         "description": "Изберете го вашиот апарат за кафе од пронајдените уреди",
         "data": {
           "address": "Уред"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Рачно поставување",
-        "description": "Внесете ја Bluetooth MAC адресата на вашиот Melitta Barista Smart",
+        "description": "Внесете ја Bluetooth MAC адресата на вашиот апарат за кафе (Melitta Barista Smart или Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC адреса",
           "name": "Име на уред"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Потврди уред",
-        "description": "Пронајден Melitta Barista Smart: {name}. Дали сакате да го поставите?"
+        "description": "Пронајден апарат за кафе: {name}. Дали сакате да го поставите?"
       },
       "pair": {
         "title": "Спарување со {name}",
         "description": "Вклучете го Bluetooth режимот за спарување на апаратот за кафе (во менито за поставки), потоа притиснете Испрати.\n\nУред: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Реконфигурирај апарат за кафе",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Уредот е веќе конфигуриран",
-      "no_devices_found": "Не се пронајдени Melitta уреди"
+      "no_devices_found": "Не се пронајдени поддржани апарати за кафе"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Поставки на Melitta Barista",
+        "title": "Поставки на апаратот за кафе",
         "description": "Изберете категорија на поставки",
         "menu_options": {
           "basic": "Основни поставки",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Не е пронајден поддржан апарат за кафе за овој повик на услуга."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

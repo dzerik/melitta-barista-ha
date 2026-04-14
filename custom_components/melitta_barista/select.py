@@ -1,4 +1,4 @@
-"""Select platform for Melitta Barista Smart."""
+"""Select platform — recipes, profiles, freestyle options, per-brand settings."""
 
 from __future__ import annotations
 
@@ -111,9 +111,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista select entities."""
+    """Set up select entities for the configured coffee machine."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     _LOGGER.warning(
         "select setup: brand=%s exts=%s caps=%s",

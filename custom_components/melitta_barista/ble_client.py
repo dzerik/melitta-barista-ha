@@ -1,4 +1,4 @@
-"""BLE client for Melitta Barista Smart coffee machine.
+"""BLE client for Eugster-family coffee machines (Melitta, Nivona).
 
 Architecture follows the switchbot/led_ble pattern:
 - Store and update BLEDevice reference from HA bluetooth advertisements
@@ -175,7 +175,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
     @property
     def brand(self) -> "BrandProfile":
-        """Active BrandProfile (Melitta by default)."""
+        """Active BrandProfile for this entry (Melitta / Nivona / …)."""
         return self._brand
 
     @property
@@ -209,10 +209,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # DIS-provided model, if machine advertised one
         if self._dis_info.get("model"):
             return self._dis_info["model"]
-        # Legacy Melitta machine-type table
+        # Legacy Melitta machine-type table (Melitta machines only).
+        brand_name = self._brand.brand_name if hasattr(self, "_brand") else "Coffee"
         if self._machine_type:
-            return MACHINE_MODEL_NAMES.get(self._machine_type, "Melitta Barista")
-        return self._brand.brand_name + " Barista" if hasattr(self, "_brand") else "Melitta Barista"
+            return MACHINE_MODEL_NAMES.get(
+                self._machine_type, f"{brand_name} Coffee Machine",
+            )
+        return f"{brand_name} Coffee Machine"
 
     @property
     def capabilities(self):
@@ -591,7 +594,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 self._reconnect_task = None
 
         try:
-            _LOGGER.info("Connecting to Melitta at %s", self._address)
+            _LOGGER.info(
+                "Connecting to %s machine at %s",
+                self._brand.brand_name, self._address,
+            )
 
             # Attempt 1: without pairing (reuse existing bond)
             if await self._try_connect_and_handshake(pair=False):
@@ -861,7 +867,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
 
 async def discover_melitta_devices(timeout: float = 10.0) -> list[BLEDevice]:
-    """Discover Melitta Barista devices via BLE scan."""
+    """Discover supported coffee machines via a direct BLE scan."""
     devices: dict[str, BLEDevice] = {}
 
 

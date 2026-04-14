@@ -1,4 +1,4 @@
-"""Number platform for Melitta Barista Smart machine settings."""
+"""Number platform — machine settings (energy saving, portions, overrides)."""
 
 from __future__ import annotations
 
@@ -102,9 +102,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista number entities."""
+    """Set up number entities for the configured coffee machine."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     # Settings (HR/HW) — generic Eugster, every brand supports them.
     entities: list = [

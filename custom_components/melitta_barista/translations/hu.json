@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kávéfőző",
         "description": "Válassza ki kávégépét a felismert eszközök közül",
         "data": {
           "address": "Eszköz"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Kézi beállítás",
-        "description": "Adja meg a Melitta Barista Smart Bluetooth MAC-címét",
+        "description": "Adja meg kávéfőzője Bluetooth MAC címét (Melitta Barista Smart vagy Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-cím",
           "name": "Eszköz neve"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Eszköz megerősítése",
-        "description": "Melitta Barista Smart megtalálva: {name}. Szeretné beállítani?"
+        "description": "Kávéfőző megtalálva: {name}. Szeretné beállítani?"
       },
       "pair": {
         "title": "Párosítás: {name}",
         "description": "Kapcsolja be a Bluetooth párosítási módot a kávégépen (a beállítások menüben), majd nyomja meg a Küldés gombot.\n\nEszköz: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Kávéfőző újrakonfigurálása",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Az eszköz már konfigurálva van",
-      "no_devices_found": "Nem található Melitta eszköz"
+      "no_devices_found": "Nem található támogatott kávéfőző"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista beállítások",
+        "title": "Kávéfőző beállításai",
         "description": "Válasszon beállítási kategóriát",
         "menu_options": {
           "basic": "Alapbeállítások",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Ehhez a szolgáltatáshíváshoz nem található támogatott kávéfőző."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

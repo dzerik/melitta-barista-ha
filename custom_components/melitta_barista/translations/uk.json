@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Кавомашина",
         "description": "Оберіть кавомашину зі знайдених пристроїв",
         "data": {
           "address": "Пристрій"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ручне налаштування",
-        "description": "Введіть Bluetooth MAC-адресу вашої Melitta Barista Smart",
+        "description": "Введіть Bluetooth MAC-адресу вашої кавомашини (Melitta Barista Smart або Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-адреса",
           "name": "Назва пристрою"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Підтвердження пристрою",
-        "description": "Знайдено Melitta Barista Smart: {name}. Бажаєте налаштувати?"
+        "description": "Знайдено кавомашину: {name}. Налаштувати її?"
       },
       "pair": {
         "title": "Сполучення з {name}",
         "description": "Увімкніть режим сполучення Bluetooth на кавомашині (в меню налаштувань), потім натисніть Надіслати.\n\nПристрій: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Переналаштувати кавомашину",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Пристрій вже налаштовано",
-      "no_devices_found": "Пристрої Melitta не знайдено"
+      "no_devices_found": "Сумісних кавомашин не знайдено"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Налаштування Melitta Barista",
+        "title": "Налаштування кавомашини",
         "description": "Оберіть категорію налаштувань",
         "menu_options": {
           "basic": "Основні налаштування",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Підтримувану кавомашину для цього виклику сервісу не знайдено."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

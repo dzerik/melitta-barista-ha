@@ -1,4 +1,4 @@
-"""Melitta Barista BLE protocol implementation."""
+"""Eugster/EFLibrary BLE protocol — shared by Melitta Barista and Nivona NICR/NIVO lines."""
 
 from __future__ import annotations
 

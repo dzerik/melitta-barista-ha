@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kaffemaskine",
         "description": "Vælg din kaffemaskine fra fundne enheder",
         "data": {
           "address": "Enhed"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuel konfiguration",
-        "description": "Indtast Bluetooth MAC-adressen på din Melitta Barista Smart",
+        "description": "Indtast Bluetooth-MAC-adressen på din kaffemaskine (Melitta Barista Smart eller Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-adresse",
           "name": "Enhedsnavn"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Bekræft enhed",
-        "description": "Melitta Barista Smart fundet: {name}. Vil du konfigurere den?"
+        "description": "Kaffemaskine fundet: {name}. Vil du konfigurere den?"
       },
       "pair": {
         "title": "Parring med {name}",
         "description": "Aktivér Bluetooth-parringstilstand på din kaffemaskine (i indstillingsmenuen), tryk derefter på Send.\n\nEnhed: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Omkonfigurer kaffemaskine",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Enheden er allerede konfigureret",
-      "no_devices_found": "Ingen Melitta-enheder fundet"
+      "no_devices_found": "Ingen understøttede kaffemaskiner fundet"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista-indstillinger",
+        "title": "Kaffemaskine-indstillinger",
         "description": "Vælg indstillingskategori",
         "menu_options": {
           "basic": "Grundindstillinger",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Ingen understøttet kaffemaskine fundet til dette tjenestekald."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

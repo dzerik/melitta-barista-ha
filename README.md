@@ -131,7 +131,9 @@ Source: per-family recipe tables in [`brands/nivona.py`](custom_components/melit
 
 - **Home Assistant** 2024.1 or newer
 - **Bluetooth adapter** -- a BLE-capable adapter accessible to your Home Assistant host (built-in or USB dongle)
-- **Melitta Barista T Smart** or **Melitta Barista TS Smart** coffee machine with Bluetooth enabled
+- **Supported machine** — one of:
+  - **Melitta Barista T Smart** or **Melitta Barista TS Smart** (stable)
+  - **Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx** (alpha)
 - **BLE range** -- the Home Assistant host must be within Bluetooth range of the machine (typically up to 10 meters)
 
 ## Installation
@@ -143,7 +145,7 @@ Source: per-family recipe tables in [`brands/nivona.py`](custom_components/melit
 3. Choose **Custom repositories**.
 4. Add the repository URL: `https://github.com/dzerik/melitta-barista-ha`
 5. Select category **Integration** and click **Add**.
-6. Search for "Melitta Barista Smart" in HACS and install it.
+6. Search for "Melitta Barista Smart & Nivona" in HACS and install it.
 7. Restart Home Assistant.
 
 ### Manual Installation
@@ -210,7 +212,7 @@ Make sure Bluetooth is enabled on your coffee machine (refer to the machine manu
 ### Step 2: Add the integration
 
 1. In Home Assistant, go to **Settings** > **Devices & Services** > **Add Integration**.
-2. Search for **Melitta Barista Smart**.
+2. Search for **Melitta Barista Smart & Nivona**.
 3. If BLE discovery has found your machine, it will appear automatically. Otherwise, you can enter the MAC address manually.
 
 ### Step 3: Pair the device
@@ -222,7 +224,7 @@ The integration requires BLE pairing (bonding) with your coffee machine. During 
 3. Press **Submit** in the Home Assistant setup dialog.
 4. The integration will connect and pair automatically. If the machine shows a confirmation prompt, accept it.
 
-> **Note:** The machine supports only one active BLE connection at a time. Make sure the official Melitta app is disconnected before pairing with Home Assistant.
+> **Note:** The machine supports only one active BLE connection at a time. Make sure any official manufacturer app (Melitta Connect / Nivona App) is disconnected before pairing with Home Assistant.
 
 If the device is already paired (e.g., via `bluetoothctl`), the integration detects this and skips the pairing step.
 
@@ -383,7 +385,7 @@ Save a recipe to a DirectKey profile slot.
 
 ## Options
 
-Configure the integration via **Settings → Devices & Services → Melitta Barista Smart → Configure**.
+Configure the integration via **Settings → Devices & Services → Melitta Barista Smart & Nivona → Configure**.
 
 ### Basic Settings
 
@@ -489,7 +491,7 @@ automation:
 
 ```yaml
 automation:
-  - alias: "Melitta Maintenance Reminder"
+  - alias: "Coffee Machine Maintenance Reminder"
     trigger:
       - platform: state
         entity_id: sensor.melitta_action_required
@@ -507,10 +509,10 @@ automation:
 
 ## Removing the Integration
 
-1. Go to **Settings → Devices & Services → Melitta Barista Smart**
+1. Go to **Settings → Devices & Services → Melitta Barista Smart & Nivona**
 2. Click the three-dot menu (⋮) → **Delete**
 3. The BLE connection will be closed and all entities removed automatically
-4. If installed via HACS: go to **HACS → Integrations → Melitta Barista Smart → Uninstall**
+4. If installed via HACS: go to **HACS → Integrations → Melitta Barista Smart & Nivona → Uninstall**
 
 ## Localization
 
@@ -565,9 +567,9 @@ Restart Home Assistant and reproduce the issue, then check the logs.
 
 ## Disclaimer
 
-This project is an independent, open-source, non-commercial integration created for personal and home automation purposes. It is **not affiliated with, endorsed by, or connected to Melitta Group Management GmbH & Co. KG** or any of its subsidiaries.
+This project is an independent, open-source, non-commercial integration created for personal and home automation purposes. It is **not affiliated with, endorsed by, or connected to Melitta Group Management GmbH & Co. KG, Nivona Apparate GmbH, Eugster/Frismag AG**, or any of their subsidiaries or affiliates.
 
-"Melitta", "Barista T Smart", "Barista TS Smart", and the Melitta logo are registered trademarks of Melitta Group Management GmbH & Co. KG. All product names, logos, brands, and graphical assets are the property of their respective owners and are used here solely for identification and interoperability purposes.
+"Melitta", "Barista T Smart", "Barista TS Smart", "Caffeo", and the Melitta logo are registered trademarks of Melitta Group Management GmbH & Co. KG. "Nivona", "NICR", "NIVO", "NIVO 8000", and the Nivona logo are registered trademarks of Nivona Apparate GmbH. "Eugster", "Frismag", and associated product names are trademarks of Eugster/Frismag AG. All product names, logos, brands, and graphical assets are the property of their respective owners and are used here solely for identification and interoperability purposes.
 
 This software is not intended for commercial use or the generation of revenue. See [NOTICE](NOTICE) for full legal details.
 

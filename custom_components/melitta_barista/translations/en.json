@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Coffee Machine",
         "description": "Select your coffee machine from discovered devices",
         "data": {
           "address": "Device"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manual Configuration",
-        "description": "Enter the Bluetooth MAC address of your Melitta Barista Smart",
+        "description": "Enter the Bluetooth MAC address of your coffee machine (Melitta Barista Smart or Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Confirm Device",
-        "description": "Found Melitta Barista Smart: {name}. Do you want to set it up?"
+        "description": "Found coffee machine: {name}. Do you want to set it up?"
       },
       "pair": {
         "title": "Pair with {name}",
         "description": "Enable Bluetooth pairing mode on your coffee machine (check machine settings menu), then press Submit to pair.\n\nDevice: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Reconfigure Coffee Machine",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Device is already configured",
-      "no_devices_found": "No Melitta devices found"
+      "no_devices_found": "No supported coffee machines found"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista Settings",
+        "title": "Coffee Machine Settings",
         "description": "Choose settings category",
         "menu_options": {
           "basic": "Basic Settings",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "No supported coffee machine found for this service call."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

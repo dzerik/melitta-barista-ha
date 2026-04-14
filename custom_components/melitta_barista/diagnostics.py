@@ -1,4 +1,4 @@
-"""Diagnostics support for Melitta Barista Smart."""
+"""Diagnostics support — dumps runtime state for bug reports."""
 
 from __future__ import annotations
 

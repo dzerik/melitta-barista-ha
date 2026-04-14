@@ -1,4 +1,4 @@
-"""Switch platform for Melitta Barista Smart machine settings."""
+"""Switch platform — machine settings (energy saving, auto-bean, etc.)."""
 
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista switch entities."""
+    """Set up switch entities for the configured coffee machine."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     entities = [
         MelittaSettingSwitch(client, entry, name, defn)

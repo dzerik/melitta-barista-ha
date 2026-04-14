@@ -1,4 +1,4 @@
-"""Text platform for Melitta Barista Smart user profile names."""
+"""Text platform — Melitta-only user-profile names (HA/HJ extensions)."""
 
 from __future__ import annotations
 
@@ -26,9 +26,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista text entities for user profile names."""
+    """Set up user-profile-name text entities (Melitta HA/HJ feature)."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     entities: list = []
     if "HA" in client.brand.supported_extensions or "HC" in client.brand.supported_extensions:

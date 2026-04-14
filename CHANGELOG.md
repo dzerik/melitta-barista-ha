@@ -1,6 +1,80 @@
 # Changelog
 
-All notable changes to the Melitta Barista Smart HA Integration.
+All notable changes to the Melitta Barista Smart & Nivona HA Integration.
+
+## [0.47.0] — 2026-04-14 — Brand-neutral UI, docs, and legal notices
+
+Comprehensive de-branding sweep — no more "Melitta Barista" strings shown
+to Nivona users, no legal disclaimers that forget Nivona / Eugster, and
+no stale module docstrings that claim Melitta-only scope when the code
+handles both brands.
+
+### Changed — user-facing strings
+
+- **Config-flow titles, descriptions, and placeholders** are now
+  brand-neutral ("Coffee Machine Setup", "Select your coffee
+  machine…") across `strings.json` and all **29 translation files**
+  (`bg/bs/cs/da/de/el/en/es/et/fi/fr/hr/hu/it/lt/lv/mk/nb/nl/pl/pt/ro/
+  ru/sk/sl/sr/sv/tr/uk`). Each translation uses its native term for
+  "coffee machine" (Kaffeemaschine, Machine à café, Кофемашина, …)
+  rather than the English literal.
+- **Entity-name fallbacks** in `config_flow.py`, `button.py`,
+  `sensor.py`, `switch.py`, `text.py`, `select.py`, `number.py`,
+  `binary_sensor.py` now derive the default from the active
+  `BrandProfile.brand_name` (e.g. `"Melitta Coffee Machine"`,
+  `"Nivona Coffee Machine"`) instead of the hardcoded
+  `"Melitta Barista"` literal.
+- **`model_name`** (used by `DeviceInfo.model`) falls back to
+  `f"{brand_name} Coffee Machine"` when no DIS / legacy model-table
+  hit is available, rather than `"Melitta Barista"`.
+- **AI sommelier prompt** ("You are an expert barista…") describes
+  the target as "a bean-to-cup smart coffee machine" rather than
+  "a Melitta Barista Smart".
+- **`conversation`-facing error messages** ("No coffee machine
+  available") and WebSocket sommelier API errors no longer mention
+  a specific brand.
+- **Log lines** — `"Connecting to Melitta at …"` →
+  `"Connecting to {brand_name} machine at …"`.
+
+### Changed — docstrings and module headers
+
+- Module-level docstrings in `__init__.py`, `ble_client.py`,
+  `protocol.py`, `config_flow.py`, `diagnostics.py`, `entity.py`,
+  `sensor.py`, `switch.py`, `number.py`, `binary_sensor.py`,
+  `button.py`, `select.py`, `text.py`, `_ble_commands.py`,
+  `_ble_recipes.py`, `_ble_settings.py` now describe their actual
+  scope (coffee-machine entities / Eugster protocol / multi-brand)
+  rather than claiming Melitta Barista only.
+
+### Changed — documentation, metadata, legal
+
+- **`NOTICE`** now carries full trademark disclaimers for
+  **Melitta Group Management GmbH & Co. KG**, **Nivona Apparate
+  GmbH**, and **Eugster/Frismag AG** (OEM). Previously only Melitta
+  was disclaimed.
+- **`README.md` Disclaimer** mirrors the NOTICE file and names all
+  three trademark holders.
+- **`README.md` Requirements** section lists both Melitta Barista
+  T/TS Smart (stable) and Nivona NICR/NIVO 8xxx (alpha) as
+  supported machines.
+- **`README.md` installation / UI paths** reference
+  `"Melitta Barista Smart & Nivona"` (matching the manifest `name`)
+  instead of the legacy `"Melitta Barista Smart"`.
+- **`README.md` Known Limitations** single-BLE-connection note
+  covers both the Melitta Connect and Nivona App.
+- **`hacs.json`** `name` synced with `manifest.json` (adds `& Nivona`).
+- **`CHANGELOG.md`** header updated to multi-brand scope.
+- **`docs/PROTOCOL.md`** retitled to reflect the shared
+  Eugster/EFLibrary OEM protocol rather than Melitta-only.
+- **`docs/BLE_ARCHITECTURE.md`** subtitle updated for multi-brand
+  scope.
+
+### Unchanged
+
+- On-device entity identity, unique IDs, storage keys, and service
+  payloads are untouched — this release is purely cosmetic /
+  descriptive. Existing installations see new labels after restart;
+  no reconfiguration required.
 
 ## [0.46.0] — 2026-04-14 — Brand-aware HX status parsing
 

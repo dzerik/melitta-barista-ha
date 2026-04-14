@@ -1,4 +1,4 @@
-"""Brew, maintenance, and cancel commands for Melitta BLE client (mixin)."""
+"""Brew, maintenance, and cancel commands for the BLE client (mixin)."""
 
 from __future__ import annotations
 

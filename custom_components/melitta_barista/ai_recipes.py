@@ -258,7 +258,7 @@ def _build_prompt(
         cups_section,
     ]))
 
-    return f"""You are an expert barista and coffee sommelier. Generate exactly {count} unique coffee recipes for a Melitta Barista Smart coffee machine.
+    return f"""You are an expert barista and coffee sommelier. Generate exactly {count} unique coffee recipes for a bean-to-cup smart coffee machine.
 
 ## Machine Capabilities
 Each recipe has up to 2 components (dispensed sequentially). Each component has:

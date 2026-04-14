@@ -1,4 +1,4 @@
-"""Binary sensor platform for Melitta Barista Smart."""
+"""Binary sensor platform — prompt/confirmation indicators."""
 
 from __future__ import annotations
 
@@ -28,9 +28,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista binary sensors."""
+    """Set up binary-sensor entities for the configured coffee machine."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
     async_add_entities(
         [MelittaAwaitingConfirmationBinarySensor(client, entry, name)]
     )

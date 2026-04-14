@@ -76,8 +76,10 @@ class TestClientInit:
         assert "TS" in client.model_name
 
     def test_model_name_unknown(self):
+        # With no BLE name / DIS info, the fallback is the brand name
+        # (default brand = Melitta) plus a neutral "Coffee Machine" suffix.
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
-        assert client.model_name == "Melitta Barista"
+        assert client.model_name == "Melitta Coffee Machine"
 
     def test_total_cups_initially_none(self):
         """total_cups property returns None when not read yet."""

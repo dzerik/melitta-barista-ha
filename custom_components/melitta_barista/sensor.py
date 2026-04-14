@@ -1,4 +1,4 @@
-"""Sensor platform for Melitta Barista Smart."""
+"""Sensor platform — state, activity, progress, cup counters, diagnostics."""
 
 from __future__ import annotations
 
@@ -63,9 +63,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista sensors."""
+    """Set up sensor entities for the configured coffee machine."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     entities = [
         MelittaStateSensor(client, entry, name),
@@ -90,7 +90,7 @@ async def async_setup_entry(
 
 
 class _MelittaSensorBase(MelittaDeviceMixin, SensorEntity):
-    """Base class for Melitta sensors."""
+    """Base class shared by all sensor entities."""
 
     _attr_has_entity_name = True
 

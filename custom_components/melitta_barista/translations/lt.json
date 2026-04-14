@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kavos aparatas",
         "description": "Pasirinkite kavos aparatą iš aptiktų įrenginių",
         "data": {
           "address": "Įrenginys"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Rankinis nustatymas",
-        "description": "Įveskite Melitta Barista Smart Bluetooth MAC adresą",
+        "description": "Įveskite savo kavos aparato Bluetooth MAC adresą (Melitta Barista Smart arba Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC adresas",
           "name": "Įrenginio pavadinimas"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Patvirtinti įrenginį",
-        "description": "Rastas Melitta Barista Smart: {name}. Ar norite jį nustatyti?"
+        "description": "Rastas kavos aparatas: {name}. Ar norite jį konfigūruoti?"
       },
       "pair": {
         "title": "Susiejimas su {name}",
         "description": "Įjunkite Bluetooth susiejimo režimą kavos aparate (nustatymų meniu), tada paspauskite Siųsti.\n\nĮrenginys: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Perkonfigūruoti kavos aparatą",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Įrenginys jau sukonfigūruotas",
-      "no_devices_found": "Melitta įrenginių nerasta"
+      "no_devices_found": "Palaikomų kavos aparatų nerasta"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista nustatymai",
+        "title": "Kavos aparato nustatymai",
         "description": "Pasirinkite nustatymų kategoriją",
         "menu_options": {
           "basic": "Pagrindiniai nustatymai",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Šiam paslaugos iškvietimui nerasta palaikomo kavos aparato."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

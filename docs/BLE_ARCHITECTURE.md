@@ -1,6 +1,6 @@
-# Melitta Barista Smart — BLE Architecture & Protocol
+# Melitta Barista & Nivona — BLE Architecture & Protocol
 
-> Подробная техническая документация по BLE-стеку интеграции: от Bluetooth-слоя до HA-сущностей.
+> Подробная техническая документация по BLE-стеку интеграции (общий Eugster/Frismag OEM-стек, используемый Melitta Barista T/TS Smart и Nivona NICR/NIVO 8xxx): от Bluetooth-слоя до HA-сущностей.
 
 ## Содержание
 

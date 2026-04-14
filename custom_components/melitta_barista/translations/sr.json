@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Апарат за кафу",
         "description": "Изаберите апарат за кафу са откривених уређаја",
         "data": {
           "address": "Уређај"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ручно подешавање",
-        "description": "Унесите Bluetooth MAC адресу вашег Melitta Barista Smart",
+        "description": "Унесите Bluetooth MAC адресу свог апарата за кафу (Melitta Barista Smart или Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC адреса",
           "name": "Назив уређаја"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Потврди уређај",
-        "description": "Пронађен Melitta Barista Smart: {name}. Желите ли да га подесите?"
+        "description": "Пронађен апарат за кафу: {name}. Желите ли да га подесите?"
       },
       "pair": {
         "title": "Упаривање са {name}",
         "description": "Укључите Bluetooth режим упаривања на апарату за кафу (у менију подешавања), затим притисните Пошаљи.\n\nУређај: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Поново подеси апарат за кафу",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Уређај је већ подешен",
-      "no_devices_found": "Нису пронађени Melitta уређаји"
+      "no_devices_found": "Нема пронађених подржаних апарата за кафу"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Подешавања Melitta Barista",
+        "title": "Подешавања апарата за кафу",
         "description": "Изаберите категорију подешавања",
         "menu_options": {
           "basic": "Основна подешавања",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Није пронађен ниједан подржани апарат за кафу за овај позив услуге."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

@@ -1,4 +1,4 @@
-"""Recipe, profile, and cup counter operations for Melitta BLE client (mixin)."""
+"""Recipe, profile, and cup counter operations for the BLE client (mixin)."""
 
 from __future__ import annotations
 

@@ -490,7 +490,7 @@ async def ws_brew(
 
     client = _find_client(hass)
     if client is None:
-        connection.send_error(msg["id"], "no_device", "No Melitta device available")
+        connection.send_error(msg["id"], "no_device", "No coffee machine available")
         return
 
     try:
@@ -602,7 +602,7 @@ async def ws_favorites_brew(
 
     client = _find_client(hass)
     if client is None:
-        connection.send_error(msg["id"], "no_device", "No Melitta device available")
+        connection.send_error(msg["id"], "no_device", "No coffee machine available")
         return
 
     try:

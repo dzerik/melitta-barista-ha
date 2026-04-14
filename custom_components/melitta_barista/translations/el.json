@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Καφετιέρα",
         "description": "Επιλέξτε τη μηχανή καφέ σας από τις ανιχνευμένες συσκευές",
         "data": {
           "address": "Συσκευή"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Χειροκίνητη ρύθμιση",
-        "description": "Εισάγετε τη διεύθυνση Bluetooth MAC της Melitta Barista Smart",
+        "description": "Εισαγάγετε τη διεύθυνση MAC Bluetooth της καφετιέρας σας (Melitta Barista Smart ή Nivona NICR/NIVO)",
         "data": {
           "address": "Διεύθυνση Bluetooth MAC",
           "name": "Όνομα συσκευής"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Επιβεβαίωση συσκευής",
-        "description": "Βρέθηκε Melitta Barista Smart: {name}. Θέλετε να τη ρυθμίσετε;"
+        "description": "Βρέθηκε καφετιέρα: {name}. Θέλετε να τη ρυθμίσετε;"
       },
       "pair": {
         "title": "Σύζευξη με {name}",
         "description": "Ενεργοποιήστε τη λειτουργία σύζευξης Bluetooth στην καφετιέρα (στο μενού ρυθμίσεων), μετά πατήστε Αποστολή.\n\nΣυσκευή: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Επαναρύθμιση καφετιέρας",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Η συσκευή έχει ήδη ρυθμιστεί",
-      "no_devices_found": "Δεν βρέθηκαν συσκευές Melitta"
+      "no_devices_found": "Δεν βρέθηκαν υποστηριζόμενες καφετιέρες"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Ρυθμίσεις Melitta Barista",
+        "title": "Ρυθμίσεις καφετιέρας",
         "description": "Επιλέξτε κατηγορία ρυθμίσεων",
         "menu_options": {
           "basic": "Βασικές ρυθμίσεις",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Δεν βρέθηκε υποστηριζόμενη καφετιέρα για αυτήν την κλήση υπηρεσίας."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

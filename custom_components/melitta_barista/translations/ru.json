@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Кофемашина",
         "description": "Выберите кофемашину из обнаруженных устройств",
         "data": {
           "address": "Устройство"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ручная настройка",
-        "description": "Введите Bluetooth MAC-адрес вашей Melitta Barista Smart",
+        "description": "Введите Bluetooth MAC-адрес вашей кофемашины (Melitta Barista Smart или Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-адрес",
           "name": "Имя устройства"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Подтверждение устройства",
-        "description": "Найдена Melitta Barista Smart: {name}. Хотите настроить?"
+        "description": "Найдена кофемашина: {name}. Настроить её?"
       },
       "pair": {
         "title": "Сопряжение с {name}",
         "description": "Включите режим сопряжения Bluetooth на кофемашине (в меню настроек машины), затем нажмите Отправить.\n\nУстройство: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Перенастроить кофемашину",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Устройство уже настроено",
-      "no_devices_found": "Устройства Melitta не найдены"
+      "no_devices_found": "Поддерживаемые кофемашины не найдены"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Настройки Melitta Barista",
+        "title": "Настройки кофемашины",
         "description": "Выберите категорию настроек",
         "menu_options": {
           "basic": "Основные настройки",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Поддерживаемая кофемашина для этого вызова сервиса не найдена."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

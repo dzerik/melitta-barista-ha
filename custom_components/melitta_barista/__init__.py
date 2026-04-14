@@ -1,4 +1,4 @@
-"""The Melitta Barista Smart integration."""
+"""Home Assistant integration for Melitta & Nivona smart coffee machines."""
 
 from __future__ import annotations
 
@@ -144,7 +144,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Melitta Barista Smart from a config entry."""
+    """Set up a coffee-machine integration from a config entry."""
     from .brands import get_profile  # noqa: PLC0415
 
     address: str = entry.data[CONF_ADDRESS]

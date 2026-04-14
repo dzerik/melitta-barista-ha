@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kafijas automāts",
         "description": "Izvēlieties savu kafijas automātu no atrastajām ierīcēm",
         "data": {
           "address": "Ierīce"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuāla konfigurācija",
-        "description": "Ievadiet Melitta Barista Smart Bluetooth MAC adresi",
+        "description": "Ievadiet sava kafijas automāta Bluetooth MAC adresi (Melitta Barista Smart vai Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC adrese",
           "name": "Ierīces nosaukums"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Apstiprināt ierīci",
-        "description": "Atrasts Melitta Barista Smart: {name}. Vai vēlaties to iestatīt?"
+        "description": "Atrasts kafijas automāts: {name}. Vai vēlaties to iestatīt?"
       },
       "pair": {
         "title": "Savienošana ar {name}",
         "description": "Ieslēdziet Bluetooth savienošanas režīmu kafijas automātā (iestatījumu izvēlnē), tad nospiediet Nosūtīt.\n\nIerīce: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Pārkonfigurēt kafijas automātu",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Ierīce jau ir konfigurēta",
-      "no_devices_found": "Melitta ierīces nav atrastas"
+      "no_devices_found": "Nav atrasti atbalstīti kafijas automāti"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista iestatījumi",
+        "title": "Kafijas automāta iestatījumi",
         "description": "Izvēlieties iestatījumu kategoriju",
         "menu_options": {
           "basic": "Pamata iestatījumi",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Šim pakalpojuma izsaukumam nav atrasts atbalstīts kafijas automāts."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

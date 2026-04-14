@@ -1,4 +1,4 @@
-"""Settings and alphanumeric read/write operations for Melitta BLE client (mixin)."""
+"""Settings and alphanumeric read/write operations for the BLE client (mixin)."""
 
 from __future__ import annotations
 

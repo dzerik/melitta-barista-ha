@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Ekspres do kawy",
         "description": "Wybierz ekspres do kawy z wykrytych urządzeń",
         "data": {
           "address": "Urządzenie"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ręczna konfiguracja",
-        "description": "Wprowadź adres Bluetooth MAC ekspresu Melitta Barista Smart",
+        "description": "Wprowadź adres MAC Bluetooth swojego ekspresu do kawy (Melitta Barista Smart lub Nivona NICR/NIVO)",
         "data": {
           "address": "Adres Bluetooth MAC",
           "name": "Nazwa urządzenia"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Potwierdź urządzenie",
-        "description": "Znaleziono Melitta Barista Smart: {name}. Czy chcesz go skonfigurować?"
+        "description": "Znaleziono ekspres do kawy: {name}. Czy chcesz go skonfigurować?"
       },
       "pair": {
         "title": "Parowanie z {name}",
         "description": "Włącz tryb parowania Bluetooth na ekspresie (w menu ustawień), a następnie naciśnij Wyślij.\n\nUrządzenie: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Rekonfiguracja ekspresu do kawy",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Urządzenie jest już skonfigurowane",
-      "no_devices_found": "Nie znaleziono urządzeń Melitta"
+      "no_devices_found": "Nie znaleziono obsługiwanych ekspresów do kawy"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Ustawienia Melitta Barista",
+        "title": "Ustawienia ekspresu do kawy",
         "description": "Wybierz kategorię ustawień",
         "menu_options": {
           "basic": "Ustawienia podstawowe",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Nie znaleziono obsługiwanego ekspresu do kawy dla tego wywołania usługi."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

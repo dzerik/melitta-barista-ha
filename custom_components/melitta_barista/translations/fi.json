@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kahvikone",
         "description": "Valitse kahvikoneesi löydetyistä laitteista",
         "data": {
           "address": "Laite"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuaalinen määritys",
-        "description": "Anna Melitta Barista Smartin Bluetooth MAC-osoite",
+        "description": "Syötä kahvikoneesi Bluetooth-MAC-osoite (Melitta Barista Smart tai Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-osoite",
           "name": "Laitteen nimi"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Vahvista laite",
-        "description": "Melitta Barista Smart löydetty: {name}. Haluatko määrittää sen?"
+        "description": "Kahvikone löytyi: {name}. Haluatko määrittää sen?"
       },
       "pair": {
         "title": "Pariliitos laitteeseen {name}",
         "description": "Ota Bluetooth-pariliitostila käyttöön kahvikoneessasi (asetusvalikossa), paina sitten Lähetä.\n\nLaite: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Määritä kahvikone uudelleen",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Laite on jo määritetty",
-      "no_devices_found": "Melitta-laitteita ei löytynyt"
+      "no_devices_found": "Tuettuja kahvikoneita ei löytynyt"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista -asetukset",
+        "title": "Kahvikoneen asetukset",
         "description": "Valitse asetuskategoria",
         "menu_options": {
           "basic": "Perusasetukset",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Tälle palvelukutsulle ei löytynyt tuettua kahvikonetta."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kahve makinesi",
         "description": "Bulunan cihazlardan kahve makinenizi seçin",
         "data": {
           "address": "Cihaz"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuel yapılandırma",
-        "description": "Melitta Barista Smart'ınızın Bluetooth MAC adresini girin",
+        "description": "Kahve makinenizin Bluetooth MAC adresini girin (Melitta Barista Smart veya Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC adresi",
           "name": "Cihaz adı"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Cihazı onayla",
-        "description": "Melitta Barista Smart bulundu: {name}. Kurmak ister misiniz?"
+        "description": "Kahve makinesi bulundu: {name}. Kurmak ister misiniz?"
       },
       "pair": {
         "title": "{name} ile eşleştir",
         "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsünde), ardından Gönder'e basın.\n\nCihaz: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Kahve makinesini yeniden yapılandır",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Cihaz zaten yapılandırılmış",
-      "no_devices_found": "Melitta cihazı bulunamadı"
+      "no_devices_found": "Desteklenen kahve makinesi bulunamadı"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista Ayarları",
+        "title": "Kahve makinesi ayarları",
         "description": "Ayar kategorisini seçin",
         "menu_options": {
           "basic": "Temel Ayarlar",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Bu servis çağrısı için desteklenen kahve makinesi bulunamadı."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

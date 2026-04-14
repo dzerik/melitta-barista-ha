@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Aparat za kavo",
         "description": "Izberite kavni aparat iz odkritih naprav",
         "data": {
           "address": "Naprava"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ročna nastavitev",
-        "description": "Vnesite Bluetooth MAC naslov vaše Melitta Barista Smart",
+        "description": "Vnesite Bluetooth MAC naslov svojega aparata za kavo (Melitta Barista Smart ali Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC naslov",
           "name": "Ime naprave"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Potrdi napravo",
-        "description": "Najden Melitta Barista Smart: {name}. Želite nastaviti?"
+        "description": "Najden aparat za kavo: {name}. Ali ga želite nastaviti?"
       },
       "pair": {
         "title": "Povezovanje z {name}",
         "description": "Vklopite Bluetooth način povezovanja na kavnem aparatu (v meniju nastavitev), nato pritisnite Pošlji.\n\nNaprava: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Ponastavi aparat za kavo",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Naprava je že nastavljena",
-      "no_devices_found": "Naprave Melitta niso bile najdene"
+      "no_devices_found": "Podprtih aparatov za kavo ni bilo mogoče najti"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Nastavitve Melitta Barista",
+        "title": "Nastavitve aparata za kavo",
         "description": "Izberite kategorijo nastavitev",
         "menu_options": {
           "basic": "Osnovne nastavitve",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Za ta klic storitve ni bilo mogoče najti podprtega aparata za kavo."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

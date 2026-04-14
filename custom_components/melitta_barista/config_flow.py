@@ -1,4 +1,4 @@
-"""Config flow for Melitta Barista Smart."""
+"""Config flow for the multi-brand coffee-machine integration (Melitta / Nivona)."""
 
 import logging
 from typing import Any
@@ -47,9 +47,28 @@ _LOGGER = logging.getLogger("melitta_barista")
 
 PAIR_TIMEOUT = DEFAULT_PAIR_TIMEOUT
 
+# Neutral fallback shown when brand cannot be inferred from the BLE
+# advertisement (e.g. manual MAC entry before connection).
+_FALLBACK_NAME = "Smart Coffee Machine"
+
+
+def _suggested_name(local_name: str | None) -> str:
+    """Derive a user-facing default name from the BLE advertisement.
+
+    If the local_name matches a registered brand profile, use the brand
+    name prefix (``"Melitta Smart Coffee Machine"`` /
+    ``"Nivona Smart Coffee Machine"``); otherwise fall back to a neutral
+    label so we never mis-brand a device we have not identified.
+    """
+    from .brands import detect_from_advertisement  # noqa: PLC0415
+    profile = detect_from_advertisement(local_name) if local_name else None
+    if profile is None:
+        return _FALLBACK_NAME
+    return f"{profile.brand_name} {_FALLBACK_NAME}"
+
 
 class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Melitta Barista Smart."""
+    """Handle the config flow for Melitta and Nivona coffee machines."""
 
     VERSION = 2
 
@@ -75,7 +94,10 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_manual()
 
             address = user_input[CONF_ADDRESS]
-            name = self._discovered_devices.get(address, "Melitta Barista Smart")
+            # _discovered_devices values are the raw advertisement
+            # local_names — if the entry is missing, fall back to a
+            # brand-neutral label.
+            name = self._discovered_devices.get(address, _FALLBACK_NAME)
 
             await self.async_set_unique_id(address.replace(":", "").lower())
             self._abort_if_unique_id_configured()
@@ -106,7 +128,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def _async_discover_devices(self) -> None:
-        """Discover Melitta devices via HA bluetooth and BLE scan."""
+        """Discover supported coffee machines via HA bluetooth and BLE scan."""
         self._discovered_devices = {}
 
         # Try HA bluetooth integration first
@@ -114,8 +136,12 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             for info in async_discovered_service_info(self.hass):
                 for uuid in info.service_uuids:
                     if MELITTA_SERVICE_UUID in uuid.lower():
+                        # If the peripheral didn't advertise a local_name,
+                        # label it with the detected brand when possible,
+                        # else a neutral placeholder with the MAC.
+                        fallback = f"{_suggested_name(None)} ({info.address})"
                         self._discovered_devices[info.address] = (
-                            info.name or f"Melitta ({info.address})"
+                            info.name or fallback
                         )
         except (AttributeError, ValueError):
             _LOGGER.debug("HA bluetooth not available, falling back to direct scan")
@@ -142,7 +168,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             address = user_input[CONF_ADDRESS].strip().upper()
-            name = user_input.get(CONF_NAME, "Melitta Barista Smart")
+            name = user_input.get(CONF_NAME, _FALLBACK_NAME)
 
             # Basic MAC address validation
             if len(address.replace(":", "").replace("-", "")) != 12:
@@ -163,7 +189,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="manual",
             data_schema=vol.Schema({
                 vol.Required(CONF_ADDRESS): str,
-                vol.Optional(CONF_NAME, default="Melitta Barista Smart"): str,
+                vol.Optional(CONF_NAME, default=_FALLBACK_NAME): str,
             }),
             errors=errors,
         )
@@ -173,7 +199,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle bluetooth discovery."""
         address = discovery_info.address
-        name = discovery_info.name or "Melitta Barista Smart"
+        name = discovery_info.name or _suggested_name(None)
 
         await self.async_set_unique_id(address.replace(":", "").lower())
         self._abort_if_unique_id_configured()
@@ -193,7 +219,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="bluetooth_confirm",
             description_placeholders={
-                "name": self._name or "Melitta Barista Smart",
+                "name": self._name or _FALLBACK_NAME,
             },
         )
 
@@ -214,7 +240,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                 profile = detect_from_advertisement(self._name)
                 brand_slug = profile.brand_slug if profile else DEFAULT_BRAND
                 return self.async_create_entry(
-                    title=self._name or "Melitta Barista Smart",
+                    title=self._name or _suggested_name(self._name),
                     data={
                         CONF_ADDRESS: self._address,
                         CONF_NAME: self._name,
@@ -227,7 +253,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="pair",
             description_placeholders={
-                "name": self._name or "Melitta Barista Smart",
+                "name": self._name or _FALLBACK_NAME,
                 "address": self._address or "",
             },
             errors=errors,
@@ -289,7 +315,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                 ): str,
                 vol.Optional(
                     CONF_NAME,
-                    default=entry.data.get(CONF_NAME, "Melitta Barista Smart"),
+                    default=entry.data.get(CONF_NAME, _FALLBACK_NAME),
                 ): str,
             }),
             errors=errors,
@@ -297,7 +323,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class MelittaOptionsFlow(OptionsFlow):
-    """Handle options flow for Melitta Barista Smart."""
+    """Handle the options flow for the coffee-machine integration."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
         self._config_entry = config_entry

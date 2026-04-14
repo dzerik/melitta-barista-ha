@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Кафемашина",
         "description": "Изберете кафемашината си от откритите устройства",
         "data": {
           "address": "Устройство"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ръчна конфигурация",
-        "description": "Въведете Bluetooth MAC адреса на вашата Melitta Barista Smart",
+        "description": "Въведете Bluetooth MAC адреса на вашата кафемашина (Melitta Barista Smart или Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC адрес",
           "name": "Име на устройството"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Потвърждение на устройство",
-        "description": "Намерена Melitta Barista Smart: {name}. Искате ли да я настроите?"
+        "description": "Намерена кафемашина: {name}. Искате ли да я настроите?"
       },
       "pair": {
         "title": "Сдвояване с {name}",
         "description": "Включете режим на сдвояване по Bluetooth на кафемашината (в менюто с настройки), след което натиснете Изпрати.\n\nУстройство: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Преконфигуриране на кафемашината",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Устройството вече е конфигурирано",
-      "no_devices_found": "Не са намерени устройства Melitta"
+      "no_devices_found": "Не са намерени поддържани кафемашини"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Настройки на Melitta Barista",
+        "title": "Настройки на кафемашината",
         "description": "Изберете категория настройки",
         "menu_options": {
           "basic": "Основни настройки",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Не е намерена поддържана кафемашина за това извикване на услуга."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kávovar",
         "description": "Vyberte kávovar z nájdených zariadení",
         "data": {
           "address": "Zariadenie"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Ručná konfigurácia",
-        "description": "Zadajte Bluetooth MAC adresu vášho Melitta Barista Smart",
+        "description": "Zadajte Bluetooth MAC adresu svojho kávovaru (Melitta Barista Smart alebo Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC adresa",
           "name": "Názov zariadenia"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Potvrdiť zariadenie",
-        "description": "Nájdený Melitta Barista Smart: {name}. Chcete ho nastaviť?"
+        "description": "Nájdený kávovar: {name}. Chcete ho nastaviť?"
       },
       "pair": {
         "title": "Párovanie s {name}",
         "description": "Zapnite režim párovania Bluetooth na kávovare (v menu nastavení), potom stlačte Odoslať.\n\nZariadenie: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Rekonfigurovať kávovar",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Zariadenie je už nakonfigurované",
-      "no_devices_found": "Nenašli sa žiadne zariadenia Melitta"
+      "no_devices_found": "Nenašli sa žiadne podporované kávovary"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Nastavenia Melitta Barista",
+        "title": "Nastavenia kávovaru",
         "description": "Vyberte kategóriu nastavení",
         "menu_options": {
           "basic": "Základné nastavenia",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Pre toto volanie služby sa nenašiel žiadny podporovaný kávovar."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kaffeemaschine",
         "description": "Wählen Sie Ihre Kaffeemaschine aus den erkannten Geräten",
         "data": {
           "address": "Gerät"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuelle Konfiguration",
-        "description": "Geben Sie die Bluetooth-MAC-Adresse Ihrer Melitta Barista Smart ein",
+        "description": "Geben Sie die Bluetooth-MAC-Adresse Ihrer Kaffeemaschine ein (Melitta Barista Smart oder Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth-MAC-Adresse",
           "name": "Gerätename"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Gerät bestätigen",
-        "description": "Melitta Barista Smart gefunden: {name}. Möchten Sie es einrichten?"
+        "description": "Kaffeemaschine gefunden: {name}. Möchten Sie sie einrichten?"
       },
       "pair": {
         "title": "Kopplung mit {name}",
         "description": "Aktivieren Sie den Bluetooth-Kopplungsmodus an Ihrer Kaffeemaschine (im Einstellungsmenü der Maschine), dann drücken Sie Senden zum Koppeln.\n\nGerät: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Kaffeemaschine neu konfigurieren",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Gerät ist bereits konfiguriert",
-      "no_devices_found": "Keine Melitta-Geräte gefunden"
+      "no_devices_found": "Keine unterstützten Kaffeemaschinen gefunden"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista Einstellungen",
+        "title": "Einstellungen der Kaffeemaschine",
         "description": "Einstellungskategorie wählen",
         "menu_options": {
           "basic": "Grundeinstellungen",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Für diesen Dienstaufruf wurde keine unterstützte Kaffeemaschine gefunden."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

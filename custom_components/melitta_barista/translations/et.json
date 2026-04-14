@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kohvimasin",
         "description": "Valige kohvimasin leitud seadmete hulgast",
         "data": {
           "address": "Seade"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Käsitsi seadistamine",
-        "description": "Sisestage oma Melitta Barista Smart Bluetooth MAC-aadress",
+        "description": "Sisestage oma kohvimasina Bluetoothi MAC-aadress (Melitta Barista Smart või Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-aadress",
           "name": "Seadme nimi"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Kinnita seade",
-        "description": "Leitud Melitta Barista Smart: {name}. Kas soovite selle seadistada?"
+        "description": "Leitud kohvimasin: {name}. Kas soovite selle seadistada?"
       },
       "pair": {
         "title": "Sidumine seadmega {name}",
         "description": "Lülitage kohvimasinal Bluetooth sidumisrežiim sisse (seadete menüüs), seejärel vajutage Saada.\n\nSeade: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Kohvimasina ümberseadistamine",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Seade on juba seadistatud",
-      "no_devices_found": "Melitta seadmeid ei leitud"
+      "no_devices_found": "Toetatud kohvimasinaid ei leitud"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista seaded",
+        "title": "Kohvimasina sätted",
         "description": "Valige seadete kategooria",
         "menu_options": {
           "basic": "Põhiseaded",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Selle teenusekutse jaoks ei leitud toetatud kohvimasinat."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

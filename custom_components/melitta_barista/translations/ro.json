@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Espressor",
         "description": "Selectați aparatul de cafea din dispozitivele descoperite",
         "data": {
           "address": "Dispozitiv"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Configurare manuală",
-        "description": "Introduceți adresa Bluetooth MAC a Melitta Barista Smart",
+        "description": "Introduceți adresa MAC Bluetooth a espressorului dumneavoastră (Melitta Barista Smart sau Nivona NICR/NIVO)",
         "data": {
           "address": "Adresă Bluetooth MAC",
           "name": "Numele dispozitivului"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Confirmare dispozitiv",
-        "description": "Melitta Barista Smart găsit: {name}. Doriți să îl configurați?"
+        "description": "Espressor găsit: {name}. Doriți să-l configurați?"
       },
       "pair": {
         "title": "Împerechere cu {name}",
         "description": "Activați modul de împerechere Bluetooth pe aparatul de cafea (în meniul de setări), apoi apăsați Trimite.\n\nDispozitiv: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Reconfigurare espressor",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Dispozitivul este deja configurat",
-      "no_devices_found": "Nu s-au găsit dispozitive Melitta"
+      "no_devices_found": "Nu au fost găsite espressoare compatibile"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Setări Melitta Barista",
+        "title": "Setări espressor",
         "description": "Alegeți categoria de setări",
         "menu_options": {
           "basic": "Setări de bază",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Nu s-a găsit niciun espressor compatibil pentru acest apel de serviciu."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

@@ -516,7 +516,8 @@ async def test_step_bluetooth_no_name_uses_default(
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "bluetooth_confirm"
-    assert result["description_placeholders"]["name"] == "Melitta Barista Smart"
+    # Brand-neutral default when the discovery advertisement carries no name.
+    assert result["description_placeholders"]["name"] == "Smart Coffee Machine"
 
 
 # ---------------------------------------------------------------------------

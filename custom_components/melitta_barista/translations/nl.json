@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Koffiemachine",
         "description": "Selecteer uw koffiezetapparaat uit de gevonden apparaten",
         "data": {
           "address": "Apparaat"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Handmatige configuratie",
-        "description": "Voer het Bluetooth MAC-adres van uw Melitta Barista Smart in",
+        "description": "Voer het Bluetooth MAC-adres van uw koffiemachine in (Melitta Barista Smart of Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-adres",
           "name": "Apparaatnaam"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Apparaat bevestigen",
-        "description": "Melitta Barista Smart gevonden: {name}. Wilt u deze instellen?"
+        "description": "Koffiemachine gevonden: {name}. Wilt u deze instellen?"
       },
       "pair": {
         "title": "Koppelen met {name}",
         "description": "Schakel de Bluetooth-koppelingsmodus in op uw koffiemachine (controleer het instellingenmenu van de machine), druk daarna op Verzenden om te koppelen.\n\nApparaat: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Koffiemachine opnieuw configureren",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Apparaat is al geconfigureerd",
-      "no_devices_found": "Geen Melitta-apparaten gevonden"
+      "no_devices_found": "Geen ondersteunde koffiemachines gevonden"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista Instellingen",
+        "title": "Instellingen koffiemachine",
         "description": "Kies instellingencategorie",
         "menu_options": {
           "basic": "Basisinstellingen",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Geen ondersteunde koffiemachine gevonden voor deze service-aanroep."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

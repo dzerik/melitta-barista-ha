@@ -2,28 +2,41 @@ LEGAL NOTICE
 
 This project is an independent, open-source, non-commercial integration
 created for personal and educational purposes. It is not affiliated with,
-endorsed by, sponsored by, or connected to Melitta Group Management GmbH & Co. KG
-or any of its subsidiaries.
+endorsed by, sponsored by, or connected to Melitta Group Management
+GmbH & Co. KG, Nivona Apparate GmbH, Eugster/Frismag AG, or any of their
+subsidiaries or affiliates.
 
 TRADEMARKS
 
-"Melitta", "Barista T Smart", "Barista TS Smart", and the Melitta logo are
-registered trademarks of Melitta Group Management GmbH & Co. KG. All other
-product names, logos, and brands mentioned in this project are the property
-of their respective owners. Use of these names and marks is for identification
-and interoperability purposes only and does not imply endorsement.
+"Melitta", "Barista T Smart", "Barista TS Smart", "Caffeo", and the
+Melitta logo are registered trademarks of Melitta Group Management
+GmbH & Co. KG.
+
+"Nivona", "NICR", "NIVO", "NIVO 8000", and the Nivona logo are
+registered trademarks of Nivona Apparate GmbH.
+
+"Eugster", "Frismag", and associated product names are trademarks of
+Eugster/Frismag AG, the OEM manufacturer whose BLE protocol is shared
+by both brands' smart coffee machines.
+
+All other product names, logos, and brands mentioned in this project
+are the property of their respective owners. Use of these names and
+marks is for identification and interoperability purposes only and
+does not imply endorsement.
 
 THIRD-PARTY ASSETS
 
-This project includes brand assets (logos and icons) that are the intellectual
-property of Melitta Group Management GmbH & Co. KG. These assets are used
-solely for the purpose of providing a compatible Home Assistant integration
-for Melitta coffee machines in a non-commercial context. No ownership of
-these assets is claimed.
+This project may include brand assets (logos and icons) that are the
+intellectual property of Melitta Group Management GmbH & Co. KG, Nivona
+Apparate GmbH, or Eugster/Frismag AG. These assets are used solely for
+the purpose of providing a compatible Home Assistant integration for
+their respective coffee machines in a non-commercial context. No
+ownership of these assets is claimed.
 
-If you are a rights holder and believe that any content in this repository
-infringes your intellectual property rights, please open an issue or contact
-the maintainer directly, and the content will be promptly removed or replaced.
+If you are a rights holder and believe that any content in this
+repository infringes your intellectual property rights, please open an
+issue or contact the maintainer directly, and the content will be
+promptly removed or replaced.
 
 NON-COMMERCIAL USE
 

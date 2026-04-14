@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kaffemaskin",
         "description": "Välj din kaffemaskin från upptäckta enheter",
         "data": {
           "address": "Enhet"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuell konfiguration",
-        "description": "Ange Bluetooth MAC-adressen för din Melitta Barista Smart",
+        "description": "Ange Bluetooth-MAC-adressen för din kaffemaskin (Melitta Barista Smart eller Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-adress",
           "name": "Enhetsnamn"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Bekräfta enhet",
-        "description": "Melitta Barista Smart hittad: {name}. Vill du konfigurera den?"
+        "description": "Kaffemaskin hittad: {name}. Vill du konfigurera den?"
       },
       "pair": {
         "title": "Parkoppla med {name}",
         "description": "Aktivera Bluetooth-parkopplingsläget på din kaffemaskin (i inställningsmenyn), tryck sedan på Skicka.\n\nEnhet: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Konfigurera om kaffemaskin",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Enheten är redan konfigurerad",
-      "no_devices_found": "Inga Melitta-enheter hittades"
+      "no_devices_found": "Inga kaffemaskiner som stöds hittades"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista-inställningar",
+        "title": "Inställningar för kaffemaskin",
         "description": "Välj inställningskategori",
         "menu_options": {
           "basic": "Grundinställningar",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Ingen kaffemaskin som stöds hittades för detta serviceanrop."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

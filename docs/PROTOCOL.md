@@ -1,6 +1,13 @@
-# Melitta Barista TS Smart — BLE Protocol Documentation
+# Eugster/EFLibrary BLE Protocol — Melitta Barista & Nivona
 
-Reverse-engineered BLE protocol for Melitta Barista TS Smart coffee machines.
+Reverse-engineered BLE protocol shared by Melitta Barista T/TS Smart
+and Nivona NICR/NIVO 8xxx coffee machines. Both brands ship the same
+Eugster/Frismag OEM BLE stack (service `AD00`, encrypted frames,
+HU handshake). Per-brand specifics are limited to the RC4 runtime key,
+the HU verifier table, and a small set of family-specific process codes
+in the HX status payload — see `custom_components/melitta_barista/brands/`.
+This document originally targeted the Melitta Barista TS Smart but the
+frame format, opcode set, and transport logic apply verbatim to Nivona.
 
 ## BLE GATT
 

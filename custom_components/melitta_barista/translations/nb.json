@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Melitta Barista Smart",
+        "title": "Kaffemaskin",
         "description": "Velg kaffemaskinen din fra oppdagede enheter",
         "data": {
           "address": "Enhet"
@@ -10,7 +10,7 @@
       },
       "manual": {
         "title": "Manuell konfigurasjon",
-        "description": "Skriv inn Bluetooth MAC-adressen til din Melitta Barista Smart",
+        "description": "Oppgi Bluetooth-MAC-adressen til kaffemaskinen din (Melitta Barista Smart eller Nivona NICR/NIVO)",
         "data": {
           "address": "Bluetooth MAC-adresse",
           "name": "Enhetsnavn"
@@ -18,14 +18,14 @@
       },
       "bluetooth_confirm": {
         "title": "Bekreft enhet",
-        "description": "Melitta Barista Smart funnet: {name}. Vil du konfigurere den?"
+        "description": "Kaffemaskin funnet: {name}. Vil du sette den opp?"
       },
       "pair": {
         "title": "Paring med {name}",
         "description": "Aktiver Bluetooth-paringsmodus på kaffemaskinen (i innstillingsmenyen), trykk deretter på Send.\n\nEnhet: **{name}** ({address})"
       },
       "reconfigure": {
-        "title": "Reconfigure Melitta Barista",
+        "title": "Rekonfigurer kaffemaskin",
         "data": {
           "address": "Bluetooth MAC Address",
           "name": "Device Name"
@@ -41,13 +41,13 @@
     },
     "abort": {
       "already_configured": "Enheten er allerede konfigurert",
-      "no_devices_found": "Ingen Melitta-enheter funnet"
+      "no_devices_found": "Ingen støttede kaffemaskiner funnet"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Melitta Barista-innstillinger",
+        "title": "Innstillinger for kaffemaskin",
         "description": "Velg innstillingskategori",
         "menu_options": {
           "basic": "Grunninnstillinger",
@@ -267,7 +267,7 @@
   },
   "exceptions": {
     "device_not_found": {
-      "message": "Melitta device not found for this service call."
+      "message": "Ingen støttet kaffemaskin funnet for dette tjenestekallet."
     },
     "brew_failed": {
       "message": "Brewing failed. Check the machine status and try again."

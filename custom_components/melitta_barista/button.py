@@ -1,4 +1,4 @@
-"""Button platform for Melitta Barista Smart."""
+"""Button platform — brew / cancel / maintenance for supported machines."""
 
 from __future__ import annotations
 
@@ -32,9 +32,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Melitta Barista buttons."""
+    """Set up button entities for the configured coffee machine."""
     client: MelittaBleClient = entry.runtime_data
-    name = entry.data.get(CONF_NAME, "Melitta Barista")
+    name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     entities: list[ButtonEntity] = []
     supports_recipe = "HC" in client.brand.supported_extensions
@@ -115,7 +115,7 @@ async def async_setup_entry(
 
 
 class _MelittaButtonBase(MelittaDeviceMixin, ButtonEntity):
-    """Base for Melitta buttons."""
+    """Base class shared by all coffee-machine buttons."""
 
     _attr_has_entity_name = True
 
