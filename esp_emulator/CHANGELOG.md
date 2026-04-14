@@ -6,6 +6,86 @@ fixes, new brand-emulation coverage, and protocol-fidelity work happen
 here without touching the integration's release cycle, and vice versa.
 Emulator releases are tagged `emu-v<MAJOR>.<MINOR>.<PATCH>`.
 
+## [0.7.0] — 2026-04-14 — Audit V2 fixes (decompile-grounded)
+
+Closes **10 prioritised findings** from
+`docs/NIVONA_EMULATOR_AUDIT_V2.md`, where every change is backed by
+a file:line citation in the decompiled Nivona Android app
+(`/home/dzerik/Development/esp-coffee-bridge/apk_study/decompiled/`).
+The V1 audit had no access to this decompile — V2 resolves ~80 % of
+previous "TBD" tags.
+
+### Fixed (decompile-grounded)
+
+- **HX Message byte is BE int16, not (info, manip) pair.** The
+  Nivona Android app decodes bytes 4–5 as a single 16-bit Message
+  (`EugsterMobileApp.Droid.decompiled.cs:28601-28623`). The
+  emulator's `nivona_fsm_set_info` now logs a warning on non-zero
+  `info` because it turns Message into an unrecognised value
+  (neither 0/11/20 nor within the app's error range ≤6), silently
+  disabling flush / error dialogs.
+- **HY always ACKs.** Real app fire-and-forgets HY with 4 zero
+  bytes and polls HX for status change
+  (`EugsterMobileApp.decompiled.cs:6447-6451`,
+  `Droid:26054-26097`). Emulator's previous NACK-on-hard-prompt
+  contradicted the app model.
+- **HD resets ONE setting by id** (previously silently ACKed
+  without any state change). Real handler is
+  `SetDefaultNumericValue(short id)` per `Droid:28692-28701`.
+  New `nivona_store_erase_num(id)` called with the 2-byte BE id
+  from payload.
+- **Per-family stat tables.** New `nivona_stats.{h,c}` ported
+  line-by-line from `StatisticsFactory.GetAvailableStatisticsFor*`
+  (`EugsterMobileApp.decompiled.cs:9146-9306`) — five family groups
+  with recipe-counter masks, cumulative-counter IDs, and
+  "dependent setting" IDs. No two families agree: 600 and 700/79X
+  have NO cumulative counters; 1000-family uses 216 for
+  clean_coffee where 8000/900 use 214; 1000 uses 222 for descale
+  where 8000/900 use 220.
+- **Cup counter gates on family's stat map** — emulator no longer
+  ticks `200+selector` when that selector has no counter on the
+  current family (e.g. 79X selector 4 → no HR id; 600 selector 2
+  or 5 → absent).
+- **Cycle counters are family-resolved** — `resolve_stat_counter()`
+  in `nivona_maint_cycle.c` picks the right HR id for descale /
+  clean_coffee / rinse / filter_change per family. Writing 220 for
+  descale on a 1000-family machine would have been wrong (real id
+  is 222); writing any counter on 600/700/79X would have been
+  wrong (they have no cumulative counters at all).
+- **Filter dependent-setting ID seeded per family** — 642 for 8000,
+  101 for 1000/900, 105 for 700/79X/600
+  (`:9178, :9215, :9239, :9263, :9304`).
+- **HE mode byte verified** — NACK on mismatch between
+  `payload[1]` and the family's `brew_command_mode` (0x04 for
+  8000, 0x0B for others; `:6463`). Also validates `flags` in
+  {0x00 (ChilledBrew), 0x01 (normal)} with citation of
+  `MakeStandardRecipeFallback` (`:6491-6526`).
+- **ADV manufacturer-data tail bytes** marked TBD —
+  `EFLibrary.CheckDiscovered` is control-flow-flattened with
+  encrypted strings; exact values cannot be extracted from
+  decompile. Confirmed only `customerId = 0xFFFF`
+  (`Droid:28189, 28407`).
+
+### Changed (housekeeping)
+
+- **Melitta-derived `PROC_READY=2 / PROC_PRODUCT=4` enum removed.**
+  Never used directly (families[] overrides at runtime) —
+  misleading dead weight. Remaining cleaning-cycle codes renamed
+  `MELITTA_PROC_*` to clearly signal they are not Nivona-verified.
+  (`Droid:25934-25935` confirms 3/4/8/11 as authoritative.)
+
+### New module
+
+- `nivona_stats.{h,c}` — 205 LoC, ports five per-family
+  `StatisticsFactory` tables plus helper `nivona_stats_has_recipe_counter`.
+
+### Binary
+
+ESP32-C6 clean build, 1.32 MB (+5.9 KB over `emu-v0.6.0`; still
+~13 % partition headroom).
+
+---
+
 ## [0.6.0] — 2026-04-14 — Phase E (maintenance cycles) + Phase B-lite (stat gauges)
 
 ### Added

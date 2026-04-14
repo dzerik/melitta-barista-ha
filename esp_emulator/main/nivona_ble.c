@@ -72,16 +72,27 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
     return 0;
 }
 
-// Manufacturer-data as captured from a real Eugster machine advertisement:
+// Manufacturer-data for the advertisement:
 //   company_id = 0x0319  (Melitta, Eugster OEM)   LE: 19 03
-//   payload    = ff ff 00 00 00 01                (6 bytes)
-//     - first two bytes = customerId (65535) — required by the Android
-//       app's CheckDiscovered filter
-// Total: 8 bytes of manufacturer data (incl. 2-byte company_id prefix).
+//   bytes 2-3  = customerId = 0xFFFF (ushort.MaxValue)
+//                app-verified in EugsterMobileApp.Droid.decompiled.cs:
+//                28189 + 28407 (`customerId = ushort.MaxValue`).
+//   bytes 4-7  = vendor-specific tail — CURRENTLY TBD.
+//                EFLibrary's CheckDiscovered decomposes the tail but
+//                the method is control-flow-flattened with encrypted
+//                string tables (`am.a(N)` / `by.a()`) so the exact
+//                byte values it expects are NOT directly extractable
+//                from the decompile. We zero-fill the tail because
+//                the app accepts it in-scanner (it only asserts
+//                customerId == 0xFFFF before reading the rest), but
+//                a real Nivona might encode serial / HW version /
+//                firmware-generation hints here. See audit V2
+//                Focus 10 — needs a live BLE scan with nRF Connect
+//                to validate.
 static const uint8_t MFR_DATA[] = {
     0x19, 0x03,                        // company_id = 0x0319 (Melitta)
-    0xFF, 0xFF,                        // customerId = 65535 (LE)
-    0x00, 0x00, 0x00, 0x00,            // vendor-specific tail (byte-exact to real machine)
+    0xFF, 0xFF,                        // customerId = 65535 (decompile-verified)
+    0x00, 0x00, 0x00, 0x00,            // tail: TBD — zero placeholder
 };
 
 // 16-bit service UUID list — advertises DIS in primary ADV so the

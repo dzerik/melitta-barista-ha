@@ -7,6 +7,9 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 
+#include "nivona_families.h"
+#include "nivona_stats.h"
+
 static const char *TAG = "nivona_store";
 
 #define NS_NUM   "niv_num"
@@ -77,15 +80,15 @@ static void seed_defaults(void) {
     }
 
     // Phase B-lite — seed maintenance gauges to "fresh" (100 %) on
-    // first boot. After that the brew task degrades them and the
-    // cycle task resets them on descale / filter-replace / clean.
-    // Percentage IDs: 600 descale, 610 brew_unit_clean, 620 frother,
-    // 640 filter. Warning flags (601/611/621/641) start at 0 = OK.
+    // first boot. 600/601 descale, 610/611 brew_unit_clean, 620/621
+    // frother, 640/641 filter are UNIVERSAL per StatisticsFactory
+    // MaintenanceItems on every family (8000:9173-9178, 1000:9213-
+    // 9216, 700:9237-9240, 600:9261-9264, 900:9300-9303). Warning
+    // flags start at 0 = OK.
     //
-    // NOTE: real machine values at power-on are UNKNOWN without a
-    // BLE-capture of an actual Nivona's HR read; 100 % is the
-    // heuristic "factory fresh" assumption and must be validated
-    // against a community trace before we promote it out of "TBD".
+    // 100 % = "factory fresh" is an emulator convention; the real
+    // machine's power-on values are firmware-dependent (audit V2
+    // Focus 5, verdict: confirmed-plausible).
     static const int16_t PCT_IDS[]  = { 600, 610, 620, 640 };
     static const int16_t WARN_IDS[] = { 601, 611, 621, 641 };
     for (size_t i = 0; i < sizeof(PCT_IDS)/sizeof(PCT_IDS[0]); i++) {
@@ -97,6 +100,23 @@ static void seed_defaults(void) {
         if (!nivona_store_has_num(WARN_IDS[i])) {
             nivona_store_set_num(WARN_IDS[i], 0);
         }
+    }
+
+    // Filter "dependent setting" — family-specific HR id referenced
+    // by MaintenanceItem(App_Maintenance_Filterwechsel, …). App uses
+    // this to show the filter-type setting alongside the filter
+    // gauge. Value is an enum (filter type 0..N); the factory
+    // default is 0 ("no filter" / "soft" depending on family).
+    // Decompile citations:
+    //   8000 → 642 (EugsterMobileApp.decompiled.cs:9178)
+    //   1000 → 101 (                              :9215)
+    //   700  → 105 (                              :9239)
+    //   600  → 105 (                              :9263)
+    //   900  → 101 (                              :9304)
+    const nivona_stats_t *stats = nivona_stats_current();
+    if (stats->filter_dep_id != 0 &&
+        !nivona_store_has_num(stats->filter_dep_id)) {
+        nivona_store_set_num(stats->filter_dep_id, 0);
     }
 }
 
@@ -122,6 +142,23 @@ bool nivona_store_has_num(int16_t id) {
         if (s_num[i].used && s_num[i].id == id) return true;
     }
     return false;
+}
+
+void nivona_store_erase_num(int16_t id) {
+    for (int i = 0; i < NUM_CAP; i++) {
+        if (s_num[i].used && s_num[i].id == id) {
+            s_num[i].used = false;
+            s_num[i].value = 0;
+            break;
+        }
+    }
+    nvs_handle_t h;
+    if (nvs_open(NS_NUM, NVS_READWRITE, &h) == ESP_OK) {
+        char key[8]; make_key(key, sizeof(key), id);
+        nvs_erase_key(h, key);
+        nvs_commit(h);
+        nvs_close(h);
+    }
 }
 
 void nivona_store_set_num(int16_t id, int32_t value) {

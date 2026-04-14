@@ -8,6 +8,7 @@ idf_component_register(
         "nivona_crypto.c"
         "nivona_dispatch.c"
         "nivona_families.c"
+        "nivona_stats.c"
         "nivona_consumables.c"
         "nivona_maint.c"
         "nivona_maint_cycle.c"

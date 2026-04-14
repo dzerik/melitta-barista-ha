@@ -67,6 +67,27 @@ void nivona_fsm_set_manipulation(uint8_t m) {
 }
 
 void nivona_fsm_set_info(uint8_t i) {
+    // AUDIT V2 Focus 3/7: the Nivona app parses HX as four BE int16
+    // (Process, SubProcess, Message, Progress) — Droid:28601-28623.
+    // Bytes 4-5 are a single 16-bit `Message` field, not an
+    // info(U8)+manip(U8) pair. The HA integration's
+    // MachineStatus.from_payload uses `>hhBBh` (the Melitta parser),
+    // so it sees two bytes. We split the 16-bit message into
+    //   info = high byte  (always 0 in Nivona-compatible output)
+    //   manip = low  byte (the 0/11/20 values the app branches on)
+    // When `info != 0` the app computes Message = (info<<8)|manip,
+    // which is neither 0, 11, 20 nor within the app's error range
+    // (<=6), and the flush/error dialogs silently do not fire.
+    // We keep the field writable for CLI debugging, but log a
+    // warning whenever a caller tries to set a non-zero info so the
+    // Nivona-facing behaviour stays sane.
+    if (i != 0) {
+        ESP_LOGW("nivona_fsm",
+                 "set_info(%u): non-zero info byte is incompatible "
+                 "with the Nivona app's BE-int16 Message decode — "
+                 "flush/error dialogs will not fire. See audit V2 "
+                 "Focus 3/7.", (unsigned)i);
+    }
     lock(); s_status.info = i; unlock();
 }
 
@@ -80,6 +101,10 @@ void nivona_fsm_pack_status(uint8_t out[8]) {
     nivona_fsm_get_status(&s);
     put_be16(out + 0, s.process);
     put_be16(out + 2, s.sub_process);
+    // Bytes 4-5 are one BE int16 from the Nivona app's perspective
+    // (Droid:28601-28623). info is the high byte and MUST stay 0
+    // for any Message value the app recognises (0, 11, 20);
+    // `manipulation` = low byte.
     out[4] = s.info;
     out[5] = s.manipulation;
     put_be16(out + 6, s.progress);

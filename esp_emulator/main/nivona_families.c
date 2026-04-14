@@ -106,15 +106,15 @@ static const nivona_recipe_t RECIPES_8000[] = {
 #define COUNT(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 const nivona_family_t NIVONA_FAMILIES[] = {
-    // key         ble_name              model         ready  brew   scale  milk  recipes           n
-    { "600",       "6801000001-----",   "NICR 680",   8,     11,    1,     0,    RECIPES_600,      COUNT(RECIPES_600)  },
-    { "700",       "7591000001-----",   "NICR 759",   8,     11,    1,     0,    RECIPES_700,      COUNT(RECIPES_700)  },
-    { "79x",       "7951000001-----",   "NICR 795",   8,     11,    1,     0,    RECIPES_79X,      COUNT(RECIPES_79X)  },
-    { "900",       "9301000001-----",   "NICR 930",   8,     11,    10,    1,    RECIPES_900,      COUNT(RECIPES_900)  },
-    { "900-light", "9701000001-----",   "NICR 970",   8,     11,    10,    1,    RECIPES_900,      COUNT(RECIPES_900)  },
-    { "1030",      "0301000001-----",   "NICR 1030",  8,     11,    10,    1,    RECIPES_1030,     COUNT(RECIPES_1030) },
-    { "1040",      "0401000001-----",   "NICR 1040",  8,     11,    10,    1,    RECIPES_1040,     COUNT(RECIPES_1040) },
-    { "8000",      "8107000001-----",   "NIVO 8107",  3,     4,     1,     1,    RECIPES_8000,     COUNT(RECIPES_8000) },
+    // key         ble_name              model         ready  brew   scale  milk  mode   recipes           n
+    { "600",       "6801000001-----",   "NICR 680",   8,     11,    1,     0,    0x0B,  RECIPES_600,      COUNT(RECIPES_600)  },
+    { "700",       "7591000001-----",   "NICR 759",   8,     11,    1,     0,    0x0B,  RECIPES_700,      COUNT(RECIPES_700)  },
+    { "79x",       "7951000001-----",   "NICR 795",   8,     11,    1,     0,    0x0B,  RECIPES_79X,      COUNT(RECIPES_79X)  },
+    { "900",       "9301000001-----",   "NICR 930",   8,     11,    10,    1,    0x0B,  RECIPES_900,      COUNT(RECIPES_900)  },
+    { "900-light", "9701000001-----",   "NICR 970",   8,     11,    10,    1,    0x0B,  RECIPES_900,      COUNT(RECIPES_900)  },
+    { "1030",      "0301000001-----",   "NICR 1030",  8,     11,    10,    1,    0x0B,  RECIPES_1030,     COUNT(RECIPES_1030) },
+    { "1040",      "0401000001-----",   "NICR 1040",  8,     11,    10,    1,    0x0B,  RECIPES_1040,     COUNT(RECIPES_1040) },
+    { "8000",      "8107000001-----",   "NIVO 8107",  3,     4,     1,     1,    0x04,  RECIPES_8000,     COUNT(RECIPES_8000) },
 };
 
 const size_t NIVONA_FAMILIES_COUNT =

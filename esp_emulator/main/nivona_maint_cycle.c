@@ -12,17 +12,14 @@
 #include "nivona_frame.h"
 #include "nivona_fsm.h"
 #include "nivona_maint.h"
+#include "nivona_stats.h"
 #include "nivona_store.h"
 
 static const char *TAG = "nivona_cycle";
 
-// HR stat IDs — match brands/nivona.py _STATS_8000 / _STATS_700 etc.
-#define STAT_CLEAN_COFFEE_SYSTEM 214
-#define STAT_CLEAN_FROTHER       215
-#define STAT_RINSE_CYCLES        216
-#define STAT_FILTER_CHANGES      219
-#define STAT_DESCALING           220
-
+// Maintenance gauges (percent + warning) are universal across all 5
+// Nivona families per StatisticsFactory maintenance lists
+// (EugsterMobileApp.decompiled.cs:9173-9178, 9215, 9239, 9263, 9304).
 #define STAT_DESCALE_PCT         600
 #define STAT_DESCALE_WARN        601
 #define STAT_BU_CLEAN_PCT        610
@@ -31,6 +28,9 @@ static const char *TAG = "nivona_cycle";
 #define STAT_FROTHER_CLEAN_WARN  621
 #define STAT_FILTER_PCT          640
 #define STAT_FILTER_WARN         641
+// Cumulative counters are FAMILY-SPECIFIC — fetched at runtime from
+// nivona_stats to avoid writing IDs the family doesn't have
+// (e.g. descale = 220 on 8000/900, 222 on 1000, absent on 700/600).
 
 static TaskHandle_t s_task = NULL;
 static volatile bool s_active = false;
@@ -44,28 +44,49 @@ static void push_status(void) {
 }
 
 // A cycle is modelled as a small sequence of (sub_process, duration_ms,
-// optional manipulation prompt) tuples. At the end we tick a stat
-// counter and reset the corresponding percent/warning gauge.
+// optional manipulation prompt) tuples. The family-specific counter
+// ID is resolved at runtime via `resolve_stat_counter` — writing a
+// hardcoded 214/220 here would be wrong for 1000-family and absent
+// for 700/600 (see audit V2 Focus 5).
+typedef enum {
+    STAT_COUNTER_NONE = 0,
+    STAT_COUNTER_CLEAN_COFFEE,
+    STAT_COUNTER_RINSE,
+    STAT_COUNTER_FILTER_CHANGE,
+    STAT_COUNTER_DESCALE,
+} stat_counter_kind_t;
+
+static int16_t resolve_stat_counter(stat_counter_kind_t k) {
+    const nivona_stats_t *s = nivona_stats_current();
+    switch (k) {
+        case STAT_COUNTER_CLEAN_COFFEE:  return s->clean_coffee_id;
+        case STAT_COUNTER_RINSE:         return s->rinse_id;
+        case STAT_COUNTER_FILTER_CHANGE: return s->filter_change_id;
+        case STAT_COUNTER_DESCALE:       return s->descale_id;
+        default:                         return 0;
+    }
+}
+
 typedef struct {
     nivona_cycle_kind_t kind;
     uint32_t            total_ms;
     uint8_t             prep_manip;     // prompt raised at start
-                                        // (0 = none); cleared on first HY
-    int16_t             stat_counter;   // HR id incremented on completion
+                                        // (0 = none)
+    stat_counter_kind_t stat_counter;   // resolve_stat_counter()
     int16_t             stat_pct;       // HR id reset to 100 % on completion
     int16_t             stat_warn;      // HR id cleared (0) on completion
     const char         *label;
 } cycle_plan_t;
 
 static const cycle_plan_t PLANS[] = {
-    { NIVONA_CYCLE_DESCALE,         180000, MANIP_FILL_WATER,      STAT_DESCALING,           STAT_DESCALE_PCT,        STAT_DESCALE_WARN,       "descale"        },
-    { NIVONA_CYCLE_EASY_CLEAN,       45000, MANIP_FLUSH_REQUIRED,  STAT_RINSE_CYCLES,        0,                        0,                        "easy_clean"     },
-    { NIVONA_CYCLE_INTENSIVE_CLEAN,  90000, MANIP_FILL_POWDER,     STAT_CLEAN_COFFEE_SYSTEM, STAT_BU_CLEAN_PCT,       STAT_BU_CLEAN_WARN,      "intensive_clean"},
-    { NIVONA_CYCLE_FILTER_INSERT,    30000, MANIP_FLUSH_REQUIRED,  STAT_FILTER_CHANGES,      STAT_FILTER_PCT,         STAT_FILTER_WARN,        "filter_insert"  },
-    { NIVONA_CYCLE_FILTER_REPLACE,   30000, MANIP_FLUSH_REQUIRED,  STAT_FILTER_CHANGES,      STAT_FILTER_PCT,         STAT_FILTER_WARN,        "filter_replace" },
-    { NIVONA_CYCLE_FILTER_REMOVE,    20000, 0,                     0,                        STAT_FILTER_PCT,         STAT_FILTER_WARN,        "filter_remove"  },
-    { NIVONA_CYCLE_EVAPORATING,      60000, 0,                     STAT_RINSE_CYCLES,        0,                        0,                        "evaporating"    },
-    { NIVONA_CYCLE_GENERIC_CLEAN,    20000, 0,                     STAT_RINSE_CYCLES,        0,                        0,                        "rinse"          },
+    { NIVONA_CYCLE_DESCALE,         180000, MANIP_FILL_WATER,      STAT_COUNTER_DESCALE,       STAT_DESCALE_PCT,   STAT_DESCALE_WARN,   "descale"        },
+    { NIVONA_CYCLE_EASY_CLEAN,       45000, MANIP_FLUSH_REQUIRED,  STAT_COUNTER_RINSE,         0,                  0,                   "easy_clean"     },
+    { NIVONA_CYCLE_INTENSIVE_CLEAN,  90000, MANIP_FILL_POWDER,     STAT_COUNTER_CLEAN_COFFEE,  STAT_BU_CLEAN_PCT,  STAT_BU_CLEAN_WARN,  "intensive_clean"},
+    { NIVONA_CYCLE_FILTER_INSERT,    30000, MANIP_FLUSH_REQUIRED,  STAT_COUNTER_FILTER_CHANGE, STAT_FILTER_PCT,    STAT_FILTER_WARN,    "filter_insert"  },
+    { NIVONA_CYCLE_FILTER_REPLACE,   30000, MANIP_FLUSH_REQUIRED,  STAT_COUNTER_FILTER_CHANGE, STAT_FILTER_PCT,    STAT_FILTER_WARN,    "filter_replace" },
+    { NIVONA_CYCLE_FILTER_REMOVE,    20000, 0,                     STAT_COUNTER_NONE,          STAT_FILTER_PCT,    STAT_FILTER_WARN,    "filter_remove"  },
+    { NIVONA_CYCLE_EVAPORATING,      60000, 0,                     STAT_COUNTER_RINSE,         0,                  0,                   "evaporating"    },
+    { NIVONA_CYCLE_GENERIC_CLEAN,    20000, 0,                     STAT_COUNTER_RINSE,         0,                  0,                   "rinse"          },
 };
 
 static const cycle_plan_t *find_plan(nivona_cycle_kind_t k) {
@@ -136,11 +157,24 @@ static void cycle_task(void *arg) {
     }
 
     if (!s_cancel) {
-        // Tick stat counter and reset corresponding percent/warning.
-        if (plan->stat_counter != 0) {
-            nivona_store_set_num(plan->stat_counter,
-                nivona_store_get_num(plan->stat_counter) + 1);
+        // Tick the family-specific cumulative counter (if the current
+        // family actually has one — 700/79X/600 have NO cumulative
+        // stats per StatisticsFactory).
+        int16_t counter_id = resolve_stat_counter(plan->stat_counter);
+        if (counter_id != 0) {
+            nivona_store_set_num(counter_id,
+                nivona_store_get_num(counter_id) + 1);
+            ESP_LOGI(TAG, "counter bump: HR %d = %d",
+                     (int)counter_id,
+                     (int)nivona_store_get_num(counter_id));
+        } else if (plan->stat_counter != STAT_COUNTER_NONE) {
+            const nivona_family_t *fam = nivona_family_current();
+            ESP_LOGI(TAG, "counter kind=%d has no HR id on family %s — skipped",
+                     (int)plan->stat_counter,
+                     fam ? fam->key : "?");
         }
+        // Universal maintenance-gauge reset (600/610/620/640 exist on
+        // every family's MaintenanceItems list).
         if (plan->stat_pct != 0) {
             nivona_store_set_num(plan->stat_pct, 100);
         }

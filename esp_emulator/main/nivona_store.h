@@ -13,6 +13,10 @@ int32_t nivona_store_get_num(int16_t id);
 void    nivona_store_set_num(int16_t id, int32_t value);
 bool    nivona_store_has_num(int16_t id);
 
+// Erase a single numerical register — used by HD (SetDefaultNumericValue).
+// Next read returns 0 (or whatever seed_defaults re-seeds on reboot).
+void    nivona_store_erase_num(int16_t id);
+
 // Alphanumeric registers (HA/HB): int16 id → up to 64 bytes UTF-8
 // Returns number of bytes written into out (0..NIVONA_ALPHA_MAX).
 size_t  nivona_store_get_alpha(int16_t id, uint8_t *out, size_t max);

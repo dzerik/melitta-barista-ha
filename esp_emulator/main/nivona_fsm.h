@@ -3,36 +3,54 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Machine process states (matches MachineProcess in const.py).
+// Machine process states.
+//
+// NOTE (audit V2 — Focus 1): The "ready" and "brewing" codes are
+// FAMILY-SPECIFIC on Nivona, not universal as this enum implies.
+// Authoritative values come from `nivona_families.c` at runtime:
+//   NIVO 8000:  ready = 3,  brewing = 4
+//   all other:  ready = 8,  brewing = 11
+// (EugsterMobileApp.Droid.decompiled.cs:25934-25935.)
+//
+// The MELITTA_* constants below are kept only for debugging CLI and
+// for long-running maintenance cycles (descale / clean / filter_*)
+// where the Nivona firmware's actual process code values are UNKNOWN
+// from app decompile (firmware-internal). The real Nivona app does
+// not inspect these codes — it only branches on Process == one of
+// the ready/brewing values above and on Message == {0,11,20}.
+// DO NOT use these for the "ready" or "brewing" transitions — use
+// nivona_family_current()->process_ready / process_brewing.
 typedef enum {
-    PROC_READY           = 2,
-    PROC_PRODUCT         = 4,
-    PROC_CLEANING        = 9,
-    PROC_DESCALING       = 10,
-    PROC_FILTER_INSERT   = 11,
-    PROC_FILTER_REPLACE  = 12,
-    PROC_FILTER_REMOVE   = 13,
-    PROC_SWITCH_OFF      = 16,
-    PROC_EASY_CLEAN      = 17,
-    PROC_INTENSIVE_CLEAN = 19,
-    PROC_EVAPORATING     = 20,
-    PROC_BUSY            = 99,
-} nivona_process_t;
+    MELITTA_PROC_CLEANING        = 9,    // TBD for Nivona
+    MELITTA_PROC_DESCALING       = 10,   // TBD for Nivona
+    MELITTA_PROC_FILTER_INSERT   = 11,   // collides with Nivona brewing=11
+    MELITTA_PROC_FILTER_REPLACE  = 12,   // TBD for Nivona
+    MELITTA_PROC_FILTER_REMOVE   = 13,   // TBD for Nivona
+    MELITTA_PROC_SWITCH_OFF      = 16,   // TBD for Nivona
+    MELITTA_PROC_EASY_CLEAN      = 17,   // TBD for Nivona
+    MELITTA_PROC_INTENSIVE_CLEAN = 19,   // TBD for Nivona
+    MELITTA_PROC_EVAPORATING     = 20,   // collides with Nivona Message=20
+    MELITTA_PROC_BUSY            = 99,
+} nivona_melitta_process_t;
 
-// Must match Manipulation IntEnum in custom_components/melitta_barista/
-// const.py (line 141). The emulator's HX manipulation byte is parsed
-// against this exact enum by MachineStatus.from_payload; any drift
-// between sides makes prompt entities unavailable / "unknown".
+// HX Message byte — values 0/11/20 are the ONLY ones the Nivona
+// Android app branches on (EugsterMobileApp.Droid.decompiled.cs:906,
+// 26082-26138). The 1..6 values here come from the Melitta
+// Manipulation IntEnum (const.py:141); real Nivona firmware may use
+// different values for {BU_REMOVED, TRAYS_MISSING, EMPTY_TRAYS,
+// FILL_WATER, CLOSE_POWDER_LID, FILL_POWDER} — audit V2 Focus 3
+// still-TBD. Keep the names because HA uses them; the numeric values
+// for 1..6 are an emulator convention that matches HA's parser.
 typedef enum {
-    MANIP_NONE              = 0,
-    MANIP_BU_REMOVED        = 1,
-    MANIP_TRAYS_MISSING     = 2,
-    MANIP_EMPTY_TRAYS       = 3,
-    MANIP_FILL_WATER        = 4,
-    MANIP_CLOSE_POWDER_LID  = 5,
-    MANIP_FILL_POWDER       = 6,
-    MANIP_MOVE_CUP          = 11,
-    MANIP_FLUSH_REQUIRED    = 20,
+    MANIP_NONE              = 0,   // app-verified
+    MANIP_BU_REMOVED        = 1,   // Melitta-derived, Nivona TBD
+    MANIP_TRAYS_MISSING     = 2,   // Melitta-derived, Nivona TBD
+    MANIP_EMPTY_TRAYS       = 3,   // Melitta-derived, Nivona TBD
+    MANIP_FILL_WATER        = 4,   // Melitta-derived, Nivona TBD
+    MANIP_CLOSE_POWDER_LID  = 5,   // Melitta-derived, Nivona TBD
+    MANIP_FILL_POWDER       = 6,   // Melitta-derived, Nivona TBD
+    MANIP_MOVE_CUP          = 11,  // app-verified (Droid:26082)
+    MANIP_FLUSH_REQUIRED    = 20,  // app-verified (Droid:906)
 } nivona_manipulation_t;
 
 typedef struct {

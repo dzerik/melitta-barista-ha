@@ -1,6 +1,7 @@
 #include "nivona_dispatch.h"
 #include "nivona_frame.h"
 #include "nivona_crypto.h"
+#include "nivona_families.h"
 #include "nivona_fsm.h"
 #include "nivona_store.h"
 #include "nivona_brew.h"
@@ -210,13 +211,19 @@ static void handle_hc_stub(const uint8_t *req, size_t len) {
 // ---- Brew (HE) + cancel (HZ) + confirm (HY) + reset (HD) --------------
 
 static void handle_he(const uint8_t *payload, size_t len) {
-    // APK-verified layout (EugsterMobileApp.decompiled.cs:6464-6524):
+    // APK-verified layout (EugsterMobileApp.decompiled.cs:6461-6526;
+    // MakeStandardRecipe + MakeStandardRecipeFallback):
     //   byte[0]     = 0
-    //   byte[1]     = brew_command_mode (0x04 for NIVO 8000, 0x0B others)
+    //   byte[1]     = brew_command_mode
+    //                   NIVO 8000 → 0x04
+    //                   all other Nivona → 0x0B (= 11)
     //   byte[2]     = 0
     //   byte[3]     = recipe selector (JobProductParameter high byte)
     //   byte[4]     = 0
-    //   byte[5]     = 0x01 for normal brew (flags/mode byte)
+    //   byte[5]     = 0x01 for normal brew
+    //                 0x00 for ChilledBrew fallback (firmware-specific,
+    //                 reportedly NICR 1040 with FW "1040A015G15" —
+    //                 see MakeStandardRecipeFallback, :6491-6526)
     //   byte[6..17] = zeros
     //
     // two_cups / temperature / strength / fluid volumes are NOT in HE —
@@ -226,8 +233,29 @@ static void handle_he(const uint8_t *payload, size_t len) {
     uint8_t recipe_selector = (len >= 4) ? payload[3] : 0;
     uint8_t flags = (len >= 6) ? payload[5] : 0;
 
-    ESP_LOGI(TAG, "HE mode=0x%02x recipe=%u flags=0x%02x",
-             mode, recipe_selector, flags);
+    const nivona_family_t *fam = nivona_family_current();
+    ESP_LOGI(TAG, "HE mode=0x%02x recipe=%u flags=0x%02x family=%s",
+             mode, recipe_selector, flags, fam ? fam->key : "?");
+
+    // AUDIT V2 Focus 9: verify payload[1] matches the family's
+    // brew_command_mode. Real machine rejects HE with wrong mode
+    // (decompile line 6463 shows the value is hard-coded per model
+    // when building the HE payload — a mismatch would only come
+    // from a misbehaving or differently-configured client and the
+    // emulator should refuse it to flag the bug).
+    if (fam != NULL && mode != fam->brew_command_mode) {
+        ESP_LOGW(TAG, "HE NACK: mode 0x%02x != expected 0x%02x for family %s",
+                 mode, fam->brew_command_mode, fam->key);
+        send_nack();
+        return;
+    }
+    // AUDIT V2 Focus 8: flags byte should be 0x00 (ChilledBrew) or
+    // 0x01 (normal). Anything else is a client bug.
+    if (flags != 0x00 && flags != 0x01) {
+        ESP_LOGW(TAG, "HE NACK: flags 0x%02x not in {0x00, 0x01}", flags);
+        send_nack();
+        return;
+    }
 
     // brew_start returns false when the selector isn't in the current
     // family's recipe table (Phase C-lite) or when a brew is already
@@ -270,13 +298,37 @@ void nivona_dispatch(const char *cmd, const uint8_t *payload, size_t len) {
     if (!strcmp(cmd, CMD_START_PROCESS))   { handle_he(payload, len); return; }
     if (!strcmp(cmd, CMD_CANCEL_PROCESS))  { nivona_brew_cancel(); send_ack(); return; }
     if (!strcmp(cmd, CMD_CONFIRM_PROMPT))  {
-        // Phase D: soft prompts clear, hard prompts require a
-        // consumable fix first. NACK on the latter so the client
-        // surfaces an error rather than believing the prompt cleared.
-        if (nivona_maint_handle_confirm()) { send_ack(); } else { send_nack(); }
+        // AUDIT V2 Focus 7: the Nivona Android app fire-and-forgets
+        // HY (4 zero bytes) and polls HX for Message change —
+        // EugsterMobileApp.decompiled.cs:6447-6451 +
+        // EugsterMobileApp.Droid.decompiled.cs:26054-26097. There is
+        // NO app-side NACK path; real Nivona firmware is expected to
+        // always ACK. The hard-vs-soft distinction stays server-side:
+        // we re-evaluate maintenance and whichever Message the HX
+        // parser sees next is the authoritative state.
+        nivona_maint_handle_confirm();
+        send_ack();
         return;
     }
-    if (!strcmp(cmd, CMD_RESET_DEFAULT))   { send_ack(); return; }
+    if (!strcmp(cmd, CMD_RESET_DEFAULT))   {
+        // AUDIT V2 Focus 7 (V1 Finding 28): HD is "reset ONE setting
+        // to its factory default" (EugsterMobileApp.Droid.decompiled.cs:
+        // 28692-28701 — SetDefaultNumericValue(short id) sends a
+        // 2-byte BE payload). Previously the emulator silently ACKed
+        // without touching any state; now we at least honour the id
+        // by erasing it from the store so the next HR returns the
+        // factory seeded default.
+        if (len >= 2) {
+            int16_t id = be16_i(payload);
+            ESP_LOGI(TAG, "HD reset id=%d", (int)id);
+            nivona_store_erase_num(id);
+        } else {
+            ESP_LOGW(TAG, "HD with short payload (%u bytes) — ignored",
+                     (unsigned)len);
+        }
+        send_ack();
+        return;
+    }
     if (!strcmp(cmd, CMD_WRITE_RECIPE))    { send_ack(); return; }  // HC/HJ n/a for Nivona
     if (!strcmp(cmd, "HN"))                { handle_hn(payload, len); return; }
 

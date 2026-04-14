@@ -65,6 +65,14 @@ typedef struct {
     uint8_t fluid_scale;        // 900/1030/1040 = 10, others = 1
     uint8_t has_milk_system;    // 900/1030/1040/8000 = 1, others = 0
 
+    // HE payload byte[1] expected "brew command mode" —
+    // EugsterMobileApp.decompiled.cs:6463. Real machine rejects
+    // HE with wrong mode.
+    //   NIVO 8000 → 0x04
+    //   all other → 0x0B (= 11; note this shares the brewing Process
+    //                     code on non-8000 families by coincidence)
+    uint8_t brew_command_mode;
+
     // Phase C-lite — per-family recipe table (selector → category).
     // NULL-terminated semantics: iterate up to recipe_count.
     const nivona_recipe_t *recipes;
