@@ -47,6 +47,12 @@ async def async_setup_entry(
     if "HJ" in client.brand.supported_extensions:
         entities.append(MelittaBrewFreestyleButton(client, entry, name))
 
+    # Nivona brew button — always present for brand=nivona.
+    # Recipe selection comes from NivonaRecipeSelect at press time.
+    if (client.brand.brand_slug == "nivona"
+            and "HC" not in client.brand.supported_extensions):
+        entities.append(NivonaBrewButton(client, entry, name))
+
     # Cancel button — generic
     entities.append(MelittaCancelButton(client, entry, name))
 
@@ -327,6 +333,67 @@ class MelittaConfirmPromptButton(_MelittaButtonBase):
                 )
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("BLE error while confirming prompt %s", manip.name)
+
+
+class NivonaBrewButton(_MelittaButtonBase):
+    """Brew the recipe selected in NivonaRecipeSelect via HE."""
+
+    _attr_name = "Brew"
+    _attr_icon = "mdi:coffee"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_nivona_brew"
+
+    async def async_press(self) -> None:
+        # Locate the recipe select entity in HA's state machine
+        from homeassistant.helpers import entity_registry as er
+        registry = er.async_get(self.hass)
+        target_uid = f"{self._client.address}_nivona_recipe_select"
+        entity_id = None
+        for eid, entry in registry.entities.items():
+            if entry.unique_id == target_uid:
+                entity_id = eid; break
+        if not entity_id:
+            _LOGGER.warning("NivonaRecipeSelect not found")
+            return
+        state = self.hass.states.get(entity_id)
+        if not state:
+            _LOGGER.warning("recipe select state unavailable")
+            return
+
+        caps = self._client.capabilities
+        if not caps or not caps.recipes:
+            _LOGGER.warning("no recipes in capabilities")
+            return
+        recipe_id = None
+        for r in caps.recipes:
+            if r.name == state.state:
+                recipe_id = r.recipe_id; break
+        if recipe_id is None:
+            _LOGGER.warning("recipe %s not matched", state.state)
+            return
+
+        # Collect brew overrides from user-facing number entities
+        overrides: dict = {}
+        for field in ("strength", "coffee_amount", "temperature", "milk_amount"):
+            uid = f"{self._client.address}_brew_{field}"
+            for eid, reg_entry in registry.entities.items():
+                if reg_entry.unique_id == uid:
+                    st = self.hass.states.get(eid)
+                    if st and st.state not in (None, "unknown", "unavailable"):
+                        try:
+                            overrides[field] = int(float(st.state))
+                        except ValueError:
+                            pass
+                    break
+
+        try:
+            success = await self._client.brew_nivona(recipe_id, overrides or None)
+            if not success:
+                _LOGGER.error("Nivona brew failed for recipe_id=%d", recipe_id)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception("BLE error during Nivona brew")
 
 
 class MelittaMaintenanceButton(_MelittaButtonBase):

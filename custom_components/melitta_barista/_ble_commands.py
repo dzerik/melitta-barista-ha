@@ -88,6 +88,75 @@ class BleCommandsMixin(_MixinBase):
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
 
+    async def brew_nivona(
+        self, recipe_selector: int,
+        overrides: dict | None = None,
+    ) -> bool:
+        """Brew on Nivona by recipe selector (no HC/HJ — uses HE directly).
+
+        ``overrides`` is an optional dict of {field: value} where ``field``
+        is a RecipeFieldLayout field name (e.g. ``"strength"``,
+        ``"coffee_amount"``, ``"temperature"``, ``"two_cups"``). When set,
+        each override is written via HW to the per-family temporary-recipe
+        register BEFORE the HE start_process is issued — this matches the
+        SendTemporaryRecipe flow in the Android app.
+
+        Nivona machines don't have recipe read/write (HC/HJ) — they use
+        HE with byte[3]=selector instead.
+        """
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew already in progress, ignoring")
+            return False
+        if not self.connected:
+            return False
+        if self._status and not self._status.is_ready:
+            _LOGGER.warning("Machine not ready: %s", self._status)
+            return False
+
+        caps = getattr(self, "_capabilities", None)
+        brew_mode = caps.brew_command_mode if caps else 0x0B
+        family_key = caps.family_key if caps else None
+
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                # Pre-write temp-recipe overrides via HW
+                if overrides and family_key and hasattr(self._brand, "temp_recipe_register"):
+                    scale = getattr(self._brand, "fluid_write_scale",
+                                    lambda _: 1)(family_key)
+                    for field, value in overrides.items():
+                        if value is None:
+                            continue
+                        reg = self._brand.temp_recipe_register(
+                            family_key, recipe_selector, field,
+                        )
+                        if reg is None:
+                            _LOGGER.debug(
+                                "Skip override %s: no register for family=%s recipe=%d",
+                                field, family_key, recipe_selector,
+                            )
+                            continue
+                        scaled = int(value)
+                        if field in ("coffee_amount", "water_amount",
+                                     "milk_amount", "milk_foam_amount"):
+                            scaled = int(value) * scale
+                        ok = await self._protocol.write_numerical(
+                            self._write_ble, reg, scaled,
+                        )
+                        if not ok:
+                            _LOGGER.warning(
+                                "HW write failed for %s=%d (reg=%d)",
+                                field, scaled, reg,
+                            )
+                        await asyncio.sleep(0.08)
+
+                return await self._protocol.start_process_nivona(
+                    self._write_ble, recipe_selector, brew_mode,
+                )
+            finally:
+                if self.connected:
+                    self.start_polling(interval=self._poll_interval)
+
     async def brew_directkey(self, category: DirectKeyCategory, *, two_cups: bool = False) -> bool:
         """Brew from a DirectKey slot of the active profile.
 

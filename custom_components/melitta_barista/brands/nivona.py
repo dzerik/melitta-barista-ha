@@ -850,6 +850,33 @@ class NivonaProfile:
         return standard_recipe_register(selector, offset)
 
     @staticmethod
+    def temp_recipe_register(
+        family_key: str, recipe_id: int, field: str,
+    ) -> int | None:
+        """Return HW register ID for a recipe field, or None if unsupported.
+
+        ``field`` is one of the layout field names without the ``_offset``
+        suffix, e.g. ``"strength"``, ``"coffee_amount"``, ``"temperature"``,
+        ``"two_cups"``, ``"milk_amount"``. The Android app writes these via
+        HW before issuing HE (SendTemporaryRecipe flow).
+        """
+        layout = _STANDARD_RECIPE_LAYOUTS.get(family_key)
+        if layout is None:
+            return None
+        offset = getattr(layout, f"{field}_offset", None)
+        if offset is None:
+            return None
+        return RECIPE_BASE_REGISTER + recipe_id * RECIPE_SLOT_STRIDE + offset
+
+    @staticmethod
+    def fluid_write_scale(family_key: str) -> int:
+        """Return 10 or 1 — fluid amounts are written scaled for some families."""
+        layout = _STANDARD_RECIPE_LAYOUTS.get(family_key)
+        if layout is None:
+            return 1
+        return 10 if getattr(layout, "fluid_write_scale_10", False) else 1
+
+    @staticmethod
     def mycoffee_register(slot: int, offset: int) -> int:
         return mycoffee_register(slot, offset)
 

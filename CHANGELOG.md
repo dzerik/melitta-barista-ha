@@ -2,6 +2,47 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.44.0] — 2026-04-14 — Nivona brew + BLE emulator
+
+Adds brewing UI for Nivona (no HC/HJ needed — uses HE with per-family
+recipe layouts) and introduces a standalone ESP32 firmware that
+impersonates a Nivona machine for offline integration development.
+
+### Added
+
+- **Nivona brew button + recipe select** — `select.<name>_recipe`
+  exposes the per-family `_RECIPES_*` drink list (Espresso, Coffee,
+  Americano, Cappuccino, Caffè Latte, Latte Macchiato, Milk, Hot
+  Water on 8xxx); `button.<name>_brew` submits the choice via HE
+  with the family-correct `brew_command_mode` (0x04 for NIVO 8000,
+  0x0B for NICR).
+- **Nivona brew overrides as persistent `number` entities** —
+  `<name>_brew_strength` (1–5), `<name>_brew_coffee_amount` (20–240 mL),
+  `<name>_brew_temperature_preset` (0/1/2), `<name>_brew_milk_amount`
+  (0–240 mL). Values survive restarts via `RestoreEntity` and are
+  written via HW into per-family temporary-recipe registers
+  (`10000 + recipe_id * 100 + field_offset`) right before HE —
+  mirrors the `SendTemporaryRecipe()` flow in the Android app.
+- **`BrandProfile.temp_recipe_register(family, recipe_id, field)`** helper
+  and `fluid_write_scale()` accessor on `NivonaProfile`, reading from the
+  existing `_STANDARD_RECIPE_LAYOUTS` tables.
+- **`EugsterProtocol.start_process_nivona(selector, mode)`** — Nivona-
+  specific 18-byte HE payload (`byte[1]=mode, byte[3]=selector,
+  byte[5]=0x01`) distinct from the Melitta `start_process()` layout.
+- **`esp_emulator/`** — ESP32 firmware that acts as a Nivona BLE
+  peripheral for development. Implements HU handshake, RC4 framing,
+  all documented H* commands, per-family recipe layouts, and a brew
+  FSM. Exposes HTTP OTA, telnet CLI, mDNS, and diagnostic counters.
+  Tested against a Seeed XIAO ESP32-C6 + BlueZ and Seeed XIAO ESP32-S3
+  ESPHome BLE proxy + Home Assistant. Python test suite in
+  `esp_emulator/tests/`.
+
+### Fixed
+
+- **`ble_client.brew_nivona()`** accepts an optional `overrides` dict
+  to apply HW writes before HE — previously only the bare
+  HE-with-defaults path existed.
+
 ## [0.43.0] — 2026-04-14 — Nivona gaps 1-6 closed
 
 Closes the six remaining Nivona-support gaps from the upstream RE port:

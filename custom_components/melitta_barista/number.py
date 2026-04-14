@@ -10,6 +10,7 @@ from homeassistant.const import CONF_NAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .ble_client import MelittaBleClient
 from .const import MachineSettingId
@@ -110,6 +111,25 @@ async def async_setup_entry(
         MelittaSettingNumber(client, entry, name, defn)
         for defn in SETTING_DEFINITIONS
     ]
+    # Nivona brew-override inputs — persist local values used by brew button.
+    if client.brand.brand_slug == "nivona":
+        entities.append(NivonaBrewOverrideNumber(
+            client, entry, name, "strength", "Brew Strength",
+            "mdi:gauge", 1, 5, 1, default=3,
+        ))
+        entities.append(NivonaBrewOverrideNumber(
+            client, entry, name, "coffee_amount", "Brew Coffee Amount",
+            "mdi:cup-water", 20, 240, 5, default=40, unit="mL",
+        ))
+        entities.append(NivonaBrewOverrideNumber(
+            client, entry, name, "temperature", "Brew Temperature Preset",
+            "mdi:thermometer", 0, 2, 1, default=1,
+        ))
+        entities.append(NivonaBrewOverrideNumber(
+            client, entry, name, "milk_amount", "Brew Milk Amount",
+            "mdi:cup", 0, 240, 5, default=80, unit="mL",
+        ))
+
     # Freestyle portion entities require HJ recipe writes.
     if "HJ" in client.brand.supported_extensions:
         entities.append(MelittaFreestyleNumber(
@@ -242,4 +262,54 @@ class MelittaFreestyleNumber(MelittaDeviceMixin, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         setattr(self._client, self._client_attr, int(value))
+        self.async_write_ha_state()
+
+
+class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
+    """Persistent number for Nivona brew overrides (HW temp-recipe writes).
+
+    Holds a user-chosen value (strength / coffee_amount / temperature / etc.)
+    that NivonaBrewButton reads at press time and writes via HW before HE.
+    Survives restarts via HA's RestoreEntity.
+    """
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_should_poll = False
+
+    def __init__(
+        self, client: MelittaBleClient, entry: ConfigEntry,
+        machine_name: str, field: str, label: str, icon: str,
+        min_v: float, max_v: float, step: float,
+        default: float, unit: str | None = None,
+    ) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+        self._field = field
+        self._attr_name = label
+        self._attr_icon = icon
+        self._attr_native_min_value = min_v
+        self._attr_native_max_value = max_v
+        self._attr_native_step = step
+        self._attr_mode = NumberMode.SLIDER
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{client.address}_brew_{field}"
+        self._attr_native_value = default
+
+    @property
+    def field_name(self) -> str:
+        return self._field
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in (None, "unknown", "unavailable"):
+            try:
+                self._attr_native_value = float(last.state)
+            except ValueError:
+                pass
+
+    async def async_set_native_value(self, value: float) -> None:
+        self._attr_native_value = value
         self.async_write_ha_state()

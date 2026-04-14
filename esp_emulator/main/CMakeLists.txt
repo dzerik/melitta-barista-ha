@@ -1,0 +1,31 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "nivona_ble.c"
+        "nivona_gatt.c"
+        "nivona_dis.c"
+        "nivona_frame.c"
+        "nivona_crypto.c"
+        "nivona_dispatch.c"
+        "nivona_fsm.c"
+        "nivona_store.c"
+        "nivona_brew.c"
+        "nivona_cli.c"
+        "nivona_wifi.c"
+        "nivona_ota.c"
+        "nivona_telnet.c"
+    INCLUDE_DIRS "."
+    REQUIRES
+        nvs_flash
+        bt
+        esp_hw_support
+        console
+        esp_wifi
+        esp_netif
+        esp_event
+        esp_http_server
+        app_update
+        mdns
+        lwip
+        driver
+)

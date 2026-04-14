@@ -115,6 +115,13 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME, "Melitta Barista")
 
+    _LOGGER.warning(
+        "select setup: brand=%s exts=%s caps=%s",
+        client.brand.brand_slug,
+        list(client.brand.supported_extensions),
+        client.capabilities,
+    )
+
     entities: list = []
     if "HC" in client.brand.supported_extensions:
         entities.extend([
@@ -132,6 +139,13 @@ async def async_setup_entry(
             entities.append(
                 BrandSettingSelect(client, entry, name, descriptor)
             )
+    # Nivona-style brew: always add the recipe select for Nivona brand.
+    # Recipe list is fetched from capabilities at the time HA renders options
+    # (or dynamically on each update if caps aren't resolved yet at setup time).
+    if (client.brand.brand_slug == "nivona"
+            and "HC" not in client.brand.supported_extensions):
+        entities.append(NivonaRecipeSelect(client, entry, name))
+
     if "HJ" in client.brand.supported_extensions:
         entities.extend([
             # Freestyle parameter selects
@@ -489,3 +503,62 @@ class BrandSettingSelect(MelittaDeviceMixin, SelectEntity):
             _LOGGER.warning(
                 "Machine rejected %s=%s (NACK/timeout)", self._desc.key, option,
             )
+
+
+class NivonaRecipeSelect(MelittaDeviceMixin, SelectEntity):
+    """Recipe selector for Nivona (no HC/HJ — picks recipe_id for HE brew).
+
+    Recipe list comes from capabilities.recipes which is resolved lazily
+    after first BLE connect. We expose a placeholder option until ready.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Recipe"
+    _attr_icon = "mdi:coffee-maker-outline"
+    _attr_should_poll = True  # poll periodically until caps resolve
+
+    def __init__(self, client: MelittaBleClient, entry: ConfigEntry, machine_name: str) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+        self._attr_unique_id = f"{client.address}_nivona_recipe_select"
+        self._attr_options = ["(loading...)"]
+        self._attr_current_option = "(loading...)"
+
+    def _refresh_options(self) -> None:
+        caps = self._client.capabilities
+        if caps and caps.recipes:
+            new_opts = [r.name for r in caps.recipes]
+            if new_opts != self._attr_options:
+                self._attr_options = new_opts
+                if self._attr_current_option not in new_opts:
+                    self._attr_current_option = new_opts[0]
+                self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._refresh_options()
+
+    async def async_update(self) -> None:
+        self._refresh_options()
+
+    @property
+    def available(self) -> bool:
+        caps = self._client.capabilities
+        return bool(caps and caps.recipes)
+
+    async def async_select_option(self, option: str) -> None:
+        self._refresh_options()
+        if option in self._attr_options:
+            self._attr_current_option = option
+            self.async_write_ha_state()
+
+    @property
+    def selected_recipe_id(self) -> int | None:
+        caps = self._client.capabilities
+        if not (caps and caps.recipes) or self._attr_current_option is None:
+            return None
+        for r in caps.recipes:
+            if r.name == self._attr_current_option:
+                return r.recipe_id
+        return None
