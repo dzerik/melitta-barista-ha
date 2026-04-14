@@ -2,6 +2,28 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.47.2] — 2026-04-14 — Fix Nivona brand detection for bare-serial advertisements
+
+### Fixed
+
+- **Emulator and real Nivona machines were being misdetected as
+  Melitta.** The Nivona `ble_name_regex` still required the legacy
+  `"NIVONA-"` prefix (`^NIVONA-\d{10}-----$`), but real machines (and
+  therefore the emulator, as of v0.45.0) advertise the bare serial
+  form `"8107000001-----"` so the official Nivona Android app can
+  derive the model code via `Substring(0, 4)`. The regex never
+  matched, `detect_from_advertisement` returned None, and
+  `MelittaProfile` (the default) was picked — entities appeared
+  under "Melitta" manufacturer and process-code parsing fell back to
+  Melitta's 2/4 table.
+- Regex now accepts both forms: `^(?:NIVONA-)?\d{10}-----$`. Trailing
+  5-dash suffix remains the distinguisher from Melitta's
+  `8xxx + hex` advertisement.
+- Direct-scan fallback in `config_flow._async_discover_devices` now
+  also delegates to `detect_from_advertisement` (in addition to the
+  legacy Melitta substring checks) and matches `"nivona"` in the
+  BLE name.
+
 ## [0.47.1] — 2026-04-14 — Highlight the ESP32 BLE emulator in README
 
 - Added a Features bullet and a dedicated `## ESP32 BLE Emulator

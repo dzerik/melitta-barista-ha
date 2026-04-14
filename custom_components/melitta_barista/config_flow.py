@@ -148,13 +148,21 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # Fallback: direct BLE scan
         if not self._discovered_devices:
+            from .brands import detect_from_advertisement  # noqa: PLC0415
             try:
                 devices = await BleakScanner.discover(timeout=10.0)
                 for device in devices:
-                    if device.name and (
-                        any(device.name.startswith(p) for p in BLE_PREFIXES_ALL)
+                    if not device.name:
+                        continue
+                    # Match either brand's advertisement regex, or the
+                    # legacy Melitta prefix set / "melitta"/"barista"
+                    # substrings (pre-regex discovery).
+                    if (
+                        detect_from_advertisement(device.name) is not None
+                        or any(device.name.startswith(p) for p in BLE_PREFIXES_ALL)
                         or "melitta" in device.name.lower()
                         or "barista" in device.name.lower()
+                        or "nivona" in device.name.lower()
                     ):
                         self._discovered_devices[device.address] = device.name
             except (OSError, BleakError):

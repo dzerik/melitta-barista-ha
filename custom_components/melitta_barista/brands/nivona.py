@@ -764,9 +764,16 @@ class NivonaProfile:
     service_uuid: ClassVar[str] = "0000ad00-b35c-11e4-9813-0002a5d5c51b"
     handshake_response_size: ClassVar[int] = 8
 
-    # Standard Nivona advertisement: NIVONA-NNNNNNNNNN-----  (10 digits + 5 dashes)
+    # Nivona advertisement: 10-digit serial + exactly 5 trailing dashes
+    # (e.g. "8107000001-----"). Some older captures show an optional
+    # "NIVONA-" prefix, but real machines advertise bare-serial form so
+    # the official Android app can derive the model code via
+    # Substring(0, 4) — keeping the "NIVONA-" prefix would make it
+    # resolve to "NIVO" and no family would match (see EugsterMobileApp
+    # name-filter logic). The 5-dash suffix is the distinguisher from
+    # Melitta's ``8xxx + hex`` advertisement format.
     ble_name_regex: ClassVar[re.Pattern[str]] = re.compile(
-        r"^NIVONA-\d{10}-----$"
+        r"^(?:NIVONA-)?\d{10}-----$"
     )
 
     # Nivona machines do not expose recipe read/write commands.

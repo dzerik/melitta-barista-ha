@@ -69,7 +69,14 @@ def test_advertisement_matches_melitta_all_prefixes():
 
 
 def test_advertisement_matches_nivona_pattern():
+    # Prefixed form (legacy captures with "NIVONA-" prefix)
     profile = detect_from_advertisement("NIVONA-7565730710-----")
+    assert profile is not None and profile.brand_slug == "nivona"
+    # Bare-serial form (real machines + the ESP emulator, required by
+    # the official Nivona Android app's Substring(0, 4) model lookup)
+    profile = detect_from_advertisement("8107000001-----")
+    assert profile is not None and profile.brand_slug == "nivona"
+    profile = detect_from_advertisement("7565730710-----")
     assert profile is not None and profile.brand_slug == "nivona"
 
 
