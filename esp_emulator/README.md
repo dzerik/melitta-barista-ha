@@ -1,5 +1,10 @@
 # Nivona BLE Emulator
 
+**Version:** see [`VERSION`](VERSION) · **Changelog:**
+[`CHANGELOG.md`](CHANGELOG.md) · **Tags:** `emu-v<X.Y.Z>` (independent
+from the HA integration's `manifest.json` version — the two projects
+ship at their own cadence).
+
 A BLE peripheral emulator that impersonates a Nivona NICR/NIVO coffee machine
 on ESP32, for offline development of the Home Assistant `melitta_barista`
 integration without access to a real machine. Also works with the official
