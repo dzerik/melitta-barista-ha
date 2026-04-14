@@ -72,17 +72,21 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
     return 0;
 }
 
-// Manufacturer-data body required by the official Nivona Android app's
-// CoffeeMachineManager<T>::CheckDiscovered filter (NIVONA.md:119-124):
-//   ReadUInt16LittleEndian(data, 1) == 29       -> uuid16 = 29
-//   ReadUInt16LittleEndian(data, 2) == 65535    -> customerId
-// The first byte is Nivona-internal (NIVONA.md offset 0 unchecked); we
-// use 0x01. Total 5 data bytes + 1 length + 1 type in the AD element.
+// Manufacturer-data as captured from a real Eugster machine advertisement:
+//   company_id = 0x0319  (Melitta, Eugster OEM)   LE: 19 03
+//   payload    = ff ff 00 00 00 01                (6 bytes)
+//     - first two bytes = customerId (65535) — required by the Android
+//       app's CheckDiscovered filter
+// Total: 8 bytes of manufacturer data (incl. 2-byte company_id prefix).
 static const uint8_t MFR_DATA[] = {
-    0x01,        // vendor byte (not validated by app)
-    0x1D, 0x00,  // uuid16 = 29 (little-endian)
-    0xFF, 0xFF,  // customerId = 65535 (little-endian)
+    0x19, 0x03,                        // company_id = 0x0319 (Melitta)
+    0xFF, 0xFF,                        // customerId = 65535 (LE)
+    0x00, 0x00, 0x00, 0x01,            // vendor-specific tail
 };
+
+// 16-bit service UUID list — advertises DIS in primary ADV so the
+// Android app can see it during scan (matches real machine).
+static const ble_uuid16_t DIS_UUID16 = BLE_UUID16_INIT(0x180A);
 
 const char *nivona_ble_device_name(void) {
     return ble_svc_gap_device_name();
@@ -95,6 +99,11 @@ void nivona_ble_start_advertising(void) {
 
     // Primary adv data: flags + short name + service UUID
     struct ble_hs_adv_fields fields = {0};
+    // Primary ADV budget is 31 bytes. Packing:
+    //   flags           = 3 bytes
+    //   UUID128 (AD00)  = 18 bytes
+    //   mfg_data (8+2)  = 10 bytes
+    // Total = 31 exact. DIS 16-bit UUID moved to scan response.
     fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
     fields.uuids128 = (ble_uuid128_t *)&ADV_SVC_UUID;
     fields.num_uuids128 = 1;
@@ -102,17 +111,28 @@ void nivona_ble_start_advertising(void) {
     fields.mfg_data = MFR_DATA;
     fields.mfg_data_len = sizeof(MFR_DATA);
 
+    ESP_LOGI(TAG, "MFR_DATA[%d]: %02x%02x%02x%02x%02x%02x%02x%02x",
+             (int)sizeof(MFR_DATA),
+             MFR_DATA[0], MFR_DATA[1], MFR_DATA[2], MFR_DATA[3],
+             MFR_DATA[4], MFR_DATA[5], MFR_DATA[6], MFR_DATA[7]);
+
     int rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
-        ESP_LOGE(TAG, "adv_set_fields rc=%d", rc);
+        ESP_LOGE(TAG, "adv_set_fields rc=%d (mfg_len=%d, check BLE_HS_ADV_FIELDS_SZ)",
+                 rc, fields.mfg_data_len);
+        // If 31-byte primary ADV overflows, drop mfg_data for diagnostics
         return;
     }
 
-    // Scan response carries the full device name (doesn't fit in primary)
+    // Scan response carries the full device name + DIS 16-bit UUID
+    // (32 bytes budget — room for name (24) + UUID16 (4) + tx_pwr (3) = 31)
     struct ble_hs_adv_fields rsp = {0};
     rsp.name = (uint8_t *)name;
     rsp.name_len = strlen(name);
     rsp.name_is_complete = 1;
+    rsp.uuids16 = (ble_uuid16_t *)&DIS_UUID16;
+    rsp.num_uuids16 = 1;
+    rsp.uuids16_is_complete = 1;
     rsp.tx_pwr_lvl_is_present = 1;
     rsp.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
     rc = ble_gap_adv_rsp_set_fields(&rsp);
