@@ -81,7 +81,7 @@ static int gap_event(struct ble_gap_event *event, void *arg) {
 static const uint8_t MFR_DATA[] = {
     0x19, 0x03,                        // company_id = 0x0319 (Melitta)
     0xFF, 0xFF,                        // customerId = 65535 (LE)
-    0x00, 0x00, 0x00, 0x01,            // vendor-specific tail
+    0x00, 0x00, 0x00, 0x00,            // vendor-specific tail (byte-exact to real machine)
 };
 
 // 16-bit service UUID list — advertises DIS in primary ADV so the

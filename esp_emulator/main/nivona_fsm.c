@@ -11,7 +11,13 @@ static SemaphoreHandle_t s_mutex;
 
 void nivona_fsm_init(void) {
     s_mutex = xSemaphoreCreateMutex();
-    s_status.process = PROC_READY;
+    // Official Nivona Android app's MakeCoffee() expects process==3 for
+    // NIVO 8000 family (4 for other Nivona families, 8 for Melitta).
+    // Upstream NIVONA.md describes status code 8 as "ready" for the 79x
+    // path. We default to 3 so the app can launch brew immediately.
+    // The HA integration treats any process<=10 as OK and uses its own
+    // enum semantics, so 3 is compatible with both.
+    s_status.process = 3;
     s_status.sub_process = 0;
     s_status.info = 0;
     s_status.manipulation = MANIP_NONE;

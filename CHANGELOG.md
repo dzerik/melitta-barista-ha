@@ -2,6 +2,31 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.46.0] — 2026-04-14 — Brand-aware HX status parsing
+
+### Fixed
+
+- **Nivona machines no longer report "unknown" state.** `MachineStatus.
+  from_payload` used a hardcoded Melitta `MachineProcess` enum (READY=2,
+  PRODUCT=4), so raw process codes from Nivona firmware (NIVO 8000 uses
+  3/4, other Nivona families use 8/11) fell through to `process=None`
+  and the whole integration looked idle / never-ready. Surfaced while
+  the official Nivona Android app refused to start brewing against the
+  emulator with "machine not ready" — app-side tables
+  (`EugsterMobileApp.MakeCoffee`) expected family-specific codes.
+
+### Changed
+
+- `BrandProfile` Protocol gained a `parse_status(family_key, data)`
+  method. `MelittaProfile` delegates to the canonical
+  `MachineStatus.from_payload` (Melitta-native codes); `NivonaProfile`
+  overrides with per-family tables — `8000 → {3:READY, 4:PRODUCT}`,
+  other Nivona families → `{8:READY, 11:PRODUCT}`.
+- `EugsterProtocol` now tracks the detected family (`set_family`) and
+  routes every HX parse through `brand.parse_status(family, payload)`.
+  `MelittaBleClient` pushes the family key immediately after
+  `_resolve_capabilities()`.
+
 ## [0.45.0] — 2026-04-14 — Nivona emulator app compatibility
 
 Completes the BLE emulator so the official Nivona Android app discovers,

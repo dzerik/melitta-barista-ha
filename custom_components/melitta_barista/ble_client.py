@@ -632,6 +632,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                     self._capabilities.family_key,
                     self._capabilities.my_coffee_slots,
                 )
+                # Tell the protocol about the family so brand-specific
+                # HX parsing (process-code tables) picks the right map.
+                self._protocol.set_family(self._capabilities.family_key)
 
             # Read feature capability bits (HI — optional, may time out)
             self._features = await self._protocol.read_features(self._write_ble)

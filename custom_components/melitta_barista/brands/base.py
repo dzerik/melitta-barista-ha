@@ -155,6 +155,16 @@ class BrandProfile(Protocol):
         """Return the capability bag for the given family. Raises KeyError
         if the key is not in ``families``."""
 
+    def parse_status(self, family_key: str | None, data: bytes):  # noqa: ANN201
+        """Parse an HX payload into a ``MachineStatus`` with brand/family-
+        specific process-code semantics.
+
+        Different families use different raw numbers for ``process``:
+        Melitta uses 2=READY/4=PRODUCT, NIVO 8000 uses 3=READY/4=PRODUCT,
+        other Nivona families use 8=READY/11=PRODUCT. Implementations
+        translate raw codes to the abstract ``MachineProcess`` enum.
+        """
+
 
 # ---------------------------------------------------------------------------
 # Helpers

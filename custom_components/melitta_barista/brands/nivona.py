@@ -836,6 +836,50 @@ class NivonaProfile:
     def capabilities_for(self, family_key: str) -> MachineCapabilities:
         return _NIVONA_FAMILIES[family_key]
 
+    def parse_status(self, family_key, data):
+        """Map Nivona-family raw process codes to abstract MachineProcess.
+
+        NIVO 8000: 3 = READY, 4 = PRODUCT.
+        Other Nivona families (600/700/79x/900/1030/1040): 8 = READY,
+        11 = PRODUCT. Unknown codes → process=None (status still returned
+        so sub_process / info / manipulation remain usable).
+        """
+        import struct  # noqa: PLC0415
+        from ..const import (  # noqa: PLC0415
+            InfoMessage, MachineProcess, Manipulation, SubProcess,
+        )
+        from ..protocol import MachineStatus  # noqa: PLC0415
+
+        if len(data) < 8:
+            return MachineStatus()
+
+        process_val, sub_val, info_byte, manip_byte, progress = (
+            struct.unpack(">hhBBh", data[:8])
+        )
+
+        if family_key == "8000":
+            table = {3: MachineProcess.READY, 4: MachineProcess.PRODUCT}
+        else:
+            table = {8: MachineProcess.READY, 11: MachineProcess.PRODUCT}
+        process = table.get(process_val)
+
+        try:
+            sub_process = SubProcess(sub_val)
+        except ValueError:
+            sub_process = None
+        try:
+            manipulation = Manipulation(manip_byte)
+        except ValueError:
+            manipulation = Manipulation.NONE
+
+        return MachineStatus(
+            process=process,
+            sub_process=sub_process,
+            info_messages=InfoMessage(info_byte),
+            manipulation=manipulation,
+            progress=progress,
+        )
+
     # Recipe / MyCoffee write-path helpers (experimental — see mixin docs)
     @staticmethod
     def standard_recipe_layout(family_key: str):

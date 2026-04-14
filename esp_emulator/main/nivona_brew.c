@@ -26,8 +26,9 @@ static void brew_task(void *arg) {
     int16_t pv = (int16_t)(intptr_t)arg;
     ESP_LOGI(TAG, "brew start process=%d", pv);
 
-    // READY → PRODUCT
-    nivona_fsm_set_process(PROC_PRODUCT, pv);
+    // READY(3) → PREPARING(4) per Nivona Android app expectation.
+    // The app re-reads HX after 650ms post-HE and requires process==4.
+    nivona_fsm_set_process(4, pv);
     nivona_fsm_set_progress(0);
     push_status();
 
@@ -39,8 +40,8 @@ static void brew_task(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 
-    // Back to READY
-    nivona_fsm_set_process(PROC_READY, 0);
+    // Back to READY (3 = Nivona-app convention)
+    nivona_fsm_set_process(3, 0);
     nivona_fsm_set_progress(0);
     push_status();
 

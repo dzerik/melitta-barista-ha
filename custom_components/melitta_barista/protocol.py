@@ -308,6 +308,7 @@ class EugsterProtocol:
             from .brands import get_profile  # noqa: PLC0415
             brand = get_profile("melitta")
         self._brand: BrandProfile = brand
+        self._family: str | None = None
 
         self._rc4_key: bytes | None = None
         self._key_prefix: bytes | None = None
@@ -324,6 +325,10 @@ class EugsterProtocol:
     @property
     def brand(self) -> "BrandProfile":
         return self._brand
+
+    def set_family(self, family_key: str | None) -> None:
+        """Set the detected machine family — enables brand-aware HX parsing."""
+        self._family = family_key
 
     def _init_encryption(self) -> None:
         """Initialise RC4 key from the active brand profile."""
@@ -533,7 +538,7 @@ class EugsterProtocol:
             return
 
         if command == CMD_READ_STATUS:
-            status = MachineStatus.from_payload(payload)
+            status = self._brand.parse_status(self._family, payload)
             if self._on_status:
                 self._on_status(status)
 
@@ -656,7 +661,7 @@ class EugsterProtocol:
     async def read_status(self, write_func) -> MachineStatus | None:
         data = await self.send_and_wait_response(CMD_READ_STATUS, None, write_func)
         if data:
-            return MachineStatus.from_payload(data)
+            return self._brand.parse_status(self._family, data)
         return None
 
     async def read_version(self, write_func) -> str | None:

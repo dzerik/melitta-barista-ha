@@ -192,3 +192,9 @@ class MelittaProfile:
 
     def capabilities_for(self, family_key: str) -> MachineCapabilities:
         return _MELITTA_FAMILIES[family_key]
+
+    def parse_status(self, family_key, data):
+        """Melitta uses the raw MachineProcess enum values directly
+        (READY=2, PRODUCT=4, …) — delegate to the canonical parser."""
+        from ..protocol import MachineStatus  # noqa: PLC0415
+        return MachineStatus.from_payload(data)
