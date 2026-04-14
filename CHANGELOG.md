@@ -2,6 +2,38 @@
 
 All notable changes to the Melitta Barista Smart HA Integration.
 
+## [0.45.0] — 2026-04-14 — Nivona emulator app compatibility
+
+Completes the BLE emulator so the official Nivona Android app discovers,
+connects to, and operates it exactly like a real machine.
+
+### Fixed (emulator)
+
+- **Advertisement format now byte-exact to a real machine.** Company ID
+  switched from the wrong 7425 to **0x0319 (Melitta)**, manufacturer
+  payload is `ff ff 00 00 00 00` (customerId=65535 LE + vendor tail),
+  and DIS (0x180A) is advertised in the scan response so the app can
+  see the device class during scan.
+- **BLE name no longer prefixed with `NIVONA-`.** The official app
+  treats `Peripheral.Name` as the serial number — it strips trailing
+  dashes and takes `Substring(0, 4)` to derive the model code
+  ("8107" → NICR 8107). A `NIVONA-` prefix made the substring resolve
+  to `"NIVO"`, no family matched, and the app silently skipped us
+  (EugsterMobileApp:7381 + Droid:28319).
+- **Primary-ADV 31-byte budget respected.** Moved the 16-bit DIS UUID
+  from primary to scan response; primary keeps flags + AD00 + mfr data
+  = 31 bytes exact.
+- **NimBLE stack overflow on HE brew.** `nivona_frame` local buffers
+  (`plain`/`cs_in`/`frame`) promoted to `static` and NimBLE host task
+  stack raised to 8 KB — previously the emulator silently reset on
+  valid HE frames because 1.5 KB of stack buffers collided with the
+  4 KB default host task size.
+- **Per-cmd size gating in the frame parser.** A spurious `0x45`
+  byte in an encrypted HE payload was triggering a premature
+  `FRAME_END`. The parser now looks up the expected request size
+  (HE=25, HU=11, HX=7, …) per cmd and only completes frames at the
+  exact byte count.
+
 ## [0.44.0] — 2026-04-14 — Nivona brew + BLE emulator
 
 Adds brewing UI for Nivona (no HC/HJ needed — uses HE with per-family
