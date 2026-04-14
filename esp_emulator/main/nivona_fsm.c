@@ -1,4 +1,5 @@
 #include "nivona_fsm.h"
+#include "nivona_families.h"
 
 #include <string.h>
 
@@ -9,21 +10,41 @@
 static nivona_status_t s_status;
 static SemaphoreHandle_t s_mutex;
 
+static void lock(void);
+static void unlock(void);
+
 void nivona_fsm_init(void) {
     s_mutex = xSemaphoreCreateMutex();
-    // Official Nivona Android app's MakeCoffee() expects process==3 for
-    // NIVO 8000 family (4 for other Nivona families, 8 for Melitta).
-    // Upstream NIVONA.md describes status code 8 as "ready" for the 79x
-    // path. We default to 3 so the app can launch brew immediately.
-    // The HA integration treats any process<=10 as OK and uses its own
-    // enum semantics, so 3 is compatible with both.
-    s_status.process = 3;
+    // READY process code is family-specific:
+    //   NIVO 8000     → 3
+    //   All others    → 8
+    // (See docs/NIVONA_RE_NOTES.md §Phase A; source:
+    //  EugsterMobileApp.MakeCoffee switch on CoffeeMachineModel.)
+    // Default family is 8000; CLI `family <key>` + nivona_fsm_reset_to_ready
+    // retarget the FSM for other Nivona families.
+    const nivona_family_t *fam = nivona_family_current();
+    s_status.process = fam->process_ready;
     s_status.sub_process = 0;
     s_status.info = 0;
     s_status.manipulation = MANIP_NONE;
     s_status.progress = 0;
-    ESP_LOGI("nivona_fsm", "init: process=%d manip=%d",
-             s_status.process, s_status.manipulation);
+    ESP_LOGI("nivona_fsm", "init: family=%s process=%d manip=%d",
+             fam->key, s_status.process, s_status.manipulation);
+}
+
+void nivona_fsm_reset_to_ready(void) {
+    // Called after a runtime family switch so the advertised status
+    // reflects the new family's READY code without requiring reboot.
+    const nivona_family_t *fam = nivona_family_current();
+    lock();
+    s_status.process = fam->process_ready;
+    s_status.sub_process = 0;
+    s_status.info = 0;
+    s_status.manipulation = MANIP_NONE;
+    s_status.progress = 0;
+    unlock();
+    ESP_LOGI("nivona_fsm", "reset_to_ready: family=%s process=%d",
+             fam->key, fam->process_ready);
 }
 
 static void lock(void)   { xSemaphoreTake(s_mutex, portMAX_DELAY); }

@@ -38,6 +38,11 @@ typedef struct {
 
 void nivona_fsm_init(void);
 
+// Re-apply the current family's READY codes to the status block —
+// called after a runtime `family <key>` CLI switch so the next HX
+// read reflects the new family's idle state without needing reboot.
+void nivona_fsm_reset_to_ready(void);
+
 // Read current status (thread-safe copy)
 void nivona_fsm_get_status(nivona_status_t *out);
 

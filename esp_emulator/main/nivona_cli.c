@@ -1,4 +1,5 @@
 #include "nivona_cli.h"
+#include "nivona_families.h"
 #include "nivona_fsm.h"
 #include "nivona_store.h"
 #include "nivona_brew.h"
@@ -135,41 +136,40 @@ static struct {
     struct arg_end *end;
 } s_family_args;
 
-static const struct {
-    const char *key; const char *ble_name; const char *model;
-} FAMILIES[] = {
-    // BLE name format expected by the Nivona Android app: the serial
-    // number directly, no "NIVONA-" prefix. Trailing dashes are stripped
-    // by the app, Substring(0,4) must match "8101"/"8103"/"8107" and
-    // Substring(0,3) must match "030"/"040"/"660"/"670"/.../"979".
-    { "600",       "6801000001-----", "NICR 680" },
-    { "700",       "7591000001-----", "NICR 759" },
-    { "79x",       "7951000001-----", "NICR 795" },
-    { "900",       "9301000001-----", "NICR 930" },
-    { "900-light", "9701000001-----", "NICR 970" },
-    { "1030",      "0301000001-----", "NICR 1030" },
-    { "1040",      "0401000001-----", "NICR 1040" },
-    { "8000",      "8107000001-----", "NIVO 8107" },
-};
+// The canonical family table lives in nivona_families.c. This command
+// drives two layers in one shot:
+//   1. BLE advertisement + DIS — updates what the app / HA see at the
+//      identification layer. NimBLE caches some advertisement fields
+//      until re-advertising, so a reboot is still recommended for a
+//      clean re-scan.
+//   2. FSM process codes — updates the running status block
+//      immediately so `status` CLI and the next HX read reflect the
+//      new family's READY code (Phase A of the Nivona roadmap).
 
 static int cmd_family(int argc, char **argv) {
     int nerr = arg_parse(argc, argv, (void **)&s_family_args);
     if (nerr) { arg_print_errors(stderr, s_family_args.end, "family"); return 1; }
     const char *k = s_family_args.key->sval[0];
-    for (size_t i = 0; i < sizeof(FAMILIES) / sizeof(FAMILIES[0]); i++) {
-        if (!strcmp(k, FAMILIES[i].key)) {
-            ble_svc_gap_device_name_set(FAMILIES[i].ble_name);
-            // Sync DIS fields: BLE name IS the serial number now
-            const char *serial = FAMILIES[i].ble_name;
-            // Use EF-style values matching real Nivona machines
-            nivona_dis_set("EF", "EF-BTLE", serial,
-                           "1", "386", "EF_1.00R4__386");
-            printf("family=%s name=%s model=%s (reboot to re-advertise)\n",
-                   k, FAMILIES[i].ble_name, FAMILIES[i].model);
-            return 0;
-        }
+    const nivona_family_t *fam = nivona_family_find(k);
+    if (fam == NULL) {
+        printf("unknown family: %s\n", k);
+        // Fall through to the usage print at the bottom of the function.
+    } else {
+        // 1. Ad/DIS identity
+        ble_svc_gap_device_name_set(fam->ble_name);
+        nivona_dis_set("EF", "EF-BTLE", fam->ble_name,
+                       "1", "386", "EF_1.00R4__386");
+        // 2. FSM state — activate new family + reset status to the
+        //    family-specific READY code. This lets the very next
+        //    HX read reflect the switch without a reboot.
+        nivona_family_set(k);
+        nivona_fsm_reset_to_ready();
+        printf("family=%s name=%s model=%s ready=%d brew=%d\n",
+               k, fam->ble_name, fam->model,
+               fam->process_ready, fam->process_brewing);
+        printf("(status updated in-place; reboot to force a clean re-advertise)\n");
+        return 0;
     }
-    printf("unknown family: %s\n", k);
     printf("available: 600, 700, 79x, 900, 900-light, 1030, 1040, 8000\n");
     return 1;
 }

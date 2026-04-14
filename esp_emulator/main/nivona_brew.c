@@ -1,4 +1,5 @@
 #include "nivona_brew.h"
+#include "nivona_families.h"
 #include "nivona_fsm.h"
 #include "nivona_frame.h"
 
@@ -24,11 +25,18 @@ static void push_status(void) {
 
 static void brew_task(void *arg) {
     int16_t pv = (int16_t)(intptr_t)arg;
-    ESP_LOGI(TAG, "brew start process=%d", pv);
+    // Snapshot current family's codes at brew start — if the CLI
+    // switches family mid-brew the ramp still finishes consistently.
+    const nivona_family_t *fam = nivona_family_current();
+    const int16_t brew_code = fam->process_brewing;
+    const int16_t ready_code = fam->process_ready;
+    ESP_LOGI(TAG, "brew start family=%s pv=%d brew=%d ready=%d",
+             fam->key, pv, brew_code, ready_code);
 
-    // READY(3) → PREPARING(4) per Nivona Android app expectation.
-    // The app re-reads HX after 650ms post-HE and requires process==4.
-    nivona_fsm_set_process(4, pv);
+    // READY → PREPARING per Nivona Android app expectation. The app
+    // re-reads HX ~650 ms post-HE and requires the family-specific
+    // brewing code (4 for NIVO 8000, 11 for other Nivona families).
+    nivona_fsm_set_process(brew_code, pv);
     nivona_fsm_set_progress(0);
     push_status();
 
@@ -40,8 +48,8 @@ static void brew_task(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 
-    // Back to READY (3 = Nivona-app convention)
-    nivona_fsm_set_process(3, 0);
+    // Back to family-specific READY (3 for NIVO 8000, 8 for others).
+    nivona_fsm_set_process(ready_code, 0);
     nivona_fsm_set_progress(0);
     push_status();
 

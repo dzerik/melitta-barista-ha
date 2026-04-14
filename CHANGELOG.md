@@ -2,6 +2,44 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.48.1] — 2026-04-14 — Emulator Phase A: per-family FSM process codes
+
+Emulator-only release — no changes to the HA integration itself.
+
+### Added
+
+- **`esp_emulator/main/nivona_families.{h,c}`** — canonical per-family
+  lookup table (`600`/`700`/`79x`/`900`/`900-light`/`1030`/`1040`/`8000`)
+  centralising the values the FSM needs in order to emulate different
+  Nivona machines convincingly. Fields: `ble_name`, `model`,
+  `process_ready`, `process_brewing`, `fluid_scale`, `has_milk_system`.
+- **`docs/NIVONA_RE_NOTES.md`** — living scratch-pad for per-family
+  reverse-engineering findings (Phases A→H). Sources every fact to a
+  specific line of the decompiled `EugsterMobileApp` (v3.8.6).
+
+### Changed (emulator)
+
+- **`nivona_fsm_init`** now reads `process_ready` from the active
+  family entry instead of hardcoding `3`. New
+  `nivona_fsm_reset_to_ready()` retargets the FSM live when the CLI
+  switches family — no reboot needed for the status codes.
+- **`nivona_brew_task`** snapshots the current family at brew start
+  and uses `{process_brewing, process_ready}` from the table — so
+  on a `family 700` emulator, HX reads now return `8` (READY) / `11`
+  (PRODUCT) as expected by the HA integration (v0.46.0+ brand-aware
+  HX parsing) and by the official Android app's `MakeCoffee` switch.
+- **CLI `family <key>`** now also calls `nivona_family_set()` +
+  `nivona_fsm_reset_to_ready()` so the very next HX read reflects
+  the switch. Previously only ADV / DIS were updated.
+
+### Fixed
+
+- **Emulator was broken for any family other than `8000`.** After
+  `family 700` the ADV said NICR 759 but the FSM kept emitting
+  `process=3` (NIVO 8000 READY code) — HA would see the status as
+  "unknown" because the brand-aware parser expects `8` for
+  non-8000 Nivona families.
+
 ## [0.48.0] — 2026-04-14 — Show brand & model at discovery time
 
 ### Added

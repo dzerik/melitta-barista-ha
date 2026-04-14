@@ -1,0 +1,58 @@
+// Nivona family-specific tuning table.
+//
+// Phase A of the Nivona-emulation roadmap (see
+// docs/NIVONA_RE_NOTES.md). Centralises per-family values that the FSM
+// and the brew task need in order to emulate different Nivona machines
+// convincingly enough for both Home Assistant and the official Nivona
+// Android app to work against whichever family the CLI `family <key>`
+// command has selected.
+//
+// Values extracted from decompiled EugsterMobileApp (v3.8.6) —
+// MakeCoffee()/CheckDiscovered() switch on CoffeeMachineModel.
+
+#pragma once
+
+#include <stdint.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct {
+    const char *key;            // "600" / "700" / "79x" / … / "8000"
+    const char *ble_name;       // Advertised local_name — bare serial
+                                // with 5 trailing dashes. App takes
+                                // Substring(0, 4) as model code.
+    const char *model;          // Display model name (e.g. "NIVO 8107")
+
+    // Phase A — HX FSM process codes
+    int16_t process_ready;      // NIVO 8000 = 3, others = 8
+    int16_t process_brewing;    // NIVO 8000 = 4, others = 11
+
+    // Phase C-lite — brew payload scaling (populated but not yet
+    // consumed; HE handler will read once Phase C lands).
+    uint8_t fluid_scale;        // 900/1030/1040 = 10, others = 1
+    uint8_t has_milk_system;    // 900/1030/1040/8000 = 1, others = 0
+} nivona_family_t;
+
+// All known Nivona families. Size via NIVONA_FAMILIES_COUNT.
+extern const nivona_family_t NIVONA_FAMILIES[];
+extern const size_t NIVONA_FAMILIES_COUNT;
+
+// Returns the currently active family. Defaults to the "8000" entry
+// at boot. Never NULL.
+const nivona_family_t *nivona_family_current(void);
+
+// Switches the active family by key. Returns 0 on success, non-zero
+// if the key is unknown. Caller is responsible for pushing the new
+// ble_name / DIS values; this call just updates the table pointer so
+// the FSM and brew task read the right codes.
+int nivona_family_set(const char *key);
+
+// Convenience lookup (read-only). Returns NULL on miss.
+const nivona_family_t *nivona_family_find(const char *key);
+
+#ifdef __cplusplus
+}
+#endif
