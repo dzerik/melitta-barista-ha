@@ -6,6 +6,79 @@ fixes, new brand-emulation coverage, and protocol-fidelity work happen
 here without touching the integration's release cycle, and vice versa.
 Emulator releases are tagged `emu-v<MAJOR>.<MINOR>.<PATCH>`.
 
+## [0.4.0] — 2026-04-14 — Phase D: realistic consumables + maintenance FSM
+
+Third slice of the Nivona full-emulation roadmap. The emulator now
+simulates a real machine's wear: brewing consumes water and beans,
+fills the drip tray, and eventually the corresponding prompts
+(`FILL_WATER` / `EMPTY_TRAYS` / `BU_REMOVED`) appear in HA —
+clearable only by refilling via CLI (or a real physical refill
+once community testers have hardware).
+
+End-to-end flow HA users now experience:
+
+1. `brew 3` on a 900-family emulator → GRINDING → COFFEE → STEAM ramp.
+2. After ~25 brews the water tank drops under 10 % — emulator raises
+   `FILL_WATER` in the next HX.
+3. HA's `binary_sensor.*_awaiting_confirmation` turns on; the user
+   taps "Confirm Prompt" → emulator receives HY, NACKs (hard prompt).
+4. Dev runs `fix water` on the serial CLI → tank back to 100 %,
+   `nivona_maint_reevaluate` clears the prompt, next HX reads
+   `manipulation = NONE`.
+5. Brew resumes normally.
+
+### Added
+
+- **`nivona_consumables.{h,c}`** — simulated levels for `water`,
+  `beans`, `tray`, `filter` (each 0–100 %) and three mechanical
+  parts (`brew_unit`, `trays`, `powder_lid`). Thresholds in the
+  header (e.g. `NIVONA_THR_WATER_LOW = 10`).
+- **`nivona_maint.{h,c}`** — maintenance orchestrator. Re-evaluates
+  consumables on every state change, picks the highest-priority
+  manipulation, handles HY confirm (soft vs hard), exposes
+  per-family allowlist (`has_milk_system` → `MOVE_CUP_TO_FROTHER`;
+  1030/1040/8000 → `CLOSE_POWDER_LID` + `FILL_POWDER`).
+- **Cold-start sequencer** — on boot, if no hard prompt, raises
+  `FLUSH_REQUIRED` as a soft prompt (cleared by HA's first HY).
+- **CLI commands**:
+  - `tank <name> <pct>` — set consumable level.
+  - `fix <name>` — refill / re-seat (`water`/`beans`/`tray`/
+    `filter`/`all`/`brew_unit`/`trays`/`powder_lid`).
+  - `part <name> <on|off>` — mechanical part present/absent.
+  - `tanks` — dump all levels and parts.
+
+### Changed
+
+- **\[BUG FIX\]** `nivona_fsm.h` `nivona_manipulation_t` enum rewritten
+  to match the canonical `Manipulation` IntEnum from
+  `const.py:141`. Previously the emulator emitted `MANIP_WATER_EMPTY
+  = 1`, which HA parses as `BU_REMOVED = 1` — silently wrong
+  manipulation entities. Legacy CLI aliases (`trigger water_empty`
+  → `FILL_WATER`) kept working.
+- **`brew_task`** consumes resources per stage (GRINDING −3 % beans
+  +2 % tray, COFFEE −3 % water, WATER −5 % water, STEAM −3 % water)
+  and calls `nivona_maint_reevaluate` at the end so prompts surface
+  in the final HX of the brew.
+- **`nivona_brew_start`** refuses HE while a hard prompt is active
+  (water empty / tray full / BU removed) — matches real-hardware
+  behaviour and lets the Nivona app surface a proper error.
+- **`handle_he`** NACKs when `nivona_brew_start` refuses — previously
+  only NACKed on unknown selector.
+- **`handle_hy`** routes through the maintenance orchestrator:
+  soft prompts clear, hard prompts NACK until consumables fix
+  the underlying condition.
+
+### Requires
+
+- HA integration **v0.46.0+** for brand-aware HX parsing.
+
+### Binary
+
+ESP32-C6 build clean, 1.31 MB (13% partition headroom). +~5 KB
+over `emu-v0.3.0` for consumables + maintenance FSM.
+
+---
+
 ## [0.3.0] — 2026-04-14 — Phase C-lite: per-family brew recipes + multi-stage ramp
 
 Second slice of the Nivona full-emulation roadmap (see

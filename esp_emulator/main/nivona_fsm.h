@@ -19,13 +19,20 @@ typedef enum {
     PROC_BUSY            = 99,
 } nivona_process_t;
 
+// Must match Manipulation IntEnum in custom_components/melitta_barista/
+// const.py (line 141). The emulator's HX manipulation byte is parsed
+// against this exact enum by MachineStatus.from_payload; any drift
+// between sides makes prompt entities unavailable / "unknown".
 typedef enum {
-    MANIP_NONE           = 0,
-    MANIP_WATER_EMPTY    = 1,
-    MANIP_BEANS_EMPTY    = 2,
-    MANIP_TRAY_FULL      = 3,
-    MANIP_CLEAN          = 4,
-    MANIP_DESCALE        = 5,
+    MANIP_NONE              = 0,
+    MANIP_BU_REMOVED        = 1,
+    MANIP_TRAYS_MISSING     = 2,
+    MANIP_EMPTY_TRAYS       = 3,
+    MANIP_FILL_WATER        = 4,
+    MANIP_CLOSE_POWDER_LID  = 5,
+    MANIP_FILL_POWDER       = 6,
+    MANIP_MOVE_CUP          = 11,
+    MANIP_FLUSH_REQUIRED    = 20,
 } nivona_manipulation_t;
 
 typedef struct {

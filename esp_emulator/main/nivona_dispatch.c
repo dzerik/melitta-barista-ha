@@ -5,6 +5,7 @@
 #include "nivona_store.h"
 #include "nivona_brew.h"
 #include "nivona_ble.h"
+#include "nivona_maint.h"
 
 #include <string.h>
 
@@ -268,7 +269,13 @@ void nivona_dispatch(const char *cmd, const uint8_t *payload, size_t len) {
     if (!strcmp(cmd, CMD_WRITE_ALPHA))     { handle_hb(payload, len); return; }
     if (!strcmp(cmd, CMD_START_PROCESS))   { handle_he(payload, len); return; }
     if (!strcmp(cmd, CMD_CANCEL_PROCESS))  { nivona_brew_cancel(); send_ack(); return; }
-    if (!strcmp(cmd, CMD_CONFIRM_PROMPT))  { nivona_fsm_set_manipulation(MANIP_NONE); send_ack(); return; }
+    if (!strcmp(cmd, CMD_CONFIRM_PROMPT))  {
+        // Phase D: soft prompts clear, hard prompts require a
+        // consumable fix first. NACK on the latter so the client
+        // surfaces an error rather than believing the prompt cleared.
+        if (nivona_maint_handle_confirm()) { send_ack(); } else { send_nack(); }
+        return;
+    }
     if (!strcmp(cmd, CMD_RESET_DEFAULT))   { send_ack(); return; }
     if (!strcmp(cmd, CMD_WRITE_RECIPE))    { send_ack(); return; }  // HC/HJ n/a for Nivona
     if (!strcmp(cmd, "HN"))                { handle_hn(payload, len); return; }

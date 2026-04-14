@@ -1,6 +1,8 @@
 #include "nivona_cli.h"
+#include "nivona_consumables.h"
 #include "nivona_families.h"
 #include "nivona_fsm.h"
+#include "nivona_maint.h"
 #include "nivona_store.h"
 #include "nivona_brew.h"
 
@@ -83,13 +85,26 @@ static int cmd_trigger(int argc, char **argv) {
     int nerr = arg_parse(argc, argv, (void **)&s_trigger_args);
     if (nerr) { arg_print_errors(stderr, s_trigger_args.end, "trigger"); return 1; }
     const char *n = s_trigger_args.name->sval[0];
+    // Legacy `trigger` accepts both the old emulator names and the
+    // canonical Manipulation enum labels from const.py. Prefer the
+    // latter — the old aliases are kept so historical scripts still
+    // work after the Phase D enum rename.
     uint8_t m = MANIP_NONE;
-    if      (!strcmp(n, "none"))         m = MANIP_NONE;
-    else if (!strcmp(n, "water_empty"))  m = MANIP_WATER_EMPTY;
-    else if (!strcmp(n, "beans_empty"))  m = MANIP_BEANS_EMPTY;
-    else if (!strcmp(n, "tray_full"))    m = MANIP_TRAY_FULL;
-    else if (!strcmp(n, "clean"))        m = MANIP_CLEAN;
-    else if (!strcmp(n, "descale"))      m = MANIP_DESCALE;
+    if      (!strcmp(n, "none"))           m = MANIP_NONE;
+    else if (!strcmp(n, "bu_removed"))     m = MANIP_BU_REMOVED;
+    else if (!strcmp(n, "trays_missing"))  m = MANIP_TRAYS_MISSING;
+    else if (!strcmp(n, "empty_trays"))    m = MANIP_EMPTY_TRAYS;
+    else if (!strcmp(n, "fill_water"))     m = MANIP_FILL_WATER;
+    else if (!strcmp(n, "close_powder"))   m = MANIP_CLOSE_POWDER_LID;
+    else if (!strcmp(n, "fill_powder"))    m = MANIP_FILL_POWDER;
+    else if (!strcmp(n, "move_cup"))       m = MANIP_MOVE_CUP;
+    else if (!strcmp(n, "flush"))          m = MANIP_FLUSH_REQUIRED;
+    // Legacy aliases (pre-Phase-D):
+    else if (!strcmp(n, "water_empty"))    m = MANIP_FILL_WATER;
+    else if (!strcmp(n, "tray_full"))      m = MANIP_EMPTY_TRAYS;
+    else if (!strcmp(n, "beans_empty"))    m = MANIP_NONE; // no code in canonical enum
+    else if (!strcmp(n, "clean"))          m = MANIP_FLUSH_REQUIRED;
+    else if (!strcmp(n, "descale"))        m = MANIP_FLUSH_REQUIRED;
     else { printf("unknown manip: %s\n", n); return 1; }
     nivona_fsm_set_manipulation(m);
     printf("manipulation = %u\n", m);
@@ -205,6 +220,105 @@ static int cmd_reboot(int argc, char **argv) {
     return 0;
 }
 
+// ---- tanks / parts (Phase D) ------------------------------------------
+
+static struct {
+    struct arg_str *name;
+    struct arg_int *pct;
+    struct arg_end *end;
+} s_tank_args;
+
+static nivona_consumable_t consum_by_name(const char *name) {
+    if (!strcmp(name, "water"))  return NIVONA_CONSUM_WATER;
+    if (!strcmp(name, "beans"))  return NIVONA_CONSUM_BEANS;
+    if (!strcmp(name, "tray"))   return NIVONA_CONSUM_TRAY;
+    if (!strcmp(name, "filter")) return NIVONA_CONSUM_FILTER;
+    return NIVONA_CONSUM_COUNT; // sentinel "not found"
+}
+
+static nivona_part_t part_by_name(const char *name) {
+    if (!strcmp(name, "brew_unit"))  return NIVONA_PART_BREW_UNIT;
+    if (!strcmp(name, "trays"))      return NIVONA_PART_TRAYS;
+    if (!strcmp(name, "powder_lid")) return NIVONA_PART_POWDER_LID;
+    return NIVONA_PART_COUNT;
+}
+
+static int cmd_tank(int argc, char **argv) {
+    int nerr = arg_parse(argc, argv, (void **)&s_tank_args);
+    if (nerr) { arg_print_errors(stderr, s_tank_args.end, "tank"); return 1; }
+    const char *name = s_tank_args.name->sval[0];
+    nivona_consumable_t c = consum_by_name(name);
+    if (c == NIVONA_CONSUM_COUNT) {
+        printf("unknown tank: %s  (water|beans|tray|filter)\n", name);
+        return 1;
+    }
+    int pct = s_tank_args.pct->ival[0];
+    nivona_consumable_set(c, (uint8_t)(pct < 0 ? 0 : (pct > 100 ? 100 : pct)));
+    nivona_maint_reevaluate();
+    printf("%s=%u%% (manipulation re-evaluated)\n", name, nivona_consumable_get(c));
+    return 0;
+}
+
+static struct {
+    struct arg_str *name;
+    struct arg_end *end;
+} s_fix_args;
+
+static int cmd_fix(int argc, char **argv) {
+    int nerr = arg_parse(argc, argv, (void **)&s_fix_args);
+    if (nerr) { arg_print_errors(stderr, s_fix_args.end, "fix"); return 1; }
+    const char *name = s_fix_args.name->sval[0];
+
+    // Shortcuts for the most common "oops, refill" flow:
+    if (!strcmp(name, "water"))  { nivona_consumable_set(NIVONA_CONSUM_WATER, 100); goto done; }
+    if (!strcmp(name, "beans"))  { nivona_consumable_set(NIVONA_CONSUM_BEANS, 100); goto done; }
+    if (!strcmp(name, "tray"))   { nivona_consumable_set(NIVONA_CONSUM_TRAY, 0);    goto done; }
+    if (!strcmp(name, "filter")) { nivona_consumable_set(NIVONA_CONSUM_FILTER, 100); goto done; }
+    if (!strcmp(name, "all"))    { nivona_consumables_reset();                      goto done; }
+
+    // Parts — assume user means "re-seat" / install:
+    nivona_part_t p = part_by_name(name);
+    if (p != NIVONA_PART_COUNT) { nivona_part_set(p, true); goto done; }
+
+    printf("unknown target: %s  (water|beans|tray|filter|all|brew_unit|trays|powder_lid)\n", name);
+    return 1;
+done:
+    nivona_maint_reevaluate();
+    printf("fixed %s; maintenance re-evaluated\n", name);
+    return 0;
+}
+
+static struct {
+    struct arg_str *name;
+    struct arg_str *state; // "on" / "off"
+    struct arg_end *end;
+} s_part_args;
+
+static int cmd_part(int argc, char **argv) {
+    int nerr = arg_parse(argc, argv, (void **)&s_part_args);
+    if (nerr) { arg_print_errors(stderr, s_part_args.end, "part"); return 1; }
+    const char *name = s_part_args.name->sval[0];
+    const char *state = s_part_args.state->sval[0];
+    nivona_part_t p = part_by_name(name);
+    if (p == NIVONA_PART_COUNT) {
+        printf("unknown part: %s  (brew_unit|trays|powder_lid)\n", name);
+        return 1;
+    }
+    bool present = (!strcmp(state, "on") || !strcmp(state, "present") ||
+                    !strcmp(state, "in")  || !strcmp(state, "1"));
+    nivona_part_set(p, present);
+    nivona_maint_reevaluate();
+    printf("%s=%s (manipulation re-evaluated)\n",
+           name, present ? "present" : "absent");
+    return 0;
+}
+
+static int cmd_tanks_dump(int argc, char **argv) {
+    (void)argc; (void)argv;
+    nivona_consumables_dump();
+    return 0;
+}
+
 // ---- start ----
 
 void nivona_cli_start(void) {
@@ -284,6 +398,41 @@ void nivona_cli_start(void) {
         .command = "reboot", .help = "Reboot device", .func = cmd_reboot,
     };
     ESP_ERROR_CHECK(esp_console_cmd_register(&c_reboot));
+
+    // tank <name> <pct>
+    s_tank_args.name = arg_str1(NULL, NULL, "<name>", "water|beans|tray|filter");
+    s_tank_args.pct  = arg_int1(NULL, NULL, "<pct>",  "0..100");
+    s_tank_args.end  = arg_end(3);
+    const esp_console_cmd_t c_tank = {
+        .command = "tank", .help = "Set consumable level (Phase D)",
+        .func = cmd_tank, .argtable = &s_tank_args,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_tank));
+
+    // fix <name>
+    s_fix_args.name = arg_str1(NULL, NULL, "<name>", "water|beans|tray|filter|all|brew_unit|trays|powder_lid");
+    s_fix_args.end  = arg_end(2);
+    const esp_console_cmd_t c_fix = {
+        .command = "fix", .help = "Refill / re-seat (Phase D)",
+        .func = cmd_fix, .argtable = &s_fix_args,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_fix));
+
+    // part <name> <on|off>
+    s_part_args.name  = arg_str1(NULL, NULL, "<name>",  "brew_unit|trays|powder_lid");
+    s_part_args.state = arg_str1(NULL, NULL, "<state>", "on|off");
+    s_part_args.end   = arg_end(3);
+    const esp_console_cmd_t c_part = {
+        .command = "part", .help = "Set mechanical part present/absent (Phase D)",
+        .func = cmd_part, .argtable = &s_part_args,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_part));
+
+    const esp_console_cmd_t c_tanks = {
+        .command = "tanks", .help = "Dump consumables / parts (Phase D)",
+        .func = cmd_tanks_dump,
+    };
+    ESP_ERROR_CHECK(esp_console_cmd_register(&c_tanks));
 
     ESP_ERROR_CHECK(esp_console_register_help_command());
     ESP_ERROR_CHECK(esp_console_start_repl(repl));

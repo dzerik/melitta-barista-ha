@@ -1,7 +1,9 @@
 #include "nivona_brew.h"
+#include "nivona_consumables.h"
 #include "nivona_families.h"
 #include "nivona_fsm.h"
 #include "nivona_frame.h"
+#include "nivona_maint.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -115,6 +117,33 @@ static void brew_task(void *arg) {
     for (size_t i = 0; i < ramp->stage_count && !s_cancel; i++) {
         const brew_stage_t *st = &ramp->stages[i];
         uint32_t stage_ms = (total_ms * st->weight) / weight_sum;
+
+        // Consume resources for this stage. Rough per-stage budget:
+        //   GRINDING → 3 % beans + fills tray by 2 % (grounds)
+        //   COFFEE   → 3 % water per stage (espresso uses ~30 ml of
+        //              a 1.8 L tank ≈ 1.7 %, round to 3 for a visible
+        //              drift over ~20 brews)
+        //   WATER    → 5 % water (americano top-up, hot water drink)
+        //   STEAM    → 3 % water (milk drinks consume some steam water)
+        //   PREPARE  → nothing
+        switch (st->sub) {
+            case NIVONA_SUB_GRINDING:
+                nivona_consumables_consume_beans(3);
+                nivona_consumables_fill_tray(2);
+                break;
+            case NIVONA_SUB_COFFEE:
+                nivona_consumables_consume_water(3);
+                break;
+            case NIVONA_SUB_WATER:
+                nivona_consumables_consume_water(5);
+                break;
+            case NIVONA_SUB_STEAM:
+                nivona_consumables_consume_water(3);
+                break;
+            default:
+                break;
+        }
+
         // sub_process code reflects the current stage; HX readers
         // (HA's SubProcess enum, Android app UI) observe the change.
         nivona_fsm_set_process(brew_code, (int16_t)st->sub);
@@ -142,6 +171,13 @@ static void brew_task(void *arg) {
     // Back to family-specific READY.
     nivona_fsm_set_process(ready_code, 0);
     nivona_fsm_set_progress(0);
+
+    // After every brew the maintenance orchestrator re-checks all
+    // consumables. If the water tank just dropped below 10 %, a
+    // FILL_WATER prompt surfaces in the next HX status — HA raises
+    // its awaiting_confirmation binary sensor and the user has to
+    // refill (CLI `fix water` / physical refill on a real machine).
+    nivona_maint_reevaluate();
     push_status();
 
     s_active = false;
@@ -166,6 +202,17 @@ bool nivona_brew_start(int16_t process_value, bool two_cups) {
     if (recipe == NULL) {
         ESP_LOGW(TAG, "unknown selector %u on family %s — rejecting brew",
                  sel, fam->key);
+        return false;
+    }
+    // Refuse brew while a hard prompt is active — a real machine
+    // would reject HE with its own error. Soft prompts (FLUSH /
+    // MOVE_CUP) are fine because the brew itself flushes them.
+    nivona_status_t status;
+    nivona_fsm_get_status(&status);
+    if (status.manipulation != MANIP_NONE &&
+        !nivona_maint_current_is_soft()) {
+        ESP_LOGW(TAG, "brew rejected: hard prompt manip=%u active",
+                 status.manipulation);
         return false;
     }
 
