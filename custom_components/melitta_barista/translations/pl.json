@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Potwierdź urządzenie",
-        "description": "Znaleziono ekspres do kawy: {name}. Czy chcesz go skonfigurować?"
+        "description": "Znaleziono ekspres do kawy:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Rozgłoszenie:** {name}\n- **MAC:** {address}\n\nCzy chcesz go skonfigurować?"
       },
       "pair": {
-        "title": "Parowanie z {name}",
-        "description": "Włącz tryb parowania Bluetooth na ekspresie (w menu ustawień), a następnie naciśnij Wyślij.\n\nUrządzenie: **{name}** ({address})"
+        "title": "Sparuj z {brand} {model}",
+        "description": "Włącz tryb parowania Bluetooth w ekspresie (sprawdź menu ustawień), a następnie naciśnij Wyślij.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Rozgłoszenie:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Rekonfiguracja ekspresu do kawy",

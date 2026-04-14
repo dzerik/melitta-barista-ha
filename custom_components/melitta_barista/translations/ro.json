@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Confirmare dispozitiv",
-        "description": "Espressor găsit: {name}. Doriți să-l configurați?"
+        "description": "Espressor găsit:\n\n- **Marcă:** {brand}\n- **Model:** {model}\n- **Anunț:** {name}\n- **MAC:** {address}\n\nDoriți să-l configurați?"
       },
       "pair": {
-        "title": "Împerechere cu {name}",
-        "description": "Activați modul de împerechere Bluetooth pe aparatul de cafea (în meniul de setări), apoi apăsați Trimite.\n\nDispozitiv: **{name}** ({address})"
+        "title": "Împerechere cu {brand} {model}",
+        "description": "Activați modul de împerechere Bluetooth pe espressor (consultați meniul de setări), apoi apăsați Trimite.\n\n- **Marcă:** {brand}\n- **Model:** {model}\n- **Anunț:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Reconfigurare espressor",

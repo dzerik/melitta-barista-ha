@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Bekräfta enhet",
-        "description": "Kaffemaskin hittad: {name}. Vill du konfigurera den?"
+        "description": "Kaffemaskin hittad:\n\n- **Varumärke:** {brand}\n- **Modell:** {model}\n- **Annonsering:** {name}\n- **MAC:** {address}\n\nVill du konfigurera den?"
       },
       "pair": {
-        "title": "Parkoppla med {name}",
-        "description": "Aktivera Bluetooth-parkopplingsläget på din kaffemaskin (i inställningsmenyn), tryck sedan på Skicka.\n\nEnhet: **{name}** ({address})"
+        "title": "Parkoppla med {brand} {model}",
+        "description": "Aktivera Bluetooth-parkopplingsläget på kaffemaskinen (se inställningsmenyn) och tryck på Skicka.\n\n- **Varumärke:** {brand}\n- **Modell:** {model}\n- **Annonsering:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Konfigurera om kaffemaskin",

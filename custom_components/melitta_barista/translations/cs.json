@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Potvrdit zařízení",
-        "description": "Nalezený kávovar: {name}. Chcete jej nastavit?"
+        "description": "Nalezený kávovar:\n\n- **Značka:** {brand}\n- **Model:** {model}\n- **Inzerce:** {name}\n- **MAC:** {address}\n\nChcete jej nastavit?"
       },
       "pair": {
-        "title": "Párování s {name}",
-        "description": "Zapněte režim párování Bluetooth na kávovaru (v nabídce nastavení), pak stiskněte Odeslat.\n\nZařízení: **{name}** ({address})"
+        "title": "Spárovat s {brand} {model}",
+        "description": "Povolte režim párování Bluetooth na kávovaru (viz nabídka nastavení) a stiskněte Odeslat.\n\n- **Značka:** {brand}\n- **Model:** {model}\n- **Inzerce:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Překonfigurovat kávovar",

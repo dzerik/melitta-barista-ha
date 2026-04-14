@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Bekreft enhet",
-        "description": "Kaffemaskin funnet: {name}. Vil du sette den opp?"
+        "description": "Kaffemaskin funnet:\n\n- **Merke:** {brand}\n- **Modell:** {model}\n- **Kunngjøring:** {name}\n- **MAC:** {address}\n\nVil du sette den opp?"
       },
       "pair": {
-        "title": "Paring med {name}",
-        "description": "Aktiver Bluetooth-paringsmodus på kaffemaskinen (i innstillingsmenyen), trykk deretter på Send.\n\nEnhet: **{name}** ({address})"
+        "title": "Sammenkoble med {brand} {model}",
+        "description": "Aktiver Bluetooth-sammenkoblingsmodus på kaffemaskinen (se innstillinger) og trykk Send.\n\n- **Merke:** {brand}\n- **Modell:** {model}\n- **Kunngjøring:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Rekonfigurer kaffemaskin",

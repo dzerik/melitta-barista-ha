@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Eszköz megerősítése",
-        "description": "Kávéfőző megtalálva: {name}. Szeretné beállítani?"
+        "description": "Kávéfőző megtalálva:\n\n- **Márka:** {brand}\n- **Modell:** {model}\n- **Hirdetés:** {name}\n- **MAC:** {address}\n\nSzeretné beállítani?"
       },
       "pair": {
-        "title": "Párosítás: {name}",
-        "description": "Kapcsolja be a Bluetooth párosítási módot a kávégépen (a beállítások menüben), majd nyomja meg a Küldés gombot.\n\nEszköz: **{name}** ({address})"
+        "title": "Párosítás {brand} {model}",
+        "description": "Engedélyezze a Bluetooth párosítási módot a kávéfőzőn (lásd a beállítások menüt), majd nyomja meg a Küldés gombot.\n\n- **Márka:** {brand}\n- **Modell:** {model}\n- **Hirdetés:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Kávéfőző újrakonfigurálása",

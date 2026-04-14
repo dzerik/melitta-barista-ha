@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Potrdi napravo",
-        "description": "Najden aparat za kavo: {name}. Ali ga želite nastaviti?"
+        "description": "Najden aparat za kavo:\n\n- **Znamka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}\n\nAli ga želite nastaviti?"
       },
       "pair": {
-        "title": "Povezovanje z {name}",
-        "description": "Vklopite Bluetooth način povezovanja na kavnem aparatu (v meniju nastavitev), nato pritisnite Pošlji.\n\nNaprava: **{name}** ({address})"
+        "title": "Seznanite z {brand} {model}",
+        "description": "Omogočite način seznanjanja Bluetooth na aparatu za kavo (glejte meni nastavitev) in pritisnite Pošlji.\n\n- **Znamka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Ponastavi aparat za kavo",

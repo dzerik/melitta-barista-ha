@@ -601,10 +601,13 @@ async def test_step_pair_success_creates_entry(
             result2["flow_id"], user_input={}
         )
 
+    # Since v0.48.0 the entry title and CONF_NAME are the brand/model
+    # resolved from the advertisement (``"Melitta Barista TS Smart"``
+    # for MOCK_NAME="8601ABCD1234"), not the raw local_name.
     assert result3["type"] is FlowResultType.CREATE_ENTRY
-    assert result3["title"] == MOCK_NAME
+    assert result3["title"] == "Melitta Barista TS Smart"
     assert result3["data"][CONF_ADDRESS] == MOCK_ADDRESS
-    assert result3["data"][CONF_NAME] == MOCK_NAME
+    assert result3["data"][CONF_NAME] == "Melitta Barista TS Smart"
 
 
 async def test_step_pair_failure_shows_error(

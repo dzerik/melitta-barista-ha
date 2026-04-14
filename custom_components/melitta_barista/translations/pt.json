@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Confirmar dispositivo",
-        "description": "Máquina de café encontrada: {name}. Deseja configurá-la?"
+        "description": "Máquina de café encontrada:\n\n- **Marca:** {brand}\n- **Modelo:** {model}\n- **Anúncio:** {name}\n- **MAC:** {address}\n\nDeseja configurá-la?"
       },
       "pair": {
-        "title": "Emparelhar com {name}",
-        "description": "Ative o modo de emparelhamento Bluetooth na sua máquina de café (consulte o menu de configurações da máquina), depois pressione Enviar para emparelhar.\n\nDispositivo: **{name}** ({address})"
+        "title": "Emparelhar com {brand} {model}",
+        "description": "Ative o modo de emparelhamento Bluetooth na sua máquina de café (veja o menu de definições) e prima Enviar.\n\n- **Marca:** {brand}\n- **Modelo:** {model}\n- **Anúncio:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Reconfigurar máquina de café",

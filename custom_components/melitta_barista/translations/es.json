@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Confirmar dispositivo",
-        "description": "Cafetera encontrada: {name}. ¿Quieres configurarla?"
+        "description": "Cafetera encontrada:\n\n- **Marca:** {brand}\n- **Modelo:** {model}\n- **Anuncio:** {name}\n- **MAC:** {address}\n\n¿Quieres configurarla?"
       },
       "pair": {
-        "title": "Emparejar con {name}",
-        "description": "Active el modo de emparejamiento Bluetooth en su cafetera (consulte el menú de configuración de la máquina), luego presione Enviar para emparejar.\n\nDispositivo: **{name}** ({address})"
+        "title": "Emparejar con {brand} {model}",
+        "description": "Activa el modo de emparejamiento Bluetooth en tu cafetera (consulta el menú de ajustes) y pulsa Enviar.\n\n- **Marca:** {brand}\n- **Modelo:** {model}\n- **Anuncio:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Reconfigurar cafetera",

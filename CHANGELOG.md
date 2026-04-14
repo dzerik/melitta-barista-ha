@@ -2,6 +2,35 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.48.0] — 2026-04-14 — Show brand & model at discovery time
+
+### Added
+
+- **Discovery picker now shows brand + model**, not just the raw
+  advertisement local_name. Instead of `"8107000001----- (MAC)"` you
+  see `"Nivona NICR 8107 · 8107000001----- · MAC"` — resolved at
+  advertisement time (no BLE connect required) via the new
+  `_describe_advertisement()` helper.
+- **Bluetooth-confirm + pair forms** list the resolved brand, model,
+  raw advertisement name, and MAC before you commit to pairing, so
+  a misdetection is caught *before* the config entry is created.
+- **Config-entry title and ``CONF_NAME`` default to the
+  brand + model** (e.g. ``"Melitta Barista TS Smart"`` /
+  ``"Nivona NICR 8107"``) instead of the raw advertisement name.
+  The device shows up in Home Assistant's device registry under the
+  friendly name straight away — no manual rename required.
+
+### Changed
+
+- **strings.json** bluetooth_confirm / pair descriptions gained
+  ``{brand}`` / ``{model}`` / ``{address}`` placeholders alongside
+  ``{name}``; all **29 translation files** updated with native-language
+  labels (Marke/Modell, Marque/Modèle, Марка/Модель, Μάρκα/Μοντέλο,
+  Zīmols/Modelis, …) — `tr`, `sv`, `el`, etc. all localised.
+- **Direct-scan fallback in `_async_discover_devices`** also matches
+  `"nivona"` substring and delegates to `detect_from_advertisement` so
+  discovery picks up both brands uniformly.
+
 ## [0.47.2] — 2026-04-14 — Fix Nivona brand detection for bare-serial advertisements
 
 ### Fixed

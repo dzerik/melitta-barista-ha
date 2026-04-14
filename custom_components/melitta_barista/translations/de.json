@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Gerät bestätigen",
-        "description": "Kaffeemaschine gefunden: {name}. Möchten Sie sie einrichten?"
+        "description": "Kaffeemaschine gefunden:\n\n- **Marke:** {brand}\n- **Modell:** {model}\n- **Werbung:** {name}\n- **MAC:** {address}\n\nMöchten Sie sie einrichten?"
       },
       "pair": {
-        "title": "Kopplung mit {name}",
-        "description": "Aktivieren Sie den Bluetooth-Kopplungsmodus an Ihrer Kaffeemaschine (im Einstellungsmenü der Maschine), dann drücken Sie Senden zum Koppeln.\n\nGerät: **{name}** ({address})"
+        "title": "Verbinden mit {brand} {model}",
+        "description": "Aktivieren Sie den Bluetooth-Pairing-Modus an Ihrer Kaffeemaschine (siehe Einstellungsmenü) und drücken Sie anschließend „Senden“.\n\n- **Marke:** {brand}\n- **Modell:** {model}\n- **Werbung:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Kaffeemaschine neu konfigurieren",

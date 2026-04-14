@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Patvirtinti įrenginį",
-        "description": "Rastas kavos aparatas: {name}. Ar norite jį konfigūruoti?"
+        "description": "Rastas kavos aparatas:\n\n- **Prekės ženklas:** {brand}\n- **Modelis:** {model}\n- **Skelbimas:** {name}\n- **MAC:** {address}\n\nAr norite jį konfigūruoti?"
       },
       "pair": {
-        "title": "Susiejimas su {name}",
-        "description": "Įjunkite Bluetooth susiejimo režimą kavos aparate (nustatymų meniu), tada paspauskite Siųsti.\n\nĮrenginys: **{name}** ({address})"
+        "title": "Susieti su {brand} {model}",
+        "description": "Įjunkite Bluetooth susiejimo režimą kavos aparate (žr. nustatymų meniu) ir paspauskite Pateikti.\n\n- **Prekės ženklas:** {brand}\n- **Modelis:** {model}\n- **Skelbimas:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Perkonfigūruoti kavos aparatą",

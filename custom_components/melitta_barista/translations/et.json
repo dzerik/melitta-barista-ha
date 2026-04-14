@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Kinnita seade",
-        "description": "Leitud kohvimasin: {name}. Kas soovite selle seadistada?"
+        "description": "Leitud kohvimasin:\n\n- **Bränd:** {brand}\n- **Mudel:** {model}\n- **Teadaanne:** {name}\n- **MAC:** {address}\n\nKas soovite selle seadistada?"
       },
       "pair": {
-        "title": "Sidumine seadmega {name}",
-        "description": "Lülitage kohvimasinal Bluetooth sidumisrežiim sisse (seadete menüüs), seejärel vajutage Saada.\n\nSeade: **{name}** ({address})"
+        "title": "Paarista {brand} {model}",
+        "description": "Lubage kohvimasinal Bluetoothi sidumisrežiim (vaadake sätete menüüd) ja vajutage Saada.\n\n- **Bränd:** {brand}\n- **Mudel:** {model}\n- **Teadaanne:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Kohvimasina ümberseadistamine",

@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Apstiprināt ierīci",
-        "description": "Atrasts kafijas automāts: {name}. Vai vēlaties to iestatīt?"
+        "description": "Atrasts kafijas automāts:\n\n- **Zīmols:** {brand}\n- **Modelis:** {model}\n- **Paziņojums:** {name}\n- **MAC:** {address}\n\nVai vēlaties to iestatīt?"
       },
       "pair": {
-        "title": "Savienošana ar {name}",
-        "description": "Ieslēdziet Bluetooth savienošanas režīmu kafijas automātā (iestatījumu izvēlnē), tad nospiediet Nosūtīt.\n\nIerīce: **{name}** ({address})"
+        "title": "Sapārot ar {brand} {model}",
+        "description": "Ieslēdziet Bluetooth pāra savienojuma režīmu kafijas automātā (skatiet iestatījumu izvēlni) un nospiediet Iesniegt.\n\n- **Zīmols:** {brand}\n- **Modelis:** {model}\n- **Paziņojums:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Pārkonfigurēt kafijas automātu",

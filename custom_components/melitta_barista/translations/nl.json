@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Apparaat bevestigen",
-        "description": "Koffiemachine gevonden: {name}. Wilt u deze instellen?"
+        "description": "Koffiemachine gevonden:\n\n- **Merk:** {brand}\n- **Model:** {model}\n- **Advertentie:** {name}\n- **MAC:** {address}\n\nWilt u deze instellen?"
       },
       "pair": {
-        "title": "Koppelen met {name}",
-        "description": "Schakel de Bluetooth-koppelingsmodus in op uw koffiemachine (controleer het instellingenmenu van de machine), druk daarna op Verzenden om te koppelen.\n\nApparaat: **{name}** ({address})"
+        "title": "Koppelen met {brand} {model}",
+        "description": "Schakel de Bluetooth-koppelmodus in op uw koffiemachine (zie instellingenmenu) en druk op Verzenden.\n\n- **Merk:** {brand}\n- **Model:** {model}\n- **Advertentie:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Koffiemachine opnieuw configureren",

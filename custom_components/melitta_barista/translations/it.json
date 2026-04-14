@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Conferma dispositivo",
-        "description": "Macchina da caffè trovata: {name}. Vuoi configurarla?"
+        "description": "Macchina da caffè trovata:\n\n- **Marca:** {brand}\n- **Modello:** {model}\n- **Annuncio:** {name}\n- **MAC:** {address}\n\nVuoi configurarla?"
       },
       "pair": {
-        "title": "Accoppiamento con {name}",
-        "description": "Attiva la modalità di accoppiamento Bluetooth sulla tua macchina da caffè (controlla il menu delle impostazioni della macchina), poi premi Invia per accoppiare.\n\nDispositivo: **{name}** ({address})"
+        "title": "Associa a {brand} {model}",
+        "description": "Attiva la modalità di abbinamento Bluetooth sulla tua macchina da caffè (consulta il menu impostazioni), poi premi Invia.\n\n- **Marca:** {brand}\n- **Modello:** {model}\n- **Annuncio:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Riconfigura la macchina da caffè",

@@ -67,6 +67,49 @@ def _suggested_name(local_name: str | None) -> str:
     return f"{profile.brand_name} {_FALLBACK_NAME}"
 
 
+def _describe_advertisement(
+    local_name: str | None,
+) -> dict[str, str]:
+    """Extract everything we can know about a device before connecting.
+
+    Returns a dict with ``brand`` / ``model`` / ``family`` / ``display``
+    keys — all strings (possibly empty). ``display`` is the compact
+    human label used in the discovery picker and form placeholders
+    (e.g. ``"Nivona NICR 8107"`` or ``"Unknown"``).
+    """
+    from .brands import detect_from_advertisement  # noqa: PLC0415
+
+    if not local_name:
+        return {"brand": "", "model": "", "family": "", "display": "Unknown"}
+
+    profile = detect_from_advertisement(local_name)
+    if profile is None:
+        return {
+            "brand": "",
+            "model": "",
+            "family": "",
+            "display": local_name,
+        }
+
+    family = profile.detect_family(local_name) or ""
+    try:
+        caps = profile.capabilities_for(family) if family else None
+    except KeyError:
+        caps = None
+
+    model = caps.model_name if caps is not None else ""
+    display = (
+        f"{profile.brand_name} {model}".strip() if model
+        else profile.brand_name
+    )
+    return {
+        "brand": profile.brand_name,
+        "model": model,
+        "family": family,
+        "display": display,
+    }
+
+
 class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the config flow for Melitta and Nivona coffee machines."""
 
@@ -112,11 +155,16 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         if not self._discovered_devices:
             return await self.async_step_manual()
 
-        # Add manual option
-        options = {
-            addr: f"{name} ({addr})"
-            for addr, name in self._discovered_devices.items()
-        }
+        # Picker labels: "Nivona NICR 8107 · 8107000001----- · MAC".
+        # Falls back to "name (MAC)" when the advertisement can't be
+        # resolved to a known brand/model.
+        options: dict[str, str] = {}
+        for addr, name in self._discovered_devices.items():
+            desc = _describe_advertisement(name)
+            if desc["display"] and desc["display"] != name:
+                options[addr] = f"{desc['display']} · {name} · {addr}"
+            else:
+                options[addr] = f"{name} ({addr})"
         options["manual"] = "Enter address manually..."
 
         return self.async_show_form(
@@ -224,10 +272,14 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return await self.async_step_pair()
 
+        desc = _describe_advertisement(self._name)
         return self.async_show_form(
             step_id="bluetooth_confirm",
             description_placeholders={
                 "name": self._name or _FALLBACK_NAME,
+                "brand": desc["brand"] or _FALLBACK_NAME,
+                "model": desc["model"] or "—",
+                "address": self._address or "",
             },
         )
 
@@ -247,21 +299,32 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
                 profile = detect_from_advertisement(self._name)
                 brand_slug = profile.brand_slug if profile else DEFAULT_BRAND
+                # Prefer a human title like "Nivona NICR 8107" over the
+                # raw advertisement local_name "8107000001-----"; fall
+                # back to the suggested neutral label if brand/model
+                # detection failed.
+                desc = _describe_advertisement(self._name)
+                friendly = desc["display"] or _suggested_name(self._name)
+                if not desc["brand"]:
+                    friendly = _suggested_name(self._name)
                 return self.async_create_entry(
-                    title=self._name or _suggested_name(self._name),
+                    title=friendly,
                     data={
                         CONF_ADDRESS: self._address,
-                        CONF_NAME: self._name,
+                        CONF_NAME: friendly,
                         CONF_BRAND: brand_slug,
                     },
                 )
             else:
                 errors["base"] = pair_result
 
+        desc = _describe_advertisement(self._name)
         return self.async_show_form(
             step_id="pair",
             description_placeholders={
                 "name": self._name or _FALLBACK_NAME,
+                "brand": desc["brand"] or _FALLBACK_NAME,
+                "model": desc["model"] or "—",
                 "address": self._address or "",
             },
             errors=errors,

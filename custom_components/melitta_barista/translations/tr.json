@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Cihazı onayla",
-        "description": "Kahve makinesi bulundu: {name}. Kurmak ister misiniz?"
+        "description": "Kahve makinesi bulundu:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Reklam:** {name}\n- **MAC:** {address}\n\nKurmak ister misiniz?"
       },
       "pair": {
-        "title": "{name} ile eşleştir",
-        "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsünde), ardından Gönder'e basın.\n\nCihaz: **{name}** ({address})"
+        "title": "Eşleştir {brand} {model}",
+        "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsüne bakın) ve Gönder'e basın.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Reklam:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Kahve makinesini yeniden yapılandır",

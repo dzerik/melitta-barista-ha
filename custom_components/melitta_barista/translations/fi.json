@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Vahvista laite",
-        "description": "Kahvikone löytyi: {name}. Haluatko määrittää sen?"
+        "description": "Kahvikone löytyi:\n\n- **Merkki:** {brand}\n- **Malli:** {model}\n- **Mainos:** {name}\n- **MAC:** {address}\n\nHaluatko määrittää sen?"
       },
       "pair": {
-        "title": "Pariliitos laitteeseen {name}",
-        "description": "Ota Bluetooth-pariliitostila käyttöön kahvikoneessasi (asetusvalikossa), paina sitten Lähetä.\n\nLaite: **{name}** ({address})"
+        "title": "Pariliitä kohteeseen {brand} {model}",
+        "description": "Ota Bluetooth-pariliitostila käyttöön kahvikoneessa (katso asetusvalikko) ja paina Lähetä.\n\n- **Merkki:** {brand}\n- **Malli:** {model}\n- **Mainos:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Määritä kahvikone uudelleen",

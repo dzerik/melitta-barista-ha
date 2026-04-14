@@ -18,11 +18,11 @@
       },
       "bluetooth_confirm": {
         "title": "Potvrdi uređaj",
-        "description": "Pronađen aparat za kafu: {name}. Želite li ga postaviti?"
+        "description": "Pronađen aparat za kafu:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}\n\nŽelite li ga postaviti?"
       },
       "pair": {
-        "title": "Uparivanje sa {name}",
-        "description": "Uključite Bluetooth način uparivanja na aparatu za kafu (u meniju postavki), zatim pritisnite Pošalji.\n\nUređaj: **{name}** ({address})"
+        "title": "Upari sa {brand} {model}",
+        "description": "Omogućite Bluetooth režim uparivanja na aparatu za kafu (pogledajte izbornik postavki), zatim pritisnite Pošalji.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Ponovo konfiguriši aparat za kafu",

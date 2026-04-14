@@ -47,11 +47,11 @@
       },
       "bluetooth_confirm": {
         "title": "Confirm Device",
-        "description": "Found coffee machine: {name}. Do you want to set it up?"
+        "description": "Found coffee machine:\n\n- **Brand:** {brand}\n- **Model:** {model}\n- **Advertisement:** {name}\n- **MAC:** {address}\n\nDo you want to set it up?"
       },
       "pair": {
-        "title": "Pair with {name}",
-        "description": "Enable Bluetooth pairing mode on your coffee machine (check machine settings menu), then press Submit to pair.\n\nDevice: **{name}** ({address})"
+        "title": "Pair with {brand} {model}",
+        "description": "Enable Bluetooth pairing mode on your coffee machine (check machine settings menu), then press Submit to pair.\n\n- **Brand:** {brand}\n- **Model:** {model}\n- **Advertisement:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Reconfigure Coffee Machine",
