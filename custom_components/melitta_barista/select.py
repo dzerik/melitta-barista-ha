@@ -115,13 +115,6 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
-    _LOGGER.warning(
-        "select setup: brand=%s exts=%s caps=%s",
-        client.brand.brand_slug,
-        list(client.brand.supported_extensions),
-        client.capabilities,
-    )
-
     entities: list = []
     if "HC" in client.brand.supported_extensions:
         entities.extend([

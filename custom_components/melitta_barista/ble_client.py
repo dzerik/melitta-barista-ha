@@ -14,7 +14,9 @@ import logging
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
-    from .brands.base import BrandProfile
+    from homeassistant.core import HomeAssistant
+
+    from .brands.base import BrandProfile, MachineCapabilities
 
 from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
@@ -51,25 +53,26 @@ _LOGGER = logging.getLogger("melitta_barista")
 
 
 def resolve_caps_from_scanner(
-    hass, address: str, brand,
-):
+    hass: HomeAssistant,
+    address: str,
+    brand: BrandProfile,
+) -> MachineCapabilities | None:
     """Resolve MachineCapabilities from the HA bluetooth scanner cache.
 
     Useful at async_setup_entry time when the BLE client has not
-    connected yet (client.capabilities is None). Looks up the BLE
-    advertisement local_name by MAC address, then resolves the machine
-    family via the brand profile.
-
-    Returns MachineCapabilities or None.
+    connected yet (client.capabilities is None). Uses O(1) address
+    lookup via async_ble_device_from_address.
     """
     from homeassistant.components import bluetooth  # noqa: PLC0415
 
     try:
-        for info in bluetooth.async_discovered_service_info(hass):
-            if info.address.upper() == address.upper():
-                family = brand.detect_family(info.name, None)
-                if family:
-                    return brand.capabilities_for(family)
+        ble_device = bluetooth.async_ble_device_from_address(
+            hass, address.upper(), connectable=True,
+        )
+        if ble_device and ble_device.name:
+            family = brand.detect_family(ble_device.name, None)
+            if family:
+                return brand.capabilities_for(family)
     except Exception:  # noqa: BLE001
         _LOGGER.debug("Early caps resolution failed", exc_info=True)
     return None
