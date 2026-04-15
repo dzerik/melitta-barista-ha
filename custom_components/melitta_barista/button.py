@@ -374,22 +374,11 @@ class NivonaBrewButton(_MelittaButtonBase):
             _LOGGER.warning("recipe %s not matched", state.state)
             return
 
-        # Collect brew overrides from user-facing number entities
-        overrides: dict = {}
-        for field in ("strength", "coffee_amount", "temperature", "milk_amount"):
-            uid = f"{self._client.address}_brew_{field}"
-            for eid, reg_entry in registry.entities.items():
-                if reg_entry.unique_id == uid:
-                    st = self.hass.states.get(eid)
-                    if st and st.state not in (None, "unknown", "unavailable"):
-                        try:
-                            overrides[field] = int(float(st.state))
-                        except ValueError:
-                            pass
-                    break
-
+        # Brew with saved recipe defaults (no overrides from UI).
+        # TODO: read recipe defaults from the machine on recipe change
+        # and pass them as overrides for recipe-aware UI controls.
         try:
-            success = await self._client.brew_nivona(recipe_id, overrides or None)
+            success = await self._client.brew_nivona(recipe_id, None)
             if not success:
                 _LOGGER.error("Nivona brew failed for recipe_id=%d", recipe_id)
         except (BleakError, OSError, asyncio.TimeoutError):

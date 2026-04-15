@@ -153,7 +153,13 @@ class MachineStatus:
 
     @property
     def is_ready(self) -> bool:
-        return self.process == MachineProcess.READY and self.manipulation == Manipulation.NONE
+        if self.process != MachineProcess.READY:
+            return False
+        # MOVE_CUP_TO_FROTHER may persist after a completed brew on some
+        # Nivona models without clearing — allow it so subsequent brews
+        # are not blocked. Other manipulations (FILL_WATER, BU_REMOVED,
+        # etc.) still correctly prevent brewing.
+        return self.manipulation in (Manipulation.NONE, Manipulation.MOVE_CUP_TO_FROTHER)
 
     @property
     def is_brewing(self) -> bool:

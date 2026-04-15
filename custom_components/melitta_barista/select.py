@@ -9,11 +9,11 @@ from bleak.exc import BleakError
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .ble_client import MelittaBleClient
+from .ble_client import MelittaBleClient, resolve_caps_from_scanner
 from .const import (
     PROFILE_NAMES,
     RECIPE_NAMES,
@@ -115,13 +115,6 @@ async def async_setup_entry(
     client: MelittaBleClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
-    _LOGGER.warning(
-        "select setup: brand=%s exts=%s caps=%s",
-        client.brand.brand_slug,
-        list(client.brand.supported_extensions),
-        client.capabilities,
-    )
-
     entities: list = []
     if "HC" in client.brand.supported_extensions:
         entities.extend([
@@ -134,6 +127,8 @@ async def async_setup_entry(
     # when the brand has a populated per-family table AND Melitta-native
     # setting entities have not claimed the same IDs (i.e. Nivona only).
     caps = client.capabilities
+    if caps is None and client.brand.brand_slug != "melitta":
+        caps = resolve_caps_from_scanner(hass, entry.data.get(CONF_ADDRESS, ""), client.brand)
     if caps is not None and caps.settings and client.brand.brand_slug != "melitta":
         for descriptor in caps.settings:
             # Only descriptors with a discrete options list become

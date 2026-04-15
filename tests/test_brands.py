@@ -78,12 +78,18 @@ def test_advertisement_matches_nivona_pattern():
     assert profile is not None and profile.brand_slug == "nivona"
     profile = detect_from_advertisement("7565730710-----")
     assert profile is not None and profile.brand_slug == "nivona"
+    # 15-digit no-dash form (observed on real NICR 930, firmware 0254A013A10)
+    profile = detect_from_advertisement("930254000000000")
+    assert profile is not None and profile.brand_slug == "nivona"
 
 
 def test_advertisement_no_match():
     assert detect_from_advertisement("Random Device") is None
     assert detect_from_advertisement("") is None
     assert detect_from_advertisement(None) is None
+    # Purely numeric names that should NOT match Nivona
+    assert detect_from_advertisement("1234567890") is None       # 10 digits, no dashes
+    assert detect_from_advertisement("12345678901234") is None   # 14 digits
 
 
 # ---------------------------------------------------------------------------
