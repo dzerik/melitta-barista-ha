@@ -2,6 +2,25 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.5] — 2026-04-15 — Docs: BLE name formats + companion app/card scope
+
+Documentation-only patch.
+
+### Changed
+
+- README and docs (`multi-brand-architecture.md`, `adr/001-...md`,
+  `NIVONA_HA_INTEGRATION_AUDIT.md`) now describe **all three**
+  observed Nivona advertisement formats: legacy `NIVONA-NNN-----`,
+  bare `NNN-----`, and the 15-digit no-dash serial form (e.g.
+  `930254000000000`) seen on real NICR 930 / firmware `0254A013A10`.
+  Previously docs only mentioned the legacy form, even though the
+  regex was broadened in 0.49.1.
+- README marks the **Custom Lovelace card** and **Standalone PWA**
+  as **Melitta only** — both companion projects assume Melitta-shaped
+  entities (HC/HJ extensions, named cup counters, profile selects)
+  and don't yet render Nivona's per-family stats / brew override
+  layout.
+
 ## [0.49.4] — 2026-04-15 — README + repo description: full Nivona scope
 
 Documentation-only patch.

@@ -20,8 +20,9 @@ HD/HI/HA/HB`). Различия:
   byte per family (600/700/79x/900/1030/1040/8000).
 - **Optional commands**: Melitta использует `HC`/`HJ` для recipe read/write
   (расширение OEM-командсета). Nivona их не имеет.
-- **Advertisement local_name**: разные регексы (Melitta `8401*`, Nivona
-  `NIVONA-NNN-----`).
+- **Advertisement local_name**: разные регексы (Melitta `8401*`, Nivona —
+  один из трёх форматов: `NIVONA-NNN-----`, голый `NNN-----`, или
+  15-значный серийник без дефисов типа `930254000000000` на NICR 930+).
 
 Без абстракции добавить Nivona = форкать всю интеграцию или хардкодить
 условия `if brand == "nivona"` по всему коду.

@@ -40,7 +40,7 @@ A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart
 | **1030** / **1040** | NICR 1030 / 1040 | 4 | 5 | — |
 | **8000** | NIVO 8101 / 8103 / 8107 | 4 | 5 | different brew opcode |
 
-The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona `NIVONA-NNNNNNNNNN-----`) and confirmed via the BLE protocol. Nivona firmware does not expose recipe-editing opcodes, so recipe/freestyle/profile entities are suppressed for Nivona entries.
+The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona, which advertises as either the legacy `NIVONA-NNNNNNNNNN-----` form, the bare `NNNNNNNNNN-----` form, or — on newer firmware like NICR 930 — a 15-digit serial without dashes such as `930254000000000`) and confirmed via the BLE protocol. Nivona firmware does not expose recipe-editing opcodes, so recipe/freestyle/profile entities are suppressed for Nivona entries.
 
 ## Nivona (alpha) — testers wanted
 
@@ -88,8 +88,8 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 - **BLE auto-discovery** — integration detects your Melitta or Nivona machine automatically
 - **Encrypted BLE protocol** — full Eugster EFLibrary stack (AES customer-key bootstrap + RC4 stream cipher), per-brand HU verifier tables
 - **🤖 AI Coffee Sommelier** *(work in progress, no end-to-end path yet)* — backend scaffolding for personalised recipe generation from configured bean hoppers, milk types, syrups/toppings via any HA conversation agent (OpenAI, Anthropic, Google). 31 bundled European coffee presets incl. Lavazza, Melitta, Illy, Dallmayr, Tasty Coffee. **The recipe → brew handoff is not wired up yet** — you can configure beans/hoppers/milk and call the WebSocket API, but generated recipes don't currently flow into the Freestyle brew button. See [AI Coffee Sommelier](#ai-coffee-sommelier) below.
-- **Custom Lovelace card** — dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
-- **Standalone PWA** — full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
+- **Custom Lovelace card** *(Melitta only — Nivona not yet supported)* — dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
+- **Standalone PWA** *(Melitta only — Nivona not yet supported)* — full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
 - **29 languages** — full localization for all European and Slavic languages
 - **🧪 ESP32 BLE emulator** (unique) — a bundled ESP-IDF firmware that impersonates a real Nivona machine at the BLE layer (ADV, AD00 service, encrypted frames, HU handshake, HX status, HE brew). Lets you develop, pair, and brew against Home Assistant **and** the official Nivona Android app without any physical machine. See [`esp_emulator/`](esp_emulator/).
 
@@ -157,11 +157,15 @@ Source: per-family recipe tables in [`brands/nivona.py`](custom_components/melit
 
 ## Custom Lovelace Card
 
+> **⚠️ Melitta only.** The card currently expects Melitta-only entities (recipe/profile/freestyle selects, named cup counters) and does not yet handle the Nivona entity layout (per-family stats sensors, Nivona recipe select, brew override numbers). Nivona support is on the roadmap for the card project — track via its issue tracker.
+
 A dedicated Lovelace card with recipe buttons, status display, and progress bar is available as a separate repository:
 
 **[melitta-barista-card](https://github.com/dzerik/melitta-barista-card)** -- install via HACS (Frontend > Custom repositories) or manually.
 
 ## Standalone PWA (Tablet / Kiosk)
+
+> **⚠️ Melitta only.** Same caveat as the card — the PWA assumes Melitta-shaped entities (Brew / Freestyle / Stats / Service / Settings tabs all wired against Melitta extensions `HC` / `HJ`). Nivona machines will pair via Home Assistant and entities will appear there, but the PWA UI does not yet render them.
 
 A standalone React PWA for controlling the coffee machine is available as a separate project:
 
@@ -482,7 +486,7 @@ Adding a third Eugster OEM brand (e.g. if public RE emerges for Koenig, KitchenA
 - **Morning Routine** — automated brewing at a scheduled time via HA automations
 - **Family Profiles** — switch between user profiles for personalized drinks
 - **Maintenance Alerts** — get notified when descaling, filter change, or other maintenance is needed
-- **Kiosk Mode** — use the [standalone PWA](https://github.com/dzerik/melitta-barista-app) on a wall-mounted tablet
+- **Kiosk Mode** *(Melitta only)* — use the [standalone PWA](https://github.com/dzerik/melitta-barista-app) on a wall-mounted tablet
 
 ## Automation Examples
 
