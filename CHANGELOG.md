@@ -2,6 +2,38 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.1] — 2026-04-15 — Nivona NICR 930 support (PR #7 by @Cyrill)
+
+Fixes for NICR 930 (family 900), validated on real hardware
+(firmware 0254A013A10).
+
+### Fixed
+
+- **BLE name regex** now accepts the 15-digit no-dash advertisement
+  form (`930254000000000`) observed on real NICR 930. Previously the
+  regex required `\d{10}-----` and brand detection fell through to
+  Melitta, breaking the HU handshake.
+- **Stats enabled** for families `900` / `900-light` — the
+  `_STATS_900` table was already populated but gated behind
+  `supports_stats=False`.
+- **Capabilities resolved at setup time** via the HA bluetooth
+  scanner cache + BLEDevice advertisement-name fallback. Previously
+  `client.capabilities` was `None` when entity platforms ran
+  `async_setup_entry` (BLE not connected yet), so no stat / setting
+  entities were created.
+- **Brew defaults** now use `payload[5]=0x00` (saved recipe
+  defaults) when no overrides are pre-written via HW; previously
+  `0x01` caused the machine to brew with zeros.
+- **`is_ready`** no longer rejects `MOVE_CUP_TO_FROTHER` — this flag
+  was observed to persist after a completed brew on some Nivona
+  models and blocked subsequent brews.
+
+### Known limitations (addressed in 0.49.2)
+
+- Nivona brew button currently ignores user-facing override number
+  entities (strength / coffee_amount / temperature / milk_amount).
+- `is_ready` relaxation is global (also affects Melitta).
+
 ## [0.49.0] — 2026-04-14 — Nivona accuracy pass + new entities for every family
 
 Closes the prioritised findings of `docs/NIVONA_HA_INTEGRATION_AUDIT.md`.
