@@ -901,7 +901,7 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         family_key="900",
         model_name="Nivona NICR 9xx",
         supports_recipe_writes=False,
-        supports_stats=False,
+        supports_stats=True,
         my_coffee_slots=4,
         strength_levels=5,
         has_aroma_balance=False,
@@ -915,7 +915,7 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         family_key="900-light",
         model_name="Nivona NICR 9xx Light",
         supports_recipe_writes=False,
-        supports_stats=False,
+        supports_stats=True,
         my_coffee_slots=4,
         strength_levels=3,
         brew_command_mode=0x0B,
@@ -1001,7 +1001,7 @@ class NivonaProfile:
     # name-filter logic). The 5-dash suffix is the distinguisher from
     # Melitta's ``8xxx + hex`` advertisement format.
     ble_name_regex: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(?:NIVONA-)?\d{10}-----$"
+        r"^(?:NIVONA-)?(?:\d{15}|\d{10}-----)$"
     )
 
     # Nivona machines do not expose recipe read/write commands.
