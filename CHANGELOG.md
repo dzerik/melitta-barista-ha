@@ -2,6 +2,29 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.6] — 2026-04-15 — Documentation site (MkDocs Material)
+
+Documentation infrastructure.
+
+### Added
+
+- **MkDocs Material site** at <https://dzerik.github.io/melitta-barista-ha/>
+  serving the committed docs (`docs/BLE_ARCHITECTURE.md`,
+  `docs/PROTOCOL.md`, `docs/adr/001-...md`) plus an auto-included
+  changelog. Mermaid diagrams render natively, full-text search, dark
+  / light toggle, edit-on-GitHub links.
+- GitHub Actions workflow (`.github/workflows/docs.yml`) auto-deploys
+  on push to `main` whenever README, CHANGELOG, `docs/`, or
+  `mkdocs.yml` change.
+- `mkdocs.yml` `exclude_docs:` whitelist guards local-only RE / audit
+  notes from being published if a contributor runs `mkdocs build`
+  locally with those files present.
+
+### Changed
+
+- README header gains a docs-site link near the top.
+- `.gitignore` now excludes `/site/` and `.cache/`.
+
 ## [0.49.5] — 2026-04-15 — Docs: BLE name formats + companion app/card scope
 
 Documentation-only patch.

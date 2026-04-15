@@ -35,3 +35,7 @@ CLAUDE.md
 /docs/TODO_EMU_V0_7.md
 /docs/TODO_HA_V0_49.md
 /docs/BACKLOG.md
+
+# MkDocs build output
+/site/
+.cache/
