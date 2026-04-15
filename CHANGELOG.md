@@ -2,6 +2,41 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.2] — 2026-04-15 — NICR 930 follow-up: cleanup of PR #7
+
+Quality follow-up to 0.49.1 — same external behavior on NICR 930
+plus regressions fixed.
+
+### Fixed
+
+- **Brew button respects override sliders again.** PR #7 removed the
+  override-collection loop because `payload[5]=0x01` brewed with
+  zeros when no temp-recipe HW writes happened. The new implementation
+  flags each `NivonaBrewOverrideNumber` as `user_set` only when the
+  user actually moves the slider; the brew button forwards just those
+  fields, so unchanged sliders fall through to the machine's saved
+  recipe defaults.
+- **`is_ready` strict again** — the global relaxation in 0.49.1
+  could let Melitta brews fire in states they shouldn't. The
+  `MOVE_CUP_TO_FROTHER` tolerance is now declared per-family on
+  `MachineCapabilities.tolerated_brew_manipulations` and applied via
+  a new `is_ready_for_brew(tolerated)` helper. Only Nivona 9xx /
+  9xx-light opt in.
+
+### Changed
+
+- `EugsterProtocol.start_process_nivona` gained an explicit
+  `use_temp_recipe: bool` parameter — replaces the overloaded
+  `chilled` flag that PR #7 was reusing to mean "use saved
+  defaults". `payload[5]` is now `0x00` when either `chilled` or
+  `not use_temp_recipe`. Docstring updated.
+
+### Tests
+
++18 unit tests covering the override pipeline, the new readiness
+helper, the per-family tolerated-flag declaration, and the byte
+layout of `start_process_nivona`. 721 total (+18 from 0.49.1's 703).
+
 ## [0.49.1] — 2026-04-15 — Nivona NICR 930 support (PR #7 by @Cyrill)
 
 Fixes for NICR 930 (family 900), validated on real hardware

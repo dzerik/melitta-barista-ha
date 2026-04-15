@@ -153,13 +153,21 @@ class MachineStatus:
 
     @property
     def is_ready(self) -> bool:
+        return self.process == MachineProcess.READY and self.manipulation == Manipulation.NONE
+
+    def is_ready_for_brew(self, tolerated: tuple[int, ...] = ()) -> bool:
+        """Like is_ready but accepts brand-tolerated manipulation flags.
+
+        Some Nivona models leave MOVE_CUP_TO_FROTHER set after a
+        completed brew until the next status frame; the brand profile
+        declares such flags via tolerated_brew_manipulations so the
+        brew gate doesn't reject the next brew falsely.
+        """
         if self.process != MachineProcess.READY:
             return False
-        # MOVE_CUP_TO_FROTHER may persist after a completed brew on some
-        # Nivona models without clearing — allow it so subsequent brews
-        # are not blocked. Other manipulations (FILL_WATER, BU_REMOVED,
-        # etc.) still correctly prevent brewing.
-        return self.manipulation in (Manipulation.NONE, Manipulation.MOVE_CUP_TO_FROTHER)
+        if self.manipulation == Manipulation.NONE:
+            return True
+        return self.manipulation.value in tolerated
 
     @property
     def is_brewing(self) -> bool:
@@ -780,7 +788,7 @@ class EugsterProtocol:
 
     async def start_process_nivona(
         self, write_func, recipe_selector: int, brew_mode: int = 0x0B,
-        chilled: bool = False,
+        use_temp_recipe: bool = True, chilled: bool = False,
     ) -> bool:
         """Start brewing on Nivona via HE with the 18-byte payload shape.
 
@@ -791,19 +799,21 @@ class EugsterProtocol:
             payload[2] = 0
             payload[3] = recipe_selector
             payload[4] = 0
-            payload[5] = 0x01 for the normal path, 0x00 for chilled-brew
-                         (used by NICR 8107 chilled recipes — selectors
-                         8/9/10 — where the machine reads `byte[5]=0` as
-                         the "cold-prepare" mode toggle).
+            payload[5] = mode byte:
+                         - 0x01 = read brew parameters from the
+                           temp-recipe registers (caller must HW-write
+                           them via TEMP_RECIPE_TYPE_REGISTER + per-
+                           field offsets BEFORE this call).
+                         - 0x00 = use the machine's saved recipe
+                           defaults. Also the value used for chilled-
+                           brew on NICR 8107 (selectors 8/9/10), which
+                           the machine interprets as "cold-prepare".
             payload[6..17] = 0
-
-        Temperature / strength / volumes / two_cups are written separately
-        via HW into the temporary-recipe registers BEFORE this call.
         """
         payload = bytearray(18)
         payload[1] = brew_mode & 0xFF
         payload[3] = recipe_selector & 0xFF
-        payload[5] = 0x00 if chilled else 0x01
+        payload[5] = 0x00 if chilled or not use_temp_recipe else 0x01
         return await self.send_and_wait_ack(CMD_START_PROCESS, bytes(payload), write_func)
 
     async def cancel_process(self, write_func, process_value: int) -> bool:

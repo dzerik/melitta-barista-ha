@@ -384,6 +384,8 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
         self._entry = entry
         self._machine_name = machine_name
         self._field = field
+        self._default = default
+        self._user_set = False
         self._attr_name = label
         self._attr_icon = icon
         self._attr_native_min_value = min_v
@@ -398,6 +400,15 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
     def field_name(self) -> str:
         return self._field
 
+    @property
+    def is_user_set(self) -> bool:
+        """True if the user has explicitly set this value (vs. default)."""
+        return self._user_set
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {"user_set": self._user_set}
+
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         last = await self.async_get_last_state()
@@ -406,7 +417,10 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
                 self._attr_native_value = float(last.state)
             except ValueError:
                 pass
+            if last.attributes.get("user_set"):
+                self._user_set = True
 
     async def async_set_native_value(self, value: float) -> None:
         self._attr_native_value = value
+        self._user_set = True
         self.async_write_ha_state()

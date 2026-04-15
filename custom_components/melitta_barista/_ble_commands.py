@@ -32,6 +32,14 @@ _LOGGER = logging.getLogger("melitta_barista")
 class BleCommandsMixin(_MixinBase):
     """Mixin providing brew and maintenance commands."""
 
+    def _is_brew_ready(self) -> bool:
+        """True if the machine is ready, honoring brand-tolerated flags."""
+        if not self._status:
+            return True
+        caps = getattr(self, "_capabilities", None)
+        tolerated = caps.tolerated_brew_manipulations if caps else ()
+        return self._status.is_ready_for_brew(tolerated)
+
     async def brew_recipe(
         self, recipe_id: RecipeId, *, two_cups: bool = False,
     ) -> bool:
@@ -46,7 +54,7 @@ class BleCommandsMixin(_MixinBase):
 
         if not self.connected:
             return False
-        if self._status and not self._status.is_ready:
+        if not self._is_brew_ready():
             _LOGGER.warning("Machine not ready: %s", self._status)
             return False
 
@@ -111,7 +119,7 @@ class BleCommandsMixin(_MixinBase):
             return False
         if not self.connected:
             return False
-        if self._status and not self._status.is_ready:
+        if not self._is_brew_ready():
             _LOGGER.warning("Machine not ready: %s", self._status)
             return False
 
@@ -183,19 +191,15 @@ class BleCommandsMixin(_MixinBase):
                             )
                         await asyncio.sleep(0.08)
 
-                # payload[5] semantics: 0x01 = read from temp-recipe
-                # registers (must be pre-written via HW above); 0x00 =
-                # use the machine's saved recipe defaults.
-                # Also 0x00 for chilled-brew selectors (NICR 8107).
                 wrote_temp = bool(overrides and family_key)
                 is_chilled = bool(
                     hasattr(self._brand, "is_chilled_selector")
                     and self._brand.is_chilled_selector(recipe_selector)
                 )
-                use_saved = not wrote_temp or is_chilled
                 return await self._protocol.start_process_nivona(
                     self._write_ble, recipe_selector, brew_mode,
-                    chilled=use_saved,
+                    use_temp_recipe=wrote_temp,
+                    chilled=is_chilled,
                 )
             finally:
                 if self.connected:
@@ -213,7 +217,7 @@ class BleCommandsMixin(_MixinBase):
 
         if not self.connected:
             return False
-        if self._status and not self._status.is_ready:
+        if not self._is_brew_ready():
             _LOGGER.warning("Machine not ready: %s", self._status)
             return False
 
@@ -289,7 +293,7 @@ class BleCommandsMixin(_MixinBase):
 
         if not self.connected:
             return False
-        if self._status and not self._status.is_ready:
+        if not self._is_brew_ready():
             _LOGGER.warning("Machine not ready: %s", self._status)
             return False
 

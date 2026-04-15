@@ -907,6 +907,10 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         has_aroma_balance=False,
         brew_command_mode=0x0B,
         fluid_scale_factor=10,
+        # NICR 930 leaves MOVE_CUP_TO_FROTHER (11) set after a brew
+        # until the next status frame; tolerate so subsequent brews
+        # are not falsely blocked.
+        tolerated_brew_manipulations=(11,),
         recipes=_RECIPES_900,
         settings=_FAMILY_SETTINGS['900'],
         stats=_FAMILY_STATS['900'],
@@ -919,6 +923,7 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         my_coffee_slots=4,
         strength_levels=3,
         brew_command_mode=0x0B,
+        tolerated_brew_manipulations=(11,),
         recipes=_RECIPES_900_LIGHT,
         settings=_FAMILY_SETTINGS['900-light'],
         stats=_FAMILY_STATS['900-light'],

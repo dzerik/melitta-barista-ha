@@ -104,6 +104,40 @@ class TestMachineStatus:
         assert status.manipulation == Manipulation.FILL_WATER
         assert status.is_ready is False  # has manipulation
 
+    def test_is_ready_for_brew_strict_when_no_tolerated(self):
+        data = struct.pack(
+            ">hhBBh",
+            MachineProcess.READY, 0, 0, Manipulation.MOVE_CUP_TO_FROTHER, 0,
+        )
+        status = MachineStatus.from_payload(data)
+        assert status.is_ready is False
+        assert status.is_ready_for_brew(()) is False
+
+    def test_is_ready_for_brew_with_tolerated_flag(self):
+        data = struct.pack(
+            ">hhBBh",
+            MachineProcess.READY, 0, 0, Manipulation.MOVE_CUP_TO_FROTHER, 0,
+        )
+        status = MachineStatus.from_payload(data)
+        assert status.is_ready_for_brew((11,)) is True
+
+    def test_is_ready_for_brew_rejects_other_manipulations(self):
+        """tolerated_brew_manipulations must NOT mask FILL_WATER etc."""
+        data = struct.pack(
+            ">hhBBh",
+            MachineProcess.READY, 0, 0, Manipulation.FILL_WATER, 0,
+        )
+        status = MachineStatus.from_payload(data)
+        assert status.is_ready_for_brew((11,)) is False
+
+    def test_is_ready_for_brew_requires_ready_process(self):
+        data = struct.pack(
+            ">hhBBh",
+            MachineProcess.PRODUCT, 0, 0, 0, 0,
+        )
+        status = MachineStatus.from_payload(data)
+        assert status.is_ready_for_brew((11,)) is False
+
     def test_from_payload_with_info_messages(self):
         data = struct.pack(
             ">hhBBh",
@@ -275,3 +309,37 @@ class TestFeatureFlags:
         flags = FeatureFlags(0xFF)
         assert int(flags) == 0xFF
         assert flags & FeatureFlags.IMAGE_TRANSFER  # bit 0 still set
+
+
+class TestStartProcessNivonaPayload:
+    """payload[5] semantics for use_temp_recipe / chilled."""
+
+    def _build_payload(self, *, use_temp_recipe: bool, chilled: bool,
+                        selector: int = 5, brew_mode: int = 0x0B) -> bytes:
+        # Mirror EugsterProtocol.start_process_nivona body — verifies
+        # the byte layout without spinning up an async write loop.
+        payload = bytearray(18)
+        payload[1] = brew_mode & 0xFF
+        payload[3] = selector & 0xFF
+        payload[5] = 0x00 if chilled or not use_temp_recipe else 0x01
+        return bytes(payload)
+
+    def test_temp_recipe_writes_byte5_01(self):
+        p = self._build_payload(use_temp_recipe=True, chilled=False)
+        assert p[5] == 0x01
+        assert p[3] == 5
+        assert p[1] == 0x0B
+
+    def test_no_temp_recipe_writes_byte5_00(self):
+        """Saved recipe defaults — payload[5] = 0x00."""
+        p = self._build_payload(use_temp_recipe=False, chilled=False)
+        assert p[5] == 0x00
+
+    def test_chilled_writes_byte5_00(self):
+        p = self._build_payload(use_temp_recipe=True, chilled=True)
+        assert p[5] == 0x00
+
+    def test_chilled_overrides_temp_recipe(self):
+        """Chilled NICR 8107 selectors always use 0x00 even if temp set."""
+        p = self._build_payload(use_temp_recipe=True, chilled=True)
+        assert p[5] == 0x00
