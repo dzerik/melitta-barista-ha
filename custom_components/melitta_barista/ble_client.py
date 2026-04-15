@@ -49,6 +49,32 @@ from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
 
 _LOGGER = logging.getLogger("melitta_barista")
 
+
+def resolve_caps_from_scanner(
+    hass, address: str, brand,
+):
+    """Resolve MachineCapabilities from the HA bluetooth scanner cache.
+
+    Useful at async_setup_entry time when the BLE client has not
+    connected yet (client.capabilities is None). Looks up the BLE
+    advertisement local_name by MAC address, then resolves the machine
+    family via the brand profile.
+
+    Returns MachineCapabilities or None.
+    """
+    from homeassistant.components import bluetooth  # noqa: PLC0415
+
+    try:
+        for info in bluetooth.async_discovered_service_info(hass):
+            if info.address.upper() == address.upper():
+                family = brand.detect_family(info.name, None)
+                if family:
+                    return brand.capabilities_for(family)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Early caps resolution failed", exc_info=True)
+    return None
+
+
 # Melitta service UUID for BLE discovery
 MELITTA_SERVICE_UUID = "0000ad00-b35c-11e4-9813-0002a5d5c51b"
 
@@ -797,10 +823,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             )
             return profile.capabilities_for(self._family_override)
         # 2. Nivona-style per-model lookup (serial-prefix cascade) if supported
+        # Include BLE advertisement name from the BLEDevice reference, which
+        # may differ from _device_name (friendly name stored in config entry).
+        ble_adv_name = getattr(self._ble_device, "name", None)
         model_lookup = getattr(profile, "capabilities_for_model", None)
         if model_lookup is not None:
             # Try DIS serial first (most accurate), then advertisement name.
-            for candidate in (self._dis_info.get("serial"), self._device_name):
+            for candidate in (self._dis_info.get("serial"), self._device_name, ble_adv_name):
                 if not candidate:
                     continue
                 try:
@@ -810,11 +839,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 if caps is not None:
                     return caps
         # 3. Family detect via ble_name
-        family = profile.detect_family(
-            self._device_name or "", self._dis_info or None,
-        )
-        if family:
-            return profile.capabilities_for(family)
+        for candidate in (self._device_name or "", ble_adv_name or ""):
+            family = profile.detect_family(candidate, self._dis_info or None)
+            if family:
+                return profile.capabilities_for(family)
         return None
 
     async def poll_status(self) -> MachineStatus | None:

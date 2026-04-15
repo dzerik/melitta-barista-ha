@@ -6,12 +6,12 @@ import logging
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, PERCENTAGE
+from homeassistant.const import CONF_ADDRESS, CONF_NAME, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .ble_client import MelittaBleClient
+from .ble_client import MelittaBleClient, resolve_caps_from_scanner
 from .const import FeatureFlags, InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
@@ -81,7 +81,11 @@ async def async_setup_entry(
     # Brand-capability-driven stat sensors (Nivona). Melitta has its own
     # hand-tailored total_cups + per-recipe counters; generic stat sensors
     # only register for non-Melitta brands with populated stats tables.
+    # client.capabilities may be None at setup time (resolved after BLE
+    # connect), so fall back to early family detection via BLE scanner cache.
     caps = client.capabilities
+    if caps is None and client.brand.brand_slug != "melitta":
+        caps = resolve_caps_from_scanner(hass, entry.data.get(CONF_ADDRESS, ""), client.brand)
     if caps is not None and caps.stats and client.brand.brand_slug != "melitta":
         for descriptor in caps.stats:
             entities.append(BrandStatSensor(client, entry, name, descriptor))
