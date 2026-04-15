@@ -153,7 +153,10 @@ class MachineStatus:
 
     @property
     def is_ready(self) -> bool:
-        return self.process == MachineProcess.READY and self.manipulation == Manipulation.NONE
+        # Only check process — manipulation flags (e.g. MOVE_CUP_TO_FROTHER)
+        # may persist after a completed brew on some Nivona models without
+        # clearing, blocking subsequent brews incorrectly.
+        return self.process == MachineProcess.READY
 
     @property
     def is_brewing(self) -> bool:
