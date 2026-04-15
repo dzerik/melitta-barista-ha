@@ -341,9 +341,35 @@ class NivonaBrewButton(_MelittaButtonBase):
     _attr_name = "Brew"
     _attr_icon = "mdi:coffee"
 
+    _OVERRIDE_FIELDS = ("strength", "coffee_amount", "temperature", "milk_amount")
+
     @property
     def unique_id(self) -> str:
         return f"{self._client.address}_nivona_brew"
+
+    def _collect_user_overrides(self, registry) -> dict:
+        """Collect overrides from NivonaBrewOverrideNumber entities.
+
+        Only includes fields the user explicitly set (via the slider);
+        defaults are skipped so the machine uses its saved recipe.
+        """
+        overrides: dict = {}
+        for field in self._OVERRIDE_FIELDS:
+            uid = f"{self._client.address}_brew_{field}"
+            for eid, reg_entry in registry.entities.items():
+                if reg_entry.unique_id != uid:
+                    continue
+                st = self.hass.states.get(eid)
+                if not st or st.state in (None, "unknown", "unavailable"):
+                    break
+                if not st.attributes.get("user_set"):
+                    break
+                try:
+                    overrides[field] = int(float(st.state))
+                except ValueError:
+                    pass
+                break
+        return overrides
 
     async def async_press(self) -> None:
         # Locate the recipe select entity in HA's state machine
@@ -374,11 +400,9 @@ class NivonaBrewButton(_MelittaButtonBase):
             _LOGGER.warning("recipe %s not matched", state.state)
             return
 
-        # Brew with saved recipe defaults (no overrides from UI).
-        # TODO: read recipe defaults from the machine on recipe change
-        # and pass them as overrides for recipe-aware UI controls.
+        overrides = self._collect_user_overrides(registry)
         try:
-            success = await self._client.brew_nivona(recipe_id, None)
+            success = await self._client.brew_nivona(recipe_id, overrides or None)
             if not success:
                 _LOGGER.error("Nivona brew failed for recipe_id=%d", recipe_id)
         except (BleakError, OSError, asyncio.TimeoutError):

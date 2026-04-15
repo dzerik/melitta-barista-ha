@@ -105,6 +105,11 @@ class MachineCapabilities:
     fluid_scale_factor: int = 1                      # Nivona 900 = 10
     brew_command_mode: int = 0x0B                    # 0x04 for Nivona 8000
     recipe_text_encoding: str = "legacy_1byte"       # vs "utf16_le"
+    # Manipulation flags that should NOT block a new brew. Some Nivona
+    # models leave MOVE_CUP_TO_FROTHER set after a completed brew until
+    # the next status frame; gating brew on it would falsely block the
+    # user. Set per-family (default empty = strict).
+    tolerated_brew_manipulations: tuple[int, ...] = ()
 
     # Tables (filled at construction time per family)
     recipes: tuple[RecipeDescriptor, ...] = ()

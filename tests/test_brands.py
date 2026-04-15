@@ -185,6 +185,25 @@ def test_nivona_capabilities_per_family():
     assert f900.fluid_scale_factor == 10    # 900 writes ml×10
 
 
+def test_nivona_900_tolerates_stale_frother_flag():
+    """NICR 9xx leaves MOVE_CUP_TO_FROTHER (11) set after a brew."""
+    np_ = NivonaProfile()
+    f900 = np_.capabilities_for("900")
+    f900_light = np_.capabilities_for("900-light")
+    assert 11 in f900.tolerated_brew_manipulations
+    assert 11 in f900_light.tolerated_brew_manipulations
+
+
+def test_other_nivona_families_default_to_strict_brew_gate():
+    """Only 900-series tolerates the stale frother flag; rest are strict."""
+    np_ = NivonaProfile()
+    for fk in ("600", "700", "79x", "1030", "1040", "8000"):
+        caps = np_.capabilities_for(fk)
+        assert caps.tolerated_brew_manipulations == (), (
+            f"family {fk} should not tolerate any manipulation flags"
+        )
+
+
 def test_nivona_recipes_populated_per_family():
     """Every Nivona family has a non-empty recipe table."""
     np_ = NivonaProfile()
