@@ -2,6 +2,23 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.4] — 2026-04-15 — README + repo description: full Nivona scope
+
+Documentation-only patch.
+
+### Changed
+
+- README intro and Features bullet now spell out the full Nivona
+  family list — **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** plus
+  **NIVO 8xxx** — instead of the misleading "Nivona NICR/NIVO 8xxx".
+  The supported-families table further down was already correct;
+  only the headline copy understated coverage.
+- GitHub repo description updated to match. Also dropped "AI Coffee
+  Sommelier" from the repo blurb pending the recipe → brew handoff
+  (see 0.49.3 README clarification).
+- Mention that NICR 930 is now validated on real hardware (PR #7,
+  Cyrill).
+
 ## [0.49.3] — 2026-04-15 — README: clarify AI Sommelier WIP status
 
 Documentation-only patch.

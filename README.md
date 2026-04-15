@@ -13,7 +13,7 @@
 [![Brands](https://img.shields.io/badge/brands-Melitta%20%2B%20Nivona-8b5a2b?style=flat-square)](#supported-brands-and-models)
 [![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#localization)
 
-A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR/NIVO 8xxx** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance — all from your Home Assistant dashboard. (AI Coffee Sommelier groundwork is also shipped — see [its section](#ai-coffee-sommelier) for the current scope, the recipe-to-brew handoff is still in development.)
+A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** plus **NIVO 8xxx** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance — all from your Home Assistant dashboard. (AI Coffee Sommelier groundwork is also shipped — see [its section](#ai-coffee-sommelier) for the current scope, the recipe-to-brew handoff is still in development.)
 
 > **⚠️ Nivona testers wanted.** Nivona support (v0.41.0) is shipped as **alpha** — cryptography and handshake are validated against upstream RE vectors, but the code path has not been live-tested on real Nivona hardware by the maintainer. If you own a **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx** machine, please try this release and [open a GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with your results (handshake / status / brew / prompts). See [Nivona support](#nivona-alpha-testers-wanted) below for details.
 
@@ -73,7 +73,7 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 
 ## Features
 
-- **Multi-brand, multi-model** — Melitta Barista T/TS Smart + Nivona NICR/NIVO 8xxx (alpha) auto-detected from BLE advertisement; model-specific entity filtering per capability
+- **Multi-brand, multi-model** — Melitta Barista T/TS Smart + Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040 + NIVO 8xxx (alpha, NICR 930 validated on real hardware) auto-detected from BLE advertisement; model-specific entity filtering per capability
 - **Real-time status monitoring** — machine state, brewing activity, progress percentage, required user actions, and machine prompts via BLE push notifications
 - **21 or 24 built-in recipes** (Melitta) — select from dropdown and brew with one tap (3 extra recipes on TS model)
 - **Freestyle recipes** (Melitta) — build custom drinks with two configurable components (coffee/milk/water), adjustable intensity, aroma, temperature, shots, and portion sizes
