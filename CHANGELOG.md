@@ -2,6 +2,22 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.3] — 2026-04-15 — README: clarify AI Sommelier WIP status
+
+Documentation-only patch.
+
+### Changed
+
+- README marks **AI Coffee Sommelier** as work-in-progress: the
+  WebSocket API, persistence, bean catalog, and conversation-agent
+  prompt building are functional, but the **recipe → Freestyle brew
+  handoff is not yet wired up** — generated recipes can be inspected
+  but not brewed with one tap. Section reorganized into "Currently
+  working" / "Not yet working" / "Planned end-to-end flow".
+- Project tagline no longer lists "generate AI recipes" as a
+  shipped feature; references the Sommelier section for current
+  scope instead.
+
 ## [0.49.2] — 2026-04-15 — NICR 930 follow-up: cleanup of PR #7
 
 Quality follow-up to 0.49.1 — same external behavior on NICR 930

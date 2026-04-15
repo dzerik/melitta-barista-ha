@@ -13,7 +13,7 @@
 [![Brands](https://img.shields.io/badge/brands-Melitta%20%2B%20Nivona-8b5a2b?style=flat-square)](#supported-brands-and-models)
 [![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#localization)
 
-A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR/NIVO 8xxx** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance, generate AI recipes — all from your Home Assistant dashboard.
+A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR/NIVO 8xxx** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance — all from your Home Assistant dashboard. (AI Coffee Sommelier groundwork is also shipped — see [its section](#ai-coffee-sommelier) for the current scope, the recipe-to-brew handoff is still in development.)
 
 > **⚠️ Nivona testers wanted.** Nivona support (v0.41.0) is shipped as **alpha** — cryptography and handshake are validated against upstream RE vectors, but the code path has not been live-tested on real Nivona hardware by the maintainer. If you own a **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx** machine, please try this release and [open a GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with your results (handshake / status / brew / prompts). See [Nivona support](#nivona-alpha-testers-wanted) below for details.
 
@@ -87,7 +87,7 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 - **Cup counters** (Melitta) — total + per-recipe statistics, refreshed after each brew completion
 - **BLE auto-discovery** — integration detects your Melitta or Nivona machine automatically
 - **Encrypted BLE protocol** — full Eugster EFLibrary stack (AES customer-key bootstrap + RC4 stream cipher), per-brand HU verifier tables
-- **🤖 AI Coffee Sommelier** — generate personalised recipes from configured bean hoppers, milk types, syrups/toppings using any HA conversation agent (OpenAI, Anthropic, Google). 31 bundled European coffee presets incl. Lavazza, Melitta, Illy, Dallmayr, Tasty Coffee.
+- **🤖 AI Coffee Sommelier** *(work in progress, no end-to-end path yet)* — backend scaffolding for personalised recipe generation from configured bean hoppers, milk types, syrups/toppings via any HA conversation agent (OpenAI, Anthropic, Google). 31 bundled European coffee presets incl. Lavazza, Melitta, Illy, Dallmayr, Tasty Coffee. **The recipe → brew handoff is not wired up yet** — you can configure beans/hoppers/milk and call the WebSocket API, but generated recipes don't currently flow into the Freestyle brew button. See [AI Coffee Sommelier](#ai-coffee-sommelier) below.
 - **Custom Lovelace card** — dedicated card available separately: [melitta-barista-card](https://github.com/dzerik/melitta-barista-card)
 - **Standalone PWA** — full-screen React app for tablets and kiosks: [melitta-barista-app](https://github.com/dzerik/melitta-barista-app)
 - **29 languages** — full localization for all European and Slavic languages
@@ -440,20 +440,31 @@ Configure the integration via **Settings → Devices & Services → Melitta Bari
 
 ## AI Coffee Sommelier
 
-Generate personalised espresso/latte/cappuccino recipes from any Home Assistant conversation agent (OpenAI, Anthropic, Google, local LLMs).
+> **🚧 Work in progress — not yet end-to-end functional.**
+>
+> The data model, persistence, WebSocket API (29 commands), 31 bundled bean presets, and the conversation-agent invocation layer are all in place and covered by tests. **What's missing is the final hop**: generated recipes are not yet wired into the Freestyle brew button, so you cannot currently brew a sommelier-generated drink with one tap. The feature is shipped in this state so contributors can play with the API and the bundled bean catalog, but treat it as a preview rather than a finished workflow.
 
-**How it works**:
+**Planned end-to-end flow** (target, not current behavior):
 
 1. Configure your bean hoppers (bean type, roast, origin) and available milk types in the integration's WebSocket API (or via the companion [PWA](https://github.com/dzerik/melitta-barista-app) Sommelier tab).
 2. Optionally add syrups, toppings, liqueurs, and machine profiles (cup size, dietary preferences).
 3. The integration pipes your configuration + current HA context (weather, mood, occasion) to your chosen conversation agent.
-4. The agent returns three recipes structured for the Melitta Freestyle builder — tap to brew.
+4. The agent returns three recipes structured for the Melitta Freestyle builder — *tap to brew (not yet implemented)*.
 
-**Bundled**: 31 European coffee bean presets (Lavazza, illy, Melitta, Dallmayr, Tasty Coffee, and more). Extendable via WebSocket API.
+**Currently working**:
 
-**Requirements**: at least one `conversation` integration configured in HA (e.g. [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)).
+- WebSocket API for beans / hoppers / milk / syrups / toppings / favorites / history (29 commands)
+- 31 bundled European coffee bean presets (Lavazza, illy, Melitta, Dallmayr, Tasty Coffee, and more) — extendable via the API
+- Conversation-agent prompt building and structured response parsing
 
-**API**: 29 WebSocket commands for managing beans, hoppers, milk, favorites, history, generation. See the [PWA companion repo](https://github.com/dzerik/melitta-barista-app) for the Sommelier UI.
+**Not yet working**:
+
+- Recipe → Freestyle brew button handoff (the generated structured recipe is parsed but not converted into an HE brew payload)
+- UI surface inside Home Assistant (use the companion PWA)
+
+**Requirements** (for the parts that do work): at least one `conversation` integration configured in HA (e.g. [OpenAI Conversation](https://www.home-assistant.io/integrations/openai_conversation/)).
+
+**Tracking**: see open issues tagged `sommelier` in the [issue tracker](https://github.com/dzerik/melitta-barista-ha/issues) for progress on the missing pieces.
 
 ## Architecture
 
