@@ -273,4 +273,4 @@ class MelittaStatus extends LitElement {
   }
 }
 
-customElements.define("melitta-status", MelittaStatus);
+if (!customElements.get('melitta-status')) customElements.define('melitta-status', MelittaStatus);

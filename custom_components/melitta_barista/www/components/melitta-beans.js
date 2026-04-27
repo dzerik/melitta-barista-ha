@@ -867,4 +867,4 @@ class MelittaBeans extends LitElement {
   }
 }
 
-customElements.define("melitta-beans", MelittaBeans);
+if (!customElements.get('melitta-beans')) customElements.define('melitta-beans', MelittaBeans);

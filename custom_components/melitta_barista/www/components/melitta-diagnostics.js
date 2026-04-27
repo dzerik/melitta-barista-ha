@@ -412,4 +412,4 @@ class MelittaDiagnostics extends LitElement {
   }
 }
 
-customElements.define("melitta-diagnostics", MelittaDiagnostics);
+if (!customElements.get('melitta-diagnostics')) customElements.define('melitta-diagnostics', MelittaDiagnostics);

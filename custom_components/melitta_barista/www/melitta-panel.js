@@ -240,4 +240,4 @@ class MelittaPanel extends LitElement {
   }
 }
 
-customElements.define("melitta-panel", MelittaPanel);
+if (!customElements.get('melitta-panel')) customElements.define('melitta-panel', MelittaPanel);

@@ -418,4 +418,4 @@ class MelittaSettings extends LitElement {
   }
 }
 
-customElements.define("melitta-settings", MelittaSettings);
+if (!customElements.get('melitta-settings')) customElements.define('melitta-settings', MelittaSettings);

@@ -246,4 +246,4 @@ class MelittaRecipes extends LitElement {
   }
 }
 
-customElements.define("melitta-recipes", MelittaRecipes);
+if (!customElements.get('melitta-recipes')) customElements.define('melitta-recipes', MelittaRecipes);

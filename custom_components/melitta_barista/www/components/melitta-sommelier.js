@@ -174,7 +174,14 @@ class MelittaSommelier extends LitElement {
       this._session = result.session;
       this._favoritedIds = [];
     } catch (e) {
-      this._error = e.message || String(e);
+      // HA WS errors have `{code, message}` — surface both so the user
+      // doesn't see a useless "Unknown error". Stack/raw payload goes to
+      // the DevTools console for deeper debugging.
+      const code = e?.code || "error";
+      const msg = e?.message || String(e);
+      this._error = `[${code}] ${msg}`;
+      // eslint-disable-next-line no-console
+      console.error("[melitta-panel] generate failed:", e, "payload:", payload);
     } finally {
       this._generating = false;
     }
@@ -701,4 +708,4 @@ class MelittaSommelier extends LitElement {
   }
 }
 
-customElements.define("melitta-sommelier", MelittaSommelier);
+if (!customElements.get('melitta-sommelier')) customElements.define('melitta-sommelier', MelittaSommelier);

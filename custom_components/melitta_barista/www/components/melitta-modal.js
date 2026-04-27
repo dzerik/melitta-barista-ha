@@ -105,4 +105,4 @@ class MelittaModal extends LitElement {
   }
 }
 
-customElements.define("melitta-modal", MelittaModal);
+if (!customElements.get('melitta-modal')) customElements.define('melitta-modal', MelittaModal);

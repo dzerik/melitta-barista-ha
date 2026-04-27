@@ -60,4 +60,4 @@ class MelittaToast extends LitElement {
   }
 }
 
-customElements.define("melitta-toast", MelittaToast);
+if (!customElements.get('melitta-toast')) customElements.define('melitta-toast', MelittaToast);

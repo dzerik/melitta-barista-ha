@@ -341,4 +341,4 @@ class MelittaAdditives extends LitElement {
   }
 }
 
-customElements.define("melitta-additives", MelittaAdditives);
+if (!customElements.get('melitta-additives')) customElements.define('melitta-additives', MelittaAdditives);
