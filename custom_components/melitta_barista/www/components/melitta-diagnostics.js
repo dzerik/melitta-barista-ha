@@ -22,6 +22,7 @@ class MelittaDiagnostics extends LitElement {
       entryId: { type: String },
       lang: { type: String },
       _data: { type: Object },
+      _llmCalls: { type: Array },
       _error: { type: String },
     };
   }
@@ -29,6 +30,7 @@ class MelittaDiagnostics extends LitElement {
   constructor() {
     super();
     this._data = null;
+    this._llmCalls = [];
     this._error = "";
     this._timer = null;
   }
@@ -55,10 +57,15 @@ class MelittaDiagnostics extends LitElement {
   async _load() {
     if (!this.hass || !this.entryId) return;
     try {
-      this._data = await this.hass.callWS({
-        type: "melitta_barista/diagnostics",
-        entry_id: this.entryId,
-      });
+      const [diag, llm] = await Promise.all([
+        this.hass.callWS({
+          type: "melitta_barista/diagnostics",
+          entry_id: this.entryId,
+        }),
+        this.hass.callWS({ type: "melitta_barista/diagnostics/llm_calls" }),
+      ]);
+      this._data = diag;
+      this._llmCalls = llm.llm_calls || [];
       this._error = "";
     } catch (e) {
       this._error = e.message || String(e);
@@ -220,7 +227,62 @@ class MelittaDiagnostics extends LitElement {
 
         <h3>${this._t("diag.recent_frames")}</h3>
         ${this._renderFrames()}
+
+        <h3>${this._t("diag.llm_calls")}</h3>
+        ${this._renderLlmCalls()}
       </section>
+    `;
+  }
+
+  _renderLlmCalls() {
+    const calls = this._llmCalls || [];
+    if (calls.length === 0) {
+      return html`<div class="hint">${this._t("diag.no_llm_calls")}</div>`;
+    }
+    return html`
+      <table class="log">
+        <thead><tr>
+          <th>${this._t("status.last_update")}</th>
+          <th>slot</th>
+          <th>via</th>
+          <th>agent</th>
+          <th>chars</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${calls.slice().reverse().map((c) => html`
+            <tr>
+              <td class="ts">${this._formatTimestamp(c.ts)}</td>
+              <td><code>${c.slot}</code></td>
+              <td><code>${c.via}</code></td>
+              <td>${c.agent_id || "—"}</td>
+              <td class="num">${c.prompt_len} → ${c.raw_len}</td>
+              <td>
+                ${c.validation_errors && c.validation_errors.length
+                  ? html`<span class="badge err">×${c.validation_errors.length}</span>` : ""}
+              </td>
+            </tr>
+            <tr class="details-row">
+              <td colspan="6">
+                <details>
+                  <summary>${this._t("diag.llm_show_prompt")}</summary>
+                  <pre>${c.prompt}</pre>
+                </details>
+                <details>
+                  <summary>${this._t("diag.llm_show_response")}</summary>
+                  <pre>${c.raw || "(empty — native structured output)"}</pre>
+                </details>
+                ${c.validation_errors && c.validation_errors.length ? html`
+                  <details open>
+                    <summary>validation errors</summary>
+                    <pre>${JSON.stringify(c.validation_errors, null, 2)}</pre>
+                  </details>
+                ` : ""}
+              </td>
+            </tr>
+          `)}
+        </tbody>
+      </table>
     `;
   }
 
@@ -272,6 +334,33 @@ class MelittaDiagnostics extends LitElement {
         font-size: 11px;
         color: var(--secondary-text-color);
         font-variant-numeric: tabular-nums;
+      }
+      .badge.err {
+        background: var(--error-color);
+        color: var(--text-primary-color);
+      }
+      .details-row > td { padding: 0 8px 8px; }
+      .details-row details {
+        margin-top: 4px;
+        background: var(--primary-background-color);
+        border-radius: 4px;
+        padding: 4px 8px;
+      }
+      .details-row details summary {
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .details-row details pre {
+        margin: 6px 0 0;
+        max-height: 320px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: var(--code-font-family, monospace);
+        font-size: 11px;
+        line-height: 1.4;
+        color: var(--primary-text-color);
       }
       .hint { color: var(--secondary-text-color); padding: 8px 0; }
       .error {

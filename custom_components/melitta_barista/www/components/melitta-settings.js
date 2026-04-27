@@ -29,6 +29,9 @@ class MelittaSettings extends LitElement {
       _drafts: { type: Object },
       _info: { type: String },
       _error: { type: String },
+      _previewSlot: { type: String },
+      _previewText: { type: String },
+      _previewLoading: { type: Boolean },
     };
   }
 
@@ -40,6 +43,31 @@ class MelittaSettings extends LitElement {
     this._drafts = {};
     this._info = "";
     this._error = "";
+    this._previewSlot = "";
+    this._previewText = "";
+    this._previewLoading = false;
+  }
+
+  async _openPreview(slot) {
+    this._previewSlot = slot;
+    this._previewText = "";
+    this._previewLoading = true;
+    try {
+      const result = await this.hass.callWS({
+        type: "melitta_barista/prompts/preview",
+        slot,
+      });
+      this._previewText = result.prompt || "";
+    } catch (e) {
+      this._previewText = `Error: ${e.message || e}`;
+    } finally {
+      this._previewLoading = false;
+    }
+  }
+
+  _closePreview() {
+    this._previewSlot = "";
+    this._previewText = "";
   }
 
   _t(key, params) {
@@ -150,6 +178,16 @@ class MelittaSettings extends LitElement {
           </div>
         </details>
 
+        ${this._previewSlot ? html`
+          <melitta-modal .open=${true}
+            .title=${`${this._t("settings.preview_title")} — ${this._previewSlot}`}
+            @close=${() => this._closePreview()}>
+            ${this._previewLoading
+              ? html`<div class="hint">${this._t("settings.preview_loading")}</div>`
+              : html`<pre class="preview">${this._previewText}</pre>`}
+          </melitta-modal>
+        ` : ""}
+
         ${this._prompts.length === 0
           ? html`<div class="hint">${this._t("common.empty")}</div>`
           : this._prompts.map((p) => html`
@@ -175,6 +213,9 @@ class MelittaSettings extends LitElement {
                 @input=${(e) => this._onPromptInput(p.slot, e.target.value)}
               ></textarea>
               <div class="form-actions">
+                <button class="ghost" @click=${() => this._openPreview(p.slot)}>
+                  ${this._t("settings.preview")}
+                </button>
                 <button class="ghost" @click=${() => this._resetPrompt(p.slot)}>
                   ${this._t("settings.prompt_reset")}
                 </button>
@@ -260,6 +301,19 @@ class MelittaSettings extends LitElement {
       details.help .help-body { padding-top: 6px; }
       details.help p { margin: 6px 0; line-height: 1.45; }
       details.help code, details.help strong { font-weight: 500; }
+      pre.preview {
+        background: var(--primary-background-color);
+        padding: 12px;
+        border-radius: 4px;
+        max-height: 70vh;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: var(--code-font-family, monospace);
+        font-size: 12px;
+        line-height: 1.45;
+        margin: 0;
+      }
 
       .placeholders {
         font-size: 12px;

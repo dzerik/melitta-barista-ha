@@ -421,39 +421,65 @@ async def ws_generate(
     # `sommelier_intro` in the panel prompt store). Falls back to the bundled
     # default inside _build_prompt when None.
     try:
-        from .panel_api import _resolve_prompt  # noqa: PLC0415
+        from .panel_api import _resolve_prompt, _structured_call  # noqa: PLC0415
+        from .ai_recipes import _build_prompt, _validate_recipes  # noqa: PLC0415
         intro = await _resolve_prompt(hass, "sommelier_intro")
     except Exception:  # noqa: BLE001
         intro = None
+        from .ai_recipes import _validate_recipes  # noqa: PLC0415
+
+    # Build intro+context (without the legacy ## Output Format text block —
+    # the JSON Schema is auto-appended by _structured_call instead).
+    prebuilt_prompt = _build_prompt(
+        hopper1_bean=hopper1_bean,
+        hopper2_bean=hopper2_bean,
+        milk_types=milk_types,
+        mode=msg["mode"],
+        preference=msg.get("preference"),
+        count=msg["count"],
+        extras=extras_context,
+        ice_available=ice_available,
+        cup_size=cup_size,
+        temperature_pref=temperature_pref,
+        intro=intro,
+        mood=msg.get("mood"),
+        occasion=msg.get("occasion"),
+        servings=msg.get("servings", 1),
+        dietary=dietary,
+        caffeine_pref=caffeine_pref,
+        weather=weather_context,
+        people_home=people_home,
+        cups_today=cups_today,
+        omit_output_format=True,
+    )
 
     try:
-        recipes = await async_generate_recipes(
-            hass=hass,
-            hopper1_bean=hopper1_bean,
-            hopper2_bean=hopper2_bean,
-            milk_types=milk_types,
-            mode=msg["mode"],
-            preference=msg.get("preference"),
-            count=msg["count"],
-            llm_agent=settings.get("llm_agent_id"),
-            extras=extras_context,
-            ice_available=ice_available,
-            cup_size=cup_size,
-            temperature_pref=temperature_pref,
-            mood=msg.get("mood"),
-            occasion=msg.get("occasion"),
-            servings=msg.get("servings", 1),
-            dietary=dietary,
-            caffeine_pref=caffeine_pref,
-            weather=weather_context,
-            people_home=people_home,
-            cups_today=cups_today,
-            intro=intro,
+        sc_result = await _structured_call(
+            hass,
+            slot="sommelier_intro",
+            fmt_vars={"count": msg["count"], "mode": msg["mode"]},
+            agent_id=settings.get("llm_agent_id") or None,
+            ctx=connection.context(msg),
+            prebuilt_prompt=prebuilt_prompt,
         )
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _LOGGER.error("Failed to generate recipes: %s", err)
         connection.send_error(msg["id"], "generation_failed", str(err))
         return
+
+    parsed = sc_result.get("parsed") or {}
+    raw_recipes = parsed.get("recipes") if isinstance(parsed, dict) else None
+    if not raw_recipes:
+        connection.send_error(
+            msg["id"], "no_recipes",
+            f"LLM returned no usable recipes (errors: {sc_result.get('validation_errors')})",
+        )
+        return
+
+    # Pydantic already enforced the schema; _validate_recipes still applies
+    # legacy clamps (portion_ml rounding to 5ml, extras vocabulary check)
+    # so the brew payload stays inside what the machine accepts.
+    recipes = _validate_recipes(raw_recipes)
 
     hopper1_bean_id = hopper1_bean["id"] if hopper1_bean else None
     hopper2_bean_id = hopper2_bean["id"] if hopper2_bean else None

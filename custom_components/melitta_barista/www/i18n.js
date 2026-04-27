@@ -178,6 +178,14 @@ const STRINGS = {
       "If the SmartChain integration is installed and a SmartChain agent is selected, " +
       "the request is routed through its native structured-output API (no parsing — " +
       "the provider returns a strict object). Otherwise the text+validation path runs.",
+    "settings.preview": "Preview assembled prompt",
+    "settings.preview_title": "Assembled prompt",
+    "settings.preview_loading": "Building preview…",
+
+    "diag.llm_calls": "Recent LLM calls",
+    "diag.no_llm_calls": "No LLM calls recorded yet.",
+    "diag.llm_show_prompt": "Show prompt",
+    "diag.llm_show_response": "Show response",
   },
 
   ru: {
@@ -346,6 +354,14 @@ const STRINGS = {
       "Если установлена интеграция SmartChain и выбран её агент — запрос пойдёт через её " +
       "нативный structured-output API (без парсинга — провайдер возвращает строгий объект). " +
       "Иначе работает текстовый путь с валидацией.",
+    "settings.preview": "Посмотреть собранный промпт",
+    "settings.preview_title": "Собранный промпт",
+    "settings.preview_loading": "Собираю превью…",
+
+    "diag.llm_calls": "Последние LLM-запросы",
+    "diag.no_llm_calls": "LLM-запросов ещё не было.",
+    "diag.llm_show_prompt": "Показать промпт",
+    "diag.llm_show_response": "Показать ответ",
   },
 };
 

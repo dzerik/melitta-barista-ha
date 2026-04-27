@@ -84,14 +84,17 @@ def _build_prompt(
     people_home: int | None = None,
     cups_today: int | None = None,
     intro: str | None = None,
+    omit_output_format: bool = False,
 ) -> str:
     """Build structured prompt for the LLM.
 
     `intro` is the user-editable persona/instruction prefix
     (`sommelier_intro` slot). When None we fall back to the bundled default.
-    The dynamic context (beans, milk, time-of-day, weather, etc.) and the
-    Output Format spec are appended unconditionally; only the persona text
-    is user-overridable.
+    The dynamic context (beans, milk, time-of-day, weather, etc.) is always
+    appended. Set `omit_output_format=True` when the caller is about to
+    auto-append a JSON-Schema block via panel_api._structured_call; the
+    legacy text Output Format spec is included only for the (deprecated)
+    direct-conversation path.
     """
     now = datetime.now(timezone.utc)
     hour = now.hour
@@ -280,6 +283,8 @@ def _build_prompt(
         # literally so they can spot the mismatch in the LLM reply.
         pass
 
+    output_format_block = "" if omit_output_format else _OUTPUT_FORMAT_BLOCK
+
     return f"""{intro_text}
 
 ## Machine Capabilities
@@ -313,21 +318,24 @@ The "blend" field selects which bean hopper to use (see below).
 - Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile
 - If two hoppers available, use both across the recipe set
 - blend field: 1 for hopper 1 beans, 0 for hopper 2 beans. If only one hopper, always use that one.
+{output_format_block}"""
 
+
+_OUTPUT_FORMAT_BLOCK = """
 ## Output Format
 Return ONLY a JSON array, no other text:
 [
-  {{
+  {
     "name": "Recipe Name",
     "description": "Tasting notes and why this works",
     "blend": 1,
-    "component1": {{"process": "coffee", "intensity": "strong", "aroma": "intense", "temperature": "normal", "shots": "two", "portion_ml": 30}},
-    "component2": {{"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120}},
-    "extras": {{"ice": false, "syrup": "caramel", "topping": "cinnamon_powder", "liqueur": null, "instruction": "Optional human instruction for extras"}},
+    "component1": {"process": "coffee", "intensity": "strong", "aroma": "intense", "temperature": "normal", "shots": "two", "portion_ml": 30},
+    "component2": {"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120},
+    "extras": {"ice": false, "syrup": "caramel", "topping": "cinnamon_powder", "liqueur": null, "instruction": "Optional human instruction for extras"},
     "cup_type": "mug",
     "estimated_caffeine": "medium",
     "calories_approx": 120
-  }}
+  }
 ]"""
 
 

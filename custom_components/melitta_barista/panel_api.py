@@ -10,6 +10,8 @@ read in-memory client state, and use `async_response` when DB I/O is involved.
 from __future__ import annotations
 
 import logging
+import time
+from collections import deque
 from typing import Any
 
 import voluptuous as vol
@@ -199,7 +201,17 @@ def _ws_diagnostics_clear(hass: HomeAssistant, connection, msg) -> None:
         client._recent_errors.clear()
     if hasattr(client, "_recent_frames"):
         client._recent_frames.clear()
+    # LLM call buffer is domain-wide (cross-entry).
+    _llm_call_buffer(hass).clear()
     connection.send_result(msg["id"], {"cleared": True})
+
+
+@callback
+def _ws_diagnostics_llm_calls(hass: HomeAssistant, connection, msg) -> None:
+    """Return the recent LLM calls (full prompt + response). Domain-wide."""
+    connection.send_result(msg["id"], {
+        "llm_calls": list(_llm_call_buffer(hass)),
+    })
 
 
 # ── /recipes ────────────────────────────────────────────────────────────
@@ -441,6 +453,34 @@ async def _resolve_agent_id(hass, msg) -> str | None:
         return None
 
 
+def _llm_call_buffer(hass) -> deque:
+    """Lazy-init the per-process LLM call ring buffer. Capped at 20 entries."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    buf = domain_data.get("recent_llm_calls")
+    if buf is None:
+        buf = deque(maxlen=20)
+        domain_data["recent_llm_calls"] = buf
+    return buf
+
+
+def _record_llm_call(
+    hass, *, slot: str, agent_id: str | None, prompt: str, raw: str,
+    via: str, validation_errors: list | None,
+) -> None:
+    """Append one diagnostic entry. Truncated to keep memory bounded."""
+    _llm_call_buffer(hass).append({
+        "ts": time.time(),
+        "slot": slot,
+        "agent_id": agent_id or "",
+        "prompt": prompt[:8000],   # full prompts can be enormous; cap.
+        "prompt_len": len(prompt),
+        "raw": (raw or "")[:8000],
+        "raw_len": len(raw or ""),
+        "via": via,
+        "validation_errors": validation_errors or [],
+    })
+
+
 async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
     """Single round-trip to the conversation agent; returns raw speech text."""
     from homeassistant.components import conversation  # noqa: PLC0415
@@ -460,7 +500,7 @@ async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
 
 async def _structured_call(
     hass, slot: str, fmt_vars: dict, agent_id: str | None, ctx,
-    *, max_retries: int = 1,
+    *, max_retries: int = 1, prebuilt_prompt: str | None = None,
 ) -> dict:
     """Hybrid structured-output call.
 
@@ -478,27 +518,52 @@ async def _structured_call(
     model = RESPONSE_MODELS.get(slot)
     template = await _resolve_prompt(hass, slot)
 
-    # SmartChain native path: send the user's intent directly. SmartChain's
-    # client.with_structured_output(schema) handles the JSON Schema
-    # contract via the provider's native mode — no prompt-side schema
-    # injection needed.
-    if smartchain is not None and model is not None and agent_id and "smartchain" in agent_id:
+    # The native (SmartChain) path takes the intent text without our
+    # text-mode schema block; SmartChain enforces the schema natively.
+    # When the caller pre-built the prompt (sommelier path that needs
+    # the dynamic context inserted), use it as-is for the intent.
+    if prebuilt_prompt is not None:
+        intent = prebuilt_prompt
+    else:
         try:
             intent = template.format(**fmt_vars)
         except (KeyError, IndexError):
             intent = template
+
+    if smartchain is not None and model is not None and agent_id and "smartchain" in agent_id:
         try:
             obj = await smartchain(hass, schema=model, prompt=intent, agent_id=agent_id)
-            return {
+            payload = {
                 "raw": "",
                 "parsed": obj.model_dump() if hasattr(obj, "model_dump") else dict(obj),
                 "validation_errors": [],
                 "via": "smartchain_structured",
             }
+            _record_llm_call(
+                hass, slot=slot, agent_id=agent_id, prompt=intent,
+                raw="", via="smartchain_structured", validation_errors=None,
+            )
+            return payload
         except Exception as exc:  # noqa: BLE001
             _LOGGER.debug("SmartChain structured call failed, falling back: %s", exc)
 
-    base_prompt = _assemble_prompt(slot, template, fmt_vars)
+    # Text path: append the JSON-Schema block to the (intent or prebuilt)
+    # prompt and run the validate-and-retry loop.
+    if prebuilt_prompt is not None:
+        # When the caller assembled the prompt themselves, just bolt on the
+        # schema block — no .format() is run on prebuilt_prompt.
+        base_prompt = intent
+        schema = _schema_for(slot)
+        if schema is not None:
+            import json as _json  # noqa: PLC0415
+            base_prompt += (
+                "\n\n--- RESPONSE FORMAT (DO NOT CHANGE) ---\n"
+                "Reply with ONLY a JSON object that matches this JSON Schema. "
+                "No prose, no markdown fences, no commentary.\n\n"
+                f"{_json.dumps(schema, indent=2, ensure_ascii=False)}"
+            )
+    else:
+        base_prompt = _assemble_prompt(slot, template, fmt_vars)
 
     last_errors: list | None = None
     raw = ""
@@ -524,12 +589,18 @@ async def _structured_call(
             break
         last_errors = errors
         parsed = data  # surface the unvalidated dict so UI can preview
-    return {
+    payload = {
         "raw": raw,
         "parsed": parsed,
         "validation_errors": last_errors or [],
         "via": "text_with_validation",
     }
+    _record_llm_call(
+        hass, slot=slot, agent_id=agent_id, prompt=base_prompt,
+        raw=raw, via="text_with_validation",
+        validation_errors=last_errors,
+    )
+    return payload
 
 
 @websocket_api.websocket_command({
@@ -966,6 +1037,78 @@ async def _ws_prompts_save(hass, connection, msg):
 
 
 @websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/prompts/preview",
+    vol.Required("slot"): str,
+})
+@websocket_api.async_response
+async def _ws_prompts_preview(hass, connection, msg):
+    """Return the exact prompt text that would be sent for a given slot.
+
+    The text-mode result is what callers see when no SmartChain agent is
+    selected: the user template (with sample fmt_vars) + the auto-appended
+    JSON Schema block. For sommelier_intro we additionally inline the
+    dynamic context block built from current DB / HA state so the user can
+    inspect the full message that the next /generate call will produce.
+    """
+    slot = msg["slot"]
+    if slot not in DEFAULT_PROMPTS:
+        connection.send_error(msg["id"], "unknown_slot", slot)
+        return
+
+    if slot == "beans_autofill":
+        sample = {"brand": "Lavazza", "product": "Crema e Aroma"}
+        template = await _resolve_prompt(hass, slot)
+        prompt = _assemble_prompt(slot, template, sample)
+        connection.send_result(msg["id"], {"prompt": prompt, "sample": sample})
+        return
+
+    if slot == "sommelier_intro":
+        from .ai_recipes import _build_prompt  # noqa: PLC0415
+        try:
+            db = await _async_get_db(hass)
+            hoppers = await db.async_get_hoppers()
+            milk_types = await db.async_get_milk()
+            extras = await db.async_get_extras()
+        except Exception:  # noqa: BLE001
+            hoppers = {"hopper1": None, "hopper2": None}
+            milk_types = []
+            extras = {}
+        intro = await _resolve_prompt(hass, slot)
+        prebuilt = _build_prompt(
+            hopper1_bean=(hoppers.get("hopper1") or {}).get("bean"),
+            hopper2_bean=(hoppers.get("hopper2") or {}).get("bean"),
+            milk_types=milk_types,
+            mode="surprise_me",
+            preference=None,
+            count=3,
+            extras=extras or None,
+            intro=intro,
+            omit_output_format=True,
+        )
+        schema = _schema_for(slot)
+        if schema is not None:
+            import json as _json  # noqa: PLC0415
+            prebuilt += (
+                "\n\n--- RESPONSE FORMAT (DO NOT CHANGE) ---\n"
+                "Reply with ONLY a JSON object that matches this JSON Schema. "
+                "No prose, no markdown fences, no commentary.\n\n"
+                f"{_json.dumps(schema, indent=2, ensure_ascii=False)}"
+            )
+        connection.send_result(msg["id"], {
+            "prompt": prebuilt,
+            "sample": {"count": 3, "mode": "surprise_me"},
+        })
+        return
+
+    # Slots without a custom preview path: just substitute placeholder
+    # values from PROMPT_PLACEHOLDERS and run the generic assembler.
+    template = await _resolve_prompt(hass, slot)
+    sample = {ph["name"]: f"<{ph['name']}>" for ph in PROMPT_PLACEHOLDERS.get(slot, [])}
+    prompt = _assemble_prompt(slot, template, sample)
+    connection.send_result(msg["id"], {"prompt": prompt, "sample": sample})
+
+
+@websocket_api.websocket_command({
     vol.Required("type"): "melitta_barista/prompts/reset",
     vol.Required("slot"): str,
 })
@@ -1041,6 +1184,10 @@ _RECIPES_LIST_SCHEMA = vol.Schema({
     vol.Required("entry_id"): str,
 })
 
+_DIAG_LLM_CALLS_SCHEMA = vol.Schema({
+    vol.Required("type"): "melitta_barista/diagnostics/llm_calls",
+})
+
 
 def _wrap_sync_with_schema(handler, schema):
     """Wrap a sync `(hass, connection, msg)` handler with a vol schema decorator."""
@@ -1058,6 +1205,9 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
     async_register_command(hass, _wrap_sync_with_schema(_ws_diagnostics, _DIAG_SCHEMA))
     async_register_command(
         hass, _wrap_sync_with_schema(_ws_diagnostics_clear, _DIAG_CLEAR_SCHEMA)
+    )
+    async_register_command(
+        hass, _wrap_sync_with_schema(_ws_diagnostics_llm_calls, _DIAG_LLM_CALLS_SCHEMA)
     )
     async_register_command(
         hass, _wrap_sync_with_schema(_ws_recipes_list, _RECIPES_LIST_SCHEMA)
@@ -1085,6 +1235,7 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
     async_register_command(hass, _ws_prompts_list)
     async_register_command(hass, _ws_prompts_save)
     async_register_command(hass, _ws_prompts_reset)
+    async_register_command(hass, _ws_prompts_preview)
     async_register_command(hass, _ws_llm_agents)
 
     domain_data["panel_api_registered"] = True
