@@ -198,16 +198,24 @@ class MelittaBeans extends LitElement {
     const brand = this._editingBean.brand.trim();
     const product = this._editingBean.product.trim();
     if (!brand || !product) return;
+    // Look up the website from the producers list so the LLM can use it
+    // as additional context. Producer match is by name (the bean form
+    // already constrains brand to a producer-dropdown value).
+    const producer = this._producers.find((p) => p.name === brand);
+    const website = (producer && producer.website || "").trim();
+
     this._autofillRunning = true;
     this._autofillRaw = "";
     this._autofillErrors = [];
     this._autofillVia = "";
     try {
-      const result = await this.hass.callWS({
+      const payload = {
         type: "melitta_barista/beans/autofill",
         brand,
         product,
-      });
+      };
+      if (website) payload.website = website;
+      const result = await this.hass.callWS(payload);
       this._autofillRaw = result.raw || "";
       this._autofillVia = result.via || "";
       this._autofillErrors = result.validation_errors || [];

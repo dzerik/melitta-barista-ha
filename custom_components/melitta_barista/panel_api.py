@@ -607,6 +607,7 @@ async def _structured_call(
     vol.Required("type"): "melitta_barista/beans/autofill",
     vol.Required("brand"): str,
     vol.Required("product"): str,
+    vol.Optional("website"): str,
     vol.Optional("agent_id"): str,
 })
 @websocket_api.async_response
@@ -626,7 +627,22 @@ async def _ws_beans_autofill(hass, connection, msg):
       - `via` indicates which code path produced the result, useful for
         diagnostics.
     """
-    fmt_vars = {"brand": msg["brand"], "product": msg["product"]}
+    # Build the optional website fragment so the template reads cleanly
+    # whether or not the producer has a site configured. The whole hint
+    # collapses to "" when no URL is supplied — the user-visible prompt
+    # simply doesn't mention the website at all.
+    website = (msg.get("website") or "").strip()
+    website_hint = (
+        f"\n\nThe producer's official website is {website} — feel free to "
+        "draw on its product description if it adds accuracy. Still reply "
+        "ONLY with the JSON object below."
+        if website else ""
+    )
+    fmt_vars = {
+        "brand": msg["brand"],
+        "product": msg["product"],
+        "website_hint": website_hint,
+    }
     agent_id = await _resolve_agent_id(hass, msg)
 
     try:
@@ -798,7 +814,7 @@ DEFAULT_PROMPTS: dict[str, str] = {
         "You are a coffee specialist. Describe the product {product!r} "
         "made by producer {brand!r}: its roast level, bean blend, "
         "origin, characteristic flavor notes, and a short brewing "
-        "recommendation. Be concise and accurate."
+        "recommendation. Be concise and accurate.{website_hint}"
     ),
     "sommelier_intro": (
         "You are an expert barista and coffee sommelier. Generate exactly "
@@ -817,6 +833,10 @@ PROMPT_PLACEHOLDERS: dict[str, list[dict[str, str]]] = {
     "beans_autofill": [
         {"name": "brand", "desc": "Producer name (e.g. Lavazza)"},
         {"name": "product", "desc": "Bean / blend name (e.g. Crema e Aroma)"},
+        {"name": "website_hint",
+         "desc": "Auto-built fragment: ' (official website: <url>)' when the producer "
+                 "has a site set, empty string otherwise. Wherever you put it in the "
+                 "template, it disappears cleanly when no URL is configured."},
     ],
     "sommelier_intro": [
         {"name": "count", "desc": "Number of recipes to generate (1–5)"},
@@ -1056,7 +1076,18 @@ async def _ws_prompts_preview(hass, connection, msg):
         return
 
     if slot == "beans_autofill":
-        sample = {"brand": "Lavazza", "product": "Crema e Aroma"}
+        # Sample includes the website hint exactly as the runtime path
+        # builds it, so the preview shows what users see when a producer
+        # has a website configured.
+        sample = {
+            "brand": "Lavazza",
+            "product": "Crema e Aroma",
+            "website_hint": (
+                "\n\nThe producer's official website is https://www.lavazza.com — "
+                "feel free to draw on its product description if it adds accuracy. "
+                "Still reply ONLY with the JSON object below."
+            ),
+        }
         template = await _resolve_prompt(hass, slot)
         prompt = _assemble_prompt(slot, template, sample)
         connection.send_result(msg["id"], {"prompt": prompt, "sample": sample})
