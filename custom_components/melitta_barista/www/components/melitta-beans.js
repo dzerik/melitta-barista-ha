@@ -257,6 +257,18 @@ class MelittaBeans extends LitElement {
           merged.flavor_notes = cleaned;
         }
         if (parsed.composition) merged.composition = parsed.composition;
+        // brewing_recommendation has no dedicated DB column yet — append it
+        // into the composition/notes field with a marker so the user can
+        // see it AND edit it. Skips the append if the recommendation is
+        // already present (idempotent on re-autofill).
+        if (parsed.brewing_recommendation) {
+          const note = `Заваривание: ${parsed.brewing_recommendation}`;
+          if (!(merged.composition || "").includes(parsed.brewing_recommendation)) {
+            merged.composition = merged.composition
+              ? `${merged.composition}\n${note}`
+              : note;
+          }
+        }
         this._editingBean = merged;
       }
     } catch (e) {
@@ -295,9 +307,11 @@ class MelittaBeans extends LitElement {
 
   async _assignHopper(hopperId, beanId) {
     try {
+      // hopperId can arrive as a string from the closure / event chain.
+      // The WS schema requires vol.In([1, 2]) — strict int, no coercion.
       await this.hass.callWS({
         type: "melitta_barista/sommelier/hoppers/assign",
-        hopper_id: hopperId,
+        hopper_id: parseInt(hopperId, 10),
         bean_id: beanId || null,
       });
       await this._loadAll();
@@ -465,8 +479,9 @@ class MelittaBeans extends LitElement {
             <input type="text" .value=${b.origin_country}
               @input=${(e) => this._updateBeanField("origin_country", e.target.value)} /></label>
           <label>${this._t("beans.notes")} / composition
-            <input type="text" .value=${b.composition}
-              @input=${(e) => this._updateBeanField("composition", e.target.value)} /></label>
+            <textarea rows="3"
+              @input=${(e) => this._updateBeanField("composition", e.target.value)}
+            >${b.composition || ""}</textarea></label>
 
           <fieldset class="tags">
             <legend>${this._t("tags.title")}</legend>

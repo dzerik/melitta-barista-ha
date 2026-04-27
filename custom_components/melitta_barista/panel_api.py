@@ -444,6 +444,72 @@ async def _ws_producers_delete(hass, connection, msg):
 # beans/autofill -----------------------------------------------------------
 
 
+_HTML_TAG_RE = None  # compiled lazily in _strip_html_to_text
+
+
+def _strip_html_to_text(html: str) -> str:
+    """Crude but dependency-free HTML → plain text.
+
+    Drops <script>/<style> blocks entirely, replaces tags with spaces,
+    decodes a handful of common HTML entities, collapses whitespace.
+    The point isn't pretty rendering — it's giving the LLM a flat
+    excerpt of the visible product copy from a producer page.
+    """
+    import re  # noqa: PLC0415
+    import html as _html_mod  # noqa: PLC0415
+    global _HTML_TAG_RE  # noqa: PLW0603
+    if _HTML_TAG_RE is None:
+        _HTML_TAG_RE = re.compile(r"<[^>]+>")
+    cleaned = re.sub(
+        r"<(script|style)[^>]*>[\s\S]*?</\1>",
+        " ", html, flags=re.IGNORECASE,
+    )
+    cleaned = _HTML_TAG_RE.sub(" ", cleaned)
+    cleaned = _html_mod.unescape(cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+async def _fetch_producer_page(hass, url: str, *, max_chars: int = 12000) -> str | None:
+    """Fetch a producer page and return a plain-text excerpt.
+
+    Returns None on any failure (DNS, timeout, non-2xx, non-HTML body).
+    Trimmed to ``max_chars`` to keep prompts inside provider limits.
+    """
+    import asyncio  # noqa: PLC0415
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: PLC0415
+    if not url.lower().startswith(("http://", "https://")):
+        return None
+    session = async_get_clientsession(hass)
+    headers = {
+        # Some shops aggressively block requests without a UA.
+        "User-Agent": "Mozilla/5.0 (compatible; MelittaPanel/1.0; +HomeAssistant)",
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+    }
+    try:
+        async with asyncio.timeout(12):
+            async with session.get(url, headers=headers, allow_redirects=True) as resp:
+                if resp.status >= 400:
+                    _LOGGER.debug("URL %s returned HTTP %s", url, resp.status)
+                    return None
+                ctype = (resp.headers.get("Content-Type") or "").lower()
+                if "html" not in ctype and "text" not in ctype:
+                    _LOGGER.debug("URL %s returned non-text type %s", url, ctype)
+                    return None
+                # Cap raw read so a giant page can't OOM the worker; 256 KB
+                # is plenty for a product description.
+                raw = await resp.content.read(256 * 1024)
+                body = raw.decode(resp.charset or "utf-8", errors="replace")
+    except (asyncio.TimeoutError, OSError) as exc:
+        _LOGGER.debug("Failed to fetch %s: %s", url, exc)
+        return None
+
+    text = _strip_html_to_text(body)
+    if len(text) > max_chars:
+        text = text[:max_chars] + " …[truncated]"
+    return text or None
+
+
 async def _resolve_agent_id(hass, msg) -> str | None:
     """Pick the conversation agent: explicit msg arg > setting > HA default."""
     agent_id = msg.get("agent_id")
@@ -631,21 +697,41 @@ async def _ws_beans_autofill(hass, connection, msg):
       - `via` indicates which code path produced the result, useful for
         diagnostics.
     """
-    # Build the optional website fragment so the template reads cleanly
-    # whether or not the producer has a site configured. The whole hint
-    # collapses to "" when no URL is supplied — the user-visible prompt
-    # simply doesn't mention the website at all.
+    # When a producer website is supplied, fetch it server-side and
+    # inline a plain-text excerpt of the page into the prompt. This is
+    # the only reliable way to give the LLM real product data — most
+    # conversation agents (HA's default Assist, GigaChat, Claude/GPT
+    # without web tools) don't follow URLs by themselves and would just
+    # hallucinate from the brand+product name.
     website = (msg.get("website") or "").strip()
-    website_hint = (
-        f"\n\nThe producer's official website is {website} — feel free to "
-        "draw on its product description if it adds accuracy. Still reply "
-        "ONLY with the JSON object below."
-        if website else ""
-    )
+    page_text = await _fetch_producer_page(hass, website) if website else None
+
+    if website and page_text:
+        website_hint = (
+            f"\n\nProducer page URL: {website} (its plain-text content is "
+            "included below for grounding)."
+        )
+        page_excerpt = (
+            "\n\n--- PRODUCER PAGE TEXT (use this as the primary source of "
+            "facts; ignore the page's navigation, prices, promo banners) ---\n"
+            f"{page_text}"
+        )
+    elif website:
+        website_hint = (
+            f"\n\nProducer URL on file: {website}. The page could not be "
+            "fetched server-side — fall back to your training data and be "
+            "explicit about uncertainty."
+        )
+        page_excerpt = ""
+    else:
+        website_hint = ""
+        page_excerpt = ""
+
     fmt_vars = {
         "brand": msg["brand"],
         "product": msg["product"],
         "website_hint": website_hint,
+        "page_excerpt": page_excerpt,
     }
     agent_id = await _resolve_agent_id(hass, msg)
 
@@ -819,8 +905,14 @@ DEFAULT_PROMPTS: dict[str, str] = {
     "beans_autofill": (
         "You are a coffee specialist. Describe the product {product!r} "
         "made by producer {brand!r}: its roast level, bean blend, "
-        "origin, characteristic flavor notes, and a short brewing "
-        "recommendation. Be concise and accurate.{website_hint}"
+        "origin, the country the beans come from, characteristic flavor "
+        "notes, and a short brewing recommendation. Use the page text "
+        "below if it's available — the user fetched it from the producer's "
+        "site for you. NEVER invent facts: if you can't determine a field "
+        "from the page or your knowledge, set origin_country to \"Unknown\" "
+        "and flavor_notes to a single-element list with the producer's most "
+        "likely flavour family. Be concise and accurate."
+        "{website_hint}{page_excerpt}"
     ),
     "sommelier_intro": (
         "You are an expert barista and coffee sommelier. Generate exactly "
@@ -840,9 +932,12 @@ PROMPT_PLACEHOLDERS: dict[str, list[dict[str, str]]] = {
         {"name": "brand", "desc": "Producer name (e.g. Lavazza)"},
         {"name": "product", "desc": "Bean / blend name (e.g. Crema e Aroma)"},
         {"name": "website_hint",
-         "desc": "Auto-built fragment: ' (official website: <url>)' when the producer "
-                 "has a site set, empty string otherwise. Wherever you put it in the "
-                 "template, it disappears cleanly when no URL is configured."},
+         "desc": "Auto-built fragment with the producer URL when configured, "
+                 "empty otherwise."},
+        {"name": "page_excerpt",
+         "desc": "Auto-fetched plain-text excerpt from the producer site (when "
+                 "the URL is set and reachable), empty otherwise. Lets ANY LLM "
+                 "use real product data instead of training-data guesses."},
     ],
     "sommelier_intro": [
         {"name": "count", "desc": "Number of recipes to generate (1–5)"},
@@ -859,13 +954,22 @@ try:
     from typing import Literal  # noqa: PLC0415
 
     class BeanAutofillResult(BaseModel):
-        """Strict schema for the beans autofill LLM response."""
+        """Strict schema for the beans autofill LLM response.
+
+        `origin_country` and `flavor_notes` are required (no defaults) so
+        the validator surfaces the gap to the user instead of silently
+        accepting incomplete responses. The LLM is told to use the literal
+        string "Unknown" for `origin_country` and an empty array for
+        `flavor_notes` only if it truly has no information — that way the
+        UI can flag the result as low-confidence rather than auto-filling
+        a wrong value.
+        """
 
         roast: Literal["light", "medium", "medium_dark", "dark"]
         bean_type: Literal["arabica", "arabica_robusta", "robusta"]
         origin: Literal["single_origin", "blend"]
-        origin_country: str = ""
-        flavor_notes: list[str] = Field(default_factory=list)
+        origin_country: str = Field(min_length=1)
+        flavor_notes: list[str] = Field(min_length=1)
         composition: str = ""
         brewing_recommendation: str = ""
 
@@ -1082,16 +1186,21 @@ async def _ws_prompts_preview(hass, connection, msg):
         return
 
     if slot == "beans_autofill":
-        # Sample includes the website hint exactly as the runtime path
-        # builds it, so the preview shows what users see when a producer
-        # has a website configured.
+        # Sample shows the page-fetch path exactly as the runtime would
+        # render it: a URL hint + a placeholder excerpt block, so users
+        # understand what gets sent when their producer has a website.
         sample = {
             "brand": "Lavazza",
             "product": "Crema e Aroma",
             "website_hint": (
-                "\n\nThe producer's official website is https://www.lavazza.com — "
-                "feel free to draw on its product description if it adds accuracy. "
-                "Still reply ONLY with the JSON object below."
+                "\n\nProducer page URL: https://www.lavazza.com/.../crema-e-aroma "
+                "(its plain-text content is included below for grounding)."
+            ),
+            "page_excerpt": (
+                "\n\n--- PRODUCER PAGE TEXT (use this as the primary source of "
+                "facts; ignore the page's navigation, prices, promo banners) ---\n"
+                "Crema e Aroma — A blend of Arabica and Robusta beans, slightly "
+                "roasted, with a velvety crema and intense flavor… …[truncated]"
             ),
         }
         template = await _resolve_prompt(hass, slot)

@@ -88,8 +88,13 @@ BEAN_SCHEMA = {
     vol.Required("bean_type"): vol.In(VALID_BEAN_TYPES),
     vol.Required("origin"): vol.In(VALID_ORIGINS),
     vol.Optional("origin_country"): cv.string,
+    # flavor_notes is a free-form list of strings since the panel introduced
+    # the dynamic-tag UI: users (and the LLM, when its output isn't pinned to
+    # a hardcoded vocabulary) are free to coin any tag. The legacy
+    # VALID_FLAVOR_NOTES whitelist is kept as a typo-safety hint via
+    # cv.string only — anything that's a string passes.
     vol.Optional("flavor_notes", default=[]): vol.All(
-        cv.ensure_list, [vol.In(VALID_FLAVOR_NOTES)]
+        cv.ensure_list, [cv.string]
     ),
     vol.Optional("composition"): cv.string,
     vol.Optional("preset_id"): cv.string,
@@ -197,8 +202,9 @@ async def ws_beans_add(
         vol.Optional("bean_type"): vol.In(VALID_BEAN_TYPES),
         vol.Optional("origin"): vol.In(VALID_ORIGINS),
         vol.Optional("origin_country"): cv.string,
+        # See BEAN_SCHEMA — free-form tag list now.
         vol.Optional("flavor_notes"): vol.All(
-            cv.ensure_list, [vol.In(VALID_FLAVOR_NOTES)]
+            cv.ensure_list, [cv.string]
         ),
         vol.Optional("composition"): cv.string,
         vol.Optional("preset_id"): cv.string,
