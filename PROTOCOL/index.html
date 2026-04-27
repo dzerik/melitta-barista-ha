@@ -1,0 +1,2839 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Home Assistant integration for Melitta Barista T/TS Smart and Nivona NICR/NIVO coffee machines over BLE">
+      
+      
+      
+        <link rel="canonical" href="https://dzerik.github.io/melitta-barista-ha/PROTOCOL/">
+      
+      
+        <link rel="prev" href="../BLE_ARCHITECTURE/">
+      
+      
+        <link rel="next" href="../adr/001-brand-profile-abstraction/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Wire protocol - Melitta Barista & Nivona — HA Integration</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#eugstereflibrary-ble-protocol-melitta-barista-nivona" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-header__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Melitta Barista & Nivona — HA Integration
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Wire protocol
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-nav__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Melitta Barista & Nivona — HA Integration
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BLE_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BLE architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wire protocol
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wire protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ble-gatt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BLE GATT
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connection-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connection Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bonding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bonding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hu-handshake-challenge-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HU Handshake (Challenge-Response)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HU Handshake (Challenge-Response)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#crc-computation-from-q3rjava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CRC Computation (from Q3/r.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frame-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frame Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#outgoing-pre-encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outgoing (pre-encryption)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encryption
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checksum-calculation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checksum Calculation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Timeout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame-parsing-algorithm-from-q3qjava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Parsing Algorithm (from Q3/q.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encryption-rc4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encryption: RC4
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Encryption: RC4">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-derivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Derivation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rc4-stream-cipher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RC4 Stream Cipher
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#outgoing-app-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outgoing (App → Machine)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#incoming-machine-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incoming (Machine → App)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brewing-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brewing Protocol
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Brewing Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sequence-from-g3njava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequence (from G3/n.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-read-recipe-hc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Read Recipe (HC)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-write-recipe-to-temp-slot-hj" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Write Recipe to Temp Slot (HJ)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-write-recipe-name-hb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Write Recipe Name (HB)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-start-process-he" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Start Process (HE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-example-espresso" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified Example: Espresso
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipetype" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeType
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipekey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeKey
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RecipeKey">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recipetype-recipekey-mapping-from-e3zjava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeType → RecipeKey Mapping (from E3/Z.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-hx-payload-8-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status (HX) Payload — 8 bytes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Status (HX) Payload — 8 bytes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Process
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subprocess" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SubProcess
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#infomessage-bitfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InfoMessage (bitfield)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manipulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manipulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipe-ids-built-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe IDs (Built-in)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recipe IDs (Built-in)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Special IDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipecomponent-8-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeComponent — 8 bytes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#machine-settings-numerical-values-hrhw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Machine Settings (Numerical Values HR/HW)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/001-brand-profile-abstraction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001: Brand profile abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ble-gatt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BLE GATT
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connection-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connection Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connection Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bonding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bonding
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hu-handshake-challenge-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HU Handshake (Challenge-Response)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HU Handshake (Challenge-Response)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#crc-computation-from-q3rjava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CRC Computation (from Q3/r.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frame-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frame Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#outgoing-pre-encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outgoing (pre-encryption)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#encryption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encryption
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checksum-calculation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checksum Calculation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Timeout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frame-parsing-algorithm-from-q3qjava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frame Parsing Algorithm (from Q3/q.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encryption-rc4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encryption: RC4
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Encryption: RC4">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-derivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Derivation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rc4-stream-cipher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RC4 Stream Cipher
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#outgoing-app-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outgoing (App → Machine)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#incoming-machine-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incoming (Machine → App)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brewing-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brewing Protocol
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Brewing Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sequence-from-g3njava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequence (from G3/n.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-read-recipe-hc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Read Recipe (HC)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-write-recipe-to-temp-slot-hj" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Write Recipe to Temp Slot (HJ)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-write-recipe-name-hb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Write Recipe Name (HB)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-start-process-he" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Start Process (HE)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delays
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-example-espresso" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified Example: Espresso
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipetype" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeType
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipekey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeKey
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RecipeKey">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recipetype-recipekey-mapping-from-e3zjava" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeType → RecipeKey Mapping (from E3/Z.java)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-hx-payload-8-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status (HX) Payload — 8 bytes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Status (HX) Payload — 8 bytes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Process
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subprocess" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SubProcess
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#infomessage-bitfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InfoMessage (bitfield)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manipulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manipulation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipe-ids-built-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe IDs (Built-in)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recipe IDs (Built-in)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Special IDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipecomponent-8-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeComponent — 8 bytes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#machine-settings-numerical-values-hrhw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Machine Settings (Numerical Values HR/HW)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/dzerik/melitta-barista-ha/edit/main/docs/PROTOCOL.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="eugstereflibrary-ble-protocol-melitta-barista-nivona">Eugster/EFLibrary BLE Protocol — Melitta Barista &amp; Nivona<a class="headerlink" href="#eugstereflibrary-ble-protocol-melitta-barista-nivona" title="Permanent link">&para;</a></h1>
+<p>Reverse-engineered BLE protocol shared by Melitta Barista T/TS Smart
+and Nivona NICR/NIVO 8xxx coffee machines. Both brands ship the same
+Eugster/Frismag OEM BLE stack (service <code>AD00</code>, encrypted frames,
+HU handshake). Per-brand specifics are limited to the RC4 runtime key,
+the HU verifier table, and a small set of family-specific process codes
+in the HX status payload — see <code>custom_components/melitta_barista/brands/</code>.
+This document originally targeted the Melitta Barista TS Smart but the
+frame format, opcode set, and transport logic apply verbatim to Nivona.</p>
+<h2 id="ble-gatt">BLE GATT<a class="headerlink" href="#ble-gatt" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Service UUID</strong></td>
+<td><code>0000ad00-b35c-11e4-9813-0002a5d5c51b</code></td>
+</tr>
+<tr>
+<td><strong>Notify Characteristic</strong></td>
+<td><code>0000ad02-b35c-11e4-9813-0002a5d5c51b</code></td>
+</tr>
+<tr>
+<td><strong>Write Characteristic</strong></td>
+<td><code>0000ad01-b35c-11e4-9813-0002a5d5c51b</code></td>
+</tr>
+<tr>
+<td><strong>Max Write Size (MTU)</strong></td>
+<td>20 bytes (frames &gt; 20 bytes must be chunked)</td>
+</tr>
+<tr>
+<td><strong>BLE Library (app)</strong></td>
+<td>SweetBlue (com.idevicesinc.sweetblue)</td>
+</tr>
+<tr>
+<td><strong>Device Name Pattern</strong></td>
+<td>Starts with <code>8604</code> (e.g. <code>860400E250429374203-</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="connection-flow">Connection Flow<a class="headerlink" href="#connection-flow" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>BLE Connect → Subscribe ad02 → HU Handshake → Poll HX (status)
+</code></pre></div>
+<ol>
+<li><strong>Bond</strong> device (Numeric Comparison — requires <code>DisplayYesNo</code> agent capability)</li>
+<li><strong>Connect</strong> via BLE GATT</li>
+<li><strong>Subscribe</strong> to notifications on <code>ad02</code></li>
+<li><strong>HU Handshake</strong> — app-initiated challenge-response, provides <code>key_prefix</code> for subsequent frames</li>
+<li><strong>HV</strong> — read firmware version</li>
+<li><strong>HX</strong> — poll status every 1–5 seconds</li>
+</ol>
+<h3 id="bonding">Bonding<a class="headerlink" href="#bonding" title="Permanent link">&para;</a></h3>
+<p>The machine uses <strong>Numeric Comparison</strong> pairing (not Just Works). The BLE agent must support <code>DisplayYesNo</code> capability and auto-confirm the passkey in the <code>RequestConfirmation</code> D-Bus method.</p>
+<p>Standard <code>NoInputNoOutput</code> agents will fail with <code>device_confirm_passkey: Operation not permitted</code>.</p>
+<h2 id="hu-handshake-challenge-response">HU Handshake (Challenge-Response)<a class="headerlink" href="#hu-handshake-challenge-response" title="Permanent link">&para;</a></h2>
+<p>The handshake is <strong>app-initiated</strong> — the machine will not communicate until it receives the HU challenge.</p>
+<h3 id="flow">Flow<a class="headerlink" href="#flow" title="Permanent link">&para;</a></h3>
+<ol>
+<li>App generates 4 random bytes (<code>challenge</code>)</li>
+<li>App computes 2-byte CRC of the challenge using <code>_CRC_TABLE</code> (from <code>Q3/r.java</code>)</li>
+<li>App sends HU frame: <code>challenge(4) + crc(2)</code> = 6 bytes payload (NOT encrypted with key_prefix)</li>
+<li>Machine responds with HU frame: <code>challenge_echo(4) + key_prefix(2) + validation(2)</code> = 8 bytes</li>
+<li>App extracts <code>key_prefix</code> (bytes 4–5) and uses it in all subsequent encrypted frames</li>
+</ol>
+<h3 id="crc-computation-from-q3rjava">CRC Computation (from Q3/r.java)<a class="headerlink" href="#crc-computation-from-q3rjava" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_handshake_crc</span><span class="p">(</span><span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="c1"># Byte 1: CRC with initial offset 0</span>
+    <span class="n">b5</span> <span class="o">=</span> <span class="n">CRC_TABLE</span><span class="p">[(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">256</span><span class="p">)</span> <span class="o">%</span> <span class="mi">256</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">b5</span> <span class="o">=</span> <span class="n">CRC_TABLE</span><span class="p">[((</span><span class="n">b5</span> <span class="o">^</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="mi">256</span><span class="p">)</span> <span class="o">%</span> <span class="mi">256</span><span class="p">]</span>
+    <span class="n">byte1</span> <span class="o">=</span> <span class="p">(</span><span class="n">b5</span> <span class="o">+</span> <span class="mi">93</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span>
+
+    <span class="c1"># Byte 2: CRC with initial offset 1</span>
+    <span class="n">b7</span> <span class="o">=</span> <span class="n">CRC_TABLE</span><span class="p">[(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">257</span><span class="p">)</span> <span class="o">%</span> <span class="mi">256</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">b7</span> <span class="o">=</span> <span class="n">CRC_TABLE</span><span class="p">[((</span><span class="n">b7</span> <span class="o">^</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">+</span> <span class="mi">256</span><span class="p">)</span> <span class="o">%</span> <span class="mi">256</span><span class="p">]</span>
+    <span class="n">byte2</span> <span class="o">=</span> <span class="p">(</span><span class="n">b7</span> <span class="o">+</span> <span class="mi">167</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span>
+
+    <span class="k">return</span> <span class="nb">bytes</span><span class="p">([</span><span class="n">byte1</span><span class="p">,</span> <span class="n">byte2</span><span class="p">])</span>
+</code></pre></div>
+<h2 id="frame-format">Frame Format<a class="headerlink" href="#frame-format" title="Permanent link">&para;</a></h2>
+<h3 id="outgoing-pre-encryption">Outgoing (pre-encryption)<a class="headerlink" href="#outgoing-pre-encryption" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>S (0x53) | Command (1-2 bytes ASCII) | [key_prefix (2)] | [Payload] | Checksum (1) | E (0x45)
+</code></pre></div>
+<h3 id="encryption">Encryption<a class="headerlink" href="#encryption" title="Permanent link">&para;</a></h3>
+<p>After assembling the frame, everything between the command bytes and <code>E</code> is RC4-encrypted:</p>
+<div class="highlight"><pre><span></span><code>S | Command | RC4_ENCRYPT(key_prefix + payload + checksum) | E
+</code></pre></div>
+<ul>
+<li><code>key_prefix</code> is included in encrypted frames after handshake is complete</li>
+<li>HU handshake frame does NOT include <code>key_prefix</code> (it hasn't been established yet)</li>
+<li>ACK (<code>A</code>) and NACK (<code>N</code>) frames are <strong>NOT encrypted</strong> — sent as plaintext: <code>S + A/N + checksum + E</code></li>
+</ul>
+<h3 id="checksum-calculation">Checksum Calculation<a class="headerlink" href="#checksum-calculation" title="Permanent link">&para;</a></h3>
+<p>Computed <strong>before</strong> encryption, over all bytes from index 1 to end (inclusive), with a zero placeholder for the checksum byte itself:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_checksum</span><span class="p">(</span><span class="n">frame_bytes</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="n">frame_bytes</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="mh">0xFF</span>
+    <span class="k">return</span> <span class="p">(</span><span class="o">~</span><span class="n">s</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span>
+</code></pre></div>
+<h3 id="frame-timeout">Frame Timeout<a class="headerlink" href="#frame-timeout" title="Permanent link">&para;</a></h3>
+<p>3 seconds for ACK/response. Original app also has a 1-second receive timeout per frame (cancels incomplete frame collection).</p>
+<h3 id="frame-parsing-algorithm-from-q3qjava">Frame Parsing Algorithm (from <code>Q3/q.java</code>)<a class="headerlink" href="#frame-parsing-algorithm-from-q3qjava" title="Permanent link">&para;</a></h3>
+<p>The frame parser processes incoming BLE notifications <strong>byte by byte</strong>:</p>
+<ol>
+<li><strong>Empty buffer</strong>: Only <code>S</code> (0x53) starts frame collection. All other bytes are ignored.</li>
+<li><strong>Collecting</strong>: Each byte is appended to a 128-byte buffer.</li>
+<li><code>S</code> (0x53) <strong>inside</strong> a frame is treated as regular data (RC4 ciphertext can contain any byte value).</li>
+<li>Buffer overflow at 128 bytes resets the buffer.</li>
+<li><strong><code>E</code> (0x45) received</strong> with buffer ≥ 4 bytes: Check if the buffer length matches any registered command:</li>
+<li>Extract 1-char and 2-char command from <code>buffer[1:2]</code> / <code>buffer[1:3]</code></li>
+<li>For each matching registered command: <code>expected = 1(S) + cmd_len + payload_size + 1(checksum) + 1(E)</code></li>
+<li>If <code>expected == buffer_length</code>: decrypt, verify checksum, accept frame, clear buffer</li>
+<li>If <strong>no match</strong>: <code>E</code> was in encrypted data — <strong>continue collecting</strong> (do NOT clear buffer)</li>
+<li><strong>Checksum verification</strong> (after RC4 decryption): <code>~(sum of bytes[1..N-2]) &amp; 0xFF == 0</code></li>
+</ol>
+<p><strong>Critical insight</strong>: Both <code>S</code> (0x53) and <code>E</code> (0x45) can appear inside RC4-encrypted data.
+The parser disambiguates by checking the total frame length against known command sizes.
+Only when <code>E</code> arrives at exactly the right position is the frame considered complete.</p>
+<h2 id="encryption-rc4">Encryption: RC4<a class="headerlink" href="#encryption-rc4" title="Permanent link">&para;</a></h2>
+<h3 id="key-derivation">Key Derivation<a class="headerlink" href="#key-derivation" title="Permanent link">&para;</a></h3>
+<p>The RC4 key is derived from a hardcoded AES-encrypted blob:</p>
+<ol>
+<li><strong>AES Key</strong> (32 bytes) = <code>AES_KEY_PART_B (17 bytes)</code> || <code>AES_KEY_PART_A (15 bytes)</code>:</li>
+<li>
+<p>Source: <code>Q3/g.java</code> fields <code>f2316b</code> + <code>f2315a</code></p>
+</li>
+<li>
+<p><strong>IV</strong> (16 bytes) from <code>C0390b</code> constructor (<code>f5091c</code>)</p>
+</li>
+<li>
+<p><strong>Encrypted blob</strong> (48 bytes) = <code>AbstractC0940a.f9048a</code> (NOT <code>f9049b</code> which is the AES key for anti-tampering)</p>
+</li>
+<li>
+<p><strong>Decrypt</strong>: <code>AES/CBC/PKCS5Padding</code> → strip PKCS5 padding → <strong>32-byte RC4 key</strong></p>
+</li>
+</ol>
+<p>Derived key (ASCII): <code>MEL_090217_V10_?R4.wozJ!(*q2ds3#</code></p>
+<h3 id="rc4-stream-cipher">RC4 Stream Cipher<a class="headerlink" href="#rc4-stream-cipher" title="Permanent link">&para;</a></h3>
+<p>Standard RC4: KSA with derived key, then PRGA XOR on each byte.</p>
+<p><strong>Important</strong>: RC4 is a stream cipher with internal state. Each frame uses a <strong>fresh RC4 instance</strong> — the key schedule is reset per frame (no persistent state across frames).</p>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<h3 id="outgoing-app-machine">Outgoing (App → Machine)<a class="headerlink" href="#outgoing-app-machine" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+<th>Payload Size</th>
+<th>Encrypted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HU</code></td>
+<td>Handshake challenge</td>
+<td>6 bytes</td>
+<td>Yes (no key_prefix)</td>
+</tr>
+<tr>
+<td><code>HA</code></td>
+<td>Read alphanumeric value</td>
+<td>2 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HB</code></td>
+<td>Write alphanumeric value</td>
+<td>66 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HC</code></td>
+<td>Read recipe</td>
+<td>2 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HE</code></td>
+<td>Start process</td>
+<td>18 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HJ</code></td>
+<td>Write recipe</td>
+<td>66 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HR</code></td>
+<td>Read numerical value</td>
+<td>2 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HV</code></td>
+<td>Read firmware version</td>
+<td>0 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HW</code></td>
+<td>Write numerical value</td>
+<td>6 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HX</code></td>
+<td>Read machine status</td>
+<td>0 bytes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>HZ</code></td>
+<td>Cancel process</td>
+<td>4 bytes</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="incoming-machine-app">Incoming (Machine → App)<a class="headerlink" href="#incoming-machine-app" title="Permanent link">&para;</a></h3>
+<p>Payload sizes from protocol analysis.
+These are the sizes the frame parser uses to detect frame boundaries.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+<th>Payload Size</th>
+<th>Encrypted</th>
+<th>Used Data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>A</code></td>
+<td>ACK (success)</td>
+<td>0 bytes</td>
+<td>No</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>N</code></td>
+<td>NACK (failure)</td>
+<td>0 bytes</td>
+<td>No</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>HU</code></td>
+<td>Handshake response</td>
+<td>8 bytes</td>
+<td>Yes</td>
+<td>8 bytes</td>
+</tr>
+<tr>
+<td><code>HA</code></td>
+<td>Alphanumeric value</td>
+<td>66 bytes</td>
+<td>Yes</td>
+<td>66 bytes</td>
+</tr>
+<tr>
+<td><code>HC</code></td>
+<td>Recipe data</td>
+<td>66 bytes</td>
+<td>Yes</td>
+<td>19 bytes (rest padding)</td>
+</tr>
+<tr>
+<td><code>HF</code></td>
+<td>Unknown</td>
+<td>16 bytes</td>
+<td>Yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>HL</code></td>
+<td>Unknown</td>
+<td>20 bytes</td>
+<td>Yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>HP</code></td>
+<td>Unknown</td>
+<td>14 bytes</td>
+<td>Yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>HQ</code></td>
+<td>Unknown</td>
+<td>15 bytes</td>
+<td>Yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>HR</code></td>
+<td>Numerical value</td>
+<td>6 bytes</td>
+<td>Yes</td>
+<td>6 bytes</td>
+</tr>
+<tr>
+<td><code>HV</code></td>
+<td>Firmware version</td>
+<td>11 bytes</td>
+<td>Yes</td>
+<td>11 bytes</td>
+</tr>
+<tr>
+<td><code>HX</code></td>
+<td>Machine status</td>
+<td>8 bytes</td>
+<td>Yes</td>
+<td>8 bytes</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>IMPORTANT — HC vs HJ format difference:</strong></p>
+<p><strong>HC response</strong> (read recipe) payload: <code>recipe_id(2) + recipe_type(1) + comp1(8) + comp2(8)</code> = 19 bytes.
+<strong>No recipe_key byte!</strong></p>
+<p><strong>HJ request</strong> (write recipe) payload: <code>recipe_id(2) + recipe_type(1) + recipe_key(1) + comp1(8) + comp2(8)</code> = 20+ bytes.
+<strong>recipe_key is mandatory</strong> and must match the RecipeType→RecipeKey mapping below.</p>
+<p>HB, HE, HJ, HW, HZ are <strong>write-only</strong> — machine responds with <code>A</code>/<code>N</code>, not with the same command.</p>
+</blockquote>
+<h2 id="brewing-protocol">Brewing Protocol<a class="headerlink" href="#brewing-protocol" title="Permanent link">&para;</a></h2>
+<p>Brewing a recipe requires a <strong>3-step sequence</strong>. Sending HE alone will be ACK'd but <strong>not execute</strong>.</p>
+<h3 id="sequence-from-g3njava">Sequence (from <code>G3/n.java</code>)<a class="headerlink" href="#sequence-from-g3njava" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>HC (read recipe) → HJ (write to temp slot 400) → HB (write name, id=401) → HE (start process)
+</code></pre></div>
+<h3 id="step-1-read-recipe-hc">Step 1: Read Recipe (HC)<a class="headerlink" href="#step-1-read-recipe-hc" title="Permanent link">&para;</a></h3>
+<p>Read the built-in recipe parameters from the machine.</p>
+<ul>
+<li><strong>Request payload</strong>: <code>struct.pack("&gt;h", recipe_id)</code> (e.g., 200 for Espresso)</li>
+<li><strong>Response payload</strong> (66 bytes total, 19 significant):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Size</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>2</td>
+<td>recipe_id (big-endian short)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1</td>
+<td>recipe_type</td>
+</tr>
+<tr>
+<td>3</td>
+<td>8</td>
+<td>component1</td>
+</tr>
+<tr>
+<td>11</td>
+<td>8</td>
+<td>component2</td>
+</tr>
+<tr>
+<td>19</td>
+<td>47</td>
+<td>padding (zeros)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>No recipe_key in HC response!</strong> The HJ write format has recipe_key at offset 3,
+but the HC read response goes directly from recipe_type to component1.</p>
+</blockquote>
+<h3 id="step-2-write-recipe-to-temp-slot-hj">Step 2: Write Recipe to Temp Slot (HJ)<a class="headerlink" href="#step-2-write-recipe-to-temp-slot-hj" title="Permanent link">&para;</a></h3>
+<p>Write the recipe to temporary slot <strong>400</strong> (<code>FreestyleConstants.TEMP_RECIPE</code>).</p>
+<ul>
+<li><strong>Payload</strong>: 66 bytes</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Size</th>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>2</td>
+<td>recipe_id</td>
+<td>400 (0x0190) — temp slot</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1</td>
+<td>recipe_type</td>
+<td>See RecipeType enum</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1</td>
+<td>recipe_key</td>
+<td>See RecipeKey enum</td>
+</tr>
+<tr>
+<td>4</td>
+<td>8</td>
+<td>component1</td>
+<td>RecipeComponent bytes</td>
+</tr>
+<tr>
+<td>12</td>
+<td>8</td>
+<td>component2</td>
+<td>RecipeComponent bytes</td>
+</tr>
+<tr>
+<td>20</td>
+<td>8</td>
+<td>component3</td>
+<td>Optional, usually zeros</td>
+</tr>
+<tr>
+<td>28</td>
+<td>38</td>
+<td>padding</td>
+<td>Zeros</td>
+</tr>
+</tbody>
+</table>
+<h3 id="step-3-write-recipe-name-hb">Step 3: Write Recipe Name (HB)<a class="headerlink" href="#step-3-write-recipe-name-hb" title="Permanent link">&para;</a></h3>
+<p>Write the display name to value ID <strong>401</strong> (<code>FreestyleConstants.FREESTYLE_NAME</code>).</p>
+<ul>
+<li><strong>Payload</strong>: <code>struct.pack("&gt;h", 401) + name_utf8.ljust(64, b"\x00")</code> = 66 bytes</li>
+</ul>
+<h3 id="step-4-start-process-he">Step 4: Start Process (HE)<a class="headerlink" href="#step-4-start-process-he" title="Permanent link">&para;</a></h3>
+<p>Start the brewing process.</p>
+<ul>
+<li><strong>Payload</strong>: 18 bytes</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Size</th>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>2</td>
+<td>process_type</td>
+<td>4 (PRODUCT)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+<td>fixed_value</td>
+<td>2 (0x0002)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>2</td>
+<td>zeros</td>
+<td>0</td>
+</tr>
+<tr>
+<td>6</td>
+<td>2</td>
+<td>milk_flag</td>
+<td>0 or 1 (for milk-based drinks)</td>
+</tr>
+<tr>
+<td>8</td>
+<td>8</td>
+<td>padding</td>
+<td>Zeros</td>
+</tr>
+</tbody>
+</table>
+<h3 id="delays">Delays<a class="headerlink" href="#delays" title="Permanent link">&para;</a></h3>
+<p>The app inserts <strong>200ms</strong> delays between each step (HJ → HB → HE).</p>
+<h3 id="verified-example-espresso">Verified Example: Espresso<a class="headerlink" href="#verified-example-espresso" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>HC  recipe_id=200 → comp1: process=1 shots=1 blend=1 intensity=3 aroma=0 temp=2 portion=8(40ml)
+HJ  slot=400, type=0, key=0, comp1=0101010300020800, comp2=0000000000020000
+HB  id=401, name=&quot;Espresso&quot;
+HE  process=4, data=00020000000000000000000000000000
+
+Timeline: Grinding (sub=1) 0→9% → Coffee (sub=2) 9→100% → Ready (~48s total)
+</code></pre></div>
+<h2 id="recipetype">RecipeType<a class="headerlink" href="#recipetype" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ESPRESSO</td>
+<td>0</td>
+</tr>
+<tr>
+<td>RISTRETTO</td>
+<td>1</td>
+</tr>
+<tr>
+<td>LUNGO</td>
+<td>2</td>
+</tr>
+<tr>
+<td>ESPRESSO_DOPIO</td>
+<td>3</td>
+</tr>
+<tr>
+<td>RISETTO_DOPIO</td>
+<td>4</td>
+</tr>
+<tr>
+<td>CAFE_CREME</td>
+<td>5</td>
+</tr>
+<tr>
+<td>CAFE_CREME_DOPIO</td>
+<td>6</td>
+</tr>
+<tr>
+<td>AMERICANO</td>
+<td>7</td>
+</tr>
+<tr>
+<td>AMERICANO_EXTRA</td>
+<td>8</td>
+</tr>
+<tr>
+<td>LONG_BLACK</td>
+<td>9</td>
+</tr>
+<tr>
+<td>RED_EYE</td>
+<td>10</td>
+</tr>
+<tr>
+<td>BLACK_EYE</td>
+<td>11</td>
+</tr>
+<tr>
+<td>DEAD_EYE</td>
+<td>12</td>
+</tr>
+<tr>
+<td>CAPPUCCINO</td>
+<td>13</td>
+</tr>
+<tr>
+<td>ESPR_MACCHIATO</td>
+<td>14</td>
+</tr>
+<tr>
+<td>CAFFE_LATTE</td>
+<td>15</td>
+</tr>
+<tr>
+<td>CAFE_AU_LAIT</td>
+<td>16</td>
+</tr>
+<tr>
+<td>FLAT_WHITE</td>
+<td>17</td>
+</tr>
+<tr>
+<td>LATTE_MACCHIATO</td>
+<td>18</td>
+</tr>
+<tr>
+<td>LATTE_MACCHIATO_EXTRA</td>
+<td>19</td>
+</tr>
+<tr>
+<td>LATTE_MACCHIATO_TRIPLE</td>
+<td>20</td>
+</tr>
+<tr>
+<td>MILK</td>
+<td>21</td>
+</tr>
+<tr>
+<td>MILK_FROTH</td>
+<td>22</td>
+</tr>
+<tr>
+<td>WATER</td>
+<td>23</td>
+</tr>
+<tr>
+<td>FREESTYLE</td>
+<td>24</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recipekey">RecipeKey<a class="headerlink" href="#recipekey" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ESPRESSO</td>
+<td>0</td>
+</tr>
+<tr>
+<td>COFFEE</td>
+<td>1</td>
+</tr>
+<tr>
+<td>CAPPUCCINO</td>
+<td>2</td>
+</tr>
+<tr>
+<td>MACCHIATO</td>
+<td>3</td>
+</tr>
+<tr>
+<td>MILK_FROTH</td>
+<td>4</td>
+</tr>
+<tr>
+<td>MILK</td>
+<td>5</td>
+</tr>
+<tr>
+<td>WATER</td>
+<td>6</td>
+</tr>
+<tr>
+<td>MENU</td>
+<td>7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recipetype-recipekey-mapping-from-e3zjava">RecipeType → RecipeKey Mapping (from <code>E3/Z.java</code>)<a class="headerlink" href="#recipetype-recipekey-mapping-from-e3zjava" title="Permanent link">&para;</a></h3>
+<p>Each RecipeType must be paired with the correct RecipeKey when writing via HJ:</p>
+<table>
+<thead>
+<tr>
+<th>RecipeType</th>
+<th>Name</th>
+<th>RecipeKey</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0–4</td>
+<td>Espresso, Ristretto, Lungo, Dopio variants</td>
+<td>ESPRESSO (0)</td>
+</tr>
+<tr>
+<td>5–9</td>
+<td>Café Crème, Americano, Long Black</td>
+<td>COFFEE (1)</td>
+</tr>
+<tr>
+<td>10–12</td>
+<td>Red Eye, Black Eye, Dead Eye</td>
+<td>COFFEE (1)</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Cappuccino</td>
+<td>CAPPUCCINO (2)</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Espresso Macchiato</td>
+<td>CAPPUCCINO (2)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Caffè Latte</td>
+<td>CAPPUCCINO (2)</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Café au Lait</td>
+<td>CAPPUCCINO (2)</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Flat White</td>
+<td>CAPPUCCINO (2)</td>
+</tr>
+<tr>
+<td>18–20</td>
+<td>Latte Macchiato, Extra, Triple</td>
+<td>MACCHIATO (3)</td>
+</tr>
+<tr>
+<td>21</td>
+<td>Milk</td>
+<td>MILK (5)</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Milk Froth</td>
+<td>MILK_FROTH (4)</td>
+</tr>
+<tr>
+<td>23</td>
+<td>Water</td>
+<td>WATER (6)</td>
+</tr>
+<tr>
+<td>24</td>
+<td>Freestyle</td>
+<td>MENU (7)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note</strong>: Espresso Macchiato (14) maps to CAPPUCCINO (2), <strong>not</strong> MACCHIATO (3).
+MACCHIATO key is only for Latte Macchiato variants (18–20).</p>
+</blockquote>
+<h2 id="status-hx-payload-8-bytes">Status (HX) Payload — 8 bytes<a class="headerlink" href="#status-hx-payload-8-bytes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Size</th>
+<th>Field</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>2</td>
+<td>process</td>
+<td>big-endian short</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+<td>sub_process</td>
+<td>big-endian short</td>
+</tr>
+<tr>
+<td>4</td>
+<td>1</td>
+<td>info_messages</td>
+<td>bitfield</td>
+</tr>
+<tr>
+<td>5</td>
+<td>1</td>
+<td>manipulation</td>
+<td>enum</td>
+</tr>
+<tr>
+<td>6</td>
+<td>2</td>
+<td>progress</td>
+<td>big-endian short (0–100%)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="process">Process<a class="headerlink" href="#process" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>READY</td>
+<td>2</td>
+<td>Machine idle, ready for commands</td>
+</tr>
+<tr>
+<td>PRODUCT</td>
+<td>4</td>
+<td>Making a drink</td>
+</tr>
+<tr>
+<td>CLEANING</td>
+<td>9</td>
+<td>Cleaning cycle</td>
+</tr>
+<tr>
+<td>DESCALING</td>
+<td>10</td>
+<td>Descaling</td>
+</tr>
+<tr>
+<td>FILTER_INSERT</td>
+<td>11</td>
+<td>Insert filter</td>
+</tr>
+<tr>
+<td>FILTER_REPLACE</td>
+<td>12</td>
+<td>Replace filter</td>
+</tr>
+<tr>
+<td>FILTER_REMOVE</td>
+<td>13</td>
+<td>Remove filter</td>
+</tr>
+<tr>
+<td>SWITCH_OFF</td>
+<td>16</td>
+<td>Switching off</td>
+</tr>
+<tr>
+<td>EASY_CLEAN</td>
+<td>17</td>
+<td>Easy clean</td>
+</tr>
+<tr>
+<td>INTENSIVE_CLEAN</td>
+<td>19</td>
+<td>Intensive clean</td>
+</tr>
+<tr>
+<td>EVAPORATING</td>
+<td>20</td>
+<td>Evaporating</td>
+</tr>
+<tr>
+<td>BUSY</td>
+<td>99</td>
+<td>Busy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="subprocess">SubProcess<a class="headerlink" href="#subprocess" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GRINDING</td>
+<td>1</td>
+<td>Grinding beans</td>
+</tr>
+<tr>
+<td>COFFEE</td>
+<td>2</td>
+<td>Extracting coffee</td>
+</tr>
+<tr>
+<td>STEAM</td>
+<td>3</td>
+<td>Steaming milk</td>
+</tr>
+<tr>
+<td>WATER</td>
+<td>4</td>
+<td>Dispensing water</td>
+</tr>
+<tr>
+<td>PREPARE</td>
+<td>5</td>
+<td>Preparing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="infomessage-bitfield">InfoMessage (bitfield)<a class="headerlink" href="#infomessage-bitfield" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Bit</th>
+<th>Name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>FILL_BEANS_1</td>
+</tr>
+<tr>
+<td>1</td>
+<td>FILL_BEANS_2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>EASY_CLEAN</td>
+</tr>
+<tr>
+<td>3</td>
+<td>POWDER_FILLED</td>
+</tr>
+<tr>
+<td>4</td>
+<td>PREPARATION_CANCELLED</td>
+</tr>
+</tbody>
+</table>
+<h3 id="manipulation">Manipulation<a class="headerlink" href="#manipulation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NONE</td>
+<td>0</td>
+<td>No action needed</td>
+</tr>
+<tr>
+<td>BU_REMOVED</td>
+<td>1</td>
+<td>Brew unit removed</td>
+</tr>
+<tr>
+<td>TRAYS_MISSING</td>
+<td>2</td>
+<td>Drip trays missing</td>
+</tr>
+<tr>
+<td>EMPTY_TRAYS</td>
+<td>3</td>
+<td>Empty the trays</td>
+</tr>
+<tr>
+<td>FILL_WATER</td>
+<td>4</td>
+<td>Fill water tank</td>
+</tr>
+<tr>
+<td>CLOSE_POWDER_LID</td>
+<td>5</td>
+<td>Close powder lid</td>
+</tr>
+<tr>
+<td>FILL_POWDER</td>
+<td>6</td>
+<td>Fill powder</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recipe-ids-built-in">Recipe IDs (Built-in)<a class="headerlink" href="#recipe-ids-built-in" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ESPRESSO</td>
+<td>200</td>
+</tr>
+<tr>
+<td>RISTRETTO</td>
+<td>201</td>
+</tr>
+<tr>
+<td>LUNGO</td>
+<td>202</td>
+</tr>
+<tr>
+<td>ESPRESSO_DOPIO</td>
+<td>203</td>
+</tr>
+<tr>
+<td>RISETTO_DOPIO</td>
+<td>204</td>
+</tr>
+<tr>
+<td>CAFE_CREME</td>
+<td>205</td>
+</tr>
+<tr>
+<td>CAFE_CREME_DOPIO</td>
+<td>206</td>
+</tr>
+<tr>
+<td>AMERICANO</td>
+<td>207</td>
+</tr>
+<tr>
+<td>AMERICANO_EXTRA</td>
+<td>208</td>
+</tr>
+<tr>
+<td>LONG_BLACK</td>
+<td>209</td>
+</tr>
+<tr>
+<td>RED_EYE</td>
+<td>210</td>
+</tr>
+<tr>
+<td>BLACK_EYE</td>
+<td>211</td>
+</tr>
+<tr>
+<td>DEAD_EYE</td>
+<td>212</td>
+</tr>
+<tr>
+<td>CAPPUCCINO</td>
+<td>213</td>
+</tr>
+<tr>
+<td>ESPR_MACCHIATO</td>
+<td>214</td>
+</tr>
+<tr>
+<td>CAFFE_LATTE</td>
+<td>215</td>
+</tr>
+<tr>
+<td>CAFE_AU_LAIT</td>
+<td>216</td>
+</tr>
+<tr>
+<td>FLAT_WHITE</td>
+<td>217</td>
+</tr>
+<tr>
+<td>LATTE_MACCHIATO</td>
+<td>218</td>
+</tr>
+<tr>
+<td>LATTE_MACCHIATO_EXTRA</td>
+<td>219</td>
+</tr>
+<tr>
+<td>LATTE_MACCHIATO_TRIPLE</td>
+<td>220</td>
+</tr>
+<tr>
+<td>MILK</td>
+<td>221</td>
+</tr>
+<tr>
+<td>MILK_FROTH</td>
+<td>222</td>
+</tr>
+<tr>
+<td>WATER</td>
+<td>223</td>
+</tr>
+</tbody>
+</table>
+<h3 id="special-ids">Special IDs<a class="headerlink" href="#special-ids" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>ID</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TEMP_RECIPE</td>
+<td>400</td>
+<td>Temporary slot used for brewing</td>
+</tr>
+<tr>
+<td>FREESTYLE_NAME</td>
+<td>401</td>
+<td>Alphanumeric value ID for recipe name</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recipecomponent-8-bytes">RecipeComponent — 8 bytes<a class="headerlink" href="#recipecomponent-8-bytes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Field</th>
+<th>Type</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>process</td>
+<td>byte</td>
+<td>NONE=0, COFFEE=1, STEAM=2, WATER=3</td>
+</tr>
+<tr>
+<td>1</td>
+<td>shots</td>
+<td>byte</td>
+<td>NONE=0, ONE=1, TWO=2, THREE=3</td>
+</tr>
+<tr>
+<td>2</td>
+<td>blend</td>
+<td>byte</td>
+<td>BARISTA_T=0, BLEND_1=1, BLEND_2=2</td>
+</tr>
+<tr>
+<td>3</td>
+<td>intensity</td>
+<td>byte</td>
+<td>VERY_MILD=0, MILD=1, MEDIUM=2, STRONG=3, VERY_STRONG=4</td>
+</tr>
+<tr>
+<td>4</td>
+<td>aroma</td>
+<td>byte</td>
+<td>STANDARD=0, INTENSE=1</td>
+</tr>
+<tr>
+<td>5</td>
+<td>temperature</td>
+<td>byte</td>
+<td>COLD=0, NORMAL=1, HIGH=2</td>
+</tr>
+<tr>
+<td>6</td>
+<td>portion</td>
+<td>byte</td>
+<td>value × 5 = ml (e.g., 8 = 40ml)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>reserve</td>
+<td>byte</td>
+<td>Always 0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="machine-settings-numerical-values-hrhw">Machine Settings (Numerical Values HR/HW)<a class="headerlink" href="#machine-settings-numerical-values-hrhw" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>ID</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WATER_HARDNESS</td>
+<td>11</td>
+<td></td>
+</tr>
+<tr>
+<td>ENERGY_SAVING</td>
+<td>12</td>
+<td></td>
+</tr>
+<tr>
+<td>AUTO_OFF_AFTER</td>
+<td>13</td>
+<td>Minutes</td>
+</tr>
+<tr>
+<td>AUTO_OFF_WHEN</td>
+<td>14</td>
+<td></td>
+</tr>
+<tr>
+<td>LANGUAGE</td>
+<td>15</td>
+<td></td>
+</tr>
+<tr>
+<td>AUTO_BEAN_SELECT</td>
+<td>16</td>
+<td></td>
+</tr>
+<tr>
+<td>RINSING_OFF</td>
+<td>18</td>
+<td></td>
+</tr>
+<tr>
+<td>CLOCK</td>
+<td>20</td>
+<td></td>
+</tr>
+<tr>
+<td>CLOCK_SEND</td>
+<td>21</td>
+<td></td>
+</tr>
+<tr>
+<td>TEMPERATURE</td>
+<td>22</td>
+<td></td>
+</tr>
+<tr>
+<td>FILTER</td>
+<td>91</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>All multi-byte integers are <strong>big-endian</strong></li>
+<li>Write operations (HB, HJ, HW, HE, HZ) require ACK — <code>A</code> = success, <code>N</code> = failure</li>
+<li>Read operations (HA, HC, HR, HV, HX) return data in the corresponding frame type</li>
+<li>RC4 key is per-frame (fresh KSA each time), not a persistent stream</li>
+<li>Frames exceeding 20 bytes BLE MTU must be split into chunks</li>
+<li><code>key_prefix</code> changes on every new connection (obtained from HU handshake)</li>
+<li>The machine uses a random BLE address (not static MAC)</li>
+<li>Verified firmware: <code>02590029014</code> (model EF-BTLE, FW: EF_1.00R4__386)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dzerik/melitta-barista-ha" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

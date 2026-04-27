@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://dzerik.github.io/melitta-barista-ha/</loc>
+         <lastmod>2026-04-27</lastmod>
+    </url>
+    <url>
+         <loc>https://dzerik.github.io/melitta-barista-ha/BLE_ARCHITECTURE/</loc>
+         <lastmod>2026-04-27</lastmod>
+    </url>
+    <url>
+         <loc>https://dzerik.github.io/melitta-barista-ha/PROTOCOL/</loc>
+         <lastmod>2026-04-27</lastmod>
+    </url>
+    <url>
+         <loc>https://dzerik.github.io/melitta-barista-ha/changelog/</loc>
+         <lastmod>2026-04-27</lastmod>
+    </url>
+    <url>
+         <loc>https://dzerik.github.io/melitta-barista-ha/adr/001-brand-profile-abstraction/</loc>
+         <lastmod>2026-04-27</lastmod>
+    </url>
+</urlset>
