@@ -34,6 +34,8 @@ class MelittaBeans extends LitElement {
       _editingProducer: { type: Object },
       _autofillRunning: { type: Boolean },
       _autofillRaw: { type: String },
+      _autofillVia: { type: String },
+      _autofillErrors: { type: Array },
       _newTag: { type: String },
       _error: { type: String },
     };
@@ -49,6 +51,8 @@ class MelittaBeans extends LitElement {
     this._editingProducer = null;
     this._autofillRunning = false;
     this._autofillRaw = "";
+    this._autofillVia = "";
+    this._autofillErrors = [];
     this._newTag = "";
     this._error = "";
   }
@@ -196,6 +200,8 @@ class MelittaBeans extends LitElement {
     if (!brand || !product) return;
     this._autofillRunning = true;
     this._autofillRaw = "";
+    this._autofillErrors = [];
+    this._autofillVia = "";
     try {
       const result = await this.hass.callWS({
         type: "melitta_barista/beans/autofill",
@@ -203,6 +209,8 @@ class MelittaBeans extends LitElement {
         product,
       });
       this._autofillRaw = result.raw || "";
+      this._autofillVia = result.via || "";
+      this._autofillErrors = result.validation_errors || [];
       const parsed = result.parsed;
       if (parsed && typeof parsed === "object") {
         const merged = { ...this._editingBean };
@@ -454,6 +462,19 @@ class MelittaBeans extends LitElement {
             </div>
           </fieldset>
 
+          ${this._autofillVia ? html`
+            <div class="via-label">via: <code>${this._autofillVia}</code></div>
+          ` : ""}
+          ${this._autofillErrors && this._autofillErrors.length ? html`
+            <div class="validation-errors">
+              <strong>Validation errors:</strong>
+              <ul>
+                ${this._autofillErrors.map((err) => html`
+                  <li><code>${err.loc}</code>: ${err.msg}</li>
+                `)}
+              </ul>
+            </div>
+          ` : ""}
           ${this._autofillRaw ? html`
             <details class="raw">
               <summary>LLM raw response</summary>
@@ -694,6 +715,28 @@ class MelittaBeans extends LitElement {
         white-space: pre-wrap;
         word-break: break-word;
         margin: 8px 0 0;
+      }
+      .via-label {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+      }
+      .via-label code {
+        background: var(--primary-background-color);
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+      .validation-errors {
+        background: var(--warning-color, #ff9800);
+        color: var(--text-primary-color);
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .validation-errors ul { margin: 4px 0 0 16px; padding: 0; }
+      .validation-errors code {
+        background: rgba(0, 0, 0, 0.15);
+        padding: 1px 4px;
+        border-radius: 3px;
       }
     `;
   }

@@ -160,6 +160,12 @@ class MelittaSettings extends LitElement {
                   ${this._t("settings.prompt_save")}
                 </button>
               </div>
+              ${p.schema ? html`
+                <details class="schema">
+                  <summary>JSON Schema (auto-appended, read-only)</summary>
+                  <pre>${JSON.stringify(p.schema, null, 2)}</pre>
+                </details>
+              ` : ""}
             </details>
           `)}
       </section>
@@ -219,6 +225,25 @@ class MelittaSettings extends LitElement {
         background: var(--info-color, #2196f3);
         color: var(--text-primary-color);
         border-radius: 8px;
+      }
+      details.schema {
+        margin-top: 8px;
+        background: var(--primary-background-color);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+      details.schema summary {
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-size: 11px;
+      }
+      details.schema pre {
+        margin: 6px 0 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: var(--code-font-family, monospace);
+        color: var(--secondary-text-color);
       }
       details.prompt textarea {
         width: 100%;

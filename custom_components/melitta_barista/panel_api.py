@@ -428,6 +428,102 @@ async def _ws_producers_delete(hass, connection, msg):
 # beans/autofill -----------------------------------------------------------
 
 
+async def _resolve_agent_id(hass, msg) -> str | None:
+    """Pick the conversation agent: explicit msg arg > setting > HA default."""
+    agent_id = msg.get("agent_id")
+    if agent_id:
+        return agent_id
+    try:
+        db = await _async_get_db(hass)
+        settings = await db.async_get_settings()
+        return settings.get("llm_agent_id") or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
+    """Single round-trip to the conversation agent; returns raw speech text."""
+    from homeassistant.components import conversation  # noqa: PLC0415
+    result = await conversation.async_converse(
+        hass,
+        text=prompt,
+        conversation_id=None,
+        context=ctx,
+        language=hass.config.language,
+        agent_id=agent_id,
+    )
+    try:
+        return result.response.speech["plain"]["speech"]
+    except (AttributeError, KeyError, TypeError):
+        return str(result)
+
+
+async def _structured_call(
+    hass, slot: str, fmt_vars: dict, agent_id: str | None, ctx,
+    *, max_retries: int = 1,
+) -> dict:
+    """Hybrid structured-output call.
+
+    Path A — when SmartChain ships an `async_generate_structured` helper and
+    the user has selected a SmartChain agent, route the request through it
+    so the provider's native JSON-Schema mode (OpenAI/Gemini/Anthropic
+    tool-use/Ollama 0.5+) returns a strictly-typed object.
+
+    Path B (fallback for any agent including the default HA Assist) — append
+    the JSON Schema to the prompt as text, parse the LLM's reply, validate
+    against the same pydantic model, and retry once with the validation
+    errors as feedback if it fails.
+    """
+    smartchain = _try_smartchain_structured()
+    model = RESPONSE_MODELS.get(slot)
+    if smartchain is not None and model is not None and agent_id and "smartchain" in agent_id:
+        try:
+            obj = await smartchain(hass, schema=model, prompt_vars=fmt_vars,
+                                   slot=slot, agent_id=agent_id)
+            return {
+                "raw": "",
+                "parsed": obj.model_dump() if hasattr(obj, "model_dump") else dict(obj),
+                "validation_errors": [],
+                "via": "smartchain_structured",
+            }
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.debug("SmartChain structured call failed, falling back: %s", exc)
+
+    template = await _resolve_prompt(hass, slot)
+    base_prompt = _assemble_prompt(slot, template, fmt_vars)
+
+    last_errors: list | None = None
+    raw = ""
+    parsed: dict | None = None
+    for attempt in range(max_retries + 1):
+        prompt = base_prompt
+        if last_errors and attempt > 0:
+            import json as _json  # noqa: PLC0415
+            prompt += (
+                "\n\n--- PREVIOUS ATTEMPT FAILED VALIDATION ---\n"
+                f"Errors: {_json.dumps(last_errors, ensure_ascii=False)}\n"
+                "Re-emit a corrected JSON object matching the schema above."
+            )
+        raw = await _llm_call_text(hass, prompt, agent_id, ctx)
+        data = _parse_llm_json(raw)
+        if data is None:
+            last_errors = [{"loc": "<root>", "msg": "Response was not valid JSON"}]
+            continue
+        validated, errors = _validate_parsed(slot, data)
+        if errors is None:
+            parsed = validated
+            last_errors = None
+            break
+        last_errors = errors
+        parsed = data  # surface the unvalidated dict so UI can preview
+    return {
+        "raw": raw,
+        "parsed": parsed,
+        "validation_errors": last_errors or [],
+        "via": "text_with_validation",
+    }
+
+
 @websocket_api.websocket_command({
     vol.Required("type"): "melitta_barista/beans/autofill",
     vol.Required("brand"): str,
@@ -436,82 +532,33 @@ async def _ws_producers_delete(hass, connection, msg):
 })
 @websocket_api.async_response
 async def _ws_beans_autofill(hass, connection, msg):
-    """Use the HA conversation agent to enrich a bean entry from brand+product.
+    """Use an HA conversation agent to enrich a bean entry from brand+product.
 
-    Returns a partial bean dict (roast / bean_type / origin / origin_country /
-    flavor_notes / composition) the panel can preview before saving. Best
-    effort — when the LLM response can't be parsed we return what we got
-    raw so the UI can show it as plain text.
+    Hybrid path:
+      - SmartChain native structured output when available (strict, no parse).
+      - Otherwise: schema appended to the prompt + pydantic validation +
+        one retry with validation errors as feedback.
+
+    Returns: { raw, parsed, validation_errors, via }
+      - `parsed` is the validated dict on success, the unvalidated dict when
+        validation failed (so the UI can still preview), or null when the
+        response wasn't even valid JSON.
+      - `validation_errors` is empty on success.
+      - `via` indicates which code path produced the result, useful for
+        diagnostics.
     """
-    from homeassistant.components import conversation  # noqa: PLC0415
-
-    template = await _resolve_prompt(hass, "beans_autofill")
-    try:
-        prompt = template.format(brand=msg["brand"], product=msg["product"])
-    except (KeyError, IndexError):
-        # User overrode the prompt with mismatched placeholders — fall back
-        # to a literal substitution so we still send something useful.
-        prompt = (
-            template
-            .replace("{brand!r}", repr(msg["brand"]))
-            .replace("{brand}", msg["brand"])
-            .replace("{product!r}", repr(msg["product"]))
-            .replace("{product}", msg["product"])
-        )
-
-    # Pick agent: explicit msg argument > sommelier setting > HA default.
-    agent_id = msg.get("agent_id")
-    if not agent_id:
-        try:
-            db = await _async_get_db(hass)
-            settings = await db.async_get_settings()
-            agent_id = settings.get("llm_agent_id") or None
-        except Exception:  # noqa: BLE001
-            agent_id = None
+    fmt_vars = {"brand": msg["brand"], "product": msg["product"]}
+    agent_id = await _resolve_agent_id(hass, msg)
 
     try:
-        result = await conversation.async_converse(
-            hass,
-            text=prompt,
-            conversation_id=None,
-            context=connection.context(msg),
-            language=hass.config.language,
-            agent_id=agent_id,
+        result = await _structured_call(
+            hass, "beans_autofill", fmt_vars, agent_id, connection.context(msg),
         )
     except Exception as exc:  # noqa: BLE001
         connection.send_error(msg["id"], "conversation_error", str(exc))
         return
 
-    raw_text = ""
-    try:
-        raw_text = result.response.speech["plain"]["speech"]
-    except (AttributeError, KeyError, TypeError):
-        raw_text = str(result)
-
-    parsed: dict[str, Any] | None = None
-    text = raw_text.strip()
-    if text.startswith("```"):
-        # Strip markdown fence if the model used one despite our instructions.
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:].lstrip()
-    import json  # noqa: PLC0415
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        # Fallback: try to find the first {...} block.
-        import re  # noqa: PLC0415
-        match = re.search(r"\{[\s\S]*\}", text)
-        if match:
-            try:
-                parsed = json.loads(match.group(0))
-            except json.JSONDecodeError:
-                parsed = None
-
-    connection.send_result(msg["id"], {
-        "raw": raw_text,
-        "parsed": parsed,
-    })
+    connection.send_result(msg["id"], result)
 
 
 # additives: syrups + toppings --------------------------------------------
@@ -662,22 +709,149 @@ async def _ws_tags_delete(hass, connection, msg):
     connection.send_result(msg["id"], {"deleted": True})
 
 
-# prompts -----------------------------------------------------------------
+# prompts + structured output --------------------------------------------
 
+# User-editable "intent" portion of the prompt — purely describes WHAT we want.
+# The strict schema block is auto-appended in _assemble_prompt() so users can
+# customise the request without accidentally breaking the response shape.
 DEFAULT_PROMPTS: dict[str, str] = {
     "beans_autofill": (
-        "You are a coffee specialist. For the product {product!r} by producer "
-        "{brand!r}, return a JSON object with keys:\n"
-        "  roast (light|medium|medium_dark|dark),\n"
-        "  bean_type (arabica|arabica_robusta|robusta),\n"
-        "  origin (single_origin|blend),\n"
-        "  origin_country (string),\n"
-        "  flavor_notes (array of short adjectives),\n"
-        "  composition (string with the arabica/robusta ratio if known),\n"
-        "  brewing_recommendation (one short sentence).\n"
-        "Reply ONLY with the JSON object — no commentary, no markdown."
+        "You are a coffee specialist. Describe the product {product!r} "
+        "made by producer {brand!r}: its roast level, bean blend, "
+        "origin, characteristic flavor notes, and a short brewing "
+        "recommendation. Be concise and accurate."
     ),
 }
+
+
+# Pydantic models declare the exact response shape per slot. They serve two
+# purposes: they emit JSON Schema (appended to the prompt verbatim so the LLM
+# sees the exact contract) and they validate the parsed response. When the
+# model rejects the data we retry once with the validation errors as feedback.
+try:
+    from pydantic import BaseModel, Field, ValidationError  # noqa: PLC0415
+    from typing import Literal  # noqa: PLC0415
+
+    class BeanAutofillResult(BaseModel):
+        """Strict schema for the beans autofill LLM response."""
+
+        roast: Literal["light", "medium", "medium_dark", "dark"]
+        bean_type: Literal["arabica", "arabica_robusta", "robusta"]
+        origin: Literal["single_origin", "blend"]
+        origin_country: str = ""
+        flavor_notes: list[str] = Field(default_factory=list)
+        composition: str = ""
+        brewing_recommendation: str = ""
+
+    RESPONSE_MODELS: dict[str, type[BaseModel]] = {
+        "beans_autofill": BeanAutofillResult,
+    }
+    _PYDANTIC_OK = True
+except ImportError:  # pragma: no cover — defensive fallback
+    RESPONSE_MODELS = {}
+    ValidationError = Exception  # type: ignore[assignment, misc]
+    _PYDANTIC_OK = False
+
+
+def _schema_for(slot: str) -> dict | None:
+    """Return the JSON-Schema dict for a slot, or None if no model is defined."""
+    if not _PYDANTIC_OK:
+        return None
+    model = RESPONSE_MODELS.get(slot)
+    return model.model_json_schema() if model else None
+
+
+def _assemble_prompt(slot: str, user_template: str, fmt_vars: dict) -> str:
+    """Combine the user-editable intent with the auto-appended schema block.
+
+    Format substitution applies only to the user template; the schema block is
+    a literal so users editing the template can't accidentally break the
+    response contract.
+    """
+    try:
+        intent = user_template.format(**fmt_vars)
+    except (KeyError, IndexError):
+        # Template uses placeholders not in fmt_vars (or vice versa). Don't
+        # silently drop user content — send the template literally so they
+        # can spot the problem from the LLM's reply.
+        intent = user_template
+
+    schema = _schema_for(slot)
+    if schema is None:
+        return intent
+
+    import json as _json  # noqa: PLC0415
+    schema_text = _json.dumps(schema, indent=2, ensure_ascii=False)
+    return (
+        f"{intent}\n\n"
+        "--- RESPONSE FORMAT (DO NOT CHANGE) ---\n"
+        "Reply with ONLY a JSON object that matches this JSON Schema. "
+        "No prose, no markdown fences, no commentary.\n\n"
+        f"{schema_text}"
+    )
+
+
+def _parse_llm_json(raw: str) -> dict | None:
+    """Best-effort parse of an LLM speech reply as JSON.
+
+    Strips markdown fences and falls back to extracting the first {...} block
+    if the model wrapped its response in prose despite our instructions.
+    """
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:].lstrip()
+    import json as _json  # noqa: PLC0415
+    try:
+        data = _json.loads(text)
+    except _json.JSONDecodeError:
+        import re  # noqa: PLC0415
+        match = re.search(r"\{[\s\S]*\}", text)
+        if match:
+            try:
+                data = _json.loads(match.group(0))
+            except _json.JSONDecodeError:
+                return None
+        else:
+            return None
+    return data if isinstance(data, dict) else None
+
+
+def _validate_parsed(slot: str, data: dict) -> tuple[dict | None, list | None]:
+    """Validate parsed data against the slot's pydantic model.
+
+    Returns (validated_dict, None) on success, (None, errors) on failure.
+    Slots without a registered model accept whatever was parsed.
+    """
+    if not _PYDANTIC_OK or slot not in RESPONSE_MODELS:
+        return data, None
+    try:
+        validated = RESPONSE_MODELS[slot].model_validate(data)
+        return validated.model_dump(), None
+    except ValidationError as exc:
+        # Trim error payload to schema-level info so it fits in a follow-up
+        # prompt without dumping every Pydantic detail.
+        return None, [
+            {"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"]}
+            for e in exc.errors()
+        ]
+
+
+def _try_smartchain_structured():
+    """Return SmartChain's structured-output helper if shipped, else None.
+
+    SmartChain (`dzerik/ha-smartchain`) is the user's own multi-provider
+    Conversation integration. When it ships an `async_generate_structured`
+    helper we route LLM calls through it so that providers with native JSON
+    Schema mode (OpenAI, Gemini, Anthropic tool-use, Ollama 0.5+) get a
+    strict guarantee instead of best-effort prose parsing.
+    """
+    try:
+        from custom_components.smartchain import async_generate_structured  # type: ignore  # noqa: PLC0415
+        return async_generate_structured
+    except ImportError:
+        return None
 
 
 @websocket_api.websocket_command({vol.Required("type"): "melitta_barista/prompts/list"})
@@ -686,15 +860,17 @@ async def _ws_prompts_list(hass, connection, msg):
     db = await _async_get_db(hass)
     cursor = await db._db.execute("SELECT slot, template FROM panel_prompts")
     overrides = {row[0]: row[1] for row in await cursor.fetchall()}
-    items = [
-        {
+    items = []
+    for slot, default in DEFAULT_PROMPTS.items():
+        items.append({
             "slot": slot,
             "default": default,
             "template": overrides.get(slot, default),
             "is_default": slot not in overrides,
-        }
-        for slot, default in DEFAULT_PROMPTS.items()
-    ]
+            # Schema is auto-appended on send; expose it read-only so users
+            # can see the contract their template is paired with.
+            "schema": _schema_for(slot),
+        })
     connection.send_result(msg["id"], {"prompts": items})
 
 
@@ -753,26 +929,22 @@ async def _resolve_prompt(hass, slot: str) -> str:
 @websocket_api.websocket_command({vol.Required("type"): "melitta_barista/llm/agents"})
 @websocket_api.async_response
 async def _ws_llm_agents(hass, connection, msg):
-    """List available HA conversation agents the panel can target."""
-    from homeassistant.components import conversation  # noqa: PLC0415
-    try:
-        agents = await conversation.async_get_agent_info(hass)
-    except AttributeError:
-        # Older HA: fall back to entity registry scan
-        agents = []
-        for entity in hass.states.async_all():
-            if entity.entity_id.startswith("conversation."):
-                agents.append({
-                    "id": entity.entity_id,
-                    "name": entity.attributes.get("friendly_name") or entity.entity_id,
-                })
-    else:
-        # async_get_agent_info returns an iterable of (id, name) or richer dicts
-        agents = [
-            {"id": getattr(a, "id", a.get("id") if isinstance(a, dict) else str(a)),
-             "name": getattr(a, "name", a.get("name") if isinstance(a, dict) else str(a))}
-            for a in agents
-        ]
+    """List available HA conversation agents.
+
+    Modern HA (2024.6+) exposes each agent as an entity in the
+    `conversation` domain. We enumerate them from the state machine — the
+    most stable cross-version interface — and prepend the legacy/default
+    "Home Assistant" agent so users can fall back to it without picking a
+    specific entity.
+    """
+    agents: list[dict[str, str]] = [
+        {"id": "homeassistant", "name": "Home Assistant (default)"},
+    ]
+    for state in hass.states.async_all("conversation"):
+        agents.append({
+            "id": state.entity_id,
+            "name": state.attributes.get("friendly_name") or state.entity_id,
+        })
     connection.send_result(msg["id"], {"agents": agents})
 
 
