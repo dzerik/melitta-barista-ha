@@ -85,6 +85,7 @@ def _build_prompt(
     cups_today: int | None = None,
     intro: str | None = None,
     omit_output_format: bool = False,
+    language: str | None = None,
 ) -> str:
     """Build structured prompt for the LLM.
 
@@ -285,6 +286,36 @@ def _build_prompt(
 
     output_format_block = "" if omit_output_format else _OUTPUT_FORMAT_BLOCK
 
+    # Locale section — uses HA's `hass.config.language` so the names,
+    # descriptions, ingredient names and step instructions come back in
+    # the user's UI language. The schema (JSON Schema field names,
+    # enum values like "intense" / "arabica") stays English so it
+    # validates regardless of locale.
+    language_section = ""
+    if language:
+        language_section = (
+            f"\n## Language\n"
+            f"User locale: {language}. Reply with all human-readable strings "
+            f"(name, description, step.action, step.ingredient, step.notes, "
+            f"extras.instruction) in this language. Keep enum values "
+            f"(roast, intensity, processes, units like \"ml\") in English "
+            f"so they validate against the schema."
+        )
+
+    # Steps section — explicit instruction to fill `steps` with the full
+    # preparation sequence and dosages, not just the machine portion.
+    steps_section = (
+        "\n## Preparation steps\n"
+        "Populate `steps` with the COMPLETE preparation sequence the user "
+        "must follow, in execution order. Include both the machine action "
+        "(e.g. \"Brew espresso\" with the dosage matching component1) and "
+        "every manual step that follows: pouring milk, adding syrup, "
+        "topping with whipped cream, garnishing, etc. Each step must "
+        "carry an `amount` + `unit` when there is a quantity (\"15\" + "
+        "\"ml\", \"1\" + \"scoop\"); use null when the action is "
+        "purely instructional (\"Stir for 10 seconds\")."
+    )
+
     return f"""{intro_text}
 
 ## Machine Capabilities
@@ -308,7 +339,7 @@ The "blend" field selects which bean hopper to use (see below).
 - {time_advice}
 - {pref_section}
 
-{optional_sections}
+{optional_sections}{language_section}{steps_section}
 
 ## Rules
 - Realistic portion sizes: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk portion 80-200ml
@@ -516,12 +547,21 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
             except (TypeError, ValueError):
                 calories_approx = None
 
+        # Pass through `steps` from the LLM. Pydantic in panel_api has
+        # already enforced the per-step shape (order/action/dosage); this
+        # validator only needs to keep the field on the dict so it
+        # reaches the UI and the favourites store.
+        steps = raw.get("steps")
+        if not isinstance(steps, list):
+            steps = []
+
         recipe: dict[str, Any] = {
             "name": name,
             "description": description,
             "blend": blend,
             "component1": comp1,
             "component2": comp2,
+            "steps": steps,
             "extras": extras,
             "cup_type": cup_type,
             "estimated_caffeine": estimated_caffeine,
@@ -556,6 +596,7 @@ async def async_generate_recipes(
     people_home: int | None = None,
     cups_today: int | None = None,
     intro: str | None = None,
+    language: str | None = None,
 ) -> list[dict[str, Any]]:
     """Generate freestyle recipes using HA conversation agent."""
     prompt = _build_prompt(
@@ -578,6 +619,7 @@ async def async_generate_recipes(
         weather=weather,
         people_home=people_home,
         cups_today=cups_today,
+        language=language,
     )
 
     _LOGGER.debug("Sommelier prompt: %s", prompt[:200])

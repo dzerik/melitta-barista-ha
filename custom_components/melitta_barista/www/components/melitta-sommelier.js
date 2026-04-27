@@ -135,6 +135,48 @@ class MelittaSommelier extends LitElement {
     `;
   }
 
+  _renderSteps(steps) {
+    if (!Array.isArray(steps) || steps.length === 0) return "";
+    // Normalise + sort by `order` defensively in case the LLM emits
+    // them out of order (it shouldn't, but…).
+    const sorted = steps
+      .filter((s) => s && typeof s === "object")
+      .slice()
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    return html`
+      <ol class="steps">
+        ${sorted.map((s) => html`
+          <li>
+            <span class="action">${s.action || ""}</span>
+            ${s.ingredient
+              ? html`<span class="ingredient">— ${s.ingredient}</span>` : ""}
+            ${s.amount != null
+              ? html`<span class="dose">${s.amount} ${s.unit || ""}</span>` : ""}
+            ${s.notes ? html`<div class="step-notes">${s.notes}</div>` : ""}
+          </li>
+        `)}
+      </ol>
+    `;
+  }
+
+  _renderExtrasSummary(extras) {
+    if (!extras || typeof extras !== "object") return "";
+    const chips = [];
+    if (extras.ice) chips.push("ice");
+    if (extras.syrup) chips.push(`syrup: ${extras.syrup}`);
+    if (extras.topping) chips.push(`topping: ${extras.topping}`);
+    if (extras.liqueur) chips.push(`liqueur: ${extras.liqueur}`);
+    if (chips.length === 0 && !extras.instruction) return "";
+    return html`
+      <div class="addins">
+        ${chips.map((c) => html`<span class="badge add">${c}</span>`)}
+        ${extras.instruction
+          ? html`<div class="extra-instruction">${extras.instruction}</div>`
+          : ""}
+      </div>
+    `;
+  }
+
   _renderRecipes() {
     if (!this._session || !Array.isArray(this._session.recipes)) {
       return html`<div class="hint">${this._t("sommelier.no_recipe")}</div>`;
@@ -154,16 +196,26 @@ class MelittaSommelier extends LitElement {
               </button>
             </header>
             ${r.description ? html`<p class="desc">${r.description}</p>` : ""}
-            ${this._renderComponent(r.component1)}
-            ${this._renderComponent(r.component2)}
-            ${r.add_ins && Object.keys(r.add_ins || {}).length
-              ? html`<div class="addins">
-                  ${Object.entries(r.add_ins).map(([k, v]) =>
-                    Array.isArray(v) && v.length
-                      ? html`<span class="badge add">${k}: ${v.join(", ")}</span>`
-                      : "")}
-                </div>`
-              : ""}
+
+            <div class="machine-line">
+              <span class="machine-label">Machine:</span>
+              ${this._renderComponent(r.component1)}
+              ${this._renderComponent(r.component2)}
+            </div>
+
+            ${this._renderSteps(r.steps)}
+            ${this._renderExtrasSummary(r.extras)}
+
+            ${r.cup_type || r.estimated_caffeine || r.calories_approx ? html`
+              <div class="meta">
+                ${r.cup_type ? html`<span class="badge">${r.cup_type}</span>` : ""}
+                ${r.estimated_caffeine
+                  ? html`<span class="badge">caffeine: ${r.estimated_caffeine}</span>` : ""}
+                ${r.calories_approx
+                  ? html`<span class="badge">~${r.calories_approx} kcal</span>` : ""}
+              </div>
+            ` : ""}
+
             ${r.reasoning ? html`
               <details class="reasoning">
                 <summary>Why?</summary>
@@ -246,6 +298,46 @@ class MelittaSommelier extends LitElement {
       }
       .recipe h3 { margin: 0; font-size: 15px; }
       .desc { margin: 0; color: var(--secondary-text-color); font-size: 13px; }
+      .machine-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 13px;
+      }
+      .machine-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.5px;
+      }
+      ol.steps {
+        margin: 4px 0 0;
+        padding-left: 24px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      ol.steps li { margin: 2px 0; }
+      ol.steps .action { font-weight: 500; }
+      ol.steps .ingredient { color: var(--secondary-text-color); }
+      ol.steps .dose {
+        margin-left: 6px;
+        background: var(--primary-background-color);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-variant-numeric: tabular-nums;
+      }
+      ol.steps .step-notes {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: 2px;
+      }
+      .extra-instruction {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
+      }
+      .meta { display: flex; flex-wrap: wrap; gap: 4px; }
       .comp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
       .proc { font-weight: 500; }
       .ml { color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }

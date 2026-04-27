@@ -460,6 +460,10 @@ async def ws_generate(
         weather=weather_context,
         people_home=people_home,
         cups_today=cups_today,
+        # Inject the HA UI locale so the recipe names / descriptions /
+        # step instructions come back in the user's language. Falls
+        # back to English if HA's language is unset for some reason.
+        language=hass.config.language or "en",
         omit_output_format=True,
     )
 

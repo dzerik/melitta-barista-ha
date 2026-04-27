@@ -902,14 +902,37 @@ try:
         liqueur: str | None = None
         instruction: str | None = None
 
+    class RecipeStep(BaseModel):
+        """One ordered preparation step with explicit dosage.
+
+        `action` is a short imperative ("Brew espresso", "Add syrup",
+        "Pour foamed milk"). `ingredient` names what is being added /
+        used. `amount` + `unit` give the dosage (e.g. 15 + "ml", 2 +
+        "scoops"). `notes` carries timing or technique hints. The
+        whole list gives the user a full recipe — what to do after the
+        machine drops its part.
+        """
+
+        order: int = Field(ge=1)
+        action: str = Field(min_length=1)
+        ingredient: str | None = None
+        amount: float | None = None
+        unit: str | None = None
+        notes: str | None = None
+
     class GeneratedRecipe(BaseModel):
         """One generated sommelier recipe — what the LLM must return."""
 
-        name: str
+        name: str = Field(min_length=1)
         description: str = ""
         blend: Literal[0, 1] = 1
         component1: RecipeComponent
         component2: RecipeComponent
+        # `steps` is the new full preparation sequence with dosages —
+        # required so the user always sees what to do beyond the
+        # machine portion. `extras` is kept as a quick summary of
+        # add-ins for backwards compat with stored recipes.
+        steps: list[RecipeStep] = Field(min_length=1)
         extras: RecipeExtras = Field(default_factory=lambda: RecipeExtras())
         cup_type: str | None = None
         estimated_caffeine: Literal["none", "low", "medium", "high"] | None = None
