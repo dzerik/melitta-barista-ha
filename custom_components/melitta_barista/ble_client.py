@@ -440,45 +440,67 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     async def _establish_connection(self, *, pair: bool = False) -> BleakClient:
         """Establish BLE connection following the switchbot/led_ble pattern.
 
-        Uses BleakClientWithServiceCache + establish_connection() with
-        ble_device_callback for fresh device reference on each retry.
+        Inside Home Assistant we MUST use bleak_retry_connector.establish_connection
+        (declared in manifest.json requirements). Calling raw BleakClient.connect()
+        triggers a habluetooth.wrappers warning, bypasses BlueZ slot management
+        (hurting other BT integrations), and skips internal transient-error retries.
+
+        - If bleak_retry_connector is unavailable (tests / standalone scripts) we
+          fall back to raw BleakClient.connect() — never reached inside HA.
+        - If we have no cached BLEDevice we raise BleakError so the caller waits
+          for an advertisement to arrive (via set_ble_device) instead of blocking
+          on raw BleakClient.connect() with a 30 s timeout.
+        - If establish_connection raises we propagate — it already retries
+          internally (max_attempts=3); a raw fallback would just double the work.
         """
-        if self._ble_device is not None:
-            try:
-                from bleak_retry_connector import (
-                    BleakClientWithServiceCache,
-                    establish_connection,
-                )
+        try:
+            from bleak_retry_connector import (
+                BleakClientWithServiceCache,
+                establish_connection,
+            )
+        except ImportError:
+            # Tests / standalone scripts: bleak_retry_connector not installed.
+            # Inside HA this branch is unreachable (manifest requirement).
+            _LOGGER.debug(
+                "bleak_retry_connector unavailable, using raw BleakClient for %s",
+                self._address,
+            )
+            return await self._raw_connect(pair=pair)
 
-                _LOGGER.debug(
-                    "Using establish_connection for %s (pair=%s, ble_device=%s)",
-                    self._address,
-                    pair,
-                    self._ble_device,
-                )
-                client = await establish_connection(
-                    BleakClientWithServiceCache,
-                    self._ble_device,
-                    self._device_name or self._address,
-                    disconnected_callback=self._on_disconnect,
-                    use_services_cache=True,
-                    ble_device_callback=lambda: self._ble_device,
-                    max_attempts=3,
-                    pair=pair,
-                )
-                return client
-            except ImportError:
-                _LOGGER.warning(
-                    "bleak_retry_connector not available, using raw BleakClient"
-                )
-            except (BleakError, OSError, asyncio.TimeoutError):
-                _LOGGER.debug(
-                    "establish_connection failed, falling back to raw BleakClient",
-                    exc_info=True,
-                )
+        if self._ble_device is None:
+            # establish_connection() requires a real BLEDevice. Without one,
+            # raise — the reconnect loop will wait for an advertisement
+            # (set_ble_device sets _reconnect_event) instead of burning a
+            # 30 s connect timeout per attempt on a raw BleakClient.
+            raise BleakError(
+                f"No BLEDevice cached for {self._address}; "
+                "waiting for advertisement"
+            )
 
-        # Fallback: raw BleakClient (e.g. outside HA or missing retry-connector)
-        _LOGGER.debug("Using raw BleakClient for %s (pair=%s)", self._address, pair)
+        _LOGGER.debug(
+            "Using establish_connection for %s (pair=%s, ble_device=%s)",
+            self._address,
+            pair,
+            self._ble_device,
+        )
+        return await establish_connection(
+            BleakClientWithServiceCache,
+            self._ble_device,
+            self._device_name or self._address,
+            disconnected_callback=self._on_disconnect,
+            use_services_cache=True,
+            ble_device_callback=lambda: self._ble_device,
+            max_attempts=3,
+            pair=pair,
+        )
+
+    async def _raw_connect(self, *, pair: bool) -> BleakClient:
+        """Last-resort raw BleakClient connect — only for tests/standalone.
+
+        Inside HA bleak_retry_connector is always available (manifest requirement),
+        so this path is never taken from HA. Kept so the client class works in
+        unit tests and CLI scripts without bleak_retry_connector installed.
+        """
         client = BleakClient(
             self._ble_device or self._address,
             disconnected_callback=self._on_disconnect,

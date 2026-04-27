@@ -441,16 +441,18 @@ class TestEstablishConnection:
         mock_instance.connect.assert_awaited_once()
         assert result is mock_instance
 
-    async def test_establish_bleak_error_falls_back_to_raw(self):
-        """Falls back to raw BleakClient when establish_connection raises BleakError (lines 235-239)."""
+    async def test_establish_bleak_error_propagates(self):
+        """BleakError from establish_connection propagates (no raw fallback inside HA).
+
+        Previously we fell back to raw BleakClient on BleakError, which:
+        - triggered habluetooth.wrappers warning,
+        - bypassed BlueZ slot management,
+        - duplicated retries (establish_connection already does max_attempts=3).
+        Now we let the caller (_try_connect_and_handshake) handle it and back off.
+        """
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         device = BLEDevice("AA:BB:CC:DD:EE:FF", "test", {})
         client.set_ble_device(device)
-
-        mock_bleak_cls = MagicMock()
-        mock_instance = MagicMock()
-        mock_instance.connect = AsyncMock()
-        mock_bleak_cls.return_value = mock_instance
 
         import builtins
         real_import = builtins.__import__
@@ -465,36 +467,25 @@ class TestEstablishConnection:
                 return mod
             return real_import(name, *args, **kwargs)
 
-        with (
-            patch(
-                "custom_components.melitta_barista.ble_client.BleakClient",
-                mock_bleak_cls,
-            ),
-            patch("builtins.__import__", side_effect=fake_import),
-        ):
-            result = await client._establish_connection()
+        with patch("builtins.__import__", side_effect=fake_import):
+            with pytest.raises(BleakError, match="connection failed"):
+                await client._establish_connection()
 
-        assert result is mock_instance
+        mock_establish.assert_awaited_once()
 
-    async def test_establish_no_ble_device_uses_raw_client(self):
-        """Uses raw BleakClient when no ble_device is set (lines 242-250)."""
+    async def test_establish_no_ble_device_raises(self):
+        """Without a cached BLEDevice, raises BleakError instead of raw connect.
+
+        The previous behavior — raw BleakClient(self._address).connect() — burned
+        a 30 s connect timeout per attempt and triggered habluetooth's warning.
+        Now we raise so the reconnect loop waits for an advertisement (which
+        populates _ble_device via set_ble_device) instead of blocking.
+        """
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
         assert client._ble_device is None
 
-        mock_bleak_cls = MagicMock()
-        mock_instance = MagicMock()
-        mock_instance.connect = AsyncMock()
-        mock_bleak_cls.return_value = mock_instance
-
-        with patch(
-            "custom_components.melitta_barista.ble_client.BleakClient",
-            mock_bleak_cls,
-        ):
-            result = await client._establish_connection()
-
-        mock_bleak_cls.assert_called_once()
-        mock_instance.connect.assert_awaited_once()
-        assert result is mock_instance
+        with pytest.raises(BleakError, match="No BLEDevice cached"):
+            await client._establish_connection()
 
 
 # ---------------------------------------------------------------------------

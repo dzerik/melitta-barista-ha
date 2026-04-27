@@ -251,22 +251,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         lambda: client.remove_connection_callback(_track_connection)
     )
 
-    # Clean up legacy per-recipe button entities (v0.5.x → v0.6.0 migration)
-    _async_cleanup_legacy_recipe_buttons(hass, entry, address)
+    # Setup-phase timing diagnostics (DEBUG level — enable
+    # `logger.melitta_barista: debug` in HA to see them).
+    _t_setup_start = time.perf_counter()
 
+    # Clean up legacy per-recipe button entities (v0.5.x → v0.6.0 migration)
+    _t0 = time.perf_counter()
+    _async_cleanup_legacy_recipe_buttons(hass, entry, address)
+    _LOGGER.debug("[TIMING] %s cleanup_legacy: %.0fms", address, (time.perf_counter() - _t0) * 1000)
+
+    _t0 = time.perf_counter()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _LOGGER.debug("Platforms forwarded")
+    _LOGGER.debug(
+        "[TIMING] %s forward_entry_setups: %.0fms",
+        address, (time.perf_counter() - _t0) * 1000,
+    )
 
     # Register freestyle service (once per integration)
+    _t0 = time.perf_counter()
     _async_register_services(hass)
+    _LOGGER.debug("[TIMING] %s register_services: %.0fms", address, (time.perf_counter() - _t0) * 1000)
 
     # Register AI Coffee Sommelier WebSocket handlers (DB init is lazy on first call)
+    _t0 = time.perf_counter()
     _async_register_sommelier(hass)
+    _LOGGER.debug("[TIMING] %s register_sommelier: %.0fms", address, (time.perf_counter() - _t0) * 1000)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
-    # Connect in background so we don't block HA setup
-    connect_task = hass.async_create_task(
+    # Connect in a *background* task so HA's startup doesn't wait for our
+    # infinite reconnect loop to finish. async_create_task tracks tasks in
+    # hass._tasks and blocks the transition to "running" state until they
+    # complete — using it for a never-returning loop produces "Setup of
+    # domain X is taking over N minutes" warnings and delays HA startup.
+    # See: https://developers.home-assistant.io/docs/asyncio_blocking_operations/
+    connect_task = hass.async_create_background_task(
         _async_connect_and_poll(
             client,
             poll_interval=opts.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
@@ -283,6 +302,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             connect_task.cancel()
 
     entry.async_on_unload(_cancel_connect_task)
+    _LOGGER.debug(
+        "[TIMING] %s async_setup_entry TOTAL: %.0fms",
+        address, (time.perf_counter() - _t_setup_start) * 1000,
+    )
     _LOGGER.info("Setup complete for %s, connecting in background", address)
 
     return True

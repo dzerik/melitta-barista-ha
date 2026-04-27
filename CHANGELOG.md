@@ -2,6 +2,55 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.49.7] — 2026-04-27 — Fix HA startup blocking + bleak-retry-connector warning
+
+Bug fix release addressing
+[issue #9](https://github.com/dzerik/melitta-barista-ha/issues/9).
+
+### Fixed
+
+- **HA startup no longer blocked by our reconnect loop.**
+  `async_setup_entry` was scheduling `_async_connect_and_poll` (an
+  infinite `while True:` reconnect loop) via `hass.async_create_task`,
+  which puts the task into `hass._tasks` and makes HA's bootstrap
+  *wait* for it during the `EVENT_HOMEASSISTANT_START` → `running`
+  transition. With an unreachable / slow machine this surfaced as the
+  `Setup of domain melitta_barista is taking over 10 minutes` warning
+  and a delayed "started" state for HA itself. Switched to
+  `hass.async_create_background_task` which is exactly the right
+  primitive for never-returning monitor loops.
+- **`habluetooth.wrappers` warning eliminated.** The connect path used
+  to fall back to raw `BleakClient.connect()` whenever the cached
+  `BLEDevice` was `None` (typical on a cold boot via ESPHome BLE proxy)
+  or whenever `establish_connection()` raised — which triggered:
+
+  > `BleakClient.connect() called without bleak-retry-connector. For reliable connection establishment, use bleak_retry_connector.establish_connection().`
+
+  Inside HA we now **always** route through
+  `bleak_retry_connector.establish_connection()`. Without a cached
+  `BLEDevice` the call raises `BleakError` so the reconnect loop waits
+  for the next advertisement (via `set_ble_device` /
+  `_reconnect_event`) instead of burning a 30 s timeout per attempt
+  on a raw connect. Without `bleak_retry_connector` (tests / CLI
+  scripts) the raw fallback still works.
+
+### Why it matters
+
+The two bugs reinforced each other: the raw `BleakClient.connect()`
+fallback grabbed BlueZ slots without coordination, and the
+`async_create_task` choice made the resulting slow connect cycles
+visible as a startup hang. After this release a cold boot with the
+machine off / out of range completes the integration setup
+immediately and the reconnect loop runs quietly in the background
+until the first advertisement arrives.
+
+### Changed
+
+- `tests/test_ble_client.py::TestEstablishConnection`: rewrote two
+  tests that previously locked in the raw-fallback antipattern. The
+  new tests assert that `BleakError` propagates and that a missing
+  `BLEDevice` raises instead of silently falling back.
+
 ## [0.49.6] — 2026-04-15 — Documentation site (MkDocs Material)
 
 Documentation infrastructure.
