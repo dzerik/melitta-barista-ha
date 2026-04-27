@@ -414,7 +414,10 @@ async def ws_generate(
     temperature_pref = msg.get("temperature", "auto")
     dietary: list[str] = []
     caffeine_pref = "regular"
-    ice_available = "ice" in extras.get("misc", []) if extras else False
+    # `extras_db` is the post-filter dict built above (DB defaults +
+    # any allow_* whitelists from the request). Renamed from `extras`
+    # but this line was missed — keep using the same source.
+    ice_available = "ice" in extras_db.get("misc", []) if extras_db else False
 
     if active_profile:
         cup_size = active_profile.get("cup_size", "mug")
