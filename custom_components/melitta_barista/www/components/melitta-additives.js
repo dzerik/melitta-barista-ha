@@ -102,16 +102,23 @@ class MelittaAdditives extends LitElement {
         });
       } else {
         const table = e.type === "syrup" ? "syrups" : "toppings";
+        // Coerce DB NULLs to "" — voluptuous Optional(...): str rejects None.
+        const fields = {
+          name: e.name,
+          brand: e.brand || "",
+          notes: e.notes || "",
+        };
         if (e.id) {
           // HA WS framework owns top-level "id" — see panel_api.py.
           await this.hass.callWS({
             type: `melitta_barista/${table}/update`,
-            additive_id: e.id, name: e.name, brand: e.brand, notes: e.notes,
+            additive_id: e.id,
+            ...fields,
           });
         } else {
           await this.hass.callWS({
             type: `melitta_barista/${table}/add`,
-            name: e.name, brand: e.brand, notes: e.notes,
+            ...fields,
           });
         }
       }

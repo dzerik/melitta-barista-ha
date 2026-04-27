@@ -116,21 +116,24 @@ class MelittaBeans extends LitElement {
     const p = this._editingProducer;
     if (!p?.name?.trim()) return;
     try {
+      // voluptuous Optional(...): str rejects None — coerce DB NULLs
+      // (which become null in the WS payload) to "" before sending.
+      const fields = {
+        name: p.name,
+        country: p.country || "",
+        website: p.website || "",
+        notes: p.notes || "",
+      };
       if (p.id) {
-        // The HA WS framework owns the top-level "id" key (it's the
-        // message correlation id) — use producer_id for the row pk.
         await this.hass.callWS({
           type: "melitta_barista/producers/update",
           producer_id: p.id,
-          name: p.name,
-          country: p.country,
-          website: p.website,
-          notes: p.notes,
+          ...fields,
         });
       } else {
         await this.hass.callWS({
           type: "melitta_barista/producers/add",
-          name: p.name, country: p.country, website: p.website, notes: p.notes,
+          ...fields,
         });
       }
       this._closeProducerModal();
@@ -183,18 +186,27 @@ class MelittaBeans extends LitElement {
       for (const tag of newTags) {
         await this.hass.callWS({ type: "melitta_barista/tags/add", name: tag });
       }
-      // Strip id and any UI-only fields out of the bean fields we send.
-      const { id, ...beanFields } = b;
-      const payload = id
+      // Pick only the writable bean fields. Sending the whole bean
+      // object back would include `created_at` / `updated_at` /
+      // `preset_id: null` which the WS schema (voluptuous default
+      // extra=PREVENT_EXTRA) rejects with "extra keys not allowed".
+      const writable = {
+        brand: b.brand,
+        product: b.product,
+        roast: b.roast,
+        bean_type: b.bean_type,
+        origin: b.origin,
+        origin_country: b.origin_country || "",
+        flavor_notes: b.flavor_notes || [],
+        composition: b.composition || "",
+      };
+      const payload = b.id
         ? {
             type: "melitta_barista/sommelier/beans/update",
-            // sommelier_api expects bean_id (string uuid); the WS framework
-            // owns the top-level "id" key, so we'd hit the same collision
-            // as producers/additives if we kept the field name as "id".
-            bean_id: id,
-            ...beanFields,
+            bean_id: b.id,
+            ...writable,
           }
-        : { type: "melitta_barista/sommelier/beans/add", ...beanFields };
+        : { type: "melitta_barista/sommelier/beans/add", ...writable };
       await this.hass.callWS(payload);
       this._closeBeanModal();
       await this._loadAll();
