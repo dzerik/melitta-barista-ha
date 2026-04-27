@@ -2,6 +2,85 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.50.0] — 2026-04-27 — Admin SPA panel + AI Coffee Sommelier (alpha)
+
+Big release. The integration now ships an in-HA admin panel with a full
+Sommelier workflow that goes from "I have these beans + this milk +
+this mood" to a one-tap brew on the machine.
+
+### Added
+
+- **Admin SPA panel** in the HA sidebar (`/melitta-barista`). Built on
+  vendored Lit 3.x (no HACS-card side effects required), localised
+  en + ru, panel module URL is cache-busted by the integration version.
+- **Tabs**: Status (live BLE + machine snapshot), Diagnostics
+  (ring-buffered errors + frames + recent LLM calls with full prompt /
+  raw response / validation errors), Recipes (DirectKey viewer), Beans
+  (producers + beans CRUD with dynamic flavour tags + LLM autofill +
+  hopper assignment), Add-ins (syrups / toppings / milk via a unified
+  modal), Sommelier, Settings.
+- **AI Coffee Sommelier (alpha)** — end-to-end:
+  - Rich form: allowed syrups / toppings / milk multi-selects, mood
+    multi-select, cup size, occasion (auto-suggested from the local
+    clock), temperature, caffeine, dietary multi-select.
+  - Hybrid structured-output pipeline. SmartChain agents go through
+    that integration's native JSON Schema mode (OpenAI Structured
+    Outputs / Gemini responseSchema / Anthropic tool-use / Ollama 0.5+
+    format=schema). All other agents go through a Pydantic-validated
+    text-with-retry path with the JSON Schema appended to the prompt.
+  - Locale-aware prompt: `hass.config.language` is forwarded so names /
+    descriptions / step instructions come back in the user's language;
+    enum values stay English so validation works regardless.
+  - Recipes carry a complete numbered preparation sequence with
+    explicit dosages (`1. Brew espresso — 30 ml`, `2. Add Vanilla
+    syrup — 15 ml`, …) on top of the machine portion. ★ to favourite,
+    "Brew this" to send the freestyle payload.
+  - Diagnostic transparency: every LLM round-trip is recorded and
+    visible in the Diagnostics tab (full prompt, response, validation
+    errors, the path that handled it).
+- **Beans LLM autofill**: brand + product + producer URL → strict
+  Pydantic-validated bean fields (roast / bean_type / origin /
+  origin_country / flavor_notes / composition / brewing recommendation).
+  Any agent works; the URL is passed as a hint that browsing-capable
+  agents follow on their own.
+- **Settings tab**: LLM model picker, prompt template editor with
+  inline placeholders documentation and "Preview assembled prompt"
+  showing the exact text that will be sent.
+- **Diagnostics tab**: ring-buffered BLE errors + notification frames
+  with consecutive-duplicate collapsing, full LLM call log,
+  configuration snapshot.
+
+### Changed
+
+- `sommelier_api` flavor_notes / milk_types schemas relaxed from
+  hardcoded English vocabularies to free-form string lists. Russian /
+  brand-specific names work everywhere now.
+- Status tab uses a compact single-line label-value layout.
+- Bean / producer / additive saves use explicit writable-field
+  allowlists (no more spreading the whole record back, which tripped
+  voluptuous extra-keys validation on `created_at` / `updated_at`).
+
+### Fixed (along the way)
+
+- HA WS payload key collision: `id` is the framework's message id,
+  not a row pk. Renamed to `producer_id` / `additive_id` / `bean_id`
+  in all panel-side schemas.
+- Hopper dropdown lost selection on tab switch — Lit's `.value=` on
+  `<select>` races with option rendering; switched to per-option
+  `?selected`.
+- `customElements.define()` registration race on panel re-import:
+  every component file now guards with `if (!customElements.get(...))`.
+
+### For users
+
+- Backwards compatible. Existing config entries continue to work as
+  before; the panel adds a sidebar entry and a couple of new
+  per-domain WS commands.
+- HACS will pick up 0.50.0 as a normal upgrade — the alpha label is
+  scoped to the Sommelier feature, not the integration as a whole.
+  Reload the browser hard (Ctrl+Shift+R) once after the update so the
+  panel module URL refreshes its cache.
+
 ## [0.49.7] — 2026-04-27 — Fix HA startup blocking + bleak-retry-connector warning
 
 Bug fix release addressing
