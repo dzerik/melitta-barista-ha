@@ -88,8 +88,13 @@ BEAN_SCHEMA = {
     vol.Required("bean_type"): vol.In(VALID_BEAN_TYPES),
     vol.Required("origin"): vol.In(VALID_ORIGINS),
     vol.Optional("origin_country"): cv.string,
+    # flavor_notes is a free-form list of strings since the panel introduced
+    # the dynamic-tag UI: users (and the LLM, when its output isn't pinned to
+    # a hardcoded vocabulary) are free to coin any tag. The legacy
+    # VALID_FLAVOR_NOTES whitelist is kept as a typo-safety hint via
+    # cv.string only — anything that's a string passes.
     vol.Optional("flavor_notes", default=[]): vol.All(
-        cv.ensure_list, [vol.In(VALID_FLAVOR_NOTES)]
+        cv.ensure_list, [cv.string]
     ),
     vol.Optional("composition"): cv.string,
     vol.Optional("preset_id"): cv.string,
@@ -197,8 +202,9 @@ async def ws_beans_add(
         vol.Optional("bean_type"): vol.In(VALID_BEAN_TYPES),
         vol.Optional("origin"): vol.In(VALID_ORIGINS),
         vol.Optional("origin_country"): cv.string,
+        # See BEAN_SCHEMA — free-form tag list now.
         vol.Optional("flavor_notes"): vol.All(
-            cv.ensure_list, [vol.In(VALID_FLAVOR_NOTES)]
+            cv.ensure_list, [cv.string]
         ),
         vol.Optional("composition"): cv.string,
         vol.Optional("preset_id"): cv.string,
@@ -305,8 +311,12 @@ async def ws_milk_get(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "melitta_barista/sommelier/milk/set",
+        # Free-form list of milk type names. The legacy VALID_MILK_TYPES
+        # whitelist (8 English-only values) was rejecting Russian / brand
+        # names like "Ультрапастеризованное 3%"; the panel's milk manager
+        # is intended to be a freeform vocabulary just like flavor tags.
         vol.Required("milk_types"): vol.All(
-            cv.ensure_list, [vol.In(VALID_MILK_TYPES)]
+            cv.ensure_list, [cv.string]
         ),
     }
 )
@@ -332,12 +342,24 @@ async def ws_milk_set(
         vol.Optional("count", default=3): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=5)
         ),
+        # Single mood/occasion kept for backwards compat; the new multi-
+        # selects (moods / dietary) override them when sent.
         vol.Optional("mood"): vol.In(VALID_MOODS),
+        vol.Optional("moods"): [vol.In(VALID_MOODS)],
         vol.Optional("occasion"): vol.In(VALID_OCCASIONS),
         vol.Optional("temperature", default="auto"): vol.In(["auto", "hot", "iced"]),
         vol.Optional("servings", default=1): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=4)
         ),
+        vol.Optional("dietary"): [vol.In(VALID_DIETARY)],
+        vol.Optional("caffeine_pref"): vol.In(VALID_CAFFEINE_PREFS),
+        vol.Optional("cup_size"): vol.In(VALID_CUP_SIZES),
+        # Whitelist filters: when present, restrict the LLM to ONLY these
+        # add-in / milk names (intersection with what's actually
+        # configured). When absent, fall back to the DB defaults.
+        vol.Optional("allow_syrups"): [cv.string],
+        vol.Optional("allow_toppings"): [cv.string],
+        vol.Optional("allow_milk"): [cv.string],
     }
 )
 @websocket_api.async_response
@@ -357,9 +379,22 @@ async def ws_generate(
     hopper1_bean = hoppers.get("hopper1", {}).get("bean")
     hopper2_bean = hoppers.get("hopper2", {}).get("bean")
 
-    # Load extras from DB
-    extras = await db.async_get_extras()
-    extras_context = extras if extras else None
+    # Load extras from DB then apply per-request whitelist filters.
+    # Empty filter list (= user explicitly cleared the multiselect)
+    # means "none of this category"; absent filter means "use DB
+    # default = everything available".
+    extras_db = await db.async_get_extras() or {}
+    if "allow_syrups" in msg:
+        extras_db["syrups"] = list(msg["allow_syrups"])
+    if "allow_toppings" in msg:
+        extras_db["toppings"] = list(msg["allow_toppings"])
+    if "allow_milk" in msg:
+        # `milk_types` is its own arg into the generator, but we keep
+        # the constraint in the extras dict too so the prompt's
+        # "Available extras" section reflects exactly what's allowed.
+        milk_types = list(msg["allow_milk"])
+        extras_db["milk"] = milk_types
+    extras_context = extras_db if any(extras_db.values()) else None
 
     # Load active profile from DB
     profile_id: str | None = None
@@ -379,7 +414,10 @@ async def ws_generate(
     temperature_pref = msg.get("temperature", "auto")
     dietary: list[str] = []
     caffeine_pref = "regular"
-    ice_available = "ice" in extras.get("misc", []) if extras else False
+    # `extras_db` is the post-filter dict built above (DB defaults +
+    # any allow_* whitelists from the request). Renamed from `extras`
+    # but this line was missed — keep using the same source.
+    ice_available = "ice" in extras_db.get("misc", []) if extras_db else False
 
     if active_profile:
         cup_size = active_profile.get("cup_size", "mug")
@@ -391,6 +429,23 @@ async def ws_generate(
                 )
         dietary = active_profile.get("dietary", [])
         caffeine_pref = active_profile.get("caffeine_pref", "regular")
+
+    # Per-request overrides win over the active profile. The user can
+    # leave them out of the WS message to fall back to profile values.
+    if "cup_size" in msg:
+        cup_size = msg["cup_size"]
+    if "dietary" in msg:
+        dietary = list(msg["dietary"])
+    if "caffeine_pref" in msg:
+        caffeine_pref = msg["caffeine_pref"]
+    # Resolve mood/moods: prefer the new multi-list, fall back to the
+    # legacy single-mood field. We pass the union to the generator so
+    # the prompt explicitly lists all selected moods.
+    moods: list[str] | None = None
+    if "moods" in msg and msg["moods"]:
+        moods = list(msg["moods"])
+    elif msg.get("mood"):
+        moods = [msg["mood"]]
 
     # Get weather from HA if use_weather preference is set
     weather_context: dict[str, Any] | None = None
@@ -417,33 +472,74 @@ async def ws_generate(
             1 for s in hass.states.async_all("person") if s.state == "home"
         )
 
+    # Load user-overridable persona prompt for the sommelier (slot
+    # `sommelier_intro` in the panel prompt store). Falls back to the bundled
+    # default inside _build_prompt when None.
     try:
-        recipes = await async_generate_recipes(
-            hass=hass,
-            hopper1_bean=hopper1_bean,
-            hopper2_bean=hopper2_bean,
-            milk_types=milk_types,
-            mode=msg["mode"],
-            preference=msg.get("preference"),
-            count=msg["count"],
-            llm_agent=settings.get("llm_agent_id"),
-            extras=extras_context,
-            ice_available=ice_available,
-            cup_size=cup_size,
-            temperature_pref=temperature_pref,
-            mood=msg.get("mood"),
-            occasion=msg.get("occasion"),
-            servings=msg.get("servings", 1),
-            dietary=dietary,
-            caffeine_pref=caffeine_pref,
-            weather=weather_context,
-            people_home=people_home,
-            cups_today=cups_today,
+        from .panel_api import _resolve_prompt, _structured_call  # noqa: PLC0415
+        from .ai_recipes import _build_prompt, _validate_recipes  # noqa: PLC0415
+        intro = await _resolve_prompt(hass, "sommelier_intro")
+    except Exception:  # noqa: BLE001
+        intro = None
+        from .ai_recipes import _validate_recipes  # noqa: PLC0415
+
+    # Build intro+context (without the legacy ## Output Format text block —
+    # the JSON Schema is auto-appended by _structured_call instead).
+    prebuilt_prompt = _build_prompt(
+        hopper1_bean=hopper1_bean,
+        hopper2_bean=hopper2_bean,
+        milk_types=milk_types,
+        mode=msg["mode"],
+        preference=msg.get("preference"),
+        count=msg["count"],
+        extras=extras_context,
+        ice_available=ice_available,
+        cup_size=cup_size,
+        temperature_pref=temperature_pref,
+        intro=intro,
+        mood=msg.get("mood"),
+        moods=moods,
+        occasion=msg.get("occasion"),
+        servings=msg.get("servings", 1),
+        dietary=dietary,
+        caffeine_pref=caffeine_pref,
+        weather=weather_context,
+        people_home=people_home,
+        cups_today=cups_today,
+        # Inject the HA UI locale so the recipe names / descriptions /
+        # step instructions come back in the user's language. Falls
+        # back to English if HA's language is unset for some reason.
+        language=hass.config.language or "en",
+        omit_output_format=True,
+    )
+
+    try:
+        sc_result = await _structured_call(
+            hass,
+            slot="sommelier_intro",
+            fmt_vars={"count": msg["count"], "mode": msg["mode"]},
+            agent_id=settings.get("llm_agent_id") or None,
+            ctx=connection.context(msg),
+            prebuilt_prompt=prebuilt_prompt,
         )
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _LOGGER.error("Failed to generate recipes: %s", err)
         connection.send_error(msg["id"], "generation_failed", str(err))
         return
+
+    parsed = sc_result.get("parsed") or {}
+    raw_recipes = parsed.get("recipes") if isinstance(parsed, dict) else None
+    if not raw_recipes:
+        connection.send_error(
+            msg["id"], "no_recipes",
+            f"LLM returned no usable recipes (errors: {sc_result.get('validation_errors')})",
+        )
+        return
+
+    # Pydantic already enforced the schema; _validate_recipes still applies
+    # legacy clamps (portion_ml rounding to 5ml, extras vocabulary check)
+    # so the brew payload stays inside what the machine accepts.
+    recipes = _validate_recipes(raw_recipes)
 
     hopper1_bean_id = hopper1_bean["id"] if hopper1_bean else None
     hopper2_bean_id = hopper2_bean["id"] if hopper2_bean else None

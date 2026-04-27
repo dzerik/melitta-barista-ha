@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from collections import deque
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
@@ -180,6 +182,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
         # BLE pairing state: skip pair=True on reconnect if already bonded
         self._paired = False
+
+        # Diagnostic ring buffers (consumed by panel_api /diagnostics).
+        # Bounded so memory can't grow unbounded on long-running setups.
+        self._recent_errors: deque[dict] = deque(maxlen=50)
+        self._recent_frames: deque[dict] = deque(maxlen=100)
+        self._last_handshake_at: float | None = None
 
         # Pre-detect machine type from BLE device name if available
         if device_name:
@@ -412,6 +420,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             _LOGGER.debug("Ignoring disconnect callback from stale client")
             return
         _LOGGER.info("Disconnected from %s", self._address)
+        self.record_error("ble", f"Disconnected from {self._address}")
         self._connected = False
         self._client = None
         for cb in self._connection_callbacks:
@@ -424,6 +433,27 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
     def _on_notification(self, _sender: int, data: bytearray) -> None:
         self._protocol.on_ble_data(bytes(data))
+        # Keep a short hex preview for the diagnostics tab. We avoid storing
+        # full frames to cap memory; the first ~32 bytes are enough to spot
+        # what command came through.
+        if data:
+            self._recent_frames.append({
+                "ts": time.time(),
+                "len": len(data),
+                "hex": bytes(data[:32]).hex(),
+            })
+
+    def record_error(self, source: str, message: str) -> None:
+        """Append a diagnostic error entry surfaced through the panel.
+
+        Public so other modules (mixins, ble_agent, etc.) can append context
+        without touching the underlying deque directly.
+        """
+        self._recent_errors.append({
+            "ts": time.time(),
+            "source": source,
+            "message": message,
+        })
 
     async def _write_ble(self, data: bytes) -> None:
         async with self._write_lock:
@@ -670,6 +700,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 self._paired = True
 
             self._connected = True
+            self._last_handshake_at = time.time()
             _LOGGER.info("Connected and handshake complete for %s", self._address)
 
             # Read firmware version

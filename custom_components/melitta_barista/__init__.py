@@ -4,9 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import pathlib
 
 from bleak.exc import BleakError
 from homeassistant.components import bluetooth
+from homeassistant.components.frontend import (
+    async_register_built_in_panel,
+    async_remove_panel,
+)
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.websocket_api import (
+    async_register_command,
+    websocket_command,
+)
 import voluptuous as vol
 
 import time
@@ -101,6 +111,95 @@ def _async_cleanup_legacy_recipe_buttons(
 
     if removed:
         _LOGGER.info("Cleaned up %d legacy recipe button entities", removed)
+
+
+PANEL_URL_PATH = "melitta-barista"
+PANEL_STATIC_PATH = "/melitta_barista/panel"
+
+
+async def _async_register_panel(hass: HomeAssistant) -> None:
+    """Register the admin SPA panel and serve its static assets.
+
+    Idempotent — repeated calls (e.g. when a second config entry is set up
+    while the integration is already loaded) are safely ignored.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get("panel_registered"):
+        return
+
+    panel_dir = str(pathlib.Path(__file__).parent / "www")
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(PANEL_STATIC_PATH, panel_dir, cache_headers=False)]
+    )
+
+    # Read version from HA's cached integration manifest — no blocking
+    # filesystem I/O on the event loop. Used to cache-bust the panel's
+    # JS module URL on upgrade.
+    from homeassistant.loader import async_get_integration  # noqa: PLC0415
+    integration = await async_get_integration(hass, DOMAIN)
+    version = integration.manifest.get("version", "unknown")
+
+    async_register_built_in_panel(
+        hass,
+        component_name="custom",
+        sidebar_title="Melitta",
+        sidebar_icon="mdi:coffee-maker",
+        frontend_url_path=PANEL_URL_PATH,
+        config={
+            "_panel_custom": {
+                "name": "melitta-panel",
+                "module_url": f"{PANEL_STATIC_PATH}/melitta-panel.js?v={version}",
+                "embed_iframe": False,
+                "trust_external": False,
+            },
+        },
+        require_admin=True,
+    )
+    domain_data["panel_registered"] = True
+    _LOGGER.debug("Melitta admin panel registered at /%s", PANEL_URL_PATH)
+
+
+def _async_unregister_panel(hass: HomeAssistant) -> None:
+    """Remove the panel when the last config entry is unloaded."""
+    domain_data = hass.data.get(DOMAIN) or {}
+    if not domain_data.get("panel_registered"):
+        return
+    try:
+        async_remove_panel(hass, PANEL_URL_PATH)
+    except KeyError:
+        _LOGGER.debug("Panel %s already removed", PANEL_URL_PATH)
+    domain_data.pop("panel_registered", None)
+
+
+@callback
+def _async_register_panel_websocket(hass: HomeAssistant) -> None:
+    """Register the panel's bootstrap WS handler.
+
+    Returns the list of melitta_barista config entries the panel can target.
+    Per-tab WS handlers will be registered alongside their feature work.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get("panel_ws_registered"):
+        return
+
+    @websocket_command(
+        {vol.Required("type"): "melitta_barista/entries"}
+    )
+    @callback
+    def _ws_list_entries(hass_, connection, msg):
+        entries = [
+            {
+                "entry_id": entry.entry_id,
+                "title": entry.title,
+                "address": entry.data.get(CONF_ADDRESS),
+                "brand": entry.data.get(CONF_BRAND, DEFAULT_BRAND),
+            }
+            for entry in hass_.config_entries.async_entries(DOMAIN)
+        ]
+        connection.send_result(msg["id"], {"entries": entries})
+
+    async_register_command(hass, _ws_list_entries)
+    domain_data["panel_ws_registered"] = True
 
 
 @callback
@@ -276,6 +375,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _t0 = time.perf_counter()
     _async_register_sommelier(hass)
     _LOGGER.debug("[TIMING] %s register_sommelier: %.0fms", address, (time.perf_counter() - _t0) * 1000)
+
+    # Register admin panel (sidebar entry + static assets) and its bootstrap
+    # WS handler. Both are idempotent — repeat calls when a second config
+    # entry is added do nothing.
+    _t0 = time.perf_counter()
+    _async_register_panel_websocket(hass)
+    from .panel_api import async_register_panel_websocket as _register_panel_api  # noqa: PLC0415
+    _register_panel_api(hass)
+    await _async_register_panel(hass)
+    _LOGGER.debug("[TIMING] %s register_panel: %.0fms", address, (time.perf_counter() - _t0) * 1000)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
@@ -707,12 +816,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         client: MelittaBleClient = entry.runtime_data
         await client.disconnect()
 
-    # Close Sommelier DB if this is the last config entry
+    # On the last config entry: tear down domain-wide stuff (panel, Sommelier DB).
     remaining = [
         e for e in hass.config_entries.async_entries(DOMAIN)
         if e.entry_id != entry.entry_id
     ]
     if not remaining:
+        _async_unregister_panel(hass)
         domain_data = hass.data.get(DOMAIN, {})
         db = domain_data.pop("sommelier_db", None)
         if db is not None:

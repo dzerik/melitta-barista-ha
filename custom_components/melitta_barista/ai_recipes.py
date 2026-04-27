@@ -57,6 +57,12 @@ VALID_CAFFEINE_PREFS = {"regular", "low", "decaf_evening"}
 VALID_DIETARY = {"no_sugar", "lactose_free", "low_calorie", "vegan"}
 
 
+_DEFAULT_INTRO = (
+    "You are an expert barista and coffee sommelier. Generate exactly {count} "
+    "unique coffee recipes for a bean-to-cup smart coffee machine."
+)
+
+
 def _build_prompt(
     hopper1_bean: dict[str, Any] | None,
     hopper2_bean: dict[str, Any] | None,
@@ -77,8 +83,21 @@ def _build_prompt(
     weather: dict[str, Any] | None = None,
     people_home: int | None = None,
     cups_today: int | None = None,
+    intro: str | None = None,
+    omit_output_format: bool = False,
+    language: str | None = None,
+    moods: list[str] | None = None,
 ) -> str:
-    """Build structured prompt for the LLM."""
+    """Build structured prompt for the LLM.
+
+    `intro` is the user-editable persona/instruction prefix
+    (`sommelier_intro` slot). When None we fall back to the bundled default.
+    The dynamic context (beans, milk, time-of-day, weather, etc.) is always
+    appended. Set `omit_output_format=True` when the caller is about to
+    auto-append a JSON-Schema block via panel_api._structured_call; the
+    legacy text Output Format spec is included only for the (deprecated)
+    direct-conversation path.
+    """
     now = datetime.now(timezone.utc)
     hour = now.hour
 
@@ -190,9 +209,16 @@ def _build_prompt(
                 elif temp_c >= 25:
                     weather_section += "\n-> Suggest iced/cold refreshing drinks."
 
-    # Mood / Occasion
+    # Mood / Occasion. Multi-mood (`moods` list) wins over single `mood`.
     mood_section = ""
-    if mood and mood in VALID_MOODS:
+    valid_moods = [m for m in (moods or []) if m in VALID_MOODS]
+    if valid_moods:
+        mood_section = (
+            f"\n## Moods: {', '.join(valid_moods)}\n"
+            "Generate recipes that satisfy at least one of these moods; "
+            "spread variety across the moods if more than one is asked for."
+        )
+    elif mood and mood in VALID_MOODS:
         mood_section = f"\n## Mood: {mood}"
     occasion_section = ""
     if occasion and occasion in VALID_OCCASIONS:
@@ -258,7 +284,47 @@ def _build_prompt(
         cups_section,
     ]))
 
-    return f"""You are an expert barista and coffee sommelier. Generate exactly {count} unique coffee recipes for a bean-to-cup smart coffee machine.
+    intro_text = (intro or _DEFAULT_INTRO)
+    try:
+        intro_text = intro_text.format(count=count, mode=mode)
+    except (KeyError, IndexError):
+        # User template uses placeholders we don't supply — pass through
+        # literally so they can spot the mismatch in the LLM reply.
+        pass
+
+    output_format_block = "" if omit_output_format else _OUTPUT_FORMAT_BLOCK
+
+    # Locale section — uses HA's `hass.config.language` so the names,
+    # descriptions, ingredient names and step instructions come back in
+    # the user's UI language. The schema (JSON Schema field names,
+    # enum values like "intense" / "arabica") stays English so it
+    # validates regardless of locale.
+    language_section = ""
+    if language:
+        language_section = (
+            f"\n## Language\n"
+            f"User locale: {language}. Reply with all human-readable strings "
+            f"(name, description, step.action, step.ingredient, step.notes, "
+            f"extras.instruction) in this language. Keep enum values "
+            f"(roast, intensity, processes, units like \"ml\") in English "
+            f"so they validate against the schema."
+        )
+
+    # Steps section — explicit instruction to fill `steps` with the full
+    # preparation sequence and dosages, not just the machine portion.
+    steps_section = (
+        "\n## Preparation steps\n"
+        "Populate `steps` with the COMPLETE preparation sequence the user "
+        "must follow, in execution order. Include both the machine action "
+        "(e.g. \"Brew espresso\" with the dosage matching component1) and "
+        "every manual step that follows: pouring milk, adding syrup, "
+        "topping with whipped cream, garnishing, etc. Each step must "
+        "carry an `amount` + `unit` when there is a quantity (\"15\" + "
+        "\"ml\", \"1\" + \"scoop\"); use null when the action is "
+        "purely instructional (\"Stir for 10 seconds\")."
+    )
+
+    return f"""{intro_text}
 
 ## Machine Capabilities
 Each recipe has up to 2 components (dispensed sequentially). Each component has:
@@ -281,7 +347,7 @@ The "blend" field selects which bean hopper to use (see below).
 - {time_advice}
 - {pref_section}
 
-{optional_sections}
+{optional_sections}{language_section}{steps_section}
 
 ## Rules
 - Realistic portion sizes: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk portion 80-200ml
@@ -291,21 +357,24 @@ The "blend" field selects which bean hopper to use (see below).
 - Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile
 - If two hoppers available, use both across the recipe set
 - blend field: 1 for hopper 1 beans, 0 for hopper 2 beans. If only one hopper, always use that one.
+{output_format_block}"""
 
+
+_OUTPUT_FORMAT_BLOCK = """
 ## Output Format
 Return ONLY a JSON array, no other text:
 [
-  {{
+  {
     "name": "Recipe Name",
     "description": "Tasting notes and why this works",
     "blend": 1,
-    "component1": {{"process": "coffee", "intensity": "strong", "aroma": "intense", "temperature": "normal", "shots": "two", "portion_ml": 30}},
-    "component2": {{"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120}},
-    "extras": {{"ice": false, "syrup": "caramel", "topping": "cinnamon_powder", "liqueur": null, "instruction": "Optional human instruction for extras"}},
+    "component1": {"process": "coffee", "intensity": "strong", "aroma": "intense", "temperature": "normal", "shots": "two", "portion_ml": 30},
+    "component2": {"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120},
+    "extras": {"ice": false, "syrup": "caramel", "topping": "cinnamon_powder", "liqueur": null, "instruction": "Optional human instruction for extras"},
     "cup_type": "mug",
     "estimated_caffeine": "medium",
     "calories_approx": 120
-  }}
+  }
 ]"""
 
 
@@ -486,12 +555,21 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
             except (TypeError, ValueError):
                 calories_approx = None
 
+        # Pass through `steps` from the LLM. Pydantic in panel_api has
+        # already enforced the per-step shape (order/action/dosage); this
+        # validator only needs to keep the field on the dict so it
+        # reaches the UI and the favourites store.
+        steps = raw.get("steps")
+        if not isinstance(steps, list):
+            steps = []
+
         recipe: dict[str, Any] = {
             "name": name,
             "description": description,
             "blend": blend,
             "component1": comp1,
             "component2": comp2,
+            "steps": steps,
             "extras": extras,
             "cup_type": cup_type,
             "estimated_caffeine": estimated_caffeine,
@@ -525,6 +603,9 @@ async def async_generate_recipes(
     weather: dict[str, Any] | None = None,
     people_home: int | None = None,
     cups_today: int | None = None,
+    intro: str | None = None,
+    language: str | None = None,
+    moods: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Generate freestyle recipes using HA conversation agent."""
     prompt = _build_prompt(
@@ -538,6 +619,7 @@ async def async_generate_recipes(
         ice_available=ice_available,
         cup_size=cup_size,
         temperature_pref=temperature_pref,
+        intro=intro,
         mood=mood,
         occasion=occasion,
         servings=servings,
@@ -546,6 +628,8 @@ async def async_generate_recipes(
         weather=weather,
         people_home=people_home,
         cups_today=cups_today,
+        language=language,
+        moods=moods,
     )
 
     _LOGGER.debug("Sommelier prompt: %s", prompt[:200])
