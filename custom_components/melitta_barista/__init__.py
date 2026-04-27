@@ -381,6 +381,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # entry is added do nothing.
     _t0 = time.perf_counter()
     _async_register_panel_websocket(hass)
+    from .panel_api import async_register_panel_websocket as _register_panel_api  # noqa: PLC0415
+    _register_panel_api(hass)
     await _async_register_panel(hass)
     _LOGGER.debug("[TIMING] %s register_panel: %.0fms", address, (time.perf_counter() - _t0) * 1000)
 

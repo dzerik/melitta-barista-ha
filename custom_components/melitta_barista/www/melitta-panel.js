@@ -21,15 +21,9 @@ await Promise.all([
 ]);
 
 import { LitElement, html, css } from "./lit-base.js";
+import { t } from "./i18n.js";
 
-const TABS = [
-  { id: "status",      label: "Состояние",   tag: "melitta-status" },
-  { id: "diagnostics", label: "Диагностика", tag: "melitta-diagnostics" },
-  { id: "recipes",     label: "Рецепты",     tag: "melitta-recipes" },
-  { id: "beans",       label: "Зёрна",       tag: "melitta-beans" },
-  { id: "additives",   label: "Добавки",     tag: "melitta-additives" },
-  { id: "sommelier",   label: "Сомелье",     tag: "melitta-sommelier" },
-];
+const TAB_IDS = ["status", "diagnostics", "recipes", "beans", "additives", "sommelier"];
 
 class MelittaPanel extends LitElement {
   static get properties() {
@@ -46,11 +40,20 @@ class MelittaPanel extends LitElement {
 
   constructor() {
     super();
-    this._tab = TABS[0].id;
+    this._tab = TAB_IDS[0];
     this._entries = [];
     this._activeEntry = "";
     this._error = "";
     this._hassReady = false;
+  }
+
+  /** Current language code for translations. */
+  get _lang() {
+    return (this.hass && (this.hass.locale?.language || this.hass.language)) || "en";
+  }
+
+  _t(key, params) {
+    return t(key, this._lang, params);
   }
 
   updated(changedProps) {
@@ -78,7 +81,7 @@ class MelittaPanel extends LitElement {
       <header>
         <div class="title">
           <ha-icon icon="mdi:coffee-maker"></ha-icon>
-          <span>Melitta Barista</span>
+          <span>${this._t("panel.title")}</span>
         </div>
         ${this._entries.length > 1 ? html`
           <select
@@ -98,11 +101,11 @@ class MelittaPanel extends LitElement {
   _renderTabs() {
     return html`
       <nav>
-        ${TABS.map((tab) => html`
+        ${TAB_IDS.map((id) => html`
           <button
-            class=${this._tab === tab.id ? "active" : ""}
-            @click=${() => { this._tab = tab.id; }}
-          >${tab.label}</button>
+            class=${this._tab === id ? "active" : ""}
+            @click=${() => { this._tab = id; }}
+          >${this._t(`tabs.${id}`)}</button>
         `)}
       </nav>
     `;
@@ -110,22 +113,22 @@ class MelittaPanel extends LitElement {
 
   _renderActiveTab() {
     if (!this._activeEntry) {
-      return html`<div class="empty">Не найдено ни одной интегрированной кофемашины.</div>`;
+      return html`<div class="empty">${this._t("panel.no_entries")}</div>`;
     }
-    const props = { hass: this.hass, entryId: this._activeEntry };
+    const props = { hass: this.hass, entryId: this._activeEntry, lang: this._lang };
     switch (this._tab) {
       case "status":
-        return html`<melitta-status .hass=${props.hass} .entryId=${props.entryId}></melitta-status>`;
+        return html`<melitta-status .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-status>`;
       case "diagnostics":
-        return html`<melitta-diagnostics .hass=${props.hass} .entryId=${props.entryId}></melitta-diagnostics>`;
+        return html`<melitta-diagnostics .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-diagnostics>`;
       case "recipes":
-        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId}></melitta-recipes>`;
+        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-recipes>`;
       case "beans":
-        return html`<melitta-beans .hass=${props.hass} .entryId=${props.entryId}></melitta-beans>`;
+        return html`<melitta-beans .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-beans>`;
       case "additives":
-        return html`<melitta-additives .hass=${props.hass} .entryId=${props.entryId}></melitta-additives>`;
+        return html`<melitta-additives .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-additives>`;
       case "sommelier":
-        return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId}></melitta-sommelier>`;
+        return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-sommelier>`;
       default:
         return "";
     }
