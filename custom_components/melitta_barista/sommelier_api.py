@@ -311,8 +311,12 @@ async def ws_milk_get(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "melitta_barista/sommelier/milk/set",
+        # Free-form list of milk type names. The legacy VALID_MILK_TYPES
+        # whitelist (8 English-only values) was rejecting Russian / brand
+        # names like "Ультрапастеризованное 3%"; the panel's milk manager
+        # is intended to be a freeform vocabulary just like flavor tags.
         vol.Required("milk_types"): vol.All(
-            cv.ensure_list, [vol.In(VALID_MILK_TYPES)]
+            cv.ensure_list, [cv.string]
         ),
     }
 )
