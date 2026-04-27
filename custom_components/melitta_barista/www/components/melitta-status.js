@@ -95,8 +95,8 @@ class MelittaStatus extends LitElement {
   _renderRow(label, value) {
     return html`
       <div class="row">
-        <div class="label">${label}</div>
-        <div class="value">${value ?? this._t("common.unknown")}</div>
+        <span class="label">${label}:</span>
+        <span class="value">${value ?? this._t("common.unknown")}</span>
       </div>
     `;
   }
@@ -212,26 +212,32 @@ class MelittaStatus extends LitElement {
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
+      /* Compact key-value list: label and value sit on the same line, side
+         by side, with a small gap. Pages stack vertically — no two-column
+         layout that pushes value to the right edge of the screen. */
       .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 8px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
       .row {
         display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 6px 0;
-        border-bottom: 1px dashed var(--divider-color);
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--divider-color);
+        font-size: 13px;
+        line-height: 1.35;
       }
+      .row:last-child { border-bottom: none; }
       .label {
         color: var(--secondary-text-color);
-        font-size: 13px;
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
       .value {
         font-weight: 500;
-        text-align: right;
-        word-break: break-all;
+        word-break: break-word;
       }
       .pill {
         padding: 4px 12px;

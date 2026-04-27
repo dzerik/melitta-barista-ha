@@ -90,26 +90,43 @@ class MelittaDiagnostics extends LitElement {
 
   _renderConfig() {
     const d = this._data;
+    const rows = [
+      [this._t("diag.address"), d.address],
+      [this._t("diag.brand"), d.brand || this._t("common.unknown")],
+      [this._t("diag.proxy"), this._proxyLabel(d.proxy)],
+      [this._t("diag.poll_interval"),
+        d.poll_interval ? `${d.poll_interval} s` : this._t("common.unknown")],
+    ];
     return html`
       <div class="grid">
-        <div class="row">
-          <div class="label">${this._t("diag.address")}</div>
-          <div class="value">${d.address}</div>
-        </div>
-        <div class="row">
-          <div class="label">${this._t("diag.brand")}</div>
-          <div class="value">${d.brand || this._t("common.unknown")}</div>
-        </div>
-        <div class="row">
-          <div class="label">${this._t("diag.proxy")}</div>
-          <div class="value">${this._proxyLabel(d.proxy)}</div>
-        </div>
-        <div class="row">
-          <div class="label">${this._t("diag.poll_interval")}</div>
-          <div class="value">${d.poll_interval ? `${d.poll_interval} s` : this._t("common.unknown")}</div>
-        </div>
+        ${rows.map(([k, v]) => html`
+          <div class="row">
+            <span class="label">${k}:</span>
+            <span class="value">${v}</span>
+          </div>
+        `)}
       </div>
     `;
+  }
+
+  /**
+   * Collapse adjacent rows whose dedup key matches into a single row showing
+   * the latest timestamp and the repeat count. The input is reversed (newest
+   * first) before grouping, so the rendered order remains "newest at top".
+   */
+  _collapseDuplicates(rows, keyFn) {
+    const reversed = rows.slice().reverse();
+    const out = [];
+    for (const row of reversed) {
+      const key = keyFn(row);
+      const last = out.length ? out[out.length - 1] : null;
+      if (last && last._key === key) {
+        last._count += 1;
+        continue;
+      }
+      out.push({ ...row, _key: key, _count: 1 });
+    }
+    return out;
   }
 
   _renderErrors() {
@@ -117,6 +134,10 @@ class MelittaDiagnostics extends LitElement {
     if (errors.length === 0) {
       return html`<div class="hint">${this._t("diag.no_errors")}</div>`;
     }
+    const collapsed = this._collapseDuplicates(
+      errors,
+      (e) => `${e.source || ""}::${e.message || ""}`,
+    );
     return html`
       <table class="log">
         <thead>
@@ -127,9 +148,12 @@ class MelittaDiagnostics extends LitElement {
           </tr>
         </thead>
         <tbody>
-          ${errors.slice().reverse().map((err) => html`
+          ${collapsed.map((err) => html`
             <tr>
-              <td class="ts">${this._formatTimestamp(err.ts)}</td>
+              <td class="ts">
+                ${this._formatTimestamp(err.ts)}
+                ${err._count > 1 ? html`<span class="badge">×${err._count}</span>` : ""}
+              </td>
               <td>${err.source || ""}</td>
               <td>${err.message || ""}</td>
             </tr>
@@ -144,6 +168,7 @@ class MelittaDiagnostics extends LitElement {
     if (frames.length === 0) {
       return html`<div class="hint">${this._t("diag.no_frames")}</div>`;
     }
+    const collapsed = this._collapseDuplicates(frames, (f) => f.hex);
     return html`
       <table class="log">
         <thead>
@@ -154,9 +179,12 @@ class MelittaDiagnostics extends LitElement {
           </tr>
         </thead>
         <tbody>
-          ${frames.slice().reverse().map((f) => html`
+          ${collapsed.map((f) => html`
             <tr>
-              <td class="ts">${this._formatTimestamp(f.ts)}</td>
+              <td class="ts">
+                ${this._formatTimestamp(f.ts)}
+                ${f._count > 1 ? html`<span class="badge">×${f._count}</span>` : ""}
+              </td>
               <td class="num">${f.len}</td>
               <td class="mono">${f.hex}</td>
             </tr>
@@ -219,19 +247,32 @@ class MelittaDiagnostics extends LitElement {
         letter-spacing: 0.5px;
       }
       .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 8px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
       .row {
         display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 6px 0;
-        border-bottom: 1px dashed var(--divider-color);
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--divider-color);
+        font-size: 13px;
+        line-height: 1.35;
       }
-      .label { color: var(--secondary-text-color); font-size: 13px; }
-      .value { font-weight: 500; text-align: right; word-break: break-all; }
+      .row:last-child { border-bottom: none; }
+      .label { color: var(--secondary-text-color); flex: 0 0 auto; white-space: nowrap; }
+      .value { font-weight: 500; word-break: break-word; }
+      .badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 6px;
+        background: var(--secondary-background-color);
+        border-radius: 8px;
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
+      }
       .hint { color: var(--secondary-text-color); padding: 8px 0; }
       .error {
         margin: 12px 0;

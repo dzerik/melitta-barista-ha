@@ -298,10 +298,8 @@ async def _async_get_db(hass: HomeAssistant):
 
 
 async def _ensure_panel_schema(db) -> None:
-    """Create panel-only tables (producers, syrups, toppings) if missing.
-
-    Beans and milk tables are managed by sommelier_db.async_setup; we only
-    need to add producers and the pure additives.
+    """Create panel-only tables (producers, syrups, toppings, tags, prompts)
+    if missing. Beans and milk tables are managed by sommelier_db.async_setup.
     """
     db_handle = db._db
     if db_handle is None:
@@ -330,6 +328,17 @@ async def _ensure_panel_schema(db) -> None:
             brand TEXT,
             notes TEXT,
             created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS flavor_tags (
+            name TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS panel_prompts (
+            slot TEXT PRIMARY KEY,
+            template TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
     """)
     await db_handle.commit()
@@ -436,19 +445,29 @@ async def _ws_beans_autofill(hass, connection, msg):
     """
     from homeassistant.components import conversation  # noqa: PLC0415
 
-    prompt = (
-        f"You are a coffee specialist. For the product {msg['product']!r} "
-        f"by producer {msg['brand']!r}, return a JSON object with keys:\n"
-        f"  roast (light|medium|medium_dark|dark),\n"
-        f"  bean_type (arabica|arabica_robusta|robusta),\n"
-        f"  origin (single_origin|blend),\n"
-        f"  origin_country (string, two-letter or full country name),\n"
-        f"  flavor_notes (array of strings, choose from: chocolate, nutty, "
-        f"fruity, floral, caramel, spicy, earthy, honey, berry, citrus),\n"
-        f"  composition (string with the arabica/robusta ratio if known),\n"
-        f"  brewing_recommendation (one short sentence).\n"
-        f"Reply ONLY with the JSON object — no commentary, no markdown."
-    )
+    template = await _resolve_prompt(hass, "beans_autofill")
+    try:
+        prompt = template.format(brand=msg["brand"], product=msg["product"])
+    except (KeyError, IndexError):
+        # User overrode the prompt with mismatched placeholders — fall back
+        # to a literal substitution so we still send something useful.
+        prompt = (
+            template
+            .replace("{brand!r}", repr(msg["brand"]))
+            .replace("{brand}", msg["brand"])
+            .replace("{product!r}", repr(msg["product"]))
+            .replace("{product}", msg["product"])
+        )
+
+    # Pick agent: explicit msg argument > sommelier setting > HA default.
+    agent_id = msg.get("agent_id")
+    if not agent_id:
+        try:
+            db = await _async_get_db(hass)
+            settings = await db.async_get_settings()
+            agent_id = settings.get("llm_agent_id") or None
+        except Exception:  # noqa: BLE001
+            agent_id = None
 
     try:
         result = await conversation.async_converse(
@@ -457,7 +476,7 @@ async def _ws_beans_autofill(hass, connection, msg):
             conversation_id=None,
             context=connection.context(msg),
             language=hass.config.language,
-            agent_id=msg.get("agent_id"),
+            agent_id=agent_id,
         )
     except Exception as exc:  # noqa: BLE001
         connection.send_error(msg["id"], "conversation_error", str(exc))
@@ -552,6 +571,211 @@ _SYRUPS_HANDLERS = _make_additive_handlers("syrups")
 _TOPPINGS_HANDLERS = _make_additive_handlers("toppings")
 
 
+def _make_additive_update_handler(table: str):
+    """Generate the update handler for an additive table."""
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): f"melitta_barista/{table}/update",
+        vol.Required("id"): int,
+        vol.Optional("name"): str,
+        vol.Optional("brand"): str,
+        vol.Optional("notes"): str,
+    })
+    @websocket_api.async_response
+    async def _ws_update(hass, connection, msg):
+        db = await _async_get_db(hass)
+        fields = {k: msg[k] for k in ("name", "brand", "notes") if k in msg}
+        if not fields:
+            connection.send_error(msg["id"], "no_fields", "No fields to update")
+            return
+        set_clause = ", ".join(f"{k} = ?" for k in fields)
+        await db._db.execute(
+            f"UPDATE {table} SET {set_clause} WHERE id = ?",
+            (*fields.values(), msg["id"]),
+        )
+        await db._db.commit()
+        connection.send_result(msg["id"], {"updated": True})
+
+    return _ws_update
+
+
+_SYRUPS_UPDATE = _make_additive_update_handler("syrups")
+_TOPPINGS_UPDATE = _make_additive_update_handler("toppings")
+
+
+# tags --------------------------------------------------------------------
+
+
+@websocket_api.websocket_command({vol.Required("type"): "melitta_barista/tags/list"})
+@websocket_api.async_response
+async def _ws_tags_list(hass, connection, msg):
+    """Return the union of explicit flavor_tags + tags ever used by any bean."""
+    db = await _async_get_db(hass)
+    cursor = await db._db.execute("SELECT name FROM flavor_tags ORDER BY name")
+    explicit = {row[0] for row in await cursor.fetchall()}
+    # also pick up anything currently referenced by beans so the autofill
+    # results stay in sync without an extra registration step
+    cursor = await db._db.execute(
+        "SELECT flavor_notes FROM coffee_beans WHERE flavor_notes IS NOT NULL"
+    )
+    import json as _json  # noqa: PLC0415
+    for (raw,) in await cursor.fetchall():
+        try:
+            arr = _json.loads(raw)
+            if isinstance(arr, list):
+                for tag in arr:
+                    if isinstance(tag, str) and tag:
+                        explicit.add(tag)
+        except (TypeError, ValueError):
+            continue
+    connection.send_result(msg["id"], {"tags": sorted(explicit)})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/tags/add",
+    vol.Required("name"): str,
+})
+@websocket_api.async_response
+async def _ws_tags_add(hass, connection, msg):
+    name = msg["name"].strip()
+    if not name:
+        connection.send_error(msg["id"], "empty", "Tag name is empty")
+        return
+    db = await _async_get_db(hass)
+    await db._db.execute(
+        "INSERT OR IGNORE INTO flavor_tags (name, created_at) VALUES (?, ?)",
+        (name, _now_iso()),
+    )
+    await db._db.commit()
+    connection.send_result(msg["id"], {"name": name})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/tags/delete",
+    vol.Required("name"): str,
+})
+@websocket_api.async_response
+async def _ws_tags_delete(hass, connection, msg):
+    db = await _async_get_db(hass)
+    await db._db.execute("DELETE FROM flavor_tags WHERE name = ?", (msg["name"],))
+    await db._db.commit()
+    connection.send_result(msg["id"], {"deleted": True})
+
+
+# prompts -----------------------------------------------------------------
+
+DEFAULT_PROMPTS: dict[str, str] = {
+    "beans_autofill": (
+        "You are a coffee specialist. For the product {product!r} by producer "
+        "{brand!r}, return a JSON object with keys:\n"
+        "  roast (light|medium|medium_dark|dark),\n"
+        "  bean_type (arabica|arabica_robusta|robusta),\n"
+        "  origin (single_origin|blend),\n"
+        "  origin_country (string),\n"
+        "  flavor_notes (array of short adjectives),\n"
+        "  composition (string with the arabica/robusta ratio if known),\n"
+        "  brewing_recommendation (one short sentence).\n"
+        "Reply ONLY with the JSON object — no commentary, no markdown."
+    ),
+}
+
+
+@websocket_api.websocket_command({vol.Required("type"): "melitta_barista/prompts/list"})
+@websocket_api.async_response
+async def _ws_prompts_list(hass, connection, msg):
+    db = await _async_get_db(hass)
+    cursor = await db._db.execute("SELECT slot, template FROM panel_prompts")
+    overrides = {row[0]: row[1] for row in await cursor.fetchall()}
+    items = [
+        {
+            "slot": slot,
+            "default": default,
+            "template": overrides.get(slot, default),
+            "is_default": slot not in overrides,
+        }
+        for slot, default in DEFAULT_PROMPTS.items()
+    ]
+    connection.send_result(msg["id"], {"prompts": items})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/prompts/save",
+    vol.Required("slot"): str,
+    vol.Required("template"): str,
+})
+@websocket_api.async_response
+async def _ws_prompts_save(hass, connection, msg):
+    if msg["slot"] not in DEFAULT_PROMPTS:
+        connection.send_error(msg["id"], "unknown_slot", f"Unknown prompt {msg['slot']}")
+        return
+    db = await _async_get_db(hass)
+    await db._db.execute(
+        """INSERT INTO panel_prompts (slot, template, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(slot) DO UPDATE SET template = excluded.template,
+                                           updated_at = excluded.updated_at""",
+        (msg["slot"], msg["template"], _now_iso()),
+    )
+    await db._db.commit()
+    connection.send_result(msg["id"], {"saved": True})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/prompts/reset",
+    vol.Required("slot"): str,
+})
+@websocket_api.async_response
+async def _ws_prompts_reset(hass, connection, msg):
+    db = await _async_get_db(hass)
+    await db._db.execute("DELETE FROM panel_prompts WHERE slot = ?", (msg["slot"],))
+    await db._db.commit()
+    connection.send_result(msg["id"], {"reset": True})
+
+
+async def _resolve_prompt(hass, slot: str) -> str:
+    """Return the user override for a prompt slot, or the bundled default."""
+    default = DEFAULT_PROMPTS.get(slot, "")
+    try:
+        db = await _async_get_db(hass)
+        cursor = await db._db.execute(
+            "SELECT template FROM panel_prompts WHERE slot = ?", (slot,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            return row[0]
+    except Exception:  # noqa: BLE001
+        pass
+    return default
+
+
+# llm agents --------------------------------------------------------------
+
+
+@websocket_api.websocket_command({vol.Required("type"): "melitta_barista/llm/agents"})
+@websocket_api.async_response
+async def _ws_llm_agents(hass, connection, msg):
+    """List available HA conversation agents the panel can target."""
+    from homeassistant.components import conversation  # noqa: PLC0415
+    try:
+        agents = await conversation.async_get_agent_info(hass)
+    except AttributeError:
+        # Older HA: fall back to entity registry scan
+        agents = []
+        for entity in hass.states.async_all():
+            if entity.entity_id.startswith("conversation."):
+                agents.append({
+                    "id": entity.entity_id,
+                    "name": entity.attributes.get("friendly_name") or entity.entity_id,
+                })
+    else:
+        # async_get_agent_info returns an iterable of (id, name) or richer dicts
+        agents = [
+            {"id": getattr(a, "id", a.get("id") if isinstance(a, dict) else str(a)),
+             "name": getattr(a, "name", a.get("name") if isinstance(a, dict) else str(a))}
+            for a in agents
+        ]
+    connection.send_result(msg["id"], {"agents": agents})
+
+
 # ── registration ────────────────────────────────────────────────────────
 
 
@@ -609,6 +833,17 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
     # additives — syrups + toppings (milk lives in sommelier_api.py)
     for handler in (*_SYRUPS_HANDLERS, *_TOPPINGS_HANDLERS):
         async_register_command(hass, handler)
+    async_register_command(hass, _SYRUPS_UPDATE)
+    async_register_command(hass, _TOPPINGS_UPDATE)
+
+    # tags + prompts + LLM agent picker
+    async_register_command(hass, _ws_tags_list)
+    async_register_command(hass, _ws_tags_add)
+    async_register_command(hass, _ws_tags_delete)
+    async_register_command(hass, _ws_prompts_list)
+    async_register_command(hass, _ws_prompts_save)
+    async_register_command(hass, _ws_prompts_reset)
+    async_register_command(hass, _ws_llm_agents)
 
     domain_data["panel_api_registered"] = True
     _LOGGER.debug("Panel WS API registered")

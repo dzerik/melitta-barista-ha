@@ -21,6 +21,7 @@ const STRINGS = {
     "tabs.beans": "Beans",
     "tabs.additives": "Add-ins",
     "tabs.sommelier": "Sommelier",
+    "tabs.settings": "Settings",
 
     "common.loading": "Loading…",
     "common.error": "Error",
@@ -130,6 +131,37 @@ const STRINGS = {
     "sommelier.brewing": "Sending brew command…",
     "sommelier.brew_ok": "Brew started.",
     "sommelier.brew_failed": "Brew failed.",
+
+    "modal.add_bean": "Add bean",
+    "modal.edit_bean": "Edit bean",
+    "modal.add_producer": "Add producer",
+    "modal.edit_producer": "Edit producer",
+    "modal.add_additive": "Add add-in",
+    "modal.edit_additive": "Edit add-in",
+    "modal.type": "Type",
+    "modal.type.syrup": "Syrup",
+    "modal.type.topping": "Topping",
+    "modal.type.milk": "Milk",
+
+    "tags.title": "Flavor notes",
+    "tags.add_placeholder": "Add tag…",
+    "tags.add_button": "Add tag",
+
+    "hopper.title": "Hopper assignment",
+    "hopper.left": "Hopper 1 (left)",
+    "hopper.right": "Hopper 2 (right)",
+    "hopper.unassigned": "— not set —",
+    "hopper.assigned": "Assigned",
+
+    "settings.title": "Settings",
+    "settings.llm_agent": "LLM model",
+    "settings.llm_help": "Conversation agent used for Sommelier and bean autofill.",
+    "settings.prompts": "Prompt templates",
+    "settings.prompt_default": "Default",
+    "settings.prompt_reset": "Reset to default",
+    "settings.prompt_save": "Save",
+    "settings.saved": "Saved.",
+    "settings.reset_done": "Reset to default.",
   },
 
   ru: {
@@ -142,6 +174,7 @@ const STRINGS = {
     "tabs.beans": "Зёрна",
     "tabs.additives": "Добавки",
     "tabs.sommelier": "Сомелье",
+    "tabs.settings": "Настройки",
 
     "common.loading": "Загрузка…",
     "common.error": "Ошибка",
@@ -251,6 +284,37 @@ const STRINGS = {
     "sommelier.brewing": "Отправляю команду варки…",
     "sommelier.brew_ok": "Варка началась.",
     "sommelier.brew_failed": "Варка не выполнена.",
+
+    "modal.add_bean": "Добавить сорт",
+    "modal.edit_bean": "Редактировать сорт",
+    "modal.add_producer": "Добавить производителя",
+    "modal.edit_producer": "Редактировать производителя",
+    "modal.add_additive": "Добавить добавку",
+    "modal.edit_additive": "Редактировать добавку",
+    "modal.type": "Тип",
+    "modal.type.syrup": "Сироп",
+    "modal.type.topping": "Топинг",
+    "modal.type.milk": "Молоко",
+
+    "tags.title": "Вкусовые заметки",
+    "tags.add_placeholder": "Добавить тег…",
+    "tags.add_button": "Добавить тег",
+
+    "hopper.title": "Назначение в бункер",
+    "hopper.left": "Бункер 1 (левый)",
+    "hopper.right": "Бункер 2 (правый)",
+    "hopper.unassigned": "— не назначено —",
+    "hopper.assigned": "Назначено",
+
+    "settings.title": "Настройки",
+    "settings.llm_agent": "LLM-модель",
+    "settings.llm_help": "Conversation agent для Сомелье и автозаполнения зёрен.",
+    "settings.prompts": "Шаблоны промптов",
+    "settings.prompt_default": "По умолчанию",
+    "settings.prompt_reset": "Сбросить",
+    "settings.prompt_save": "Сохранить",
+    "settings.saved": "Сохранено.",
+    "settings.reset_done": "Сброшено к дефолту.",
   },
 };
 

@@ -12,18 +12,23 @@ const _q = _v ? `?v=${_v}` : "";
 
 await Promise.all([
   import(`./components/melitta-toast.js${_q}`),
+  import(`./components/melitta-modal.js${_q}`),
   import(`./components/melitta-status.js${_q}`),
   import(`./components/melitta-diagnostics.js${_q}`),
   import(`./components/melitta-recipes.js${_q}`),
   import(`./components/melitta-beans.js${_q}`),
   import(`./components/melitta-additives.js${_q}`),
   import(`./components/melitta-sommelier.js${_q}`),
+  import(`./components/melitta-settings.js${_q}`),
 ]);
 
 import { LitElement, html, css } from "./lit-base.js";
 import { t } from "./i18n.js";
 
-const TAB_IDS = ["status", "diagnostics", "recipes", "beans", "additives", "sommelier"];
+const TAB_IDS = [
+  "status", "diagnostics", "recipes",
+  "beans", "additives", "sommelier", "settings",
+];
 
 class MelittaPanel extends LitElement {
   static get properties() {
@@ -129,6 +134,8 @@ class MelittaPanel extends LitElement {
         return html`<melitta-additives .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-additives>`;
       case "sommelier":
         return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-sommelier>`;
+      case "settings":
+        return html`<melitta-settings .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-settings>`;
       default:
         return "";
     }
