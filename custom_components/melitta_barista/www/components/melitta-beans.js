@@ -38,6 +38,7 @@ class MelittaBeans extends LitElement {
       _autofillErrors: { type: Array },
       _newTag: { type: String },
       _error: { type: String },
+      _savedMessage: { type: String },
     };
   }
 
@@ -55,6 +56,13 @@ class MelittaBeans extends LitElement {
     this._autofillErrors = [];
     this._newTag = "";
     this._error = "";
+    this._savedMessage = "";
+  }
+
+  _flash(text) {
+    this._savedMessage = text;
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => { this._savedMessage = ""; }, 4000);
   }
 
   _t(key, params) {
@@ -318,32 +326,68 @@ class MelittaBeans extends LitElement {
   // ── hopper assignment ──
 
   async _assignHopper(hopperId, beanId) {
+    const hopperInt = parseInt(hopperId, 10);
+    const cleanBeanId = beanId || null;
+    const targetBean = cleanBeanId
+      ? this._beans.find((b) => b.id === cleanBeanId)
+      : null;
+    const beanLabel = targetBean
+      ? `${targetBean.brand} — ${targetBean.product}`
+      : this._t("hopper.unassigned");
     try {
-      // hopperId can arrive as a string from the closure / event chain.
-      // The WS schema requires vol.In([1, 2]) — strict int, no coercion.
-      await this.hass.callWS({
+      const result = await this.hass.callWS({
         type: "melitta_barista/sommelier/hoppers/assign",
-        hopper_id: parseInt(hopperId, 10),
-        bean_id: beanId || null,
+        hopper_id: hopperInt,
+        bean_id: cleanBeanId,
+      });
+      // Log to console so the user can verify in DevTools that the
+      // round-trip succeeded — easier than reading HA logs.
+      // eslint-disable-next-line no-console
+      console.info("[melitta-panel] hopper assign result:", result, {
+        hopper_id: hopperInt, bean_id: cleanBeanId,
       });
       await this._loadAll();
+      // Verify: read back what the server has now and confirm it
+      // matches the assignment we just made.
+      const actual = this._hoppers[`hopper${hopperInt}`];
+      const actualBeanId = actual?.bean?.id || null;
+      if (actualBeanId === cleanBeanId) {
+        this._flash(`✓ Бункер ${hopperInt}: ${beanLabel}`);
+        this._error = "";
+      } else {
+        this._error =
+          `Сохранение не подтверждено: WS вернул OK, но после обновления` +
+          ` в бункере ${hopperInt} лежит "${actualBeanId || "—"}" вместо` +
+          ` "${cleanBeanId || "—"}". Проверь логи HA.`;
+      }
     } catch (e) {
-      this._error = e.message || String(e);
+      this._error = `Назначение в бункер ${hopperInt} провалилось: ${e.message || e}`;
+      // eslint-disable-next-line no-console
+      console.error("[melitta-panel] hopper assign error:", e);
     }
   }
 
   _renderHopperRow(label, hopperId, current) {
+    // Lit's `.value=${X}` on a <select> races with option rendering — the
+    // value can land before the matching <option> exists, leaving the
+    // select visually unselected even though the data says otherwise.
+    // Pinning the chosen option with `?selected` is the rendering-order
+    // safe way to restore the dropdown after a re-load (e.g. tab switch).
+    const currentId = current?.bean?.id || "";
     return html`
       <div class="row">
         <span class="label">${label}:</span>
         <select
           class="value"
-          .value=${current?.bean?.id || ""}
           @change=${(e) => this._assignHopper(hopperId, e.target.value)}
         >
-          <option value="">${this._t("hopper.unassigned")}</option>
+          <option value="" ?selected=${currentId === ""}>
+            ${this._t("hopper.unassigned")}
+          </option>
           ${this._beans.map((b) => html`
-            <option value=${b.id}>${b.brand} — ${b.product}</option>
+            <option value=${b.id} ?selected=${b.id === currentId}>
+              ${b.brand} — ${b.product}
+            </option>
           `)}
         </select>
       </div>
@@ -552,6 +596,9 @@ class MelittaBeans extends LitElement {
     return html`
       <section class="card">
         <h2>${this._t("beans.title")}</h2>
+        ${this._savedMessage
+          ? html`<div class="saved-banner">${this._savedMessage}</div>`
+          : ""}
         ${this._error ? html`<div class="error">${this._t("common.error")}: ${this._error}</div>` : ""}
 
         <div class="section-head">
@@ -570,7 +617,9 @@ class MelittaBeans extends LitElement {
         </div>
         ${this._renderBeansTable()}
 
-        <h3>${this._t("hopper.title")}</h3>
+        <div class="section-head hopper-section">
+          <h3>${this._t("hopper.title")}</h3>
+        </div>
         <div class="grid">
           ${this._renderHopperRow(this._t("hopper.left"), 1, this._hoppers.hopper1)}
           ${this._renderHopperRow(this._t("hopper.right"), 2, this._hoppers.hopper2)}
@@ -603,6 +652,12 @@ class MelittaBeans extends LitElement {
         align-items: center;
         justify-content: space-between;
         margin: 24px 0 8px;
+      }
+      .section-head.hopper-section {
+        /* Visually break apart from the dense beans table above. */
+        margin-top: 28px;
+        padding-top: 16px;
+        border-top: 1px solid var(--divider-color);
       }
 
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -643,6 +698,19 @@ class MelittaBeans extends LitElement {
         background: var(--error-color);
         color: var(--text-primary-color);
         border-radius: 4px;
+      }
+      .saved-banner {
+        margin: 12px 0;
+        padding: 10px 14px;
+        background: var(--success-color, #4caf50);
+        color: white;
+        border-radius: 4px;
+        font-weight: 500;
+        animation: fade-in 0.18s ease-out;
+      }
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
 
       /* form (used inside modal) */

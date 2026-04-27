@@ -9,6 +9,7 @@
 
 const _v = new URL(import.meta.url).searchParams.get("v") || "";
 const _q = _v ? `?v=${_v}` : "";
+const PANEL_VERSION = _v || "dev";
 
 await Promise.all([
   import(`./components/melitta-toast.js${_q}`),
@@ -87,6 +88,7 @@ class MelittaPanel extends LitElement {
         <div class="title">
           <ha-icon icon="mdi:coffee-maker"></ha-icon>
           <span>${this._t("panel.title")}</span>
+          <span class="version" title="Integration version">v${PANEL_VERSION}</span>
         </div>
         ${this._entries.length > 1 ? html`
           <select
@@ -175,6 +177,16 @@ class MelittaPanel extends LitElement {
         gap: 8px;
         font-size: 18px;
         font-weight: 500;
+      }
+      .version {
+        font-size: 11px;
+        font-weight: 400;
+        padding: 2px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--secondary-text-color, rgba(255, 255, 255, 0.7));
+        font-variant-numeric: tabular-nums;
+        margin-left: 4px;
       }
       .entry-picker {
         background: transparent;
