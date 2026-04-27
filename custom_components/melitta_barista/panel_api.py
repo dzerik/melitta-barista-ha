@@ -476,10 +476,19 @@ async def _structured_call(
     """
     smartchain = _try_smartchain_structured()
     model = RESPONSE_MODELS.get(slot)
+    template = await _resolve_prompt(hass, slot)
+
+    # SmartChain native path: send the user's intent directly. SmartChain's
+    # client.with_structured_output(schema) handles the JSON Schema
+    # contract via the provider's native mode — no prompt-side schema
+    # injection needed.
     if smartchain is not None and model is not None and agent_id and "smartchain" in agent_id:
         try:
-            obj = await smartchain(hass, schema=model, prompt_vars=fmt_vars,
-                                   slot=slot, agent_id=agent_id)
+            intent = template.format(**fmt_vars)
+        except (KeyError, IndexError):
+            intent = template
+        try:
+            obj = await smartchain(hass, schema=model, prompt=intent, agent_id=agent_id)
             return {
                 "raw": "",
                 "parsed": obj.model_dump() if hasattr(obj, "model_dump") else dict(obj),
@@ -489,7 +498,6 @@ async def _structured_call(
         except Exception as exc:  # noqa: BLE001
             _LOGGER.debug("SmartChain structured call failed, falling back: %s", exc)
 
-    template = await _resolve_prompt(hass, slot)
     base_prompt = _assemble_prompt(slot, template, fmt_vars)
 
     last_errors: list | None = None
