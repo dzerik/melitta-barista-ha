@@ -721,6 +721,27 @@ DEFAULT_PROMPTS: dict[str, str] = {
         "origin, characteristic flavor notes, and a short brewing "
         "recommendation. Be concise and accurate."
     ),
+    "sommelier_intro": (
+        "You are an expert barista and coffee sommelier. Generate exactly "
+        "{count} unique coffee recipes for a bean-to-cup smart coffee machine. "
+        "Use the available beans, milk, time of day, weather, and any "
+        "preferences provided in the context below. Be creative but practical: "
+        "every recipe must be brewable on the configured machine."
+    ),
+}
+
+
+# Placeholders each slot supports — surfaced via /prompts/list so the panel
+# can render an inline help block telling users which substitutions are
+# available without making them grep the source.
+PROMPT_PLACEHOLDERS: dict[str, list[dict[str, str]]] = {
+    "beans_autofill": [
+        {"name": "brand", "desc": "Producer name (e.g. Lavazza)"},
+        {"name": "product", "desc": "Bean / blend name (e.g. Crema e Aroma)"},
+    ],
+    "sommelier_intro": [
+        {"name": "count", "desc": "Number of recipes to generate (1–5)"},
+    ],
 }
 
 
@@ -743,8 +764,48 @@ try:
         composition: str = ""
         brewing_recommendation: str = ""
 
+    class RecipeComponent(BaseModel):
+        """One component of a generated freestyle recipe."""
+
+        process: Literal["coffee", "milk", "water", "none"] = "none"
+        intensity: Literal["very_mild", "mild", "medium", "strong", "very_strong"] = "medium"
+        aroma: Literal["standard", "intense"] = "standard"
+        temperature: Literal["cold", "normal", "high"] = "normal"
+        shots: Literal["none", "one", "two", "three"] = "none"
+        portion_ml: int = Field(default=0, ge=0, le=250)
+
+    class RecipeExtras(BaseModel):
+        """Optional add-ins suggested by the sommelier."""
+
+        ice: bool = False
+        syrup: str | None = None
+        topping: str | None = None
+        liqueur: str | None = None
+        instruction: str | None = None
+
+    class GeneratedRecipe(BaseModel):
+        """One generated sommelier recipe — what the LLM must return."""
+
+        name: str
+        description: str = ""
+        blend: Literal[0, 1] = 1
+        component1: RecipeComponent
+        component2: RecipeComponent
+        extras: RecipeExtras = Field(default_factory=lambda: RecipeExtras())
+        cup_type: str | None = None
+        estimated_caffeine: Literal["none", "low", "medium", "high"] | None = None
+        calories_approx: int | None = Field(default=None, ge=0, le=2000)
+
+    class SommelierGenerateResult(BaseModel):
+        """Wrapper enforcing an array of recipes (top-level list isn't a JSON
+        Schema object — wrapping with a `recipes` key keeps responseSchema
+        modes happy on every provider)."""
+
+        recipes: list[GeneratedRecipe] = Field(min_length=1, max_length=5)
+
     RESPONSE_MODELS: dict[str, type[BaseModel]] = {
         "beans_autofill": BeanAutofillResult,
+        "sommelier_intro": SommelierGenerateResult,
     }
     _PYDANTIC_OK = True
 except ImportError:  # pragma: no cover — defensive fallback
@@ -870,6 +931,7 @@ async def _ws_prompts_list(hass, connection, msg):
             # Schema is auto-appended on send; expose it read-only so users
             # can see the contract their template is paired with.
             "schema": _schema_for(slot),
+            "placeholders": PROMPT_PLACEHOLDERS.get(slot, []),
         })
     connection.send_result(msg["id"], {"prompts": items})
 

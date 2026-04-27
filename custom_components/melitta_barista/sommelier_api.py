@@ -417,6 +417,15 @@ async def ws_generate(
             1 for s in hass.states.async_all("person") if s.state == "home"
         )
 
+    # Load user-overridable persona prompt for the sommelier (slot
+    # `sommelier_intro` in the panel prompt store). Falls back to the bundled
+    # default inside _build_prompt when None.
+    try:
+        from .panel_api import _resolve_prompt  # noqa: PLC0415
+        intro = await _resolve_prompt(hass, "sommelier_intro")
+    except Exception:  # noqa: BLE001
+        intro = None
+
     try:
         recipes = await async_generate_recipes(
             hass=hass,
@@ -439,6 +448,7 @@ async def ws_generate(
             weather=weather_context,
             people_home=people_home,
             cups_today=cups_today,
+            intro=intro,
         )
     except Exception as err:
         _LOGGER.error("Failed to generate recipes: %s", err)

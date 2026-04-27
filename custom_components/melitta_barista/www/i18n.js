@@ -162,6 +162,22 @@ const STRINGS = {
     "settings.prompt_save": "Save",
     "settings.saved": "Saved.",
     "settings.reset_done": "Reset to default.",
+    "settings.help_title": "How prompt templates work",
+    "settings.help_placeholders": "Placeholders",
+    "settings.help_no_placeholders": "No placeholders for this slot.",
+    "settings.help_syntax": "Syntax",
+    "settings.help_syntax_text":
+      "Use Python str.format syntax: {name} for a value, {name!r} to wrap it in quotes. " +
+      "Unknown placeholders pass through literally so you can see them in the LLM reply.",
+    "settings.help_schema":
+      "When a JSON Schema is shown below, it is automatically appended to your template " +
+      "before the request is sent. The model is instructed to reply with strict JSON " +
+      "matching that schema; replies are validated server-side and one auto-retry is " +
+      "performed if validation fails.",
+    "settings.help_smartchain":
+      "If the SmartChain integration is installed and a SmartChain agent is selected, " +
+      "the request is routed through its native structured-output API (no parsing — " +
+      "the provider returns a strict object). Otherwise the text+validation path runs.",
   },
 
   ru: {
@@ -315,6 +331,21 @@ const STRINGS = {
     "settings.prompt_save": "Сохранить",
     "settings.saved": "Сохранено.",
     "settings.reset_done": "Сброшено к дефолту.",
+    "settings.help_title": "Как работают шаблоны промптов",
+    "settings.help_placeholders": "Подстановки",
+    "settings.help_no_placeholders": "У этого слота нет подстановок.",
+    "settings.help_syntax": "Синтаксис",
+    "settings.help_syntax_text":
+      "Используется Python str.format: {name} — значение, {name!r} — значение в кавычках. " +
+      "Неизвестные подстановки попадут в промпт буквально, чтобы их можно было заметить в ответе LLM.",
+    "settings.help_schema":
+      "Если ниже показан JSON Schema — он автоматически дописывается к вашему шаблону перед " +
+      "отправкой запроса. Модели предписано отвечать строгим JSON по этой схеме; ответы " +
+      "валидируются на сервере, при ошибке выполняется один авто-retry с описанием ошибок.",
+    "settings.help_smartchain":
+      "Если установлена интеграция SmartChain и выбран её агент — запрос пойдёт через её " +
+      "нативный structured-output API (без парсинга — провайдер возвращает строгий объект). " +
+      "Иначе работает текстовый путь с валидацией.",
   },
 };
 

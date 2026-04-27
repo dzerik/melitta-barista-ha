@@ -57,6 +57,12 @@ VALID_CAFFEINE_PREFS = {"regular", "low", "decaf_evening"}
 VALID_DIETARY = {"no_sugar", "lactose_free", "low_calorie", "vegan"}
 
 
+_DEFAULT_INTRO = (
+    "You are an expert barista and coffee sommelier. Generate exactly {count} "
+    "unique coffee recipes for a bean-to-cup smart coffee machine."
+)
+
+
 def _build_prompt(
     hopper1_bean: dict[str, Any] | None,
     hopper2_bean: dict[str, Any] | None,
@@ -77,8 +83,16 @@ def _build_prompt(
     weather: dict[str, Any] | None = None,
     people_home: int | None = None,
     cups_today: int | None = None,
+    intro: str | None = None,
 ) -> str:
-    """Build structured prompt for the LLM."""
+    """Build structured prompt for the LLM.
+
+    `intro` is the user-editable persona/instruction prefix
+    (`sommelier_intro` slot). When None we fall back to the bundled default.
+    The dynamic context (beans, milk, time-of-day, weather, etc.) and the
+    Output Format spec are appended unconditionally; only the persona text
+    is user-overridable.
+    """
     now = datetime.now(timezone.utc)
     hour = now.hour
 
@@ -258,7 +272,15 @@ def _build_prompt(
         cups_section,
     ]))
 
-    return f"""You are an expert barista and coffee sommelier. Generate exactly {count} unique coffee recipes for a bean-to-cup smart coffee machine.
+    intro_text = (intro or _DEFAULT_INTRO)
+    try:
+        intro_text = intro_text.format(count=count, mode=mode)
+    except (KeyError, IndexError):
+        # User template uses placeholders we don't supply — pass through
+        # literally so they can spot the mismatch in the LLM reply.
+        pass
+
+    return f"""{intro_text}
 
 ## Machine Capabilities
 Each recipe has up to 2 components (dispensed sequentially). Each component has:
@@ -525,6 +547,7 @@ async def async_generate_recipes(
     weather: dict[str, Any] | None = None,
     people_home: int | None = None,
     cups_today: int | None = None,
+    intro: str | None = None,
 ) -> list[dict[str, Any]]:
     """Generate freestyle recipes using HA conversation agent."""
     prompt = _build_prompt(
@@ -538,6 +561,7 @@ async def async_generate_recipes(
         ice_available=ice_available,
         cup_size=cup_size,
         temperature_pref=temperature_pref,
+        intro=intro,
         mood=mood,
         occasion=occasion,
         servings=servings,

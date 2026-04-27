@@ -139,6 +139,17 @@ class MelittaSettings extends LitElement {
         </select>
 
         <h3>${this._t("settings.prompts")}</h3>
+
+        <details class="help" open>
+          <summary>${this._t("settings.help_title")}</summary>
+          <div class="help-body">
+            <p><strong>${this._t("settings.help_syntax")}.</strong>
+              ${this._t("settings.help_syntax_text")}</p>
+            <p>${this._t("settings.help_schema")}</p>
+            <p>${this._t("settings.help_smartchain")}</p>
+          </div>
+        </details>
+
         ${this._prompts.length === 0
           ? html`<div class="hint">${this._t("common.empty")}</div>`
           : this._prompts.map((p) => html`
@@ -147,6 +158,17 @@ class MelittaSettings extends LitElement {
                 <code>${p.slot}</code>
                 ${p.is_default ? html`<span class="badge">${this._t("settings.prompt_default")}</span>` : ""}
               </summary>
+
+              <div class="placeholders">
+                <span class="ph-label">${this._t("settings.help_placeholders")}:</span>
+                ${(p.placeholders || []).length === 0
+                  ? html`<span class="ph-empty">${this._t("settings.help_no_placeholders")}</span>`
+                  : (p.placeholders || []).map((ph) => html`
+                    <code class="ph">{${ph.name}}</code>
+                    <span class="ph-desc">— ${ph.desc}</span>
+                  `)}
+              </div>
+
               <textarea
                 rows="10"
                 .value=${this._drafts[p.slot] ?? ""}
@@ -226,6 +248,45 @@ class MelittaSettings extends LitElement {
         color: var(--text-primary-color);
         border-radius: 8px;
       }
+      details.help {
+        margin: 8px 0 16px;
+        background: var(--info-color, #2196f3);
+        color: var(--text-primary-color);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+      details.help summary { cursor: pointer; font-weight: 500; }
+      details.help .help-body { padding-top: 6px; }
+      details.help p { margin: 6px 0; line-height: 1.45; }
+      details.help code, details.help strong { font-weight: 500; }
+
+      .placeholders {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        background: var(--primary-background-color);
+        border-radius: 4px;
+        padding: 6px 10px;
+        margin: 8px 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 6px;
+        align-items: baseline;
+      }
+      .ph-label {
+        font-weight: 500;
+        margin-right: 4px;
+      }
+      .ph-empty { font-style: italic; }
+      .ph {
+        background: var(--secondary-background-color);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-family: var(--code-font-family, monospace);
+        color: var(--primary-text-color);
+      }
+      .ph-desc { margin-right: 6px; }
+
       details.schema {
         margin-top: 8px;
         background: var(--primary-background-color);
