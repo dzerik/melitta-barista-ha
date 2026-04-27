@@ -342,12 +342,24 @@ async def ws_milk_set(
         vol.Optional("count", default=3): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=5)
         ),
+        # Single mood/occasion kept for backwards compat; the new multi-
+        # selects (moods / dietary) override them when sent.
         vol.Optional("mood"): vol.In(VALID_MOODS),
+        vol.Optional("moods"): [vol.In(VALID_MOODS)],
         vol.Optional("occasion"): vol.In(VALID_OCCASIONS),
         vol.Optional("temperature", default="auto"): vol.In(["auto", "hot", "iced"]),
         vol.Optional("servings", default=1): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=4)
         ),
+        vol.Optional("dietary"): [vol.In(VALID_DIETARY)],
+        vol.Optional("caffeine_pref"): vol.In(VALID_CAFFEINE_PREFS),
+        vol.Optional("cup_size"): vol.In(VALID_CUP_SIZES),
+        # Whitelist filters: when present, restrict the LLM to ONLY these
+        # add-in / milk names (intersection with what's actually
+        # configured). When absent, fall back to the DB defaults.
+        vol.Optional("allow_syrups"): [cv.string],
+        vol.Optional("allow_toppings"): [cv.string],
+        vol.Optional("allow_milk"): [cv.string],
     }
 )
 @websocket_api.async_response
@@ -367,9 +379,22 @@ async def ws_generate(
     hopper1_bean = hoppers.get("hopper1", {}).get("bean")
     hopper2_bean = hoppers.get("hopper2", {}).get("bean")
 
-    # Load extras from DB
-    extras = await db.async_get_extras()
-    extras_context = extras if extras else None
+    # Load extras from DB then apply per-request whitelist filters.
+    # Empty filter list (= user explicitly cleared the multiselect)
+    # means "none of this category"; absent filter means "use DB
+    # default = everything available".
+    extras_db = await db.async_get_extras() or {}
+    if "allow_syrups" in msg:
+        extras_db["syrups"] = list(msg["allow_syrups"])
+    if "allow_toppings" in msg:
+        extras_db["toppings"] = list(msg["allow_toppings"])
+    if "allow_milk" in msg:
+        # `milk_types` is its own arg into the generator, but we keep
+        # the constraint in the extras dict too so the prompt's
+        # "Available extras" section reflects exactly what's allowed.
+        milk_types = list(msg["allow_milk"])
+        extras_db["milk"] = milk_types
+    extras_context = extras_db if any(extras_db.values()) else None
 
     # Load active profile from DB
     profile_id: str | None = None
@@ -401,6 +426,23 @@ async def ws_generate(
                 )
         dietary = active_profile.get("dietary", [])
         caffeine_pref = active_profile.get("caffeine_pref", "regular")
+
+    # Per-request overrides win over the active profile. The user can
+    # leave them out of the WS message to fall back to profile values.
+    if "cup_size" in msg:
+        cup_size = msg["cup_size"]
+    if "dietary" in msg:
+        dietary = list(msg["dietary"])
+    if "caffeine_pref" in msg:
+        caffeine_pref = msg["caffeine_pref"]
+    # Resolve mood/moods: prefer the new multi-list, fall back to the
+    # legacy single-mood field. We pass the union to the generator so
+    # the prompt explicitly lists all selected moods.
+    moods: list[str] | None = None
+    if "moods" in msg and msg["moods"]:
+        moods = list(msg["moods"])
+    elif msg.get("mood"):
+        moods = [msg["mood"]]
 
     # Get weather from HA if use_weather preference is set
     weather_context: dict[str, Any] | None = None
@@ -453,6 +495,7 @@ async def ws_generate(
         temperature_pref=temperature_pref,
         intro=intro,
         mood=msg.get("mood"),
+        moods=moods,
         occasion=msg.get("occasion"),
         servings=msg.get("servings", 1),
         dietary=dietary,

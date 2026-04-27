@@ -86,6 +86,7 @@ def _build_prompt(
     intro: str | None = None,
     omit_output_format: bool = False,
     language: str | None = None,
+    moods: list[str] | None = None,
 ) -> str:
     """Build structured prompt for the LLM.
 
@@ -208,9 +209,16 @@ def _build_prompt(
                 elif temp_c >= 25:
                     weather_section += "\n-> Suggest iced/cold refreshing drinks."
 
-    # Mood / Occasion
+    # Mood / Occasion. Multi-mood (`moods` list) wins over single `mood`.
     mood_section = ""
-    if mood and mood in VALID_MOODS:
+    valid_moods = [m for m in (moods or []) if m in VALID_MOODS]
+    if valid_moods:
+        mood_section = (
+            f"\n## Moods: {', '.join(valid_moods)}\n"
+            "Generate recipes that satisfy at least one of these moods; "
+            "spread variety across the moods if more than one is asked for."
+        )
+    elif mood and mood in VALID_MOODS:
         mood_section = f"\n## Mood: {mood}"
     occasion_section = ""
     if occasion and occasion in VALID_OCCASIONS:
@@ -597,6 +605,7 @@ async def async_generate_recipes(
     cups_today: int | None = None,
     intro: str | None = None,
     language: str | None = None,
+    moods: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Generate freestyle recipes using HA conversation agent."""
     prompt = _build_prompt(
@@ -620,6 +629,7 @@ async def async_generate_recipes(
         people_home=people_home,
         cups_today=cups_today,
         language=language,
+        moods=moods,
     )
 
     _LOGGER.debug("Sommelier prompt: %s", prompt[:200])
