@@ -150,26 +150,27 @@ class MelittaSommelier extends LitElement {
     this._generating = true;
     this._error = "";
     this._info = "";
+    // Declared outside try so the catch handler can reference it for
+    // the DevTools log (otherwise a ReferenceError shadows the real one).
+    const payload = {
+      type: "melitta_barista/sommelier/generate",
+      mode: this._mode,
+      count: this._count,
+      cup_size: this._cupSize,
+      temperature: this._temperature,
+      caffeine_pref: this._caffeine,
+      // Multi-select fields are sent ONLY when the user actually
+      // narrowed the available list — sending the full universe is
+      // equivalent to no filter and just wastes prompt tokens.
+      moods: this._moods,
+      dietary: this._dietary,
+      allow_syrups: this._allowSyrups,
+      allow_toppings: this._allowToppings,
+      allow_milk: this._allowMilk,
+    };
+    if (this._preference) payload.preference = this._preference;
+    if (this._occasion) payload.occasion = this._occasion;
     try {
-      const payload = {
-        type: "melitta_barista/sommelier/generate",
-        mode: this._mode,
-        count: this._count,
-        cup_size: this._cupSize,
-        temperature: this._temperature,
-        caffeine_pref: this._caffeine,
-        // Multi-select fields are sent ONLY when the user actually
-        // narrowed the available list — sending the full universe is
-        // equivalent to no filter and just wastes prompt tokens.
-        moods: this._moods,
-        dietary: this._dietary,
-        allow_syrups: this._allowSyrups,
-        allow_toppings: this._allowToppings,
-        allow_milk: this._allowMilk,
-      };
-      if (this._preference) payload.preference = this._preference;
-      if (this._occasion) payload.occasion = this._occasion;
-
       const result = await this.hass.callWS(payload);
       this._session = result.session;
       this._favoritedIds = [];
