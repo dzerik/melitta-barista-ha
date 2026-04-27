@@ -103,9 +103,10 @@ class MelittaAdditives extends LitElement {
       } else {
         const table = e.type === "syrup" ? "syrups" : "toppings";
         if (e.id) {
+          // HA WS framework owns top-level "id" — see panel_api.py.
           await this.hass.callWS({
             type: `melitta_barista/${table}/update`,
-            id: e.id, name: e.name, brand: e.brand, notes: e.notes,
+            additive_id: e.id, name: e.name, brand: e.brand, notes: e.notes,
           });
         } else {
           await this.hass.callWS({
@@ -131,7 +132,10 @@ class MelittaAdditives extends LitElement {
         });
       } else {
         const table = type === "syrup" ? "syrups" : "toppings";
-        await this.hass.callWS({ type: `melitta_barista/${table}/delete`, id });
+        await this.hass.callWS({
+          type: `melitta_barista/${table}/delete`,
+          additive_id: id,
+        });
       }
       await this._loadAll();
     } catch (e) {

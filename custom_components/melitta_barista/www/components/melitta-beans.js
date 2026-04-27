@@ -117,7 +117,16 @@ class MelittaBeans extends LitElement {
     if (!p?.name?.trim()) return;
     try {
       if (p.id) {
-        await this.hass.callWS({ type: "melitta_barista/producers/update", ...p });
+        // The HA WS framework owns the top-level "id" key (it's the
+        // message correlation id) — use producer_id for the row pk.
+        await this.hass.callWS({
+          type: "melitta_barista/producers/update",
+          producer_id: p.id,
+          name: p.name,
+          country: p.country,
+          website: p.website,
+          notes: p.notes,
+        });
       } else {
         await this.hass.callWS({
           type: "melitta_barista/producers/add",
@@ -134,7 +143,10 @@ class MelittaBeans extends LitElement {
   async _deleteProducer(id) {
     if (!confirm("Delete?")) return;
     try {
-      await this.hass.callWS({ type: "melitta_barista/producers/delete", id });
+      await this.hass.callWS({
+        type: "melitta_barista/producers/delete",
+        producer_id: id,
+      });
       await this._loadAll();
     } catch (e) {
       this._error = e.message || String(e);
@@ -171,11 +183,18 @@ class MelittaBeans extends LitElement {
       for (const tag of newTags) {
         await this.hass.callWS({ type: "melitta_barista/tags/add", name: tag });
       }
-      const payload = b.id
-        ? { type: "melitta_barista/sommelier/beans/update", id: b.id, ...b }
-        : { type: "melitta_barista/sommelier/beans/add", ...b };
-      delete payload.id; // for add path; the update path keeps id via spread
-      if (b.id) payload.id = b.id;
+      // Strip id and any UI-only fields out of the bean fields we send.
+      const { id, ...beanFields } = b;
+      const payload = id
+        ? {
+            type: "melitta_barista/sommelier/beans/update",
+            // sommelier_api expects bean_id (string uuid); the WS framework
+            // owns the top-level "id" key, so we'd hit the same collision
+            // as producers/additives if we kept the field name as "id".
+            bean_id: id,
+            ...beanFields,
+          }
+        : { type: "melitta_barista/sommelier/beans/add", ...beanFields };
       await this.hass.callWS(payload);
       this._closeBeanModal();
       await this._loadAll();
@@ -187,7 +206,10 @@ class MelittaBeans extends LitElement {
   async _deleteBean(id) {
     if (!confirm("Delete?")) return;
     try {
-      await this.hass.callWS({ type: "melitta_barista/sommelier/beans/delete", id });
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/beans/delete",
+        bean_id: id,
+      });
       await this._loadAll();
     } catch (e) {
       this._error = e.message || String(e);

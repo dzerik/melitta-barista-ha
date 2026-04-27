@@ -403,7 +403,11 @@ async def _ws_producers_add(hass, connection, msg):
 
 @websocket_api.websocket_command({
     vol.Required("type"): "melitta_barista/producers/update",
-    vol.Required("id"): int,
+    # NOTE: payload uses "producer_id" because HA's WS framework owns the
+    # top-level "id" key (it's the message correlation id). A duplicate
+    # `vol.Required("id"): int` here would silently update the wrong row
+    # — see commit message for the full incident.
+    vol.Required("producer_id"): int,
     vol.Optional("name"): str,
     vol.Optional("country"): str,
     vol.Optional("website"): str,
@@ -419,7 +423,7 @@ async def _ws_producers_update(hass, connection, msg):
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     await db._db.execute(
         f"UPDATE producers SET {set_clause} WHERE id = ?",
-        (*fields.values(), msg["id"]),
+        (*fields.values(), msg["producer_id"]),
     )
     await db._db.commit()
     connection.send_result(msg["id"], {"updated": True})
@@ -427,12 +431,12 @@ async def _ws_producers_update(hass, connection, msg):
 
 @websocket_api.websocket_command({
     vol.Required("type"): "melitta_barista/producers/delete",
-    vol.Required("id"): int,
+    vol.Required("producer_id"): int,
 })
 @websocket_api.async_response
 async def _ws_producers_delete(hass, connection, msg):
     db = await _async_get_db(hass)
-    await db._db.execute("DELETE FROM producers WHERE id = ?", (msg["id"],))
+    await db._db.execute("DELETE FROM producers WHERE id = ?", (msg["producer_id"],))
     await db._db.commit()
     connection.send_result(msg["id"], {"deleted": True})
 
@@ -697,12 +701,13 @@ def _make_additive_handlers(table: str):
 
     @websocket_api.websocket_command({
         vol.Required("type"): f"melitta_barista/{table}/delete",
-        vol.Required("id"): int,
+        # See producers/delete — "id" collides with the WS message id.
+        vol.Required("additive_id"): int,
     })
     @websocket_api.async_response
     async def _ws_delete(hass, connection, msg):
         db = await _async_get_db(hass)
-        await db._db.execute(f"DELETE FROM {table} WHERE id = ?", (msg["id"],))
+        await db._db.execute(f"DELETE FROM {table} WHERE id = ?", (msg["additive_id"],))
         await db._db.commit()
         connection.send_result(msg["id"], {"deleted": True})
 
@@ -718,7 +723,8 @@ def _make_additive_update_handler(table: str):
 
     @websocket_api.websocket_command({
         vol.Required("type"): f"melitta_barista/{table}/update",
-        vol.Required("id"): int,
+        # See producers/update — "id" collides with the WS message id.
+        vol.Required("additive_id"): int,
         vol.Optional("name"): str,
         vol.Optional("brand"): str,
         vol.Optional("notes"): str,
@@ -733,7 +739,7 @@ def _make_additive_update_handler(table: str):
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         await db._db.execute(
             f"UPDATE {table} SET {set_clause} WHERE id = ?",
-            (*fields.values(), msg["id"]),
+            (*fields.values(), msg["additive_id"]),
         )
         await db._db.commit()
         connection.send_result(msg["id"], {"updated": True})
