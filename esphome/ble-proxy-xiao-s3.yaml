@@ -87,6 +87,34 @@ api:
             }
             ESP_LOGW("ble_bonds", "Removed %d bonded device(s)", dev_num);
 
+    # Surgical disconnect of a specific peer when bluetooth_proxy gets
+    # stuck in `state: ESTABLISHED` after an `auth fail reason=82` (SMP
+    # rejection from the peer). The connection slot keeps a half-closed
+    # link and ignores fresh client-side connect requests; this forces
+    # the GAP layer to drop it so the next request actually opens a
+    # new SMP exchange.
+    #
+    # In HA: Developer Tools → Services →
+    #   esphome.${name}_disconnect_ble_peer
+    #   data: {peer_mac: "F1:2C:72:3F:75:ED"}
+    - action: disconnect_ble_peer
+      variables:
+        peer_mac: string
+      then:
+        - lambda: |-
+            esp_bd_addr_t bd_addr;
+            int parsed = sscanf(peer_mac.c_str(),
+              "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+              &bd_addr[0], &bd_addr[1], &bd_addr[2],
+              &bd_addr[3], &bd_addr[4], &bd_addr[5]);
+            if (parsed == 6) {
+              esp_err_t err = esp_ble_gap_disconnect(bd_addr);
+              ESP_LOGW("ble_disconnect", "GAP disconnect %s -> %d",
+                peer_mac.c_str(), (int) err);
+            } else {
+              ESP_LOGE("ble_disconnect", "Invalid MAC: %s", peer_mac.c_str());
+            }
+
 ota:
   - platform: esphome
     password: !secret ota_password

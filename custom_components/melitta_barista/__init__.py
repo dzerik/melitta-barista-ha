@@ -353,6 +353,7 @@ async def _async_force_repair(
     """
     result: dict[str, Any] = {
         "bond_cleared": False,
+        "peer_disconnected": False,
         "proxy_reloaded": False,
         "service_name": None,
         "service_missing": False,
@@ -393,8 +394,12 @@ async def _async_force_repair(
             device_name = getattr(device_info, "name", None)
 
     if device_name:
-        service_name = f"{device_name.replace('-', '_')}_clear_ble_bonds"
+        prefix = device_name.replace("-", "_")
+        service_name = f"{prefix}_clear_ble_bonds"
+        disconnect_service = f"{prefix}_disconnect_ble_peer"
         result["service_name"] = service_name
+
+        # Step 2a — wipe NVS bond table.
         if hass.services.has_service("esphome", service_name):
             _LOGGER.warning(
                 "force_repair: calling esphome.%s to wipe NVS bond table on %s",
@@ -418,6 +423,29 @@ async def _async_force_repair(
                 service_name,
             )
             result["service_missing"] = True
+
+        # Step 2b — surgical GAP disconnect of our peer. Without this the
+        # bluetooth_proxy connection slot can stay in `state: ESTABLISHED`
+        # after an `auth fail reason=82` rejection from the machine, and
+        # every fresh client-side connect request gets "ignored". Calling
+        # disconnect_ble_peer drops the half-closed link so the next
+        # establish_connection actually opens a new SMP exchange.
+        if hass.services.has_service("esphome", disconnect_service):
+            _LOGGER.warning(
+                "force_repair: calling esphome.%s to drop stuck "
+                "ESTABLISHED slot for %s",
+                disconnect_service, client.address,
+            )
+            try:
+                await hass.services.async_call(
+                    "esphome", disconnect_service,
+                    {"peer_mac": client.address}, blocking=True,
+                )
+                result["peer_disconnected"] = True
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "force_repair: esphome.%s call raised", disconnect_service,
+                )
 
     # Step 3 — reload the proxy entry. Even if bond clearing wasn't done,
     # this evicts the cached BLEDevice and gives the next pair attempt a

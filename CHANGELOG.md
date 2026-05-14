@@ -2,6 +2,56 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.51.0-beta.6] — 2026-05-14 — Surgical GAP disconnect on stuck slot
+
+Production log on beta.5 showed `auth fail reason=82` (SMP rejection
+from the machine) **continuing** even after `clear_ble_bonds` wiped
+both ESP NVS bonds. The bluetooth_proxy connection slot then sits in
+`state: ESTABLISHED` and the next line in the log is
+`Connection request ignored, state: ESTABLISHED` — every subsequent
+client-side connect is dropped on the floor.
+
+Wiping the bond table is necessary but not sufficient. We also need
+to drop the half-closed GAP link so the next pair=True actually
+opens a new SMP exchange.
+
+### Added
+
+- New ESPHome action `disconnect_ble_peer` in both
+  `esphome/ble-proxy-xiao-c6.yaml` and `esphome/ble-proxy-xiao-s3.yaml`.
+  Takes a `peer_mac` string variable and calls
+  `esp_ble_gap_disconnect(bd_addr)` on it. Logs the API return code.
+- `_async_force_repair` now calls
+  `esphome.<proxy>_disconnect_ble_peer` with the machine's MAC
+  immediately after `clear_ble_bonds`. New result key
+  `peer_disconnected` indicates whether the GAP-disconnect ran.
+
+### What this fixes in the user-visible flow
+
+Before beta.6, after issuing "Force re-pair" you would see in the ESP
+log:
+```
+[ble_bonds] Removed 2 bonded device(s)
+... auth fail reason=82
+[bluetooth_proxy] Connection request ignored, state: ESTABLISHED
+```
+… in a tight loop. After beta.6 (with the new YAML action flashed):
+```
+[ble_bonds] Removed 2 bonded device(s)
+[ble_disconnect] GAP disconnect F1:2C:72:3F:75:ED -> 0
+... clean reconnect with fresh SMP
+```
+
+### Note for users hit by issue #10
+
+If the machine ALSO holds a stale bond (which the log above suggests),
+clearing the ESP side alone isn't enough — the machine refuses every
+new SMP request because its remembered LTK doesn't match what we
+present. Look in the machine menu for **Settings → Bluetooth →
+Disconnect / Reset connection** to forget its side. Some Melitta TS
+firmwares require a power-cycle of the machine after that for the
+state to actually persist.
+
 ## [0.51.0-beta.5] — 2026-05-14 — Proxy matcher: use BT MAC (not WiFi MAC)
 
 ### Fixed
