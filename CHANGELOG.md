@@ -2,6 +2,45 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.50.1] — 2026-05-14 — Code review: critical security + crash fixes
+
+Closes all Critical findings from the v0.50.0 code review.
+
+### Fixed
+
+- **`sommelier/profiles/activate` no longer crashes.** Handler called
+  `db.async_activate_profile()` which never existed; renamed to the actual
+  `async_set_active_profile()`. The DB method now returns `bool` so the
+  not-found path surfaces correctly to the panel.
+- **Admin guard on all mutating WebSocket commands.** `require_admin=True`
+  on the panel registration only hides the sidebar; the WS endpoints
+  themselves had no authorization check, so any authenticated household
+  user could change prompt templates, modify the LLM agent setting, or
+  physically start a brew via `sommelier/brew`. Added
+  `@websocket_api.require_admin` to all CRUD endpoints (producers, beans,
+  syrups, toppings, tags, prompts, milk, hoppers, favorites, history
+  config, profiles, sommelier preferences/extras/settings, generate,
+  brew, autofill) plus sensitive read endpoints (diagnostics,
+  diagnostics/llm_calls, prompts/list, prompts/preview). Read-only data
+  endpoints (status, list, get) remain open.
+- **`javascript:` URI XSS on producer website link.** Producer rows
+  rendered `<a href=${p.website} target="_blank">` with a user-stored
+  value. A `javascript:` website would execute in the HA frontend
+  origin (with access to the WS token). Added `safeHttpUrl()` that
+  only returns the URL if it parses as http/https, plus
+  `rel="noopener noreferrer"` on the link.
+- **Services no longer leak after the last entry is removed.** Six
+  services (`brew_freestyle`, `brew_directkey`, `save_directkey`,
+  `reset_recipe`, `confirm_prompt`, `nivona_write_recipe_param`,
+  `nivona_write_mycoffee_param`) were registered with a
+  `has_service` guard but never deregistered; when the last config
+  entry was removed they stayed in HA's service registry until restart
+  and would report `device_not_found` on every call.
+- **Domain-wide teardown now gated on `unload_ok`.** Panel
+  unregistration, Sommelier DB close, and service removal are now
+  only executed when the platform unload actually succeeded — they
+  used to run unconditionally even if entities were still live.
+
 ## [0.50.0] — 2026-04-27 — Admin SPA panel + AI Coffee Sommelier (alpha)
 
 Big release. The integration now ships an in-HA admin panel with a full

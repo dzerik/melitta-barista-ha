@@ -816,18 +816,33 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         client: MelittaBleClient = entry.runtime_data
         await client.disconnect()
 
-    # On the last config entry: tear down domain-wide stuff (panel, Sommelier DB).
-    remaining = [
-        e for e in hass.config_entries.async_entries(DOMAIN)
-        if e.entry_id != entry.entry_id
-    ]
-    if not remaining:
-        _async_unregister_panel(hass)
-        domain_data = hass.data.get(DOMAIN, {})
-        db = domain_data.pop("sommelier_db", None)
-        if db is not None:
-            await db.async_close()
-            _LOGGER.debug("Sommelier DB closed")
+    # On the last config entry: tear down domain-wide stuff (panel, Sommelier DB,
+    # and the services registered globally for the domain). Gated on unload_ok so
+    # we don't rip out shared resources while platform entities are still live.
+    if unload_ok:
+        remaining = [
+            e for e in hass.config_entries.async_entries(DOMAIN)
+            if e.entry_id != entry.entry_id
+        ]
+        if not remaining:
+            _async_unregister_panel(hass)
+            domain_data = hass.data.get(DOMAIN, {})
+            db = domain_data.pop("sommelier_db", None)
+            if db is not None:
+                await db.async_close()
+                _LOGGER.debug("Sommelier DB closed")
+
+            for service in (
+                SERVICE_BREW_FREESTYLE,
+                SERVICE_BREW_DIRECTKEY,
+                SERVICE_SAVE_DIRECTKEY,
+                SERVICE_RESET_RECIPE,
+                SERVICE_CONFIRM_PROMPT,
+                SERVICE_WRITE_RECIPE_PARAM,
+                SERVICE_WRITE_MYCOFFEE_PARAM,
+            ):
+                if hass.services.has_service(DOMAIN, service):
+                    hass.services.async_remove(DOMAIN, service)
 
     return unload_ok
 

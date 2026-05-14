@@ -18,6 +18,21 @@ import { t } from "../i18n.js";
 
 const ROASTS = ["light", "medium", "medium_dark", "dark"];
 const BEAN_TYPES = ["arabica", "arabica_robusta", "robusta"];
+
+/**
+ * Return the input URL only if it parses as an http(s) URL.
+ * Blocks `javascript:`, `data:`, and other XSS-capable schemes from
+ * reaching an `<a href>` rendered with user-stored data.
+ */
+function safeHttpUrl(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") ? url : null;
+  } catch {
+    return null;
+  }
+}
 const ORIGINS = ["single_origin", "blend"];
 
 class MelittaBeans extends LitElement {
@@ -411,7 +426,12 @@ class MelittaBeans extends LitElement {
           ${this._producers.map((p) => html`
             <tr>
               <td>${p.name}</td>
-              <td>${p.country || ""}${p.website ? html` · <a href=${p.website} target="_blank">site</a>` : ""}</td>
+              <td>${p.country || ""}${(() => {
+                const safe = safeHttpUrl(p.website);
+                return safe
+                  ? html` · <a href=${safe} target="_blank" rel="noopener noreferrer">site</a>`
+                  : "";
+              })()}</td>
               <td class="actions">
                 <button class="icon edit" @click=${() => this._openEditProducer(p)}>✎</button>
                 <button class="icon del" @click=${() => this._deleteProducer(p.id)}>×</button>

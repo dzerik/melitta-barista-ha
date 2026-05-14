@@ -387,6 +387,7 @@ async def _ws_producers_list(hass, connection, msg):
     vol.Optional("website"): str,
     vol.Optional("notes"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_producers_add(hass, connection, msg):
     db = await _async_get_db(hass)
@@ -413,6 +414,7 @@ async def _ws_producers_add(hass, connection, msg):
     vol.Optional("website"): str,
     vol.Optional("notes"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_producers_update(hass, connection, msg):
     db = await _async_get_db(hass)
@@ -433,6 +435,7 @@ async def _ws_producers_update(hass, connection, msg):
     vol.Required("type"): "melitta_barista/producers/delete",
     vol.Required("producer_id"): int,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_producers_delete(hass, connection, msg):
     db = await _async_get_db(hass)
@@ -614,6 +617,7 @@ async def _structured_call(
     vol.Optional("website"): str,
     vol.Optional("agent_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_beans_autofill(hass, connection, msg):
     """Use an HA conversation agent to enrich a bean entry from brand+product.
@@ -691,6 +695,7 @@ def _make_additive_handlers(table: str):
         vol.Optional("brand"): str,
         vol.Optional("notes"): str,
     })
+    @websocket_api.require_admin
     @websocket_api.async_response
     async def _ws_add(hass, connection, msg):
         db = await _async_get_db(hass)
@@ -706,6 +711,7 @@ def _make_additive_handlers(table: str):
         # See producers/delete — "id" collides with the WS message id.
         vol.Required("additive_id"): int,
     })
+    @websocket_api.require_admin
     @websocket_api.async_response
     async def _ws_delete(hass, connection, msg):
         db = await _async_get_db(hass)
@@ -731,6 +737,7 @@ def _make_additive_update_handler(table: str):
         vol.Optional("brand"): str,
         vol.Optional("notes"): str,
     })
+    @websocket_api.require_admin
     @websocket_api.async_response
     async def _ws_update(hass, connection, msg):
         db = await _async_get_db(hass)
@@ -785,6 +792,7 @@ async def _ws_tags_list(hass, connection, msg):
     vol.Required("type"): "melitta_barista/tags/add",
     vol.Required("name"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_tags_add(hass, connection, msg):
     name = msg["name"].strip()
@@ -804,6 +812,7 @@ async def _ws_tags_add(hass, connection, msg):
     vol.Required("type"): "melitta_barista/tags/delete",
     vol.Required("name"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_tags_delete(hass, connection, msg):
     db = await _async_get_db(hass)
@@ -1058,6 +1067,7 @@ def _try_smartchain_structured():
 
 
 @websocket_api.websocket_command({vol.Required("type"): "melitta_barista/prompts/list"})
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_prompts_list(hass, connection, msg):
     db = await _async_get_db(hass)
@@ -1083,6 +1093,7 @@ async def _ws_prompts_list(hass, connection, msg):
     vol.Required("slot"): str,
     vol.Required("template"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_prompts_save(hass, connection, msg):
     if msg["slot"] not in DEFAULT_PROMPTS:
@@ -1103,6 +1114,7 @@ async def _ws_prompts_save(hass, connection, msg):
     vol.Required("type"): "melitta_barista/prompts/preview",
     vol.Required("slot"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_prompts_preview(hass, connection, msg):
     """Return the exact prompt text that would be sent for a given slot.
@@ -1184,6 +1196,7 @@ async def _ws_prompts_preview(hass, connection, msg):
     vol.Required("type"): "melitta_barista/prompts/reset",
     vol.Required("slot"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def _ws_prompts_reset(hass, connection, msg):
     db = await _async_get_db(hass)
@@ -1261,9 +1274,15 @@ _DIAG_LLM_CALLS_SCHEMA = vol.Schema({
 })
 
 
-def _wrap_sync_with_schema(handler, schema):
-    """Wrap a sync `(hass, connection, msg)` handler with a vol schema decorator."""
-    return websocket_api.websocket_command(schema.schema)(handler)
+def _wrap_sync_with_schema(handler, schema, *, admin: bool = False):
+    """Wrap a sync `(hass, connection, msg)` handler with a vol schema decorator.
+
+    When admin is True, an admin-only check is layered between the schema
+    decorator and the handler so unauthenticated/non-admin callers get
+    `unauthorized` without the handler being invoked.
+    """
+    cmd = websocket_api.require_admin(handler) if admin else handler
+    return websocket_api.websocket_command(schema.schema)(cmd)
 
 
 @callback
@@ -1274,12 +1293,18 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
         return
 
     async_register_command(hass, _wrap_sync_with_schema(_ws_status, _STATUS_SCHEMA))
-    async_register_command(hass, _wrap_sync_with_schema(_ws_diagnostics, _DIAG_SCHEMA))
     async_register_command(
-        hass, _wrap_sync_with_schema(_ws_diagnostics_clear, _DIAG_CLEAR_SCHEMA)
+        hass, _wrap_sync_with_schema(_ws_diagnostics, _DIAG_SCHEMA, admin=True)
     )
     async_register_command(
-        hass, _wrap_sync_with_schema(_ws_diagnostics_llm_calls, _DIAG_LLM_CALLS_SCHEMA)
+        hass,
+        _wrap_sync_with_schema(_ws_diagnostics_clear, _DIAG_CLEAR_SCHEMA, admin=True),
+    )
+    async_register_command(
+        hass,
+        _wrap_sync_with_schema(
+            _ws_diagnostics_llm_calls, _DIAG_LLM_CALLS_SCHEMA, admin=True
+        ),
     )
     async_register_command(
         hass, _wrap_sync_with_schema(_ws_recipes_list, _RECIPES_LIST_SCHEMA)

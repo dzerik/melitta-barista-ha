@@ -172,6 +172,7 @@ async def ws_beans_list(
         **BEAN_SCHEMA,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_beans_add(
     hass: HomeAssistant,
@@ -210,6 +211,7 @@ async def ws_beans_add(
         vol.Optional("preset_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_beans_update(
     hass: HomeAssistant,
@@ -240,6 +242,7 @@ async def ws_beans_update(
         vol.Required("bean_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_beans_delete(
     hass: HomeAssistant,
@@ -279,6 +282,7 @@ async def ws_hoppers_get(
         vol.Optional("bean_id"): vol.Any(cv.string, None),
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_hoppers_assign(
     hass: HomeAssistant,
@@ -320,6 +324,7 @@ async def ws_milk_get(
         ),
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_milk_set(
     hass: HomeAssistant,
@@ -362,6 +367,7 @@ async def ws_milk_set(
         vol.Optional("allow_milk"): [cv.string],
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_generate(
     hass: HomeAssistant,
@@ -571,6 +577,7 @@ async def ws_generate(
         vol.Required("recipe_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_brew(
     hass: HomeAssistant,
@@ -626,6 +633,7 @@ async def ws_favorites_list(
         vol.Required("recipe_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_favorites_add(
     hass: HomeAssistant,
@@ -662,6 +670,7 @@ async def ws_favorites_add(
         vol.Required("favorite_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_favorites_remove(
     hass: HomeAssistant,
@@ -683,6 +692,7 @@ async def ws_favorites_remove(
         vol.Required("favorite_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_favorites_brew(
     hass: HomeAssistant,
@@ -798,6 +808,7 @@ async def ws_settings_get(
         vol.Required("value"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_settings_set(
     hass: HomeAssistant,
@@ -834,6 +845,7 @@ async def ws_extras_get(
         vol.Required("items"): vol.All(cv.ensure_list, [cv.string]),
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_extras_set(
     hass: HomeAssistant,
@@ -870,6 +882,7 @@ async def ws_preferences_get(
         vol.Required("value"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_preferences_set(
     hass: HomeAssistant,
@@ -906,6 +919,7 @@ async def ws_profiles_list(
         vol.Optional("preferences", default={}): dict,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_profiles_add(
     hass: HomeAssistant,
@@ -929,6 +943,7 @@ async def ws_profiles_add(
         vol.Optional("preferences"): dict,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_profiles_update(
     hass: HomeAssistant,
@@ -957,6 +972,7 @@ async def ws_profiles_update(
         vol.Required("profile_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_profiles_delete(
     hass: HomeAssistant,
@@ -978,6 +994,7 @@ async def ws_profiles_delete(
         vol.Required("profile_id"): cv.string,
     }
 )
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_profiles_activate(
     hass: HomeAssistant,
@@ -986,7 +1003,7 @@ async def ws_profiles_activate(
 ) -> None:
     """Activate a profile (deactivates others)."""
     db = await _async_get_db(hass)
-    activated = await db.async_activate_profile(msg["profile_id"])
+    activated = await db.async_set_active_profile(msg["profile_id"])
     if not activated:
         connection.send_error(msg["id"], "not_found", "Profile not found")
         return

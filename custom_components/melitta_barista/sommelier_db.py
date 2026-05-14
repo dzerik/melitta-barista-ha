@@ -777,14 +777,19 @@ class SommelierDB:
         await self.db.commit()
         return cursor.rowcount > 0
 
-    async def async_set_active_profile(self, profile_id: str) -> None:
-        """Set a profile as active (deactivates all others)."""
+    async def async_set_active_profile(self, profile_id: str) -> bool:
+        """Set a profile as active (deactivates all others).
+
+        Returns True if the profile existed and is now active, False if no
+        row matched profile_id (caller can surface a not_found error).
+        """
         await self.db.execute("UPDATE sommelier_profiles SET is_active = 0")
-        await self.db.execute(
+        cursor = await self.db.execute(
             "UPDATE sommelier_profiles SET is_active = 1 WHERE id = ?",
             (profile_id,),
         )
         await self.db.commit()
+        return cursor.rowcount > 0
 
     async def async_get_active_profile(self) -> dict[str, Any] | None:
         """Get the currently active profile."""
