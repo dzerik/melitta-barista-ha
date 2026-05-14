@@ -25,6 +25,10 @@ esphome:
   name: ${name}
   friendly_name: ${friendly_name}
   name_add_mac_suffix: false
+  # 2025.8 introduces the new top-level `api.actions:` schema used by
+  # clear_ble_bonds / disconnect_ble_peer below. Older versions silently
+  # ignore the block — this guard makes that obvious at compile time.
+  min_version: 2025.8.0
   # Toggle antenna RF switch pins on boot (FM8625H on XIAO C6)
   on_boot:
     priority: 600
@@ -209,7 +213,40 @@ text_sensor:
       name: "WiFi SSID"
       entity_category: diagnostic
 
+  # Live read of the on-chip BLE bond table — useful to confirm
+  # clear_ble_bonds actually emptied NVS, or to see whether the
+  # next pair=True actually stored anything.
+  - platform: template
+    name: "BLE bonds"
+    id: ble_bonds_count
+    entity_category: diagnostic
+    update_interval: 30s
+    lambda: |-
+      char buf[8];
+      snprintf(buf, sizeof(buf), "%d", esp_ble_get_bond_device_num());
+      return std::string(buf);
+
 button:
   - platform: restart
     name: "Restart"
-    entity_category: config
+    entity_category: diagnostic
+
+  # Reboot the proxy into safe mode — disables all components except
+  # API + OTA. Use this if a bad config (or a buggy custom action)
+  # leaves the device unresponsive; safe-mode boot lets you OTA-flash
+  # a fixed config without physical access.
+  - platform: safe_mode
+    name: "Safe Mode Boot"
+    entity_category: diagnostic
+
+  # NUCLEAR OPTION — wipes ALL NVS storage: bond table, ESPHome
+  # cached state, every Preference. WiFi credentials and OTA password
+  # are baked into the firmware at flash time (from secrets.yaml),
+  # so they survive. Use this when clear_ble_bonds isn't enough and
+  # you suspect deeper NVS corruption (e.g. stale OTA artifacts or
+  # the proxy refuses to bond no matter what). After pressing, the
+  # device reboots clean — Melitta integration → Repair will then
+  # see a virgin ESP and run a fresh SMP exchange on the next pair.
+  - platform: factory_reset
+    name: "Factory reset"
+    entity_category: diagnostic
