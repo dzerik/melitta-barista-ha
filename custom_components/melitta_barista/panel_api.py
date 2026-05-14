@@ -398,8 +398,9 @@ async def _ws_producers_add(hass, connection, msg):
         )
         await db._db.commit()
         connection.send_result(msg["id"], {"id": cursor.lastrowid})
-    except Exception as exc:
-        connection.send_error(msg["id"], "db_error", str(exc))
+    except Exception:
+        _LOGGER.exception("producers/add failed")
+        connection.send_error(msg["id"], "db_error", "Database operation failed")
 
 
 @websocket_api.websocket_command({
@@ -659,8 +660,11 @@ async def _ws_beans_autofill(hass, connection, msg):
         result = await _structured_call(
             hass, "beans_autofill", fmt_vars, agent_id, connection.context(msg),
         )
-    except Exception as exc:  # noqa: BLE001
-        connection.send_error(msg["id"], "conversation_error", str(exc))
+    except Exception:  # noqa: BLE001
+        _LOGGER.exception("beans/autofill conversation call failed")
+        connection.send_error(
+            msg["id"], "conversation_error", "LLM call failed; see HA logs"
+        )
         return
 
     connection.send_result(msg["id"], result)

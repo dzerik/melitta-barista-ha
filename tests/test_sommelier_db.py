@@ -92,9 +92,11 @@ class TestSchemaInit:
         assert rows[1]["bean_id"] is None
 
     async def test_schema_version_set(self, db: SommelierDB):
-        """Schema version setting is stored."""
+        """Schema version setting matches the current SCHEMA_VERSION constant."""
+        from custom_components.melitta_barista.sommelier_db import SCHEMA_VERSION
+
         settings = await db.async_get_settings()
-        assert settings["schema_version"] == "2"
+        assert settings["schema_version"] == str(SCHEMA_VERSION)
 
     async def test_setup_idempotent(self):
         """Calling setup a second time does not fail or duplicate rows."""

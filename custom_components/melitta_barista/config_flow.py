@@ -194,8 +194,19 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         except (AttributeError, ValueError):
             _LOGGER.debug("HA bluetooth not available, falling back to direct scan")
 
-        # Fallback: direct BLE scan
+        # Fallback: direct BLE scan. This bypasses HA's bluetooth integration
+        # and therefore the ESPHome BLE proxy too — in a proxy-only setup it
+        # will fail with OSError/BleakError because there is no local
+        # adapter. We log loudly so the empty-discovery case is debuggable
+        # but keep the call as a last resort for hosts where HA's bluetooth
+        # integration hasn't picked up the adapter yet.
         if not self._discovered_devices:
+            _LOGGER.warning(
+                "HA bluetooth returned no matching devices; falling back to a "
+                "direct BleakScanner. This bypasses HA's bluetooth integration "
+                "(including ESPHome BLE proxies) and may fail without a local "
+                "Bluetooth adapter."
+            )
             from .brands import detect_from_advertisement  # noqa: PLC0415
             try:
                 devices = await BleakScanner.discover(timeout=10.0)
@@ -214,7 +225,10 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                     ):
                         self._discovered_devices[device.address] = device.name
             except (OSError, BleakError):
-                _LOGGER.exception("BLE scan failed")
+                _LOGGER.exception(
+                    "Fallback BLE scan failed (likely no local adapter); "
+                    "use Manual entry to add the machine by MAC"
+                )
 
     async def async_step_manual(
         self, user_input: dict[str, Any] | None = None

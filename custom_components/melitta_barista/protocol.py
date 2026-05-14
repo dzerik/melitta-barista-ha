@@ -50,30 +50,6 @@ from .const import (
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-# CRC lookup table for handshake validation
-_CRC_TABLE = [
-    b & 0xFF for b in [
-        98, 6, 85, -106, 36, 23, 112, -92, -121, -49, -87, 5, 26, 64, -91,
-        -37, 61, 20, 68, 89, -126, 63, 52, 102, 24, -27, -124, -11, 80, -40,
-        -61, 115, 90, -88, -100, -53, -79, 120, 2, -66, -68, 7, 100, -71, -82,
-        -13, -94, 10, -19, 18, -3, -31, 8, -48, -84, -12, -1, 126, 101, 79,
-        -111, -21, -28, 121, 123, -5, 67, -6, -95, 0, 107, 97, -15, 111, -75,
-        82, -7, 33, 69, 55, 59, -103, 29, 9, -43, -89, 84, 93, 30, 46, 94,
-        75, -105, 114, 73, -34, -59, 96, -46, 45, 16, -29, -8, -54, 51, -104,
-        -4, 125, 81, -50, -41, -70, 39, -98, -78, -69, -125, -120, 1, 49, 50,
-        17, -115, 91, 47, -127, 60, 99, -102, 35, 86, -85, 105, 34, 38, -56,
-        -109, 58, 77, 118, -83, -10, 76, -2, -123, -24, -60, -112, -58, 124,
-        53, 4, 108, 74, -33, -22, -122, -26, -99, -117, -67, -51, -57, -128,
-        -80, 19, -45, -20, 127, -64, -25, 70, -23, 88, -110, 44, -73, -55, 22,
-        83, 13, -42, 116, 109, -97, 32, 95, -30, -116, -36, 57, 12, -35, 31,
-        -47, -74, -113, 92, -107, -72, -108, 62, 113, 65, 37, 27, 106, -90, 3,
-        14, -52, 72, 21, 41, 56, 66, 28, -63, 40, -39, 25, 54, -77, 117, -18,
-        87, -16, -101, -76, -86, -14, -44, -65, -93, 78, -38, -119, -62, -81,
-        110, 43, 119, -32, 71, 122, -114, 42, -96, 104, 48, -9, 103, 15, 11,
-        -118, -17,
-    ]
-]
-
 # Known commands with expected RECEIVE payload sizes and encryption flag
 # From Melitta BLE protocol analysis.
 # Only commands the machine sends TO us are registered here.
@@ -123,23 +99,6 @@ def _calculate_checksum(frame: bytes, length: int) -> int:
     for i in range(1, length):
         s = (s + frame[i]) & 0xFF
     return (~s) & 0xFF
-
-
-def _compute_handshake_crc(length: int, data: bytes) -> bytes:
-    """Compute 2-byte CRC for HU handshake."""
-    b5 = _CRC_TABLE[(data[0] + 256) % 256]
-    for i in range(1, length):
-        idx = ((b5 ^ data[i]) + 256) % 256
-        b5 = _CRC_TABLE[idx]
-    byte1 = (b5 + 93) & 0xFF
-
-    b7 = _CRC_TABLE[(data[0] + 257) % 256]
-    for i in range(1, length):
-        idx = ((b7 ^ data[i]) + 256) % 256
-        b7 = _CRC_TABLE[idx]
-    byte2 = (b7 + 167) & 0xFF
-
-    return bytes([byte1, byte2])
 
 
 @dataclass

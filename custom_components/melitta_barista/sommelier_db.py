@@ -13,7 +13,7 @@ import aiosqlite
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS coffee_beans (
@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS generated_recipes (
     component1  TEXT NOT NULL,
     component2  TEXT NOT NULL,
     extras      TEXT,
+    steps       TEXT,
     cup_type    TEXT,
     calories    INTEGER,
     brewed      INTEGER NOT NULL DEFAULT 0,
@@ -109,6 +110,7 @@ CREATE TABLE IF NOT EXISTS favorites (
     component1          TEXT NOT NULL,
     component2          TEXT NOT NULL,
     extras              TEXT,
+    steps               TEXT,
     cup_type            TEXT,
     source_recipe_id    TEXT,
     source_bean_id      TEXT,
@@ -160,6 +162,15 @@ ALTER TABLE favorites ADD COLUMN extras TEXT;
 ALTER TABLE favorites ADD COLUMN cup_type TEXT;
 """
 
+# v2 → v3: persist the LLM-generated preparation step list so users keep
+# the per-recipe `1. Brew espresso 30 ml / 2. Add vanilla syrup 15 ml` view
+# after reload and when brewing from favorites. Stored as JSON in the
+# `steps` column on both generated_recipes and favorites.
+MIGRATE_V2_TO_V3 = """
+ALTER TABLE generated_recipes ADD COLUMN steps TEXT;
+ALTER TABLE favorites ADD COLUMN steps TEXT;
+"""
+
 INIT_HOPPERS_SQL = """
 INSERT OR IGNORE INTO hoppers (hopper_id, bean_id, assigned_at) VALUES (1, NULL, ?);
 INSERT OR IGNORE INTO hoppers (hopper_id, bean_id, assigned_at) VALUES (2, NULL, ?);
@@ -207,16 +218,28 @@ class SommelierDB:
         if current_version < 1:
             # Fresh install — create full schema
             await self._db.executescript(SCHEMA_SQL)
-        elif current_version < SCHEMA_VERSION:
-            # Migration from v1 to v2
-            for stmt in MIGRATE_V1_TO_V2.strip().split(";"):
-                stmt = stmt.strip()
-                if stmt:
+        else:
+            # Apply each migration step in sequence. Each step is idempotent
+            # at the per-statement level (ALTER TABLE may fail if the column
+            # already exists; we swallow that so re-running is safe).
+            migrations: list[tuple[int, str]] = []
+            if current_version < 2:
+                migrations.append((2, MIGRATE_V1_TO_V2))
+            if current_version < 3:
+                migrations.append((3, MIGRATE_V2_TO_V3))
+            for target_version, sql in migrations:
+                for stmt in sql.strip().split(";"):
+                    stmt = stmt.strip()
+                    if not stmt:
+                        continue
                     try:
                         await self._db.execute(stmt)
                     except Exception:
                         pass  # Column/table may already exist
-            _LOGGER.info("Sommelier DB migrated from v%d to v%d", current_version, SCHEMA_VERSION)
+                _LOGGER.info(
+                    "Sommelier DB migrated to v%d (from v%d)",
+                    target_version, current_version,
+                )
 
         now = _now()
         await self._db.execute(
@@ -456,11 +479,13 @@ class SommelierDB:
         for recipe in recipes:
             recipe_id = _new_id()
             extras = recipe.get("extras")
+            steps = recipe.get("steps")
             await self.db.execute(
                 """INSERT INTO generated_recipes
                    (id, session_id, name, description, blend,
-                    component1, component2, extras, cup_type, calories, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    component1, component2, extras, steps,
+                    cup_type, calories, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     recipe_id,
                     session_id,
@@ -470,6 +495,7 @@ class SommelierDB:
                     json.dumps(recipe["component1"]),
                     json.dumps(recipe["component2"]),
                     json.dumps(extras) if extras else None,
+                    json.dumps(steps) if steps else None,
                     recipe.get("cup_type"),
                     recipe.get("calories_approx"),
                     now,
@@ -483,6 +509,7 @@ class SommelierDB:
                 "component1": recipe["component1"],
                 "component2": recipe["component2"],
                 "extras": extras,
+                "steps": steps or [],
                 "cup_type": recipe.get("cup_type"),
                 "calories_approx": recipe.get("calories_approx"),
                 "brewed": False,
@@ -519,6 +546,7 @@ class SommelierDB:
         d["component1"] = json.loads(d["component1"])
         d["component2"] = json.loads(d["component2"])
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
+        d["steps"] = json.loads(d["steps"]) if d.get("steps") else []
         d["brewed"] = bool(d["brewed"])
         return d
 
@@ -545,6 +573,8 @@ class SommelierDB:
                 r = _row_to_dict(r_row)
                 r["component1"] = json.loads(r["component1"])
                 r["component2"] = json.loads(r["component2"])
+                r["extras"] = json.loads(r["extras"]) if r.get("extras") else None
+                r["steps"] = json.loads(r["steps"]) if r.get("steps") else []
                 r["brewed"] = bool(r["brewed"])
                 sess["recipes"].append(r)
             sessions.append(sess)
@@ -562,6 +592,8 @@ class SommelierDB:
             d = _row_to_dict(row)
             d["component1"] = json.loads(d["component1"])
             d["component2"] = json.loads(d["component2"])
+            d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
+            d["steps"] = json.loads(d["steps"]) if d.get("steps") else []
             result.append(d)
         return result
 
@@ -570,12 +602,13 @@ class SommelierDB:
         fav_id = _new_id()
         now = _now()
         extras = data.get("extras")
+        steps = data.get("steps")
         await self.db.execute(
             """INSERT INTO favorites
                (id, name, description, blend, component1, component2,
-                extras, cup_type, source_recipe_id, source_bean_id,
+                extras, steps, cup_type, source_recipe_id, source_bean_id,
                 brew_count, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
             (
                 fav_id,
                 data["name"],
@@ -584,6 +617,7 @@ class SommelierDB:
                 json.dumps(data["component1"]),
                 json.dumps(data["component2"]),
                 json.dumps(extras) if extras else None,
+                json.dumps(steps) if steps else None,
                 data.get("cup_type"),
                 data.get("source_recipe_id"),
                 data.get("source_bean_id"),
@@ -605,6 +639,7 @@ class SommelierDB:
         d["component1"] = json.loads(d["component1"])
         d["component2"] = json.loads(d["component2"])
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
+        d["steps"] = json.loads(d["steps"]) if d.get("steps") else []
         return d
 
     async def async_remove_favorite(self, fav_id: str) -> bool:

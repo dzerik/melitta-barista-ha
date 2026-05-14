@@ -427,7 +427,7 @@ nivona_write_recipe_param:
         coffee_temperature, water_temperature, milk_temperature,
         milk_foam_temperature, overall_temperature,
         coffee_amount, water_amount, milk_amount, milk_foam_amount,
-        preparation.
+        preparation, enabled, icon.
       required: true
       selector:
         select:
@@ -446,6 +446,8 @@ nivona_write_recipe_param:
             - milk_amount
             - milk_foam_amount
             - preparation
+            - enabled
+            - icon
     value:
       name: Value
       description: Numeric value to write. Fluid amounts are in ml.

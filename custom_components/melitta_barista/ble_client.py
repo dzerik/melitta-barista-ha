@@ -393,7 +393,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return
         self._last_auto_confirmed = manip
         _LOGGER.info("Auto-confirming prompt %s", manip.name)
-        asyncio.create_task(self._auto_confirm_task(manip))
+        task = asyncio.create_task(self._auto_confirm_task(manip))
+        task.add_done_callback(self._on_auto_confirm_done)
 
     async def _auto_confirm_task(self, manip: Manipulation) -> None:
         try:
@@ -412,6 +413,22 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         exc = task.exception()
         if exc:
             _LOGGER.debug("Cup counter refresh failed: %s", exc)
+
+    @staticmethod
+    def _on_auto_confirm_done(task: asyncio.Task) -> None:
+        """Done-callback for fire-and-forget _auto_confirm_task.
+
+        Without this, an unexpected exception inside the task is swallowed
+        into asyncio's "Task exception was never retrieved" log line which
+        is invisible in HA's own logs; keeping a reference also prevents
+        the task from being garbage-collected mid-flight under aggressive
+        event-loop GC.
+        """
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            _LOGGER.error("Auto-confirm task crashed", exc_info=exc)
 
     def _on_disconnect(self, client: BleakClient) -> None:
         if self._disconnecting:

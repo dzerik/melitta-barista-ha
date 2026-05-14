@@ -314,7 +314,7 @@ class MelittaTotalCupsSensor(_MelittaSensorBase):
 
     @property
     def available(self) -> bool:
-        return self._client.total_cups is not None
+        return self._client.connected and self._client.total_cups is not None
 
     @property
     def native_value(self) -> int | None:

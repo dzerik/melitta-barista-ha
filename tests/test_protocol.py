@@ -16,9 +16,9 @@ from custom_components.melitta_barista.protocol import (
     AlphanumericValue,
     RecipeComponent,
     _calculate_checksum,
-    _compute_handshake_crc,
     _rc4_crypt,
 )
+from custom_components.melitta_barista.brands.melitta import MelittaProfile
 
 
 class TestRC4:
@@ -56,22 +56,28 @@ class TestChecksum:
 
 
 class TestHandshakeCRC:
+    """Melitta HU CRC verifier — replaces the old _compute_handshake_crc.
+
+    The standalone helper lived on protocol.py for a while; live code
+    routes through ``MelittaProfile.hu_verifier`` because Nivona has its
+    own CRC table and the protocol module shouldn't pick brands.
+    """
+
+    def _crc(self, data: bytes) -> bytes:
+        return MelittaProfile().hu_verifier(data, 0, len(data))
+
     def test_crc_returns_2_bytes(self):
         data = b"\x01\x02\x03\x04"
-        crc = _compute_handshake_crc(len(data), data)
+        crc = self._crc(data)
         assert len(crc) == 2
         assert isinstance(crc, bytes)
 
     def test_crc_deterministic(self):
         data = b"\xAB\xCD\xEF\x01"
-        crc1 = _compute_handshake_crc(len(data), data)
-        crc2 = _compute_handshake_crc(len(data), data)
-        assert crc1 == crc2
+        assert self._crc(data) == self._crc(data)
 
     def test_crc_varies_with_data(self):
-        crc1 = _compute_handshake_crc(4, b"\x00\x00\x00\x00")
-        crc2 = _compute_handshake_crc(4, b"\xFF\xFF\xFF\xFF")
-        assert crc1 != crc2
+        assert self._crc(b"\x00\x00\x00\x00") != self._crc(b"\xFF\xFF\xFF\xFF")
 
 
 class TestMachineStatus:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Callable, Protocol
 
+from .brands.base import BrandProfile, MachineCapabilities
 from .const import MachineType
 from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
 
@@ -28,10 +29,14 @@ class BleClientProtocol(Protocol):
     _recipe_retries: int
     _machine_type: MachineType | None
     _profile_names: dict[int, str]
+    _profile_callbacks: list[Callable[[], None]]
     _directkey_recipes: dict[int, dict[int, MachineRecipe]]
+    _recipe_refresh_callbacks: list[Callable[[int, MachineRecipe], None]]
     _cups_callbacks: list[Callable[[], None]]
     _cup_counters: dict[str, int]
     _total_cups: int | None
+    _brand: BrandProfile
+    _capabilities: MachineCapabilities | None
     active_profile: int
 
     @property
@@ -40,3 +45,4 @@ class BleClientProtocol(Protocol):
     def _stop_polling(self) -> None: ...
     def start_polling(self, interval: float = ...) -> None: ...
     def _notify_profile_callbacks(self) -> None: ...
+    def record_error(self, category: str, message: str) -> None: ...

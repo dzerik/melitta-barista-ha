@@ -571,15 +571,25 @@ def _async_register_services(hass: HomeAssistant) -> None:
     from .protocol import RecipeComponent  # noqa: PLC0415
 
     def _find_client(entity_id: str) -> MelittaBleClient | None:
-        """Find the MelittaBleClient for a given entity_id."""
+        """Find the MelittaBleClient owning a given entity_id.
+
+        Resolves through the entity registry's `config_entry_id`. Earlier
+        versions matched by `c.address in ent.unique_id` (substring), which
+        is fragile when two machines share a MAC prefix — every entity's
+        unique_id contains its address, so a shorter address could be a
+        substring of a longer machine's entity unique_id and return the
+        wrong client.
+        """
         registry = er.async_get(hass)
         ent = registry.async_get(entity_id)
-        for entry in hass.config_entries.async_entries(DOMAIN):
-            if hasattr(entry, "runtime_data") and entry.runtime_data:
-                c: MelittaBleClient = entry.runtime_data
-                if ent and c.address in (ent.unique_id or ""):
-                    return c
-        return None
+        if ent is None or ent.config_entry_id is None:
+            return None
+        entry = hass.config_entries.async_get_entry(ent.config_entry_id)
+        if entry is None or entry.domain != DOMAIN:
+            return None
+        if not hasattr(entry, "runtime_data") or not entry.runtime_data:
+            return None
+        return entry.runtime_data
 
     async def _handle_brew_freestyle(call: ServiceCall) -> None:
         """Handle brew_freestyle service call."""
