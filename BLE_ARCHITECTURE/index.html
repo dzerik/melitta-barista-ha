@@ -1,0 +1,2762 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Home Assistant integration for Melitta Barista T/TS Smart and Nivona NICR/NIVO coffee machines over BLE">
+      
+      
+      
+        <link rel="canonical" href="https://dzerik.github.io/melitta-barista-ha/BLE_ARCHITECTURE/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../PROTOCOL/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>BLE architecture - Melitta Barista & Nivona — HA Integration</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#melitta-barista-nivona-ble-architecture-protocol" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-header__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Melitta Barista & Nivona — HA Integration
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              BLE architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-nav__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Melitta Barista & Nivona — HA Integration
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BLE architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BLE architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Содержание
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Общая архитектура
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Общая архитектура">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Слои абстракции
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ble-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. BLE-транспорт
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. BLE-транспорт">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ble-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BLE-характеристики машины
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Два режима подключения
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ha-bluetooth-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Интеграция с HA Bluetooth API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#establish_connection-ble_device_callback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        establish_connection и ble_device_callback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Жизненный цикл соединения
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Жизненный цикл соединения">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#state-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Полная state machine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#happy-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Последовательность подключения (happy path)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-pairing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3-ступенчатая стратегия pairing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-melitta-ble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Протокол Melitta BLE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Протокол Melitta BLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Формат фрейма
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_process_byte" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Приём фрейма (_process_byte)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Чанкинг для BLE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Криптография
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Криптография">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Инициализация шифрования
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#handshake-hu-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handshake (HU command)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Команды протокола
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Команды протокола">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Таблица команд
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hx-machine-status-push-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HX — Machine Status (push, каждые ~5 сек)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hc-read-recipe-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HC — Read Recipe (response)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hj-write-recipe-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HJ — Write Recipe (request)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipecomponent-8-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeComponent (8 bytes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#brew-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brew Flow (полный цикл заваривания)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Реконнект и отказоустойчивость
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Реконнект и отказоустойчивость">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Обнаружение отключения (два пути)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconnect-loop-exponential-backoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconnect Loop с exponential backoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#race-conditions-locks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Защита от race conditions (locks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-ha-entity-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. HA Entity-архитектура
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. HA Entity-архитектура">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entity-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity-дерево
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Подписка на обновления
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Потоки данных
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Потоки данных">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ble-notification-ha-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Полный цикл: от BLE notification до HA UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Параллельность и асинхронность
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-v0232-v0233" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Найденные и исправленные проблемы (v0.23.2 — v0.23.3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Найденные и исправленные проблемы (v0.23.2 — v0.23.3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Критические баги
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Критические баги">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bug-1-reconnect-loop-v0232" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bug 1: Reconnect loop отменяет сам себя (v0.23.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bug-2-shared-_reconnect_event-race-condition-v0233" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bug 2: Shared _reconnect_event race condition (v0.23.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v0233" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проблемы надёжности (v0.23.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-ha-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Ссылки на HA API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Ссылки на HA API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ha-bluetooth-api_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Используемые HA Bluetooth API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Используемые библиотеки
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Конфигурируемые параметры (Options Flow)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROTOCOL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wire protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/001-brand-profile-abstraction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001: Brand profile abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Содержание
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Общая архитектура
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Общая архитектура">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Слои абстракции
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ble-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. BLE-транспорт
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. BLE-транспорт">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ble-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BLE-характеристики машины
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Два режима подключения
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ha-bluetooth-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Интеграция с HA Bluetooth API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#establish_connection-ble_device_callback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        establish_connection и ble_device_callback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Жизненный цикл соединения
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Жизненный цикл соединения">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#state-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Полная state machine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#happy-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Последовательность подключения (happy path)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-pairing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3-ступенчатая стратегия pairing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-melitta-ble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Протокол Melitta BLE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Протокол Melitta BLE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Формат фрейма
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_process_byte" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Приём фрейма (_process_byte)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Чанкинг для BLE
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Криптография
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Криптография">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Инициализация шифрования
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#handshake-hu-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handshake (HU command)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Команды протокола
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Команды протокола">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Таблица команд
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hx-machine-status-push-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HX — Machine Status (push, каждые ~5 сек)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hc-read-recipe-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HC — Read Recipe (response)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hj-write-recipe-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HJ — Write Recipe (request)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipecomponent-8-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RecipeComponent (8 bytes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#brew-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brew Flow (полный цикл заваривания)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Реконнект и отказоустойчивость
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Реконнект и отказоустойчивость">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Обнаружение отключения (два пути)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconnect-loop-exponential-backoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconnect Loop с exponential backoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#race-conditions-locks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Защита от race conditions (locks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-ha-entity-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. HA Entity-архитектура
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. HA Entity-архитектура">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entity-" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity-дерево
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Подписка на обновления
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Потоки данных
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Потоки данных">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ble-notification-ha-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Полный цикл: от BLE notification до HA UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Параллельность и асинхронность
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-v0232-v0233" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Найденные и исправленные проблемы (v0.23.2 — v0.23.3)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Найденные и исправленные проблемы (v0.23.2 — v0.23.3)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Критические баги
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Критические баги">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bug-1-reconnect-loop-v0232" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bug 1: Reconnect loop отменяет сам себя (v0.23.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bug-2-shared-_reconnect_event-race-condition-v0233" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bug 2: Shared _reconnect_event race condition (v0.23.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v0233" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Проблемы надёжности (v0.23.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-ha-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Ссылки на HA API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Ссылки на HA API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ha-bluetooth-api_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Используемые HA Bluetooth API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Используемые библиотеки
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Конфигурируемые параметры (Options Flow)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/dzerik/melitta-barista-ha/edit/main/docs/BLE_ARCHITECTURE.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="melitta-barista-nivona-ble-architecture-protocol">Melitta Barista &amp; Nivona — BLE Architecture &amp; Protocol<a class="headerlink" href="#melitta-barista-nivona-ble-architecture-protocol" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Подробная техническая документация по BLE-стеку интеграции (общий Eugster/Frismag OEM-стек, используемый Melitta Barista T/TS Smart и Nivona NICR/NIVO 8xxx): от Bluetooth-слоя до HA-сущностей.</p>
+</blockquote>
+<h2 id="_1">Содержание<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#1-общая-архитектура">Общая архитектура</a></li>
+<li><a href="#2-ble-транспорт">BLE-транспорт: Bleak → ESPHome Proxy → Машина</a></li>
+<li><a href="#3-жизненный-цикл-соединения">Жизненный цикл соединения</a></li>
+<li><a href="#4-протокол-melitta-ble">Протокол Melitta BLE</a></li>
+<li><a href="#5-криптография">Криптография</a></li>
+<li><a href="#6-команды-протокола">Команды протокола</a></li>
+<li><a href="#7-реконнект-и-отказоустойчивость">Реконнект и отказоустойчивость</a></li>
+<li><a href="#8-ha-entity-архитектура">HA Entity-архитектура</a></li>
+<li><a href="#9-потоки-данных">Потоки данных</a></li>
+<li><a href="#10-найденные-и-исправленные-проблемы-v0232--v0233">Найденные и исправленные проблемы</a></li>
+<li><a href="#11-ссылки-на-ha-api">Ссылки на HA API</a></li>
+</ol>
+<hr />
+<h2 id="1">1. Общая архитектура<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>graph TB
+    subgraph "Home Assistant"
+        HA_BT["HA Bluetooth Manager&lt;br/&gt;(habluetooth)"]
+        INIT["__init__.py&lt;br/&gt;Integration Lifecycle"]
+        BLE_CLIENT["ble_client.py&lt;br/&gt;MelittaBleClient"]
+        PROTOCOL["protocol.py&lt;br/&gt;MelittaProtocol"]
+        ENTITIES["Entities&lt;br/&gt;sensor / button / switch / select / number / text"]
+    end
+
+    subgraph "BLE Transport"
+        BRC["bleak-retry-connector&lt;br/&gt;establish_connection()"]
+        BLEAK["bleak&lt;br/&gt;BleakClient + GATT"]
+    end
+
+    subgraph "Hardware"
+        ESP["ESPHome BLE Proxy&lt;br/&gt;(ESP32-C6)"]
+        MACHINE["Melitta Barista Smart&lt;br/&gt;BLE Peripheral"]
+    end
+
+    HA_BT --&gt;|"advertisement&lt;br/&gt;callbacks"| INIT
+    INIT --&gt;|"set_ble_device()"| BLE_CLIENT
+    BLE_CLIENT --&gt;|"write_func()"| PROTOCOL
+    PROTOCOL --&gt;|"build_frame()&lt;br/&gt;RC4 encrypt"| BLE_CLIENT
+    BLE_CLIENT --&gt;|"write_gatt_char()"| BRC
+    BRC --&gt; BLEAK
+    BLEAK --&gt;|"BLE over WiFi"| ESP
+    ESP --&gt;|"GATT"| MACHINE
+    MACHINE --&gt;|"notify char"| ESP
+    ESP --&gt; BLEAK
+    BLEAK --&gt;|"_on_notification()"| BLE_CLIENT
+    BLE_CLIENT --&gt;|"on_ble_data()"| PROTOCOL
+    PROTOCOL --&gt;|"status callbacks"| ENTITIES
+    BLE_CLIENT --&gt;|"connection callbacks"| ENTITIES</code></pre>
+<h3 id="_2">Слои абстракции<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Слой</th>
+<th>Модуль</th>
+<th>Ответственность</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HA Integration</strong></td>
+<td><code>__init__.py</code></td>
+<td>Lifecycle, BLE advertisement callback, сервисы</td>
+</tr>
+<tr>
+<td><strong>BLE Client</strong></td>
+<td><code>ble_client.py</code></td>
+<td>Управление соединением, reconnect, polling, locks</td>
+</tr>
+<tr>
+<td><strong>Protocol</strong></td>
+<td><code>protocol.py</code></td>
+<td>Framing, шифрование, command/response, parsing</td>
+</tr>
+<tr>
+<td><strong>Transport</strong></td>
+<td><code>bleak</code> + <code>bleak-retry-connector</code></td>
+<td>GATT read/write/notify, retry logic</td>
+</tr>
+<tr>
+<td><strong>Proxy</strong></td>
+<td>ESPHome BLE Proxy</td>
+<td>WiFi↔BLE bridge (опционально)</td>
+</tr>
+<tr>
+<td><strong>Entities</strong></td>
+<td><code>sensor.py</code>, <code>button.py</code>, ...</td>
+<td>HA UI, состояние, actions</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-ble-">2. BLE-транспорт<a class="headerlink" href="#2-ble-" title="Permanent link">&para;</a></h2>
+<h3 id="ble-">BLE-характеристики машины<a class="headerlink" href="#ble-" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Параметр</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Service UUID</td>
+<td><code>0000ad00-b35c-11e4-9813-0002a5d5c51b</code></td>
+</tr>
+<tr>
+<td>Write Characteristic</td>
+<td><code>0000ad01-...</code> (write without response)</td>
+</tr>
+<tr>
+<td>Notify Characteristic</td>
+<td><code>0000ad02-...</code> (notifications)</td>
+</tr>
+<tr>
+<td>Address type</td>
+<td>Static Random (<code>F1:xx:xx</code>)</td>
+</tr>
+<tr>
+<td>MTU</td>
+<td>20 bytes (стандартный BLE)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_3">Два режима подключения<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>graph LR
+    subgraph "Режим 1: Локальный BlueZ"
+        HA1["HA"] --&gt;|"D-Bus"| BLUEZ["BlueZ&lt;br/&gt;(Linux)"]
+        BLUEZ --&gt;|"HCI"| BT_ADAPTER["USB BT Adapter"]
+        BT_ADAPTER --&gt;|"BLE"| M1["Melitta"]
+    end
+
+    subgraph "Режим 2: ESPHome Proxy"
+        HA2["HA"] --&gt;|"WiFi&lt;br/&gt;(aioesphomeapi)"| ESP32["ESP32-C6&lt;br/&gt;(ESPHome)"]
+        ESP32 --&gt;|"BLE"| M2["Melitta"]
+    end</code></pre>
+<p><strong>Локальный BlueZ:</strong>
+- D-Bus Agent1 pairing через <code>ble_agent.py</code>
+- <code>establish_connection(pair=True)</code> для bonding
+- Прямой HCI доступ</p>
+<p><strong>ESPHome BLE Proxy</strong> (рекомендуемый):
+- ESP32 как WiFi→BLE мост
+- <code>ble_agent.py</code> детектирует отсутствие <code>Adapter1</code> D-Bus интерфейса, пропускает D-Bus pairing
+- <code>pair=True</code> обрабатывается на стороне ESP32
+- <code>address_type=1</code> (random) передаётся через <code>BLEDevice</code> из HA bluetooth cache
+- Конфиг: <code>esphome/ble-proxy-xiao-c6.yaml</code></p>
+<h3 id="ha-bluetooth-api">Интеграция с HA Bluetooth API<a class="headerlink" href="#ha-bluetooth-api" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># __init__.py: регистрация callback на BLE advertisements</span>
+<span class="n">bluetooth</span><span class="o">.</span><span class="n">async_register_callback</span><span class="p">(</span>
+    <span class="n">hass</span><span class="p">,</span>
+    <span class="n">_async_update_ble</span><span class="p">,</span>       <span class="c1"># вызывается при каждом advertisement</span>
+    <span class="p">{</span><span class="s2">&quot;address&quot;</span><span class="p">:</span> <span class="n">address</span><span class="p">},</span>    <span class="c1"># фильтр по MAC-адресу</span>
+    <span class="n">bluetooth</span><span class="o">.</span><span class="n">BluetoothScanningMode</span><span class="o">.</span><span class="n">ACTIVE</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Когда машина включается и начинает advertising, HA Bluetooth Manager детектирует advertisement через ESPHome proxy и вызывает <code>_async_update_ble</code> → <code>set_ble_device()</code>, что обновляет <code>BLEDevice</code> и будит reconnect loop.</p>
+<blockquote>
+<p><strong>Документация HA:</strong> <a href="https://developers.home-assistant.io/docs/core/bluetooth/api/">Bluetooth API — async_register_callback</a></p>
+</blockquote>
+<h3 id="establish_connection-ble_device_callback">establish_connection и ble_device_callback<a class="headerlink" href="#establish_connection-ble_device_callback" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># ble_client.py: _establish_connection()</span>
+<span class="n">client</span> <span class="o">=</span> <span class="k">await</span> <span class="n">establish_connection</span><span class="p">(</span>
+    <span class="n">BleakClientWithServiceCache</span><span class="p">,</span>    <span class="c1"># кэширование GATT-сервисов</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_ble_device</span><span class="p">,</span>               <span class="c1"># текущий BLEDevice</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_device_name</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_address</span><span class="p">,</span>
+    <span class="n">disconnected_callback</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_on_disconnect</span><span class="p">,</span>
+    <span class="n">use_services_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">ble_device_callback</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ble_device</span><span class="p">,</span>  <span class="c1"># ВСЕГДА свежий reference</span>
+    <span class="n">max_attempts</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">pair</span><span class="o">=</span><span class="n">pair</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Зачем <code>ble_device_callback</code>?</strong> При retry <code>establish_connection</code> вызывает эту lambda для получения актуального <code>BLEDevice</code>. Между попытками мог прийти новый advertisement, обновивший <code>self._ble_device</code> через <code>set_ble_device()</code>.</p>
+<blockquote>
+<p><strong>Документация:</strong> <a href="https://github.com/Bluetooth-Devices/bleak-retry-connector">bleak-retry-connector</a></p>
+</blockquote>
+<hr />
+<h2 id="3">3. Жизненный цикл соединения<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
+<h3 id="state-machine">Полная state machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; Setup: async_setup_entry()
+
+    Setup --&gt; InitialConnect: _async_connect_and_poll()
+
+    InitialConnect --&gt; Connecting: connect()
+    InitialConnect --&gt; WaitBackoff: connection failed
+    WaitBackoff --&gt; WaitBackoff: timeout → delay*2
+    WaitBackoff --&gt; Connecting: advertisement wakes up
+    WaitBackoff --&gt; Connecting: backoff elapsed
+
+    Connecting --&gt; PairAttempt1: _connect_impl()
+    PairAttempt1 --&gt; Handshake: BLE connected (pair=False)
+    PairAttempt1 --&gt; PairAttempt2: bond not found
+    PairAttempt2 --&gt; Handshake: BLE connected (pair=True)
+    PairAttempt2 --&gt; PairAttempt3: stale bond
+    PairAttempt3 --&gt; Handshake: unpair + pair=True
+    PairAttempt3 --&gt; ConnectFailed: all 3 attempts failed
+
+    Handshake --&gt; ReadFirmware: HU handshake OK
+    Handshake --&gt; ConnectFailed: handshake timeout
+
+    ReadFirmware --&gt; Connected: version + machine type read
+    Connected --&gt; Polling: start_polling()
+
+    Polling --&gt; Polling: poll_status() every N sec
+    Polling --&gt; PollErrors: BleakError / timeout
+    PollErrors --&gt; Polling: error &lt; max_consecutive
+    PollErrors --&gt; ForcedDisconnect: errors &gt;= max_consecutive
+
+    Connected --&gt; Disconnected: _on_disconnect() callback
+    ForcedDisconnect --&gt; Disconnected: _safe_disconnect()
+
+    Disconnected --&gt; ReconnectLoop: _schedule_reconnect()
+    ReconnectLoop --&gt; Connecting: delay elapsed or advertisement
+    ReconnectLoop --&gt; ReconnectLoop: connect failed → backoff*2
+
+    ConnectFailed --&gt; ReconnectLoop: from _reconnect_loop
+    ConnectFailed --&gt; WaitBackoff: from _async_connect_and_poll
+
+    Connected --&gt; Shutdown: disconnect()
+    Shutdown --&gt; [*]: _auto_reconnect=False</code></pre>
+<h3 id="happy-path">Последовательность подключения (happy path)<a class="headerlink" href="#happy-path" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant HA as Home Assistant
+    participant INIT as __init__.py
+    participant CLIENT as MelittaBleClient
+    participant PROTO as MelittaProtocol
+    participant BRC as bleak-retry-connector
+    participant ESP as ESPHome Proxy
+    participant MACH as Melitta Machine
+
+    HA-&gt;&gt;INIT: async_setup_entry()
+    INIT-&gt;&gt;INIT: bluetooth.async_ble_device_from_address()
+    INIT-&gt;&gt;CLIENT: MelittaBleClient(address, ble_device)
+    INIT-&gt;&gt;HA: bluetooth.async_register_callback()
+    INIT-&gt;&gt;INIT: _async_connect_and_poll() [background]
+
+    Note over INIT,CLIENT: Initial Connect Phase
+    INIT-&gt;&gt;CLIENT: connect()
+    CLIENT-&gt;&gt;CLIENT: _connect_impl() [under _connect_lock]
+
+    Note over CLIENT,MACH: Attempt 1: pair=False (reuse bond)
+    CLIENT-&gt;&gt;BRC: establish_connection(pair=False)
+    BRC-&gt;&gt;ESP: BLE connect
+    ESP-&gt;&gt;MACH: GATT connect
+    MACH--&gt;&gt;ESP: connected
+    ESP--&gt;&gt;BRC: BleakClient
+    BRC--&gt;&gt;CLIENT: client
+
+    CLIENT-&gt;&gt;MACH: start_notify(ad02)
+
+    Note over CLIENT,MACH: HU Handshake
+    CLIENT-&gt;&gt;PROTO: perform_handshake(write_func)
+    PROTO-&gt;&gt;PROTO: generate challenge (4 random bytes)
+    PROTO-&gt;&gt;PROTO: compute CRC
+    PROTO-&gt;&gt;CLIENT: write_func(HU frame)
+    CLIENT-&gt;&gt;MACH: write_gatt_char(ad01, HU frame)
+    MACH--&gt;&gt;CLIENT: notify(ad02, HU response)
+    CLIENT-&gt;&gt;PROTO: on_ble_data(response)
+    PROTO-&gt;&gt;PROTO: extract key_prefix (2 bytes)
+    PROTO--&gt;&gt;CLIENT: handshake OK
+
+    Note over CLIENT,MACH: Post-connect
+    CLIENT-&gt;&gt;PROTO: read_version()
+    MACH--&gt;&gt;CLIENT: HV response (firmware string)
+    CLIENT-&gt;&gt;PROTO: read_numerical(MACHINE_TYPE)
+    MACH--&gt;&gt;CLIENT: HR response (type ID)
+
+    CLIENT-&gt;&gt;CLIENT: connection_callbacks(True)
+    CLIENT-&gt;&gt;CLIENT: _load_post_connect_data() [background]
+    CLIENT-&gt;&gt;CLIENT: start_polling()
+
+    Note over CLIENT,MACH: Polling Loop
+    loop Every poll_interval seconds
+        CLIENT-&gt;&gt;PROTO: read_status()
+        PROTO-&gt;&gt;MACH: HX request
+        MACH--&gt;&gt;PROTO: HX response (8 bytes)
+        PROTO-&gt;&gt;CLIENT: status_callback(MachineStatus)
+        CLIENT-&gt;&gt;HA: Entity state updates
+    end</code></pre>
+<h3 id="3-pairing">3-ступенчатая стратегия pairing<a class="headerlink" href="#3-pairing" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    START["connect()"] --&gt; CHECK{"Уже подключен?"}
+    CHECK --&gt;|Да| DONE_OK["return True"]
+    CHECK --&gt;|Нет| A1
+
+    A1["Attempt 1: pair=False&lt;br/&gt;(reuse existing bond)"] --&gt; A1_OK{"Handshake OK?"}
+    A1_OK --&gt;|Да| CONNECTED["Connected!"]
+    A1_OK --&gt;|Нет| A2
+
+    A2["Attempt 2: pair=True&lt;br/&gt;(create new bond)"] --&gt; A2_OK{"Handshake OK?"}
+    A2_OK --&gt;|Да| CONNECTED
+    A2_OK --&gt;|Нет| UNPAIR
+
+    UNPAIR["_try_unpair()&lt;br/&gt;(clear stale bond)"] --&gt; A3
+
+    A3["Attempt 3: pair=True&lt;br/&gt;(fresh bond after unpair)"] --&gt; A3_OK{"Handshake OK?"}
+    A3_OK --&gt;|Да| CONNECTED
+    A3_OK --&gt;|Нет| FAILED["return False"]
+
+    CONNECTED --&gt; FW["Read firmware version"]
+    FW --&gt; TYPE["Read machine type"]
+    TYPE --&gt; CB["Notify connection callbacks"]
+    CB --&gt; POST["_load_post_connect_data()&lt;br/&gt;(background task)"]
+    POST --&gt; DONE_OK</code></pre>
+<p><strong>Зачем 3 попытки?</strong>
+1. <strong>pair=False</strong> — быстрый путь: bond уже есть на ESP32/BlueZ, повторный pairing не нужен
+2. <strong>pair=True</strong> — первый pairing или bond был потерян (e.g. ESP32 перезагрузился)
+3. <strong>unpair + pair=True</strong> — stale bond: машина забыла нас, но ESP32/BlueZ ещё помнит старый bond</p>
+<hr />
+<h2 id="4-melitta-ble">4. Протокол Melitta BLE<a class="headerlink" href="#4-melitta-ble" title="Permanent link">&para;</a></h2>
+<h3 id="_4">Формат фрейма<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>┌─────┬──────────┬────────────┬─────────────┬──────────┬─────┐
+│  S  │ Command  │ Key Prefix │   Payload   │ Checksum │  E  │
+│0x53 │ 1-2 char │  2 bytes   │  N bytes    │  1 byte  │0x45 │
+└─────┴──────────┴────────────┴─────────────┴──────────┴─────┘
+          │              │                         │
+          │              └─── RC4 encrypted ───────┘
+          │                   (key_prefix + payload + checksum)
+          └── plaintext (command bytes)
+</code></pre></div>
+<ul>
+<li><strong>S</strong> (<code>0x53</code>) — маркер начала фрейма</li>
+<li><strong>Command</strong> — 1-2 ASCII символа (<code>HU</code>, <code>HX</code>, <code>HC</code>, <code>HJ</code>, <code>HE</code>, <code>HB</code>, <code>HR</code>, <code>HA</code>, <code>HV</code>, <code>HW</code>, <code>A</code>, <code>N</code>)</li>
+<li><strong>Key Prefix</strong> — 2 байта, получены при handshake, включаются во все фреймы после handshake</li>
+<li><strong>Payload</strong> — данные команды (переменная длина)</li>
+<li><strong>Checksum</strong> — <code>~(sum(cmd_bytes + payload)) &amp; 0xFF</code></li>
+<li><strong>E</strong> (<code>0x45</code>) — маркер конца фрейма</li>
+<li>Всё после command bytes и до E <strong>шифруется RC4</strong> (кроме A/N — ACK/NACK)</li>
+</ul>
+<h3 id="_process_byte">Приём фрейма (_process_byte)<a class="headerlink" href="#_process_byte" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    BYTE["Входной байт"] --&gt; EMPTY{"Буфер пуст?"}
+    EMPTY --&gt;|Да| IS_S{"byte == 0x53 (S)?"}
+    IS_S --&gt;|Да| ADD_S["Добавить в буфер,&lt;br/&gt;start timer"]
+    IS_S --&gt;|Нет| SKIP["Игнорировать"]
+
+    EMPTY --&gt;|Нет| TIMEOUT{"Прошло &gt; 1 сек&lt;br/&gt;с начала фрейма?"}
+    TIMEOUT --&gt;|Да| CLEAR["Очистить буфер"]
+    CLEAR --&gt; IS_S
+
+    TIMEOUT --&gt;|Нет| OVERFLOW{"Буфер &gt;= 128?"}
+    OVERFLOW --&gt;|Да| CLEAR2["Очистить буфер"]
+    OVERFLOW --&gt;|Нет| ADD["Добавить байт"]
+
+    ADD --&gt; IS_E{"byte == 0x45 (E)&lt;br/&gt;и буфер &gt;= 4?"}
+    IS_E --&gt;|Нет| WAIT["Ждём следующий байт"]
+    IS_E --&gt;|Да| MATCH{"Длина совпадает&lt;br/&gt;с KNOWN_COMMANDS?"}
+
+    MATCH --&gt;|Да| PARSE["_try_parse_frame()"]
+    MATCH --&gt;|Нет| WAIT
+
+    PARSE --&gt; DECRYPT{"Encrypted?"}
+    DECRYPT --&gt;|Да| RC4["RC4 decrypt"]
+    RC4 --&gt; CS["Verify checksum"]
+    DECRYPT --&gt;|Нет| CS_PLAIN["Verify checksum&lt;br/&gt;(plaintext)"]
+    CS --&gt; DISPATCH["_dispatch_frame()"]
+    CS_PLAIN --&gt; DISPATCH</code></pre>
+<p><strong>Ключевые особенности парсера:</strong></p>
+<ol>
+<li>
+<p><strong>S (0x53) внутри фрейма — это данные</strong>, не новый фрейм. RC4-шифрование может генерировать байт 0x53 в ciphertext. Оригинальная реализация в Java (<code>Q3/q.java</code>) делает то же самое.</p>
+</li>
+<li>
+<p><strong>E (0x45) как маркер конца проверяется через длину.</strong> Поскольку 0x45 тоже может появиться в ciphertext, парсер сравнивает текущую длину буфера с ожидаемой длиной для каждой известной команды. Если длина не совпадает — байт считается данными.</p>
+</li>
+<li>
+<p><strong>1-секундный таймаут</strong> сбрасывает буфер при фрагментации (MTU = 20 байт, фрейм до ~70 байт = 4 BLE-пакета).</p>
+</li>
+</ol>
+<h3 id="ble">Чанкинг для BLE<a class="headerlink" href="#ble" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">chunk_for_ble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split frame into 20-byte BLE MTU chunks.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">frame</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">20</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="p">),</span> <span class="mi">20</span><span class="p">)]</span>
+</code></pre></div>
+<p>Один фрейм (например, HJ write recipe = 73 байта) разбивается на 4 чанка по 20 + остаток:
+<div class="highlight"><pre><span></span><code>Chunk 1: [20 bytes] → write_gatt_char(ad01)
+Chunk 2: [20 bytes] → write_gatt_char(ad01)
+Chunk 3: [20 bytes] → write_gatt_char(ad01)
+Chunk 4: [13 bytes] → write_gatt_char(ad01)
+</code></pre></div></p>
+<hr />
+<h2 id="5">5. Криптография<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
+<h3 id="_5">Инициализация шифрования<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    BLOB["Hardcoded AES blob&lt;br/&gt;(в исходном коде)"] --&gt; AES["AES-CBC decrypt&lt;br/&gt;(pycryptodome)"]
+    AES --&gt; RC4_KEY["RC4 Key&lt;br/&gt;(32 bytes)"]
+    RC4_KEY --&gt; ENCRYPT["RC4 encrypt&lt;br/&gt;(send frames)"]
+    RC4_KEY --&gt; DECRYPT["RC4 decrypt&lt;br/&gt;(receive frames)"]</code></pre>
+<ol>
+<li><strong>AES-CBC</strong> расшифровывает захардкоженный blob → получаем RC4-ключ (32 байта)</li>
+<li><strong>RC4</strong> (симметричный потоковый шифр) используется для шифрования/дешифрования всех фреймов</li>
+<li>Каждый фрейм шифруется <strong>независимо</strong> (RC4 state сбрасывается для каждого фрейма)</li>
+</ol>
+<h3 id="handshake-hu-command">Handshake (HU command)<a class="headerlink" href="#handshake-hu-command" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant APP as Integration
+    participant MACH as Machine
+
+    Note over APP: Generate 4 random bytes (challenge)
+    Note over APP: Compute CRC over challenge
+    APP-&gt;&gt;MACH: HU frame: challenge(4) + crc(2)
+    Note over MACH: Verify CRC
+    Note over MACH: Generate key_prefix(2)
+    MACH--&gt;&gt;APP: HU response: challenge(4) + key_prefix(2) + validation(2)
+    Note over APP: Store key_prefix for all future frames</code></pre>
+<p><strong>Key Prefix</strong> — 2 байта, которые машина присваивает сессии. Включаются во <strong>все</strong> последующие фреймы (команды и ответы). Без key_prefix машина отклоняет команды.</p>
+<hr />
+<h2 id="6">6. Команды протокола<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<h3 id="_6">Таблица команд<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Команда</th>
+<th>Направление</th>
+<th>Encrypted</th>
+<th>Payload size</th>
+<th>Описание</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HU</code></td>
+<td>↔</td>
+<td>Нет*</td>
+<td>6/8 bytes</td>
+<td>Handshake challenge-response</td>
+</tr>
+<tr>
+<td><code>HX</code></td>
+<td>←</td>
+<td>Да</td>
+<td>8 bytes</td>
+<td>Status (процесс, прогресс, alerts)</td>
+</tr>
+<tr>
+<td><code>HC</code></td>
+<td>←</td>
+<td>Да</td>
+<td>66 bytes</td>
+<td>Read recipe response</td>
+</tr>
+<tr>
+<td><code>HJ</code></td>
+<td>→</td>
+<td>Да</td>
+<td>66 bytes</td>
+<td>Write recipe</td>
+</tr>
+<tr>
+<td><code>HE</code></td>
+<td>→</td>
+<td>Да</td>
+<td>18 bytes</td>
+<td>Start process (brew, clean, etc.)</td>
+</tr>
+<tr>
+<td><code>HB</code></td>
+<td>→</td>
+<td>Да</td>
+<td>4 bytes</td>
+<td>Cancel process</td>
+</tr>
+<tr>
+<td><code>HR</code></td>
+<td>←</td>
+<td>Да</td>
+<td>6 bytes</td>
+<td>Read numerical value</td>
+</tr>
+<tr>
+<td><code>HW</code></td>
+<td>→</td>
+<td>Да</td>
+<td>6 bytes</td>
+<td>Write numerical value</td>
+</tr>
+<tr>
+<td><code>HA</code></td>
+<td>↔</td>
+<td>Да</td>
+<td>66 bytes</td>
+<td>Read/write alphanumeric value</td>
+</tr>
+<tr>
+<td><code>HV</code></td>
+<td>←</td>
+<td>Да</td>
+<td>11 bytes</td>
+<td>Read firmware version</td>
+</tr>
+<tr>
+<td><code>A</code></td>
+<td>←</td>
+<td>Нет</td>
+<td>0 bytes</td>
+<td>ACK</td>
+</tr>
+<tr>
+<td><code>N</code></td>
+<td>←</td>
+<td>Нет</td>
+<td>0 bytes</td>
+<td>NACK</td>
+</tr>
+</tbody>
+</table>
+<p>*HU использует RC4 для key_prefix exchange, но сам challenge не шифруется.</p>
+<h3 id="hx-machine-status-push-5">HX — Machine Status (push, каждые ~5 сек)<a class="headerlink" href="#hx-machine-status-push-5" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Payload (8 bytes):
+  ┌──────────────┬──────────────┬───────────────┬──────────────┬──────────────┐
+  │ process (2B) │sub_process(2)│info_messages(1)│manipulation(1)│ progress(2B)│
+  │  big-endian  │  big-endian  │   bitmask     │    enum      │  big-endian  │
+  └──────────────┴──────────────┴───────────────┴──────────────┴──────────────┘
+</code></pre></div>
+<ul>
+<li><strong>process</strong>: <code>MachineProcess</code> enum (STANDBY=0, READY=2, PRODUCT=3, CLEANING=4, ...)</li>
+<li><strong>sub_process</strong>: <code>SubProcess</code> enum (IDLE=0, GRINDING=1, BREWING=2, MILK_FOAMING=3, ...)</li>
+<li><strong>info_messages</strong>: bitmask (WATER_EMPTY=0x01, TRAY_FULL=0x02, BEAN_EMPTY=0x04, ...)</li>
+<li><strong>manipulation</strong>: <code>Manipulation</code> enum (NONE=0, INSERT_TRAY=1, EMPTY_GROUNDS=2, ...)</li>
+<li><strong>progress</strong>: 0-100 (процент завершения текущего процесса)</li>
+</ul>
+<h3 id="hc-read-recipe-response">HC — Read Recipe (response)<a class="headerlink" href="#hc-read-recipe-response" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Payload (66 bytes, значимые 19):
+  ┌─────────────┬─────────────┬──────────────────┬──────────────────┬──────────┐
+  │recipe_id (2)│recipe_type(1)│  component1 (8)  │  component2 (8)  │padding(47)│
+  │ big-endian  │    enum     │  RecipeComponent │  RecipeComponent │   zeros   │
+  └─────────────┴─────────────┴──────────────────┴──────────────────┴──────────┘
+</code></pre></div>
+<p><strong>ВАЖНО:</strong> В HC response <strong>НЕТ recipe_key</strong> (в отличие от HJ write)!</p>
+<h3 id="hj-write-recipe-request">HJ — Write Recipe (request)<a class="headerlink" href="#hj-write-recipe-request" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Payload (66 bytes):
+  ┌─────────────┬─────────────┬────────────┬──────────────────┬──────────────────┬──────────┐
+  │recipe_id (2)│recipe_type(1)│recipe_key(1)│  component1 (8)  │  component2 (8)  │padding(46)│
+  │ big-endian  │    enum     │    enum    │  RecipeComponent │  RecipeComponent │   zeros   │
+  └─────────────┴─────────────┴────────────┴──────────────────┴──────────────────┴──────────┘
+</code></pre></div>
+<p><strong>recipe_key обязателен</strong> и определяется по recipe_type через маппинг.</p>
+<h3 id="recipecomponent-8-bytes">RecipeComponent (8 bytes)<a class="headerlink" href="#recipecomponent-8-bytes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>  ┌─────────┬───────┬───────┬───────────┬───────┬─────────────┬─────────┬─────────┐
+  │process  │ shots │ blend │ intensity │ aroma │ temperature │portion  │reserve  │
+  │ (1 byte)│(1)    │(1)    │ (1)       │(1)    │ (1)         │(1, ×5ml)│(1)      │
+  └─────────┴───────┴───────┴───────────┴───────┴─────────────┴─────────┴─────────┘
+</code></pre></div>
+<h3 id="brew-flow">Brew Flow (полный цикл заваривания)<a class="headerlink" href="#brew-flow" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant UI as HA Button
+    participant CLIENT as MelittaBleClient
+    participant PROTO as MelittaProtocol
+    participant MACH as Machine
+
+    UI-&gt;&gt;CLIENT: brew_recipe(recipe_id)
+
+    Note over CLIENT: Acquire _brew_lock
+
+    CLIENT-&gt;&gt;PROTO: read_status()
+    PROTO-&gt;&gt;MACH: HX request
+    MACH--&gt;&gt;PROTO: HX: process=READY
+
+    alt Machine not ready
+        CLIENT--&gt;&gt;UI: raise RuntimeError
+    end
+
+    CLIENT-&gt;&gt;PROTO: read_recipe(recipe_id)
+    PROTO-&gt;&gt;MACH: HC request
+    MACH--&gt;&gt;PROTO: HC: recipe data (66B)
+
+    CLIENT-&gt;&gt;PROTO: write_recipe(TEMP_ID=400, recipe)
+    PROTO-&gt;&gt;MACH: HJ frame (66B payload)
+    MACH--&gt;&gt;PROTO: ACK (A)
+
+    Note over CLIENT: sleep(200ms)
+
+    CLIENT-&gt;&gt;PROTO: write_alphanumeric(FREESTYLE_NAME=401, name)
+    PROTO-&gt;&gt;MACH: HA frame (66B)
+    MACH--&gt;&gt;PROTO: ACK (A)
+
+    Note over CLIENT: sleep(200ms)
+
+    CLIENT-&gt;&gt;PROTO: start_process(PRODUCT)
+    PROTO-&gt;&gt;MACH: HE frame (18B)
+    MACH--&gt;&gt;PROTO: ACK (A)
+
+    Note over MACH: Machine starts brewing
+
+    loop Status updates (push)
+        MACH--&gt;&gt;PROTO: HX: process=PRODUCT, progress=0..100
+        PROTO-&gt;&gt;CLIENT: status_callback
+        CLIENT-&gt;&gt;UI: Entity state update
+    end
+
+    MACH--&gt;&gt;PROTO: HX: process=READY
+    Note over UI: Brewing complete</code></pre>
+<hr />
+<h2 id="7">7. Реконнект и отказоустойчивость<a class="headerlink" href="#7" title="Permanent link">&para;</a></h2>
+<h3 id="_7">Обнаружение отключения (два пути)<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+    DISCONNECT["Машина выключена / BLE потеряно"]
+
+    DISCONNECT --&gt; PATH1["Путь 1: BLE disconnect callback"]
+    DISCONNECT --&gt; PATH2["Путь 2: Poll errors"]
+
+    PATH1 --&gt; ON_DISC["_on_disconnect()"]
+    ON_DISC --&gt; SET_FALSE1["_connected = False&lt;br/&gt;_client = None"]
+    SET_FALSE1 --&gt; CB1["connection_callbacks(False)"]
+    CB1 --&gt; SCHED1["_schedule_reconnect()"]
+
+    PATH2 --&gt; POLL["_poll_loop(): BleakError"]
+    POLL --&gt; COUNT["consecutive_errors++"]
+    COUNT --&gt; CHECK{"errors &gt;= max?&lt;br/&gt;(default: 3)"}
+    CHECK --&gt;|Нет| CONTINUE["Продолжить polling"]
+    CHECK --&gt;|Да| FORCE["_safe_disconnect()&lt;br/&gt;_connected = False"]
+    FORCE --&gt; CB2["connection_callbacks(False)"]
+    CB2 --&gt; SCHED2["_schedule_reconnect()"]
+
+    SCHED1 --&gt; LOOP["_reconnect_loop()"]
+    SCHED2 --&gt; LOOP</code></pre>
+<p><strong>Путь 1</strong> — быстрый: BLE-стек (через ESPHome proxy или BlueZ) детектирует разрыв соединения по BLE supervision timeout и вызывает <code>disconnected_callback</code>. Задержка: обычно 2-10 секунд.</p>
+<p><strong>Путь 2</strong> — fallback: если disconnect callback не сработал (например, при silent disconnect), poll loop накапливает ошибки и через <code>max_consecutive_errors</code> (по умолчанию 3) принудительно отключается.</p>
+<h3 id="reconnect-loop-exponential-backoff">Reconnect Loop с exponential backoff<a class="headerlink" href="#reconnect-loop-exponential-backoff" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant LOOP as _reconnect_loop
+    participant EVENT as _reconnect_event
+    participant BT as HA Bluetooth
+    participant CLIENT as connect()
+
+    Note over LOOP: delay = reconnect_delay (default: 5s)
+
+    loop while _auto_reconnect and not connected
+        LOOP-&gt;&gt;EVENT: wait(timeout=delay)
+
+        alt Advertisement arrives
+            BT-&gt;&gt;EVENT: set() [via set_ble_device()]
+            EVENT--&gt;&gt;LOOP: woken up early!
+            Note over LOOP: delay = reconnect_delay (reset)
+        else Timeout
+            Note over LOOP: normal backoff elapsed
+        end
+
+        LOOP-&gt;&gt;CLIENT: connect()
+
+        alt Success
+            CLIENT--&gt;&gt;LOOP: True
+            LOOP-&gt;&gt;LOOP: start_polling()
+            Note over LOOP: return (loop ends)
+        else Failure
+            CLIENT--&gt;&gt;LOOP: False / exception
+            Note over LOOP: delay = min(delay×2, max_delay)
+        end
+    end</code></pre>
+<p><strong>Backoff progression:</strong> 5s → 10s → 20s → 40s → 80s → 160s → 300s (max)</p>
+<p><strong>Мгновенный reconnect по advertisement:</strong> Когда машина включается и начинает BLE advertising, ESPHome proxy форвардит advertisement → HA вызывает <code>set_ble_device()</code> → <code>_reconnect_event.set()</code> будит reconnect loop → попытка подключения с минимальной задержкой.</p>
+<blockquote>
+<p><strong>HA API:</strong> <a href="https://developers.home-assistant.io/docs/core/bluetooth/api/"><code>bluetooth.async_register_callback</code></a> — регистрирует callback на каждый BLE advertisement от устройства с указанным MAC-адресом.</p>
+</blockquote>
+<h3 id="race-conditions-locks">Защита от race conditions (locks)<a class="headerlink" href="#race-conditions-locks" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Lock</th>
+<th>Защищает</th>
+<th>Используется в</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>_connect_lock</code></td>
+<td>Одновременные попытки подключения</td>
+<td><code>connect()</code></td>
+</tr>
+<tr>
+<td><code>_write_lock</code></td>
+<td>Параллельные BLE write</td>
+<td><code>_write_ble()</code></td>
+</tr>
+<tr>
+<td><code>_brew_lock</code></td>
+<td>Параллельные brew commands</td>
+<td><code>brew_recipe()</code>, <code>brew_directkey()</code>, <code>brew_freestyle()</code></td>
+</tr>
+<tr>
+<td><code>_lock</code> (protocol)</td>
+<td>Параллельные send_and_wait</td>
+<td><code>send_and_wait_ack()</code>, <code>send_and_wait_response()</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-ha-entity-">8. HA Entity-архитектура<a class="headerlink" href="#8-ha-entity-" title="Permanent link">&para;</a></h2>
+<h3 id="entity-">Entity-дерево<a class="headerlink" href="#entity-" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>graph TD
+    subgraph "Sensors"
+        S1["MelittaStateSensor&lt;br/&gt;process + sub_process"]
+        S2["MelittaActivitySensor&lt;br/&gt;human-readable activity"]
+        S3["MelittaProgressSensor&lt;br/&gt;0-100%"]
+        S4["MelittaActionRequiredSensor&lt;br/&gt;manipulation label"]
+        S5["MelittaConnectionSensor&lt;br/&gt;connected / disconnected"]
+        S6["MelittaFirmwareSensor&lt;br/&gt;firmware version"]
+        S7["MelittaTotalCupsSensor&lt;br/&gt;cup counters"]
+    end
+
+    subgraph "Buttons"
+        B1["MelittaBrewButton ×25&lt;br/&gt;per recipe (espresso, latte...)"]
+        B2["MelittaBrewFreestyleButton&lt;br/&gt;custom recipe"]
+        B3["MelittaCancelButton&lt;br/&gt;cancel current process"]
+        B4["MelittaMaintenanceButton ×5&lt;br/&gt;clean, descale, filter..."]
+    end
+
+    subgraph "Selects"
+        SEL1["Recipe Select&lt;br/&gt;active recipe"]
+        SEL2["Profile Select&lt;br/&gt;active profile 0-8"]
+        SEL3["Freestyle Process/Intensity&lt;br/&gt;Aroma/Temperature/Shots"]
+    end
+
+    subgraph "Switches"
+        SW1["MelittaSettingSwitch ×N&lt;br/&gt;HR/HW based settings"]
+        SW2["MelittaProfileActivitySwitch ×8&lt;br/&gt;profile enabled/disabled"]
+    end
+
+    subgraph "Numbers"
+        N1["Portion Size Number&lt;br/&gt;freestyle ml"]
+        N2["Setting Numbers&lt;br/&gt;language, clock, filter..."]
+    end</code></pre>
+<h3 id="_8">Подписка на обновления<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    participant ENTITY as Entity (sensor/button)
+    participant CLIENT as MelittaBleClient
+    participant PROTO as MelittaProtocol
+    participant MACH as Machine
+
+    Note over ENTITY: async_added_to_hass()
+    ENTITY-&gt;&gt;CLIENT: add_status_callback(self._on_status_update)
+    ENTITY-&gt;&gt;CLIENT: add_connection_callback(self._on_connection_change)
+
+    Note over MACH: Machine sends HX status
+    MACH--&gt;&gt;PROTO: HX notification
+    PROTO-&gt;&gt;CLIENT: _on_status(MachineStatus)
+    CLIENT-&gt;&gt;ENTITY: status_callback(status)
+    ENTITY-&gt;&gt;ENTITY: self.async_write_ha_state()
+
+    Note over ENTITY: async_will_remove_from_hass()
+    ENTITY-&gt;&gt;CLIENT: remove_status_callback(...)
+    ENTITY-&gt;&gt;CLIENT: remove_connection_callback(...)</code></pre>
+<p><strong>Все entity используют push-модель</strong> — не polling. Машина отправляет HX status каждые ~5 секунд через BLE notification. Entity подписываются на callbacks и обновляют своё состояние реактивно.</p>
+<hr />
+<h2 id="9">9. Потоки данных<a class="headerlink" href="#9" title="Permanent link">&para;</a></h2>
+<h3 id="ble-notification-ha-ui">Полный цикл: от BLE notification до HA UI<a class="headerlink" href="#ble-notification-ha-ui" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart LR
+    MACH["Machine&lt;br/&gt;BLE notify"] --&gt;|"raw bytes&lt;br/&gt;(20B chunks)"| ESP["ESPHome&lt;br/&gt;Proxy"]
+    ESP --&gt;|"aioesphomeapi"| BLEAK["BleakClient&lt;br/&gt;notification callback"]
+    BLEAK --&gt;|"bytearray"| ON_NOTIF["_on_notification()"]
+    ON_NOTIF --&gt;|"bytes"| ON_BLE["protocol.on_ble_data()"]
+    ON_BLE --&gt;|"per byte"| PROCESS["_process_byte()"]
+    PROCESS --&gt;|"complete frame"| PARSE["_try_parse_frame()"]
+    PARSE --&gt;|"RC4 decrypt&lt;br/&gt;+ checksum verify"| DISPATCH["_dispatch_frame()"]
+
+    DISPATCH --&gt;|"HX payload"| STATUS["MachineStatus.from_payload()"]
+    STATUS --&gt;|"callback"| SENSOR["Sensor entity"]
+    SENSOR --&gt;|"async_write_ha_state()"| HA_UI["HA Frontend"]
+
+    DISPATCH --&gt;|"A/N"| ACK["_ack_future.set_result()"]
+    ACK --&gt;|"unblock"| SEND_WAIT["send_and_wait_ack()"]
+
+    DISPATCH --&gt;|"HC/HR/HA/HV"| FUTURE["_frame_futures[cmd].set_result()"]
+    FUTURE --&gt;|"unblock"| SEND_RESP["send_and_wait_response()"]</code></pre>
+<h3 id="_9">Параллельность и асинхронность<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>gantt
+    title Async Task Lifecycle
+    dateFormat X
+    axisFormat %s
+
+    section Background Tasks
+    _async_connect_and_poll    :0, 5
+    _load_post_connect_data    :5, 8
+    _poll_loop                 :8, 100
+    _reconnect_loop (if needed):50, 60
+
+    section Locks
+    _connect_lock held         :0, 5
+    _write_lock (per BLE write):active, 8, 9
+    _brew_lock (during brew)   :active, 20, 25</code></pre>
+<hr />
+<h2 id="10-v0232-v0233">10. Найденные и исправленные проблемы (v0.23.2 — v0.23.3)<a class="headerlink" href="#10-v0232-v0233" title="Permanent link">&para;</a></h2>
+<h3 id="_10">Критические баги<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h3>
+<h4 id="bug-1-reconnect-loop-v0232">Bug 1: Reconnect loop отменяет сам себя (v0.23.2)<a class="headerlink" href="#bug-1-reconnect-loop-v0232" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>sequenceDiagram
+    participant LOOP as _reconnect_loop
+    participant CONNECT as connect()
+    participant IMPL as _connect_impl()
+
+    Note over LOOP: _reconnect_task = this task
+    LOOP-&gt;&gt;CONNECT: await self.connect()
+    CONNECT-&gt;&gt;IMPL: await self._connect_impl()
+
+    Note over IMPL: self._reconnect_task.cancel()
+    Note over IMPL: ⚠️ Cancels ITSELF!
+
+    IMPL--&gt;&gt;CONNECT: CancelledError at next await
+    Note over LOOP: Task silently dies
+    Note over LOOP: ❌ No reconnection ever happens</code></pre>
+<p><strong>Причина:</strong> <code>_connect_impl()</code> содержал <code>self._reconnect_task.cancel()</code> для предотвращения дублирования. Но когда вызывался из <code>_reconnect_loop</code>, <code>_reconnect_task</code> указывал на текущий task.</p>
+<p><strong>Исправление:</strong> <code>asyncio.current_task() is not self._reconnect_task</code> guard.</p>
+<h4 id="bug-2-shared-_reconnect_event-race-condition-v0233">Bug 2: Shared <code>_reconnect_event</code> race condition (v0.23.3)<a class="headerlink" href="#bug-2-shared-_reconnect_event-race-condition-v0233" title="Permanent link">&para;</a></h4>
+<pre class="mermaid"><code>sequenceDiagram
+    participant INIT as _async_connect_and_poll
+    participant BLE as BLE advertisement
+    participant SET as set_ble_device()
+    participant SCHED as _schedule_reconnect()
+    participant RLOOP as _reconnect_loop
+
+    Note over INIT: Waiting on _reconnect_event
+
+    BLE-&gt;&gt;SET: advertisement arrives
+    SET-&gt;&gt;SET: _reconnect_event.set()
+    SET-&gt;&gt;SCHED: _schedule_reconnect()
+    SCHED-&gt;&gt;RLOOP: create task
+
+    Note over RLOOP: _reconnect_event.clear()
+    Note over INIT: ⚠️ Event consumed by RLOOP!
+
+    par Both try connect()
+        INIT-&gt;&gt;INIT: connect() — wins lock
+        RLOOP-&gt;&gt;RLOOP: connect() — waits for lock
+    end
+
+    Note over RLOOP: Gets True (already connected)
+    RLOOP-&gt;&gt;RLOOP: start_polling() — ⚠️ restarts poll!</code></pre>
+<p><strong>Причина:</strong> Два цикла (<code>_async_connect_and_poll</code> и <code>_reconnect_loop</code>) слушали один <code>_reconnect_event</code>. <code>set_ble_device()</code> создавал дубликат reconnect loop.</p>
+<p><strong>Исправление:</strong> <code>set_ble_device()</code> не вызывает <code>_schedule_reconnect()</code> если reconnect task уже существует.</p>
+<h3 id="v0233">Проблемы надёжности (v0.23.3)<a class="headerlink" href="#v0233" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Проблема</th>
+<th>Исправление</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td><code>_load_post_connect_data</code> — fire-and-forget task, не отменяется при disconnect</td>
+<td>Сохраняется в <code>_post_connect_task</code>, отменяется в <code>disconnect()</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>MelittaProtocol()</code> создавалась без <code>frame_timeout</code> (Options Flow игнорировался)</td>
+<td>Передаём <code>frame_timeout=self._frame_timeout</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>write_alpha()</code> безусловно перезапускала polling</td>
+<td>Добавлен <code>was_polling</code> guard</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>send_and_wait_response()</code> — stale future при ошибке write</td>
+<td><code>finally: self._frame_futures.pop(command, None)</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Cup counter refresh конфликтовал с brew sequence</td>
+<td>Проверка <code>self._brew_lock.locked()</code> перед запуском</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-ha-api">11. Ссылки на HA API<a class="headerlink" href="#11-ha-api" title="Permanent link">&para;</a></h2>
+<h3 id="ha-bluetooth-api_1">Используемые HA Bluetooth API<a class="headerlink" href="#ha-bluetooth-api_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Где</th>
+<th>Для чего</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://developers.home-assistant.io/docs/core/bluetooth/api/"><code>bluetooth.async_register_callback</code></a></td>
+<td><code>__init__.py:139</code></td>
+<td>Получение fresh <code>BLEDevice</code> при каждом advertisement</td>
+</tr>
+<tr>
+<td><a href="https://developers.home-assistant.io/docs/core/bluetooth/api/"><code>bluetooth.async_ble_device_from_address</code></a></td>
+<td><code>__init__.py:107</code></td>
+<td>Initial <code>BLEDevice</code> из кэша при setup</td>
+</tr>
+<tr>
+<td><a href="https://developers.home-assistant.io/docs/core/bluetooth/api/"><code>bluetooth.BluetoothScanningMode.ACTIVE</code></a></td>
+<td><code>__init__.py:148</code></td>
+<td>Активное BLE сканирование через proxy</td>
+</tr>
+<tr>
+<td><a href="https://developers.home-assistant.io/docs/config_entries_index/"><code>entry.async_on_unload</code></a></td>
+<td><code>__init__.py:150</code></td>
+<td>Автоматическая отмена callback при unload</td>
+</tr>
+<tr>
+<td><a href="https://developers.home-assistant.io/docs/asyncio_index/"><code>hass.async_create_task</code></a></td>
+<td><code>__init__.py:170</code></td>
+<td>Background connect без блокировки setup</td>
+</tr>
+<tr>
+<td><a href="https://developers.home-assistant.io/docs/config_entries_index/"><code>ConfigEntry.runtime_data</code></a></td>
+<td><code>__init__.py:160</code></td>
+<td>Хранение клиента в runtime данных entry</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_11">Используемые библиотеки<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Библиотека</th>
+<th>Версия</th>
+<th>Для чего</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://bleak.readthedocs.io/"><code>bleak</code></a></td>
+<td>≥ 0.21.0</td>
+<td>GATT read/write/notify, BLE connection</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Bluetooth-Devices/bleak-retry-connector"><code>bleak-retry-connector</code></a></td>
+<td>≥ 3.0.0</td>
+<td><code>establish_connection()</code>, service cache, retry</td>
+</tr>
+<tr>
+<td><a href="https://www.pycryptodome.org/"><code>pycryptodome</code></a></td>
+<td>≥ 3.0.0</td>
+<td>AES-CBC для derivation RC4-ключа</td>
+</tr>
+</tbody>
+</table>
+<h3 id="options-flow">Конфигурируемые параметры (Options Flow)<a class="headerlink" href="#options-flow" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Параметр</th>
+<th>Default</th>
+<th>Описание</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>poll_interval</code></td>
+<td>5.0s</td>
+<td>Интервал polling HX status</td>
+</tr>
+<tr>
+<td><code>reconnect_delay</code></td>
+<td>5.0s</td>
+<td>Начальная задержка reconnect</td>
+</tr>
+<tr>
+<td><code>reconnect_max_delay</code></td>
+<td>300s</td>
+<td>Максимальная задержка reconnect</td>
+</tr>
+<tr>
+<td><code>max_consecutive_errors</code></td>
+<td>3</td>
+<td>Poll errors до forced disconnect</td>
+</tr>
+<tr>
+<td><code>ble_connect_timeout</code></td>
+<td>30s</td>
+<td>Таймаут BLE connect</td>
+</tr>
+<tr>
+<td><code>frame_timeout</code></td>
+<td>5s</td>
+<td>Таймаут ожидания ответа на команду</td>
+</tr>
+<tr>
+<td><code>initial_connect_delay</code></td>
+<td>2.0s</td>
+<td>Задержка перед первым connect</td>
+</tr>
+<tr>
+<td><code>recipe_retries</code></td>
+<td>2</td>
+<td>Retry для read/write recipe</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Документация актуальна для версии v0.23.3. Последнее обновление: 2026-03-19.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dzerik/melitta-barista-ha" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
