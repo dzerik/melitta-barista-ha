@@ -126,6 +126,11 @@ def _async_cleanup_legacy_recipe_buttons(
         _LOGGER.info("Cleaned up %d legacy recipe button entities", removed)
 
 
+def _async_clock_coordinator_key(entry_id: str) -> str:
+    """`hass.data[DOMAIN]` key for the per-entry ClockSyncCoordinator."""
+    return f"clock_coordinator_{entry_id}"
+
+
 def _async_check_clock_migration(
     hass: HomeAssistant, entry: ConfigEntry, address: str,
 ) -> None:
@@ -854,6 +859,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("[TIMING] %s cleanup_legacy: %.0fms", address, (_time_perf_counter() - _t0) * 1000)
     _async_check_clock_migration(hass, entry, address)
 
+    clock_coord = ClockSyncCoordinator(hass, client, entry.options)
+    clock_coord.start()
+    hass.data.setdefault(DOMAIN, {})[
+        _async_clock_coordinator_key(entry.entry_id)
+    ] = clock_coord
+
     _t0 = _time_perf_counter()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug(
@@ -1347,6 +1358,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
+        clock_coord = hass.data.get(DOMAIN, {}).pop(
+            _async_clock_coordinator_key(entry.entry_id), None,
+        )
+        if clock_coord is not None:
+            clock_coord.stop()
         client: MelittaBleClient = entry.runtime_data
         await client.disconnect()
 
@@ -1385,5 +1401,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_update_listener(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> None:
-    """Handle options update."""
+    """Handle options update.
+
+    Triggers a full reload of the config entry, which destroys and
+    recreates the ClockSyncCoordinator with the new options.
+    """
     await hass.config_entries.async_reload(entry.entry_id)

@@ -400,3 +400,35 @@ async def test_daily_tick_skips_when_disconnected(hass: HomeAssistant):
     coord._on_daily_tick(datetime(2026, 5, 21, 3, 17, 0))
     await hass.async_block_till_done()
     client.read_setting.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_start_stop_idempotent_pairing(hass: HomeAssistant):
+    """start() subscribes once; stop() unsubscribes the same number of times."""
+    from custom_components.melitta_barista import (
+        ClockSyncCoordinator,
+        _async_clock_coordinator_key,
+    )
+    from custom_components.melitta_barista.const import (
+        CONF_AUTO_SYNC_CLOCK,
+        CONF_AUTO_SYNC_DRIFT_MINUTES,
+        CONF_AUTO_SYNC_DAILY_TIME,
+    )
+
+    client = _client_mock()
+    coord = ClockSyncCoordinator(
+        hass,
+        client,
+        {
+            CONF_AUTO_SYNC_CLOCK: True,
+            CONF_AUTO_SYNC_DRIFT_MINUTES: 2,
+            CONF_AUTO_SYNC_DAILY_TIME: "03:17",
+        },
+    )
+    coord.start()
+    coord.stop()
+
+    assert client.add_connection_callback.call_count == 1
+    assert client.remove_connection_callback.call_count == 1
+    # helper exists and returns deterministic per-entry key
+    assert _async_clock_coordinator_key("abc") == "clock_coordinator_abc"
