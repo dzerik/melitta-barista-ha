@@ -66,3 +66,12 @@ async def test_time_entity_write_calls_setting_21():
 
     client.write_setting.assert_awaited_once_with(21, 870)
     assert entity.native_value == dt_time(hour=14, minute=30)
+
+
+def test_setting_definitions_no_longer_include_clock_ids():
+    """0.52.0 removes the legacy clock numbers."""
+    from custom_components.melitta_barista.number import SETTING_DEFINITIONS
+
+    ids = {d["id"] for d in SETTING_DEFINITIONS}
+    assert 20 not in ids
+    assert 21 not in ids
