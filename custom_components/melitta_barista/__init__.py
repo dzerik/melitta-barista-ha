@@ -861,6 +861,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     clock_coord = ClockSyncCoordinator(hass, client, entry.options)
     clock_coord.start()
+    entry.async_on_unload(clock_coord.stop)
     hass.data.setdefault(DOMAIN, {})[
         _async_clock_coordinator_key(entry.entry_id)
     ] = clock_coord
