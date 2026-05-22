@@ -2,6 +2,11 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.53.1] — 2026-05-22
+
+### Fixed
+- **False `pairing_wedged` repair when the machine is powered off** (issue #12). The reconnect loop counted every failed connect toward the wedge threshold regardless of whether the device was actually advertising. Turning the machine off between uses (a common pattern) racked up 5 consecutive failures and raised a bogus repair, plus spammed the log with hundreds of "Connection failed" errors. The loop now consults `bluetooth.async_address_present`: a device that is not advertising is treated as powered off / out of range — the connect attempt is skipped, the wedge counter is cleared, and the loop waits quietly for the next advertisement. A genuinely wedged device keeps advertising, so real wedges are still detected and recovered.
+
 ## [0.53.0] — 2026-05-21
 
 ### Added

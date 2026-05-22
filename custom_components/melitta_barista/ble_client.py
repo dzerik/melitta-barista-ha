@@ -143,6 +143,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # threshold. Wires the integration's recovery routine without
         # giving ble_client.py a hass / config_entries dependency.
         self._repair_callback: Callable[[], Any] | None = None
+        # Callback set by __init__.py; returns True when the device is
+        # currently advertising (HA bluetooth.async_address_present). The
+        # reconnect loop uses it to distinguish a powered-off / out-of-range
+        # device (quiet wait, no wedge) from a genuinely wedged device that
+        # keeps advertising. See issue #12.
+        self._presence_callback: Callable[[], bool] | None = None
         self._connected = False
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
@@ -267,6 +273,17 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         function or a plain callable; coroutines are scheduled as a task.
         """
         self._repair_callback = callback
+
+    def set_presence_callback(self, callback: Callable[[], bool] | None) -> None:
+        """Install a callback reporting whether the device is advertising.
+
+        Wired in __init__.py to ``bluetooth.async_address_present``. The
+        reconnect loop consults it before counting a failed connect toward
+        the pairing-wedge threshold: a device that is not advertising is
+        powered off or out of range, not wedged. Kept as a callback so
+        ble_client.py stays free of a hass dependency.
+        """
+        self._presence_callback = callback
 
     @property
     def consecutive_connect_failures(self) -> int:
@@ -909,6 +926,28 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 pass
             if not self._auto_reconnect:
                 break
+
+            # If the device is not currently advertising it is powered off or
+            # out of range — not a pairing wedge (issue #12). Skip the connect
+            # attempt entirely (avoids hammering establish_connection and
+            # spamming the log), clear any wedge counter accrued while it was
+            # present, and wait quietly for the next advertisement, which
+            # wakes this loop via set_ble_device -> _reconnect_event.
+            if self._presence_callback is not None and not self._presence_callback():
+                if self._consecutive_connect_failures:
+                    _LOGGER.debug(
+                        "%s stopped advertising — clearing wedge counter",
+                        self._address,
+                    )
+                    self._consecutive_connect_failures = 0
+                _LOGGER.debug(
+                    "%s not advertising (powered off / out of range); "
+                    "waiting for advertisement instead of connecting",
+                    self._address,
+                )
+                delay = min(delay * 2, self._reconnect_max_delay)
+                continue
+
             connect_ok = False
             try:
                 connect_ok = await self.connect()

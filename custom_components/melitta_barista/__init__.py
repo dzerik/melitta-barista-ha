@@ -818,6 +818,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client.set_repair_callback(_trigger_repair)
     entry.async_on_unload(lambda: client.set_repair_callback(None))
 
+    # Presence gate (issue #12): tell the reconnect loop whether the device is
+    # actually advertising. A powered-off machine is "not present" and must
+    # not escalate to a pairing_wedged repair — only a still-advertising but
+    # unconnectable device is a genuine wedge.
+    def _is_present() -> bool:
+        try:
+            return bluetooth.async_address_present(hass, address, connectable=True)
+        except Exception:  # noqa: BLE001 — never let a presence check break reconnect
+            # If presence can't be determined, fall back to "present" so the
+            # original (pre-#12) wedge behaviour is preserved.
+            return True
+
+    client.set_presence_callback(_is_present)
+    entry.async_on_unload(lambda: client.set_presence_callback(None))
+
     # Track disconnects for repair issue (connection instability warning)
     disconnect_times: list[float] = []
     max_disconnects_per_hour = 5

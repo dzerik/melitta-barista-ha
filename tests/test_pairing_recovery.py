@@ -230,6 +230,114 @@ class TestRepairTrigger:
         # The point: no exception was raised by the loop.
 
 
+# ── Presence-gated wedge detection (issue #12) ─────────────────────────
+
+
+class TestPresenceGating:
+    """A powered-off device (not advertising) must NOT trigger pairing_wedged.
+
+    Regression for issue #12: turning the machine off between uses caused the
+    reconnect loop to rack up consecutive failures and falsely fire the
+    pairing_wedged repair. A genuinely wedged device keeps advertising, so
+    presence cleanly separates the two cases.
+    """
+
+    async def test_absent_device_skips_connect_and_does_not_wedge(self):
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            reconnect_delay=0.01,
+            reconnect_max_delay=0.01,
+            repair_after_failures=2,
+        )
+        client._auto_reconnect = True
+        callback_calls: list[None] = []
+        client.set_repair_callback(lambda: callback_calls.append(None))
+
+        # Device never advertises (powered off). Terminate after a few checks.
+        presence_checks = 0
+
+        def fake_presence() -> bool:
+            nonlocal presence_checks
+            presence_checks += 1
+            if presence_checks >= 4:
+                client._auto_reconnect = False
+            return False
+
+        client.set_presence_callback(fake_presence)
+
+        connect_calls: list[None] = []
+
+        async def fake_connect():
+            connect_calls.append(None)
+            return False
+
+        with patch.object(client, "connect", side_effect=fake_connect):
+            await asyncio.wait_for(client._reconnect_loop(), timeout=1.0)
+
+        # Never attempted a connect while the device was absent ...
+        assert connect_calls == []
+        # ... wedge counter stayed at zero ...
+        assert client._consecutive_connect_failures == 0
+        # ... and the repair never fired.
+        assert callback_calls == []
+
+    async def test_absent_device_resets_existing_wedge_counter(self):
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            reconnect_delay=0.01,
+            reconnect_max_delay=0.01,
+            repair_after_failures=5,
+        )
+        client._auto_reconnect = True
+        # Simulate prior failures while the device was present.
+        client._consecutive_connect_failures = 3
+
+        checks = 0
+
+        def fake_presence() -> bool:
+            nonlocal checks
+            checks += 1
+            if checks >= 2:
+                client._auto_reconnect = False
+            return False
+
+        client.set_presence_callback(fake_presence)
+
+        await asyncio.wait_for(client._reconnect_loop(), timeout=1.0)
+
+        # Going absent clears the wedge counter — a wedge must be re-established
+        # from a present, reachable device.
+        assert client._consecutive_connect_failures == 0
+
+    async def test_present_device_still_wedges(self):
+        """A still-advertising device that won't connect remains a wedge."""
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            reconnect_delay=0.01,
+            reconnect_max_delay=0.01,
+            repair_after_failures=2,
+        )
+        client._auto_reconnect = True
+        callback_calls: list[None] = []
+        client.set_repair_callback(lambda: callback_calls.append(None))
+        client.set_presence_callback(lambda: True)  # always advertising
+
+        call_count = 0
+
+        async def fake_connect():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                client._auto_reconnect = False
+            return False
+
+        with patch.object(client, "connect", side_effect=fake_connect):
+            await asyncio.wait_for(client._reconnect_loop(), timeout=1.0)
+
+        # Threshold=2 with a present-but-unconnectable device → wedge fires.
+        assert len(callback_calls) >= 1
+
+
 # ── Set/clear repair callback ──────────────────────────────────────────
 
 
@@ -243,6 +351,14 @@ class TestRepairCallbackAPI:
         assert client._repair_callback is cb
         client.set_repair_callback(None)
         assert client._repair_callback is None
+
+    def test_set_and_clear_presence(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        cb = lambda: True
+        client.set_presence_callback(cb)
+        assert client._presence_callback is cb
+        client.set_presence_callback(None)
+        assert client._presence_callback is None
 
     def test_consecutive_failures_property(self):
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
