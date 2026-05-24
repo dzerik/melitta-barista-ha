@@ -49,6 +49,13 @@ class MelittaConfirm extends LitElement {
    * or false (cancelled / closed). Only one ask() is active at a time.
    */
   ask({ title, message, confirmLabel, cancelLabel, destructive }) {
+    // If a previous ask() is still pending, reject it with false so its
+    // caller's await unblocks (otherwise the old promise would leak).
+    if (this._resolve) {
+      const prev = this._resolve;
+      this._resolve = null;
+      prev(false);
+    }
     this._title = title || "";
     this._message = message || "";
     this._confirmLabel = confirmLabel || "OK";

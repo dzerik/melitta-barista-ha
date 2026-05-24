@@ -10,6 +10,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n.js";
+import "./melitta-confirm.js";
 
 const TYPES = ["syrup", "topping", "milk"];
 
