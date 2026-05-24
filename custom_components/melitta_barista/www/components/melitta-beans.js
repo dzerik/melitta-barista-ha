@@ -390,16 +390,17 @@ class MelittaBeans extends LitElement {
       const actual = this._hoppers[`hopper${hopperInt}`];
       const actualBeanId = actual?.bean?.id || null;
       if (actualBeanId === cleanBeanId) {
-        this._flash(`✓ Бункер ${hopperInt}: ${beanLabel}`);
+        this._flash(this._t("beans.hopper.assigned", { hopper: hopperInt, bean: beanLabel }));
         this._error = "";
       } else {
-        this._error =
-          `Сохранение не подтверждено: WS вернул OK, но после обновления` +
-          ` в бункере ${hopperInt} лежит "${actualBeanId || "—"}" вместо` +
-          ` "${cleanBeanId || "—"}". Проверь логи HA.`;
+        this._error = this._t("beans.hopper.mismatch", {
+          hopper: hopperInt,
+          actual: actualBeanId || "—",
+          expected: cleanBeanId || "—",
+        });
       }
     } catch (e) {
-      this._error = `Назначение в бункер ${hopperInt} провалилось: ${e.message || e}`;
+      this._error = this._t("beans.hopper.failed", { hopper: hopperInt, error: e.message || e });
       // eslint-disable-next-line no-console
       console.error("[melitta-panel] hopper assign error:", e);
     }

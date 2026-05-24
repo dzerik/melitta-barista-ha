@@ -111,6 +111,9 @@ const STRINGS = {
     "beans.autofill_running": "Asking the assistant…",
     "beans.no_beans": "No beans added yet.",
     "beans.no_producers": "No producers yet — add one first.",
+    "beans.hopper.assigned": "✓ Hopper {hopper}: {bean}",
+    "beans.hopper.mismatch": "Save not confirmed: WS returned OK, but hopper {hopper} contains \"{actual}\" instead of \"{expected}\" after reload. Check HA logs.",
+    "beans.hopper.failed": "Assign to hopper {hopper} failed: {error}",
 
     "additives.title": "Add-ins",
     "additives.syrups": "Syrups",
@@ -342,6 +345,9 @@ const STRINGS = {
     "beans.autofill_running": "Спрашиваю ассистента…",
     "beans.no_beans": "Сорта не добавлены.",
     "beans.no_producers": "Сначала добавьте производителя.",
+    "beans.hopper.assigned": "✓ Бункер {hopper}: {bean}",
+    "beans.hopper.mismatch": "Сохранение не подтверждено: WS вернул OK, но после обновления в бункере {hopper} лежит «{actual}» вместо «{expected}». Проверь логи HA.",
+    "beans.hopper.failed": "Назначение в бункер {hopper} провалилось: {error}",
 
     "additives.title": "Добавки",
     "additives.syrups": "Сиропы",
