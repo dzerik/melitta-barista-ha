@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.53.3] — 2026-05-24
+
+### Fixed
+- **CI green again.** Three classes of breakage that piled up since 0.53.0:
+  - **Hassfest translations rejected `<machine>` placeholders** in `clock_entity_migration.description` (parsed as HTML) — replaced with plain `MACHINE` across `strings.json` and 29 translation files.
+  - **Hassfest rejected `target.device` filter** on the `sync_clock` service (HA no longer supports device filters on `target` since the validator started calling `raise_on_target_device_filter`). Moved to an optional `fields.device_id` with a proper `device` selector; behavior is unchanged (omit the field to sync all configured machines, same as `repair_connection`).
+  - **Tests workflow missed `aiosqlite`** — `tests/test_sommelier_db.py` and `tests/test_review_fixes.py` failed at collection. Added it to the test job's pip install line. `aiosqlite` was already declared in `manifest.json` requirements; only the CI runner needed it.
+- **Ruff lint cleanup:** dropped unused `datetime.time` import in `__init__.py`, unused `async_generate_recipes` import in `sommelier_api.py`, and split two `;`-joined statements in `button.py` (E702).
+
 ## [0.53.2] — 2026-05-22
 
 ### Fixed

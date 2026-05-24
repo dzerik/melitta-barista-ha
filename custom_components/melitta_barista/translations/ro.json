@@ -516,7 +516,7 @@
     },
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
-      "description": "The number.<machine>_clock and number.<machine>_clock_send entities were removed in 0.52.0. Use the new time.<machine>_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
     }
   },
   "services": {

@@ -392,8 +392,6 @@ async def ws_generate(
     msg: dict[str, Any],
 ) -> None:
     """Generate AI freestyle recipes."""
-    from .ai_recipes import async_generate_recipes
-
     db = await _async_get_db(hass)
     hoppers = await db.async_get_hoppers()
     milk_types = await db.async_get_milk()

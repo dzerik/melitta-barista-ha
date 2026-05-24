@@ -6,7 +6,7 @@ import asyncio
 import logging
 import pathlib
 from collections.abc import Mapping
-from datetime import datetime, time as dt_time, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from bleak.exc import BleakError
