@@ -516,7 +516,7 @@
     },
     "clock_entity_migration": {
       "title": "Удалены устаревшие entity часов",
-      "description": "В версии 0.52.0 удалены entity number.<machine>_clock и number.<machine>_clock_send. Используйте новый time.<machine>_clock или сервис melitta_barista.sync_clock из автоматизаций."
+      "description": "В версии 0.52.0 удалены entity number.MACHINE_clock и number.MACHINE_clock_send. Используйте новый time.MACHINE_clock или сервис melitta_barista.sync_clock из автоматизаций."
     }
   },
   "services": {

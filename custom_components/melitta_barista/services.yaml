@@ -539,6 +539,12 @@ sync_clock:
   description: >-
     Push Home Assistant's current local time to the machine's RTC (setting CLOCK_SEND=21).
     Use this to correct a drifted clock manually, or call it from an automation.
-  target:
-    device:
-      integration: melitta_barista
+    Without arguments, syncs all configured machines.
+  fields:
+    device_id:
+      name: Device
+      description: Specific machine to sync; omit to sync all configured machines.
+      required: false
+      selector:
+        device:
+          integration: melitta_barista

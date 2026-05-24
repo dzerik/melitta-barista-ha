@@ -30,5 +30,5 @@
     "pycryptodome>=3.0.0",
     "aiosqlite>=0.19.0"
   ],
-  "version": "0.53.2"
+  "version": "0.53.3"
 }

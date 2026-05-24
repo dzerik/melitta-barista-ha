@@ -379,7 +379,8 @@ class NivonaBrewButton(_MelittaButtonBase):
         entity_id = None
         for eid, entry in registry.entities.items():
             if entry.unique_id == target_uid:
-                entity_id = eid; break
+                entity_id = eid
+                break
         if not entity_id:
             _LOGGER.warning("NivonaRecipeSelect not found")
             return
@@ -395,7 +396,8 @@ class NivonaBrewButton(_MelittaButtonBase):
         recipe_id = None
         for r in caps.recipes:
             if r.name == state.state:
-                recipe_id = r.recipe_id; break
+                recipe_id = r.recipe_id
+                break
         if recipe_id is None:
             _LOGGER.warning("recipe %s not matched", state.state)
             return
