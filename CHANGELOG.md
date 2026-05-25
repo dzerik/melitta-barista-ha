@@ -2,6 +2,20 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.60.0] — 2026-05-25
+
+### Added (frontend, consumes P3a ratings backend)
+- **`<melitta-star-rating>` shared component** (`www/components/ui/`). Five clickable stars; emits `rate` with the chosen value and `unrate` when the user clicks the currently-active star. Supports a `readonly` mode for view-only contexts. Used in both Generate result cards and the Favorites modal.
+- **`<melitta-sommelier-favorites>` modal.** Opened from the new "★ Favorites" button in the Sommelier header. Lists saved favorites with inline rating, optional tasting note (gated by an existing rating, matching the P3a `favorites/update` contract), rename / edit description (inline form), brew (routes through the wizard with `source="favorite"`), and delete (with confirm). Loads `favorites/list` on every open.
+- **Star rating inline in Generate result cards.** A rated recipe persists across history reads — `_ratings` is a local optimistic cache layered on top of the server-supplied `rating` field.
+
+### Changed
+- **`<melitta-brew-wizard>` accepts `source` ("generated" | "favorite") + `sourceId`.** When `source === "favorite"`, the brew call goes through `melitta_barista/sommelier/favorites/brew` (which increments `brew_count`) instead of `sommelier/brew`. Backward-compat: when unset, defaults to "generated" / `recipe.id`.
+
+### Notes
+- History view (`<melitta-sommelier-history>`) and full Sommelier sub-tabs refactor are deferred to **P3c**. The Favorites modal is a pragmatic shortcut that exposes the P3a backend without restructuring the Sommelier tab.
+- Tasting notes still require a rating to exist first (P3a constraint). The Favorites modal surfaces this with `favorites.note_needs_rating` hint when the favorite has no rating yet.
+
 ## [0.59.0] — 2026-05-25
 
 ### Added (backend, foundation for History/Favorites/Ratings UI in P3b)

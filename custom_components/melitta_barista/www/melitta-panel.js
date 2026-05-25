@@ -21,7 +21,9 @@ await Promise.all([
   import(`./components/melitta-beans.js${_q}`),
   import(`./components/melitta-additives.js${_q}`),
   import(`./components/melitta-sommelier.js${_q}`),
+  import(`./components/melitta-sommelier-favorites.js${_q}`),
   import(`./components/melitta-brew-wizard.js${_q}`),
+  import(`./components/ui/melitta-star-rating.js${_q}`),
   import(`./components/melitta-settings.js${_q}`),
   import(`./components/melitta-system.js${_q}`),
 ]);

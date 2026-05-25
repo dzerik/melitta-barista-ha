@@ -45,6 +45,8 @@ class MelittaBrewWizard extends LitElement {
       lang: { type: String },
       recipe: { type: Object },
       open: { type: Boolean, reflect: true },
+      source: { type: String },
+      sourceId: { type: String },
       _phase: { state: true },
       _brewing: { state: true },
       _brewProgress: { state: true },
@@ -59,6 +61,8 @@ class MelittaBrewWizard extends LitElement {
     super();
     this.recipe = null;
     this.open = false;
+    this.source = "generated";
+    this.sourceId = null;
     this._phase = "pre";
     this._brewing = false;
     this._brewProgress = 0;
@@ -173,10 +177,10 @@ class MelittaBrewWizard extends LitElement {
     this._manualFinishVisible = false;
 
     try {
-      await this.hass.callWS({
-        type: "melitta_barista/sommelier/brew",
-        recipe_id: this.recipe.id,
-      });
+      const brewCall = this.source === "favorite"
+        ? { type: "melitta_barista/sommelier/favorites/brew", favorite_id: this.sourceId || this.recipe.id }
+        : { type: "melitta_barista/sommelier/brew", recipe_id: this.sourceId || this.recipe.id };
+      await this.hass.callWS(brewCall);
     } catch (e) {
       this._error = `${this._t("wizard.during.brew_failed")}: ${e.message || e}`;
       this._manualFinishVisible = true;

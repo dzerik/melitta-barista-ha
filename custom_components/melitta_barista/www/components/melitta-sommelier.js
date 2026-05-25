@@ -18,6 +18,8 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n.js";
+import "./melitta-sommelier-favorites.js";
+import "./ui/melitta-star-rating.js";
 
 const MODES = [
   { id: "surprise_me", label_en: "Surprise me", label_ru: "Удиви меня" },
@@ -63,6 +65,10 @@ class MelittaSommelier extends LitElement {
       _error: { type: String },
       _capabilities: { state: true },
       _wizardRecipe: { state: true },
+      _favoritesModalOpen: { state: true },
+      _ratings: { state: true },
+      _wizardSource: { state: true },
+      _wizardSourceId: { state: true },
     };
   }
 
@@ -94,6 +100,10 @@ class MelittaSommelier extends LitElement {
     this._error = "";
     this._capabilities = null;
     this._wizardRecipe = null;
+    this._favoritesModalOpen = false;
+    this._ratings = {};
+    this._wizardSource = "generated";
+    this._wizardSourceId = null;
   }
 
   /**
@@ -230,6 +240,46 @@ class MelittaSommelier extends LitElement {
     }
   }
 
+  _openFavorites() {
+    this._favoritesModalOpen = true;
+  }
+
+  _onFavoriteBrewRequested(e) {
+    this._wizardRecipe = e.detail.recipe;
+    this._wizardSource = "favorite";
+    this._wizardSourceId = e.detail.favoriteId;
+    this._favoritesModalOpen = false;
+  }
+
+  async _rateGenerated(recipeId, rating) {
+    try {
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/recipe/rate",
+        target_id: recipeId,
+        target_type: "generated",
+        rating,
+      });
+      this._ratings = { ...this._ratings, [recipeId]: rating };
+    } catch (e) {
+      this._error = `${this._t("sommelier.rate_failed")}: ${e.message || e}`;
+    }
+  }
+
+  async _unrateGenerated(recipeId) {
+    try {
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/recipe/unrate",
+        target_id: recipeId,
+        target_type: "generated",
+      });
+      const next = { ...this._ratings };
+      delete next[recipeId];
+      this._ratings = next;
+    } catch (e) {
+      this._error = `${this._t("sommelier.rate_failed")}: ${e.message || e}`;
+    }
+  }
+
   // ── form sections ──
 
   _renderHeader() {
@@ -251,6 +301,9 @@ class MelittaSommelier extends LitElement {
             @click=${() => this._generate()}>
             ${this._generating ? this._t("common.loading") : this._t("sommelier.generate")}
           </button>
+        </div>
+        <div class="header-actions">
+          <button class="ghost" @click=${() => this._openFavorites()}>${this._t("sommelier.favorites_button")}</button>
         </div>
         ${this._mode === "custom" ? html`
           <input type="text" class="wide"
@@ -474,6 +527,11 @@ class MelittaSommelier extends LitElement {
                 </button>
               </div>
             </header>
+            <melitta-star-rating
+              .value=${this._ratings[r.id] || r.rating || 0}
+              @rate=${(e) => this._rateGenerated(r.id, e.detail.rating)}
+              @unrate=${() => this._unrateGenerated(r.id)}>
+            </melitta-star-rating>
             ${r.description ? html`<p class="desc">${r.description}</p>` : ""}
 
             <div class="machine-line">
@@ -525,9 +583,19 @@ class MelittaSommelier extends LitElement {
         .entryId=${this.entryId}
         .lang=${this.lang}
         .recipe=${this._wizardRecipe}
+        .source=${this._wizardSource || "generated"}
+        .sourceId=${this._wizardSourceId}
         ?open=${this._wizardRecipe !== null}
-        @close=${() => { this._wizardRecipe = null; }}>
+        @close=${() => { this._wizardRecipe = null; this._wizardSource = "generated"; this._wizardSourceId = null; }}>
       </melitta-brew-wizard>
+      <melitta-sommelier-favorites
+        .hass=${this.hass}
+        .entryId=${this.entryId}
+        .lang=${this.lang}
+        ?open=${this._favoritesModalOpen}
+        @close=${() => { this._favoritesModalOpen = false; }}
+        @brew=${(e) => this._onFavoriteBrewRequested(e)}>
+      </melitta-sommelier-favorites>
     `;
   }
 
