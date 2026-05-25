@@ -19,7 +19,8 @@
  * caller component, and lets us style "destructive" actions uniformly.
  */
 
-import { LitElement, html, css, sharedStyles } from "../lit-base.js";
+import { LitElement, html, css } from "../lit-base.js";
+import { sharedStyles } from "../design-tokens.js";
 
 class MelittaConfirm extends LitElement {
   static get properties() {

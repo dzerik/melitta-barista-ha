@@ -8,7 +8,8 @@
  * to the matching child component.
  */
 
-import { LitElement, html, css, sharedStyles } from "../lit-base.js";
+import { LitElement, html, css } from "../lit-base.js";
+import { sharedStyles } from "../design-tokens.js";
 import { t } from "../i18n.js";
 
 const SUBTABS = ["status", "settings", "diagnostics", "recipes"];
