@@ -812,6 +812,56 @@ _SYRUPS_UPDATE = _make_additive_update_handler("syrups")
 _TOPPINGS_UPDATE = _make_additive_update_handler("toppings")
 
 
+def _make_additive_set_available_handler(table: str):
+    """Generate the set_available convenience handler for an additive table.
+
+    Updates the catalogue row's `available` flag and mirrors the value into
+    the legacy `user_extras` table so the Sommelier prompt (which still reads
+    `user_extras` in P4a) reflects pantry state without UI re-entry. The
+    mirror is one-way (catalogue → user_extras); reverse sync is out of scope.
+    """
+
+    @websocket_api.websocket_command({
+        vol.Required("type"): f"melitta_barista/{table}/set_available",
+        # See producers/update — "id" collides with the WS message id.
+        vol.Required("additive_id"): int,
+        vol.Required("available"): bool,
+    })
+    @websocket_api.require_admin
+    @websocket_api.async_response
+    async def _ws_set_available(hass, connection, msg):
+        """Toggle the catalogue row's `available` and mirror to user_extras."""
+        db = await _async_get_db(hass)
+        # Resolve the additive's name first so we can mirror to user_extras
+        # using a stable key, and so we can return not_found cleanly.
+        cursor = await db._db.execute(
+            f"SELECT name FROM {table} WHERE id = ?",  # nosec B608
+            (msg["additive_id"],),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            connection.send_error(msg["id"], "not_found", "Additive not found")
+            return
+        name = row[0]
+        flag = 1 if msg["available"] else 0
+        # `table` is a closure-captured literal ("syrups" / "toppings").
+        await db._db.execute(
+            f"UPDATE {table} SET available = ? WHERE id = ?",  # nosec B608
+            (flag, msg["additive_id"]),
+        )
+        await db._db.commit()
+        # Mirror to user_extras (category == table name) so the existing
+        # Sommelier prompt path (P4a) keeps working without changes.
+        await db.async_set_extra_available(table, name, bool(msg["available"]))
+        connection.send_result(msg["id"], {"updated": True})
+
+    return _ws_set_available
+
+
+_SYRUPS_SET_AVAILABLE = _make_additive_set_available_handler("syrups")
+_TOPPINGS_SET_AVAILABLE = _make_additive_set_available_handler("toppings")
+
+
 # tags --------------------------------------------------------------------
 
 
@@ -1418,6 +1468,8 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
         async_register_command(hass, handler)
     async_register_command(hass, _SYRUPS_UPDATE)
     async_register_command(hass, _TOPPINGS_UPDATE)
+    async_register_command(hass, _SYRUPS_SET_AVAILABLE)
+    async_register_command(hass, _TOPPINGS_SET_AVAILABLE)
 
     # tags + prompts + LLM agent picker
     async_register_command(hass, _ws_tags_list)

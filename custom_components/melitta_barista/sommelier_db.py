@@ -1031,6 +1031,28 @@ class SommelierDB:
             )
         await self.db.commit()
 
+    async def async_set_extra_available(
+        self, category: str, item: str, available: bool
+    ) -> None:
+        """Upsert the in-stock flag for a single user_extras (category, item)."""
+        flag = 1 if available else 0
+        cursor = await self.db.execute(
+            "SELECT 1 FROM user_extras WHERE category = ? AND item = ?",
+            (category, item),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            await self.db.execute(
+                "INSERT INTO user_extras (category, item, available) VALUES (?, ?, ?)",
+                (category, item, flag),
+            )
+        else:
+            await self.db.execute(
+                "UPDATE user_extras SET available = ? WHERE category = ? AND item = ?",
+                (flag, category, item),
+            )
+        await self.db.commit()
+
     # ── User Preferences ──────────────────────────────────────────────
 
     async def async_get_preferences(self) -> dict[str, str]:
