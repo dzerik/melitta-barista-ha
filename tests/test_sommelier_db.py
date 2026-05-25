@@ -515,6 +515,66 @@ class TestFavorites:
         assert fav["source_recipe_id"] == "recipe-123"
         assert fav["source_bean_id"] == "bean-456"
 
+    async def test_favorite_machine_phases_roundtrip(self, db: SommelierDB):
+        """Favorites store machine_phases verbatim so ws_favorites_brew can read them.
+
+        Regression for the bug where ws_favorites_add only persisted the legacy
+        component1/component2 columns, but ws_favorites_brew reads back via
+        `machine_phases` — orphaning per-phase user actions and any v5 metadata
+        that doesn't fit the two-component projection.
+        """
+        machine_phases = [
+            {
+                "component": {
+                    "process": "coffee",
+                    "intensity": "medium",
+                    "aroma": "standard",
+                    "temperature": "normal",
+                    "shots": "two",
+                    "portion_ml": 40,
+                },
+                "user_action_before": [],
+            },
+            {
+                "component": {
+                    "process": "milk",
+                    "intensity": "normal",
+                    "aroma": "standard",
+                    "temperature": "normal",
+                    "shots": "one",
+                    "portion_ml": 120,
+                },
+                "user_action_before": [
+                    {"action": "place_milk_jug", "phase": "pre"},
+                ],
+            },
+        ]
+        recipe = {
+            "name": "Phases Latte",
+            "description": "Test phases round-trip",
+            "blend": 1,
+            "machine_phases": machine_phases,
+            "extras": {
+                "ice": False,
+                "syrup": None,
+                "topping": None,
+                "liqueur": None,
+                "instruction": None,
+            },
+            "steps": [{"order": 1, "action": "brew", "phase": "during"}],
+            "cup_type": "espresso_cup",
+        }
+        added = await db.async_add_favorite(recipe)
+        assert added["machine_phases"] == machine_phases
+
+        favorites = await db.async_list_favorites()
+        assert len(favorites) == 1
+        assert favorites[0]["machine_phases"] == machine_phases
+
+        fetched = await db.async_get_favorite(added["id"])
+        assert fetched is not None
+        assert fetched["machine_phases"] == machine_phases
+
 
 # ── Settings ──────────────────────────────────────────────────────────
 

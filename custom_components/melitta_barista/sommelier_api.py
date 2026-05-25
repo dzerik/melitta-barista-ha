@@ -823,12 +823,16 @@ async def ws_favorites_add(
     hopper_key = f"hopper{recipe['blend'] + 1}"
     source_bean = hoppers.get(hopper_key, {}).get("bean")
 
+    # Pass through machine_phases so async_add_favorite stores the v5
+    # representation; legacy component1/component2 columns are synthesized
+    # from phase[0]/phase[1] by the DB layer (mirrors async_create_session).
     fav = await db.async_add_favorite({
         "name": recipe["name"],
         "description": recipe["description"],
         "blend": recipe["blend"],
         "component1": recipe["component1"],
         "component2": recipe["component2"],
+        "machine_phases": recipe.get("machine_phases"),
         "extras": recipe.get("extras"),
         "steps": recipe.get("steps"),
         "cup_type": recipe.get("cup_type"),
