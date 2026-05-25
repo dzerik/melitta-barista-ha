@@ -27,29 +27,51 @@ def _find_client(hass: HomeAssistant):
 
 
 async def _brew_recipe_components(
-    client, name: str, blend: int, comp1: dict, comp2: dict
+    client, name: str, blend: int, phases: list[dict]
 ) -> None:
-    """Build RecipeComponents and call brew_freestyle on the client."""
-    from .protocol import RecipeComponent
+    """Execute a multi-phase brew.
 
-    component1 = RecipeComponent(
-        process=PROCESS_MAP.get(comp1["process"], 1),
-        shots=SHOTS_MAP.get(comp1["shots"], 0),
-        blend=blend,
-        intensity=INTENSITY_MAP.get(comp1["intensity"], 2),
-        aroma=AROMA_MAP.get(comp1["aroma"], 0),
-        temperature=TEMPERATURE_MAP.get(comp1["temperature"], 1),
-        portion=comp1["portion_ml"] // 5,
-    )
-    component2 = RecipeComponent(
-        process=PROCESS_MAP.get(comp2["process"], 0),
-        shots=SHOTS_MAP.get(comp2["shots"], 0),
-        blend=0 if blend == 1 else 1,
-        intensity=INTENSITY_MAP.get(comp2["intensity"], 2),
-        aroma=AROMA_MAP.get(comp2["aroma"], 0),
-        temperature=TEMPERATURE_MAP.get(comp2["temperature"], 1),
-        portion=comp2["portion_ml"] // 5,
-    )
+    P2a: BLE layer still takes component1/2, so we unpack phases[0]/phases[1].
+    `phases` is the list-of-dicts form ({"component": {...}, "user_action_before": [...]}).
+    A single-phase brew is encoded by sending a "none"-process component2,
+    which the BLE protocol naturally treats as "no second pour".
+    """
+    from .protocol import RecipeComponent as ProtocolRC
+
+    if not phases:
+        raise ValueError("phases is empty; cannot brew")
+    if len(phases) > 2:
+        raise ValueError(f"phases length {len(phases)} > 2; cap to 2 in caller")
+
+    def _to_proto(comp: dict, *, blend_value: int) -> ProtocolRC:
+        return ProtocolRC(
+            process=PROCESS_MAP.get(comp.get("process", "none"), 0),
+            shots=SHOTS_MAP.get(comp.get("shots", "none"), 0),
+            blend=blend_value,
+            intensity=INTENSITY_MAP.get(comp.get("intensity", "medium"), 2),
+            aroma=AROMA_MAP.get(comp.get("aroma", "standard"), 0),
+            temperature=TEMPERATURE_MAP.get(comp.get("temperature", "normal"), 1),
+            portion=int(comp.get("portion_ml", 0)) // 5,
+        )
+
+    component1 = _to_proto(phases[0].get("component", {}), blend_value=blend)
+    if len(phases) >= 2:
+        component2 = _to_proto(
+            phases[1].get("component", {}),
+            blend_value=0 if blend == 1 else 1,
+        )
+    else:
+        # Single-phase: synthesize a "none"-process component2 — BLE protocol
+        # treats this as "no second pour".
+        component2 = ProtocolRC(
+            process=PROCESS_MAP.get("none", 0),
+            shots=SHOTS_MAP.get("none", 0),
+            blend=0 if blend == 1 else 1,
+            intensity=INTENSITY_MAP.get("medium", 2),
+            aroma=AROMA_MAP.get("standard", 0),
+            temperature=TEMPERATURE_MAP.get("normal", 1),
+            portion=0,
+        )
 
     await client.brew_freestyle(
         name=name,
@@ -743,8 +765,10 @@ async def ws_brew(
 
     try:
         await _brew_recipe_components(
-            client, recipe["name"], recipe["blend"],
-            recipe["component1"], recipe["component2"],
+            client,
+            name=recipe.get("name", "Sommelier"),
+            blend=recipe.get("blend", 1),
+            phases=recipe.get("machine_phases") or [],
         )
     except Exception:
         _LOGGER.exception("Failed to brew recipe")
@@ -863,8 +887,10 @@ async def ws_favorites_brew(
 
     try:
         await _brew_recipe_components(
-            client, fav["name"], fav["blend"],
-            fav["component1"], fav["component2"],
+            client,
+            name=fav.get("name", "Sommelier"),
+            blend=fav.get("blend", 1),
+            phases=fav.get("machine_phases") or [],
         )
     except Exception:
         _LOGGER.exception("Failed to brew favorite")

@@ -950,14 +950,29 @@ class RecipeStep(BaseModel):
     notes: str | None = None
 
 
+class MachinePhase(BaseModel):
+    """One machine-executed phase of a multi-phase recipe.
+
+    `component` describes what the machine does (the freestyle parameters).
+    `user_action_before` is a list of pre-phase manual steps the user must
+    perform — taking a cup, adding ice, frothing milk by hand, etc.
+    For single-phase recipes (the vast majority), `user_action_before` is
+    typically empty; for two-phase layered drinks it carries the inter-phase
+    instruction. P2a fills `user_action_before` from LLM output as-is; the
+    Brewing Wizard (P2b) consumes it to drive the inter-phase UI.
+    """
+
+    component: RecipeComponent
+    user_action_before: list[RecipeStep] = Field(default_factory=list)
+
+
 class GeneratedRecipe(BaseModel):
     """One generated sommelier recipe — what the LLM must return."""
 
     name: str = Field(min_length=1)
     description: str = ""
     blend: Literal[0, 1] = 1
-    component1: RecipeComponent
-    component2: RecipeComponent
+    machine_phases: list[MachinePhase] = Field(min_length=1, max_length=2)
     # `steps` is the new full preparation sequence with dosages —
     # required so the user always sees what to do beyond the
     # machine portion. `extras` is kept as a quick summary of

@@ -2,6 +2,22 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.57.0] — 2026-05-25
+
+### Changed (data-model migration)
+- **`GeneratedRecipe.component1` + `component2` replaced by `machine_phases: list[MachinePhase]`** (длина 1..2). Каждый `MachinePhase` содержит `component: RecipeComponent` и `user_action_before: list[RecipeStep]` (в P2a всегда пустой; наполняется Brewing Wizard'ом в P2b). Изменение pydantic-модели автоматически прокидывается в JSON Schema LLM-промпта и в retry-validation loop.
+- **DB schema v4 → v5.** Новая колонка `machine_phases TEXT` в `generated_recipes` и `favorites`. Миграция наполняет новую колонку из существующих `component1`/`component2` через SQLite JSON1 (`json_array`/`json_object`). Старые колонки остаются NOT NULL для cross-version совместимости; новые записи пишут синтезированные значения. Физическое удаление колонок — задача P3+.
+- **`_brew_recipe_components`** теперь принимает `phases: list[dict]` вместо `comp1`/`comp2` kwargs. BLE-вызов (`client.brew_freestyle(component1=..., component2=...)`) не изменился — helper распаковывает первые две фазы и синтезирует `"none"`-process component2 для одно-фазных рецептов. Conversion `portion // 5` и `blend`-alternation сохранены.
+- **LLM prompt:** пример JSON, rules block, и capability-instruction text используют `machine_phases` вместо `component1/2`. Default — single-phase brew; вторая фаза только когда single-phase не достигает результата.
+
+### UI
+- **`melitta-sommelier.js`** итерирует `r.machine_phases` для рендеринга phase-чипов. Fallback на `r.component1`/`component2` для legacy WS-responses сохранён до P2b.
+
+### Notes
+- BLE-protocol layer (`client.brew_freestyle` сигнатура) не тронут в P2a. Sequential brewing с явными пользовательскими паузами между фазами — задача Brewing Wizard (P2b), не BLE-уровня.
+- Read path для favorites / history синтезирует `machine_phases` из `component1`/`component2` для legacy строк, плюс возвращает `component1`/`component2` для backwards-compat читателей (frontend всё ещё имеет fallback).
+- 19 новых tests: `test_machine_phases.py` (7 на pydantic model) + обновления `test_ai_recipes.py` / `test_sommelier_db.py` / `test_capabilities_db.py`.
+
 ## [0.56.0] — 2026-05-25
 
 ### Added

@@ -483,8 +483,10 @@ class MelittaSommelier extends LitElement {
 
             <div class="machine-line">
               <span class="machine-label">${this._t("sommelier.machine_label")}</span>
-              ${this._renderComponent(r.component1)}
-              ${this._renderComponent(r.component2)}
+              ${(r.machine_phases || [
+  r.component1 ? { component: r.component1 } : null,
+  r.component2 ? { component: r.component2 } : null,
+].filter(Boolean)).map((p) => this._renderComponent(p.component))}
             </div>
 
             ${this._renderSteps(r.steps)}

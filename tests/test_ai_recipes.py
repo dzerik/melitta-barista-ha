@@ -11,7 +11,6 @@ import pytest
 from custom_components.melitta_barista.ai_recipes import (
     PORTION_MAX,
     PORTION_MIN,
-    PORTION_STEP,
     _build_prompt,
     _clamp_portion,
     _extract_json,
@@ -46,20 +45,28 @@ def _bean(
 
 
 def _valid_recipe_json(count: int = 1) -> list[dict[str, Any]]:
-    """Return a list of valid recipe dicts."""
+    """Return a list of valid recipe dicts in new machine_phases format."""
     return [
         {
             "name": f"Recipe {i}",
             "description": f"Description {i}",
             "blend": 1,
-            "component1": {
-                "process": "coffee", "intensity": "strong", "aroma": "intense",
-                "temperature": "normal", "shots": "two", "portion_ml": 30,
-            },
-            "component2": {
-                "process": "milk", "intensity": "medium", "aroma": "standard",
-                "temperature": "high", "shots": "none", "portion_ml": 120,
-            },
+            "machine_phases": [
+                {
+                    "component": {
+                        "process": "coffee", "intensity": "strong", "aroma": "intense",
+                        "temperature": "normal", "shots": "two", "portion_ml": 30,
+                    },
+                    "user_action_before": [],
+                },
+                {
+                    "component": {
+                        "process": "milk", "intensity": "medium", "aroma": "standard",
+                        "temperature": "high", "shots": "none", "portion_ml": 120,
+                    },
+                    "user_action_before": [],
+                },
+            ],
         }
         for i in range(count)
     ]
@@ -470,7 +477,9 @@ class TestValidateRecipes:
         assert len(result) == 2
         assert result[0]["name"] == "Recipe 0"
         assert result[0]["blend"] == 1
-        assert isinstance(result[0]["component1"], dict)
+        assert isinstance(result[0]["machine_phases"], list)
+        assert len(result[0]["machine_phases"]) > 0
+        assert isinstance(result[0]["machine_phases"][0]["component"], dict)
 
     def test_non_dict_items_skipped(self):
         """Non-dict items in the list are skipped."""
@@ -498,7 +507,7 @@ class TestValidateRecipes:
 
     def test_missing_name_uses_default(self):
         """Missing name defaults to 'AI Recipe'."""
-        raw = [{"blend": 1, "component1": {}, "component2": {}}]
+        raw = [{"blend": 1, "machine_phases": [{"component": {}, "user_action_before": []}]}]
         result = _validate_recipes(raw)
         assert result[0]["name"] == "AI Recipe"
 
@@ -517,20 +526,24 @@ class TestValidateRecipes:
         assert result[0]["blend"] == 0
 
     def test_missing_components_get_defaults(self):
-        """Missing component dicts get defaults."""
+        """Missing machine_phases gets single default phase."""
         raw = [{"name": "Bare", "description": "Minimal", "blend": 1}]
         result = _validate_recipes(raw)
-        assert result[0]["component1"]["process"] == "coffee"
-        assert result[0]["component2"]["process"] == "coffee"
+        # When no machine_phases provided, a single default phase is created
+        assert len(result[0]["machine_phases"]) == 1
+        assert result[0]["machine_phases"][0]["component"]["process"] == "coffee"
+        assert result[0]["machine_phases"][0]["user_action_before"] == []
 
     def test_components_are_validated(self):
         """Components go through _validate_component."""
         raw = _valid_recipe_json(1)
-        raw[0]["component1"]["intensity"] = "ULTRA"  # invalid
-        raw[0]["component2"]["process"] = "none"  # valid for comp2
+        raw[0]["machine_phases"][0]["component"]["intensity"] = "ULTRA"  # invalid
+        raw[0]["machine_phases"][1]["component"]["intensity"] = "very_strong"  # valid
         result = _validate_recipes(raw)
-        assert result[0]["component1"]["intensity"] == "medium"
-        assert result[0]["component2"]["process"] == "none"
+        # machine_phases[0] contains the first component with invalid intensity → defaults
+        assert result[0]["machine_phases"][0]["component"]["intensity"] == "medium"
+        # machine_phases[1] contains the second component with valid intensity
+        assert result[0]["machine_phases"][1]["component"]["intensity"] == "very_strong"
 
 
 # ── Coffee Presets JSON ───────────────────────────────────────────────

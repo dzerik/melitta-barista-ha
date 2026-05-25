@@ -15,9 +15,9 @@ from custom_components.melitta_barista.sommelier_db import (
 
 
 @pytest.mark.asyncio
-async def test_schema_version_is_4():
-    """SCHEMA_VERSION constant bumped to 4."""
-    assert SCHEMA_VERSION == 4
+async def test_schema_version_is_5():
+    """SCHEMA_VERSION constant bumped to 5 (machine_phases column added)."""
+    assert SCHEMA_VERSION == 5
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_save_overwrites_existing():
 
 @pytest.mark.asyncio
 async def test_migration_from_v3_preserves_data():
-    """Existing v3 DB upgraded to v4 keeps its previous rows AND has the new table."""
+    """Existing v3 DB upgraded to current schema keeps its previous rows AND has the new table."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = str(Path(tmpdir) / "test.db")
 
@@ -112,6 +112,6 @@ async def test_migration_from_v3_preserves_data():
         async with db._lock:
             cur = await db._db.execute("SELECT value FROM settings WHERE key='schema_version'")
             row = await cur.fetchone()
-        assert row[0] == "4"
+        assert row[0] == str(SCHEMA_VERSION)
 
         await db.async_close()

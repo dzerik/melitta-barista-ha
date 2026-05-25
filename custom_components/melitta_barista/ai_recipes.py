@@ -158,7 +158,7 @@ def _build_prompt(
     cup_section = (
         f"## Cup Size\n"
         f"Cup type: {cup_size} ({vol_min}-{vol_max}ml total volume).\n"
-        f"Total volume (component1 + component2) must fit within {vol_min}-{vol_max}ml."
+        f"Total volume (sum of machine_phases portion_ml) must fit within {vol_min}-{vol_max}ml."
     )
 
     # Extras section
@@ -305,7 +305,7 @@ def _build_prompt(
         "\n## Preparation steps\n"
         "Populate `steps` with the COMPLETE preparation sequence the user "
         "must follow, in execution order. Include both the machine action "
-        "(e.g. \"Brew espresso\" with the dosage matching component1) and "
+        "(e.g. \"Brew espresso\" with the dosage matching the first machine_phase) and "
         "every manual step that follows: pouring milk, adding syrup, "
         "topping with whipped cream, garnishing, etc. Each step must "
         "carry an `amount` + `unit` when there is a quantity (\"15\" + "
@@ -350,8 +350,8 @@ def _build_prompt(
     else:
         capabilities_block = (
             '## Machine Capabilities\n'
-            'Each recipe has up to 2 components (dispensed sequentially). Each component has:\n'
-            '- process: "coffee", "milk", or "water" (component 2 can also be "none" to disable)\n'
+            'Each recipe specifies 1 or 2 machine_phases (dispensed sequentially). Each phase has a `component` with:\n'
+            '- process: "coffee", "milk", or "water"\n'
             '- intensity: "very_mild", "mild", "medium", "strong", "very_strong" (coffee strength)\n'
             '- aroma: "standard" or "intense" (grind fineness — intense = finer grind, more extraction)\n'
             '- temperature: "cold", "normal", "high"\n'
@@ -381,7 +381,7 @@ def _build_prompt(
 - Realistic portion sizes: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk portion 80-200ml
 - Match bean characteristics to recipe style (light roast -> standard aroma, dark roast -> intense aroma)
 - If milk is available, include at least one milk-based recipe (unless user prefers black)
-- For "none" process in component2, set all other fields to defaults (intensity="medium", aroma="standard", temperature="normal", shots="none", portion_ml=0)
+- Use 1 machine_phase by default. Add a 2nd machine_phase only when a single-phase brew can't achieve the result — e.g. layered drinks, milk added cold after espresso. NEVER use more than 2 phases.
 - Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile
 - If two hoppers available, use both across the recipe set
 - blend field: 1 for hopper 1 beans, 0 for hopper 2 beans. If only one hopper, always use that one.
@@ -393,12 +393,21 @@ _OUTPUT_FORMAT_BLOCK = """
 Return ONLY a JSON array, no other text:
 [
   {
-    "name": "Recipe Name",
-    "description": "Tasting notes and why this works",
+    "name": "Latte",
+    "description": "Classic milk-forward coffee",
     "blend": 1,
-    "component1": {"process": "coffee", "intensity": "strong", "aroma": "intense", "temperature": "normal", "shots": "two", "portion_ml": 30},
-    "component2": {"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "high", "shots": "none", "portion_ml": 120},
-    "extras": {"ice": false, "syrup": "caramel", "topping": "cinnamon_powder", "liqueur": null, "instruction": "Optional human instruction for extras"},
+    "machine_phases": [
+      {
+        "component": {"process": "coffee", "intensity": "medium", "aroma": "standard", "temperature": "normal", "shots": "two", "portion_ml": 40},
+        "user_action_before": []
+      },
+      {
+        "component": {"process": "milk", "intensity": "medium", "aroma": "standard", "temperature": "normal", "shots": "none", "portion_ml": 160},
+        "user_action_before": [{"order": 1, "action": "Place a 240ml cup under the spout"}]
+      }
+    ],
+    "steps": [{"order": 1, "action": "brew espresso"}],
+    "extras": {"ice": false, "syrup": null, "topping": null, "liqueur": null, "instruction": null},
     "cup_type": "mug",
     "estimated_caffeine": "medium",
     "calories_approx": 120
@@ -553,8 +562,19 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
         if blend not in (0, 1):
             blend = 1
 
-        comp1 = _validate_component(raw.get("component1", {}), is_comp2=False)
-        comp2 = _validate_component(raw.get("component2", {}), is_comp2=True)
+        # P2a: validate machine_phases (list of 1..2 phases) instead of component1/2.
+        raw_phases = raw.get("machine_phases") or []
+        if not isinstance(raw_phases, list) or not raw_phases:
+            raw_phases = [{"component": {}}]
+        if len(raw_phases) > 2:
+            raw_phases = raw_phases[:2]
+        machine_phases = [
+            {
+                "component": _validate_component(p.get("component") or {}),
+                "user_action_before": p.get("user_action_before") or [],
+            }
+            for p in raw_phases
+        ]
 
         extras = _validate_extras(raw.get("extras"))
 
@@ -586,8 +606,7 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
             "name": name,
             "description": description,
             "blend": blend,
-            "component1": comp1,
-            "component2": comp2,
+            "machine_phases": machine_phases,
             "steps": steps,
             "extras": extras,
             "cup_type": cup_type,

@@ -14,7 +14,7 @@ import aiosqlite
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS coffee_beans (
@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS generated_recipes (
     blend       INTEGER NOT NULL,
     component1  TEXT NOT NULL,
     component2  TEXT NOT NULL,
+    machine_phases TEXT,
     extras      TEXT,
     steps       TEXT,
     cup_type    TEXT,
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS favorites (
     blend               INTEGER NOT NULL,
     component1          TEXT NOT NULL,
     component2          TEXT NOT NULL,
+    machine_phases      TEXT,
     extras              TEXT,
     steps               TEXT,
     cup_type            TEXT,
@@ -188,6 +190,28 @@ CREATE TABLE IF NOT EXISTS machine_capabilities (
 );
 """
 
+# v4 → v5: add `machine_phases` column to generated_recipes/favorites and
+# back-fill existing rows by synthesizing a two-phase JSON array from the
+# legacy component1/component2 BLE payload columns. The legacy columns stay
+# NOT NULL for cross-version readability; writes synthesize them from phase[0]
+# and phase[1] (see async_create_session/async_add_favorite).
+MIGRATE_V4_TO_V5 = """
+ALTER TABLE generated_recipes ADD COLUMN machine_phases TEXT;
+ALTER TABLE favorites ADD COLUMN machine_phases TEXT;
+UPDATE generated_recipes
+   SET machine_phases = json_array(
+       json_object('component', json(component1), 'user_action_before', json_array()),
+       json_object('component', json(component2), 'user_action_before', json_array())
+   )
+ WHERE machine_phases IS NULL;
+UPDATE favorites
+   SET machine_phases = json_array(
+       json_object('component', json(component1), 'user_action_before', json_array()),
+       json_object('component', json(component2), 'user_action_before', json_array())
+   )
+ WHERE machine_phases IS NULL;
+"""
+
 INIT_HOPPERS_SQL = """
 INSERT OR IGNORE INTO hoppers (hopper_id, bean_id, assigned_at) VALUES (1, NULL, ?);
 INSERT OR IGNORE INTO hoppers (hopper_id, bean_id, assigned_at) VALUES (2, NULL, ?);
@@ -204,6 +228,29 @@ def _new_id() -> str:
 
 def _row_to_dict(row: aiosqlite.Row) -> dict[str, Any]:
     return dict(row)
+
+
+def _attach_machine_phases(d: dict[str, Any]) -> None:
+    """Populate `d["machine_phases"]` from the row's stored value or synthesize.
+
+    For v5+ rows the column is already populated. For legacy v4 rows that
+    survived migration as NULL (or callers reading after a partial migration),
+    synthesize a two-phase array from the legacy component1/component2 fields.
+    Phase[1] is dropped when its process is `none` to avoid emitting a spurious
+    second phase for single-component recipes. Mutates `d` in place.
+    """
+    mp_raw = d.get("machine_phases")
+    if mp_raw:
+        d["machine_phases"] = json.loads(mp_raw)
+        return
+    c1_raw = d.get("component1") or "{}"
+    c2_raw = d.get("component2") or "{}"
+    c1 = json.loads(c1_raw) if isinstance(c1_raw, str) else c1_raw
+    c2 = json.loads(c2_raw) if isinstance(c2_raw, str) else c2_raw
+    phases: list[dict[str, Any]] = [{"component": c1, "user_action_before": []}]
+    if c2 and c2.get("process") and c2.get("process") != "none":
+        phases.append({"component": c2, "user_action_before": []})
+    d["machine_phases"] = phases
 
 
 class SommelierDB:
@@ -247,6 +294,8 @@ class SommelierDB:
                 migrations.append((3, MIGRATE_V2_TO_V3))
             if current_version < 4:
                 migrations.append((4, MIGRATE_V3_TO_V4))
+            if current_version < 5:
+                migrations.append((5, MIGRATE_V4_TO_V5))
             for target_version, sql in migrations:
                 for stmt in sql.strip().split(";"):
                     stmt = stmt.strip()
@@ -506,20 +555,38 @@ class SommelierDB:
             recipe_id = _new_id()
             extras = recipe.get("extras")
             steps = recipe.get("steps")
+            # Prefer the v5 phases-list representation when the caller supplies
+            # it; synthesize the legacy NOT NULL component1/component2 columns
+            # from the first/second phase so older readers and the DB
+            # constraint remain happy.
+            machine_phases = recipe.get("machine_phases") or []
+            machine_phases_json = json.dumps(machine_phases)
+            if machine_phases:
+                legacy_c1_obj = (
+                    machine_phases[0].get("component", {}) if len(machine_phases) >= 1 else {}
+                )
+                legacy_c2_obj = (
+                    machine_phases[1].get("component", {}) if len(machine_phases) >= 2 else {}
+                )
+            else:
+                # Backward-compat: pre-v5 callers still pass component1/component2 directly.
+                legacy_c1_obj = recipe.get("component1", {})
+                legacy_c2_obj = recipe.get("component2", {})
             await self.db.execute(
                 """INSERT INTO generated_recipes
                    (id, session_id, name, description, blend,
-                    component1, component2, extras, steps,
+                    component1, component2, machine_phases, extras, steps,
                     cup_type, calories, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     recipe_id,
                     session_id,
                     recipe["name"],
                     recipe["description"],
                     recipe["blend"],
-                    json.dumps(recipe["component1"]),
-                    json.dumps(recipe["component2"]),
+                    json.dumps(legacy_c1_obj),
+                    json.dumps(legacy_c2_obj),
+                    machine_phases_json,
                     json.dumps(extras) if extras else None,
                     json.dumps(steps) if steps else None,
                     recipe.get("cup_type"),
@@ -532,8 +599,9 @@ class SommelierDB:
                 "name": recipe["name"],
                 "description": recipe["description"],
                 "blend": recipe["blend"],
-                "component1": recipe["component1"],
-                "component2": recipe["component2"],
+                "component1": legacy_c1_obj,
+                "component2": legacy_c2_obj,
+                "machine_phases": machine_phases,
                 "extras": extras,
                 "steps": steps or [],
                 "cup_type": recipe.get("cup_type"),
@@ -569,6 +637,7 @@ class SommelierDB:
         if row is None:
             return None
         d = _row_to_dict(row)
+        _attach_machine_phases(d)
         d["component1"] = json.loads(d["component1"])
         d["component2"] = json.loads(d["component2"])
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
@@ -597,6 +666,7 @@ class SommelierDB:
             sess["recipes"] = []
             for r_row in await recipe_cursor.fetchall():
                 r = _row_to_dict(r_row)
+                _attach_machine_phases(r)
                 r["component1"] = json.loads(r["component1"])
                 r["component2"] = json.loads(r["component2"])
                 r["extras"] = json.loads(r["extras"]) if r.get("extras") else None
@@ -616,6 +686,7 @@ class SommelierDB:
         result = []
         for row in await cursor.fetchall():
             d = _row_to_dict(row)
+            _attach_machine_phases(d)
             d["component1"] = json.loads(d["component1"])
             d["component2"] = json.loads(d["component2"])
             d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
@@ -629,19 +700,35 @@ class SommelierDB:
         now = _now()
         extras = data.get("extras")
         steps = data.get("steps")
+        # Prefer the v5 phases-list representation when present; synthesize the
+        # legacy NOT NULL component1/component2 columns from the first/second
+        # phase otherwise. Mirrors async_create_session.
+        machine_phases = data.get("machine_phases") or []
+        machine_phases_json = json.dumps(machine_phases)
+        if machine_phases:
+            legacy_c1_obj = (
+                machine_phases[0].get("component", {}) if len(machine_phases) >= 1 else {}
+            )
+            legacy_c2_obj = (
+                machine_phases[1].get("component", {}) if len(machine_phases) >= 2 else {}
+            )
+        else:
+            legacy_c1_obj = data.get("component1", {})
+            legacy_c2_obj = data.get("component2", {})
         await self.db.execute(
             """INSERT INTO favorites
                (id, name, description, blend, component1, component2,
-                extras, steps, cup_type, source_recipe_id, source_bean_id,
-                brew_count, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+                machine_phases, extras, steps, cup_type, source_recipe_id,
+                source_bean_id, brew_count, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
             (
                 fav_id,
                 data["name"],
                 data["description"],
                 data["blend"],
-                json.dumps(data["component1"]),
-                json.dumps(data["component2"]),
+                json.dumps(legacy_c1_obj),
+                json.dumps(legacy_c2_obj),
+                machine_phases_json,
                 json.dumps(extras) if extras else None,
                 json.dumps(steps) if steps else None,
                 data.get("cup_type"),
@@ -662,6 +749,7 @@ class SommelierDB:
         if row is None:
             return None
         d = _row_to_dict(row)
+        _attach_machine_phases(d)
         d["component1"] = json.loads(d["component1"])
         d["component2"] = json.loads(d["component2"])
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
