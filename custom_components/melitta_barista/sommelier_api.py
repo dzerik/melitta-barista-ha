@@ -176,6 +176,7 @@ def async_register_websocket_handlers(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_favorites_update)
     websocket_api.async_register_command(hass, ws_favorites_brew)
     websocket_api.async_register_command(hass, ws_history_list)
+    websocket_api.async_register_command(hass, ws_history_clear)
     websocket_api.async_register_command(hass, ws_presets_list)
     websocket_api.async_register_command(hass, ws_settings_get)
     websocket_api.async_register_command(hass, ws_settings_set)
@@ -962,6 +963,24 @@ async def ws_history_list(
         limit=msg["limit"], offset=msg["offset"]
     )
     connection.send_result(msg["id"], {"sessions": sessions})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/sommelier/history/clear",
+    vol.Optional("keep_favorited", default=True): bool,
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_history_clear(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete history sessions. By default protects sessions linked to favorites."""
+    db = await _async_get_db(hass)
+    keep = msg.get("keep_favorited", True)
+    cleared = await db.async_clear_history(keep_favorited=keep)
+    connection.send_result(msg["id"], {"cleared": cleared})
 
 
 # ── Presets ───────────────────────────────────────────────────────────

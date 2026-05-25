@@ -709,6 +709,31 @@ class SommelierDB:
             sessions.append(sess)
         return sessions
 
+    async def async_clear_history(self, keep_favorited: bool = True) -> int:
+        """Delete generation sessions (+ cascaded recipes). Returns # removed.
+
+        When ``keep_favorited`` is True (default), sessions containing at least
+        one recipe currently referenced by ``favorites.source_recipe_id`` are
+        preserved. Cascade on ``generated_recipes.session_id`` (ON DELETE
+        CASCADE, with PRAGMA foreign_keys=ON set at setup time) removes child
+        recipe rows for every deleted session.
+        """
+        async with self._lock:
+            if keep_favorited:
+                cursor = await self.db.execute(
+                    """DELETE FROM generation_sessions
+                        WHERE id NOT IN (
+                          SELECT DISTINCT r.session_id
+                            FROM generated_recipes r
+                            JOIN favorites f ON f.source_recipe_id = r.id
+                        )"""
+                )
+            else:
+                cursor = await self.db.execute("DELETE FROM generation_sessions")
+            removed = cursor.rowcount or 0
+            await self.db.commit()
+        return removed
+
     # ── Favorites ─────────────────────────────────────────────────────
 
     async def async_list_favorites(self) -> list[dict[str, Any]]:
