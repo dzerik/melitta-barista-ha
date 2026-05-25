@@ -151,6 +151,27 @@ class MelittaAdditives extends LitElement {
     }
   }
 
+  async _toggleAvailable(type, item) {
+    // milk rows are a flat string list — no per-item stock flag in P4a.
+    if (type === "milk") return;
+    const table = type === "syrup" ? "syrups" : "toppings";
+    const next = !(item.available ?? 1);
+    try {
+      await this.hass.callWS({
+        type: `melitta_barista/${table}/set_available`,
+        additive_id: item.id,
+        available: next,
+      });
+      this._error = "";
+      await this._loadAll();
+    } catch (err) {
+      this._error = this._t("additives.toggle_stock_failed");
+      // Keep raw cause discoverable in the console for diagnostics.
+      // eslint-disable-next-line no-console
+      console.warn("set_available failed", err);
+    }
+  }
+
   async _delete(type, id) {
     const list =
       type === "syrup" ? this._syrups : type === "topping" ? this._toppings : this._milk;
@@ -189,17 +210,28 @@ class MelittaAdditives extends LitElement {
           <th></th>
         </tr></thead>
         <tbody>
-          ${rows.map((r) => html`
-            <tr>
+          ${rows.map((r) => {
+            const inStock = (r.available ?? 1) ? true : false;
+            const rowClass = type !== "milk" && !inStock ? "dimmed" : "";
+            return html`
+            <tr class=${rowClass}>
               <td>${r.name}</td>
               ${showsBrand ? html`<td>${r.brand || ""}</td>` : ""}
               ${showsBrand ? html`<td>${r.notes || ""}</td>` : ""}
               <td class="actions">
+                ${type !== "milk" ? html`
+                  <button
+                    class="icon stock ${inStock ? "in-stock" : "out-of-stock"}"
+                    title=${inStock ? this._t("additives.in_stock") : this._t("additives.out_of_stock")}
+                    @click=${() => this._toggleAvailable(type, r)}
+                  >${inStock ? "✓" : "○"}</button>
+                ` : ""}
                 <button class="icon edit" @click=${() => this._openEdit(type, r)}>✎</button>
                 <button class="icon del" @click=${() => this._delete(type, r.id)}>×</button>
               </td>
             </tr>
-          `)}
+          `;
+          })}
         </tbody>
       </table>
     `;
@@ -311,6 +343,10 @@ class MelittaAdditives extends LitElement {
       }
       button.icon.edit { color: var(--info-color, #2196f3); }
       button.icon.del { color: var(--error-color); font-size: 18px; }
+      button.icon.stock { font-size: 14px; }
+      button.icon.stock.in-stock { color: var(--success-color, #4caf50); }
+      button.icon.stock.out-of-stock { color: var(--secondary-text-color); }
+      tr.dimmed { opacity: 0.5; }
       .hint { color: var(--secondary-text-color); padding: 8px 0; }
       .error {
         margin: 12px 0;
