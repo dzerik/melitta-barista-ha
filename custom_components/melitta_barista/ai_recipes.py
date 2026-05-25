@@ -11,6 +11,8 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
+from .capabilities import LiveCapabilities
+
 _LOGGER = logging.getLogger("melitta_barista")
 
 LLM_TIMEOUT = 60.0
@@ -73,6 +75,7 @@ def _build_prompt(
     omit_output_format: bool = False,
     language: str | None = None,
     moods: list[str] | None = None,
+    caps: LiveCapabilities | None = None,
 ) -> str:
     """Build structured prompt for the LLM.
 
@@ -310,18 +313,57 @@ def _build_prompt(
         "purely instructional (\"Stir for 10 seconds\")."
     )
 
+    def _fmt_enum(values):
+        return ", ".join(f'"{v}"' for v in values)
+
+    if caps is not None:
+        processes_str = _fmt_enum(caps.supported_processes)
+        intensities_str = _fmt_enum(caps.supported_intensities)
+        aromas_str = _fmt_enum(caps.supported_aromas)
+        temperatures_str = _fmt_enum(caps.supported_temperatures)
+        shots_str = _fmt_enum(caps.supported_shots)
+        if caps.portion_limits:
+            mins = [pl["min"] for pl in caps.portion_limits.values()]
+            maxs = [pl["max"] for pl in caps.portion_limits.values()]
+            steps = [pl["step"] for pl in caps.portion_limits.values()]
+            portion_min, portion_max = min(mins), max(maxs)
+            portion_step = max(steps) if steps else 5
+        else:
+            portion_min, portion_max, portion_step = 0, 250, 5
+        capabilities_block = (
+            f"## Machine Capabilities (this machine: {caps.model_name})\n"
+            f"\n"
+            f"The machine accepts these per-component parameters. "
+            f"Use only the values listed below. Ignore any other values that "
+            f"the response JSON schema may technically permit — they are NOT "
+            f"supported by this machine and selecting them will produce a brew failure.\n"
+            f"\n"
+            f"- process: one of {processes_str}\n"
+            f"- intensity: one of {intensities_str}\n"
+            f"- aroma: one of {aromas_str}\n"
+            f"- temperature: one of {temperatures_str}\n"
+            f"- shots: one of {shots_str}\n"
+            f"- portion_ml: integer from {portion_min} to {portion_max} in steps of {portion_step}\n"
+            f"\n"
+            f"The \"blend\" field selects which bean hopper to use (see below)."
+        )
+    else:
+        capabilities_block = (
+            '## Machine Capabilities\n'
+            'Each recipe has up to 2 components (dispensed sequentially). Each component has:\n'
+            '- process: "coffee", "milk", or "water" (component 2 can also be "none" to disable)\n'
+            '- intensity: "very_mild", "mild", "medium", "strong", "very_strong" (coffee strength)\n'
+            '- aroma: "standard" or "intense" (grind fineness — intense = finer grind, more extraction)\n'
+            '- temperature: "cold", "normal", "high"\n'
+            '- shots: "none", "one", "two", "three" (espresso shots — only meaningful for coffee process)\n'
+            '- portion_ml: 5 to 250, in steps of 5 (volume in milliliters)\n'
+            '\n'
+            'The "blend" field selects which bean hopper to use (see below).'
+        )
+
     return f"""{intro_text}
 
-## Machine Capabilities
-Each recipe has up to 2 components (dispensed sequentially). Each component has:
-- process: "coffee", "milk", or "water" (component 2 can also be "none" to disable)
-- intensity: "very_mild", "mild", "medium", "strong", "very_strong" (coffee strength)
-- aroma: "standard" or "intense" (grind fineness — intense = finer grind, more extraction)
-- temperature: "cold", "normal", "high"
-- shots: "none", "one", "two", "three" (espresso shots — only meaningful for coffee process)
-- portion_ml: 5 to 250, in steps of 5 (volume in milliliters)
-
-The "blend" field selects which bean hopper to use (see below).
+{capabilities_block}
 
 ## Available Beans
 {hopper_section}
