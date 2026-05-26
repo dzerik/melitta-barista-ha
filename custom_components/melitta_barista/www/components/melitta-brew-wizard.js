@@ -17,7 +17,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { sharedStyles } from "../design-tokens.js";
-import { t } from "../i18n.js";
+import { t } from "../i18n/index.js";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_BUFFER_S = 30;

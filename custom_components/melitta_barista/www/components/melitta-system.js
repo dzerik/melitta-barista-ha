@@ -10,7 +10,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { sharedStyles } from "../design-tokens.js";
-import { t } from "../i18n.js";
+import { t } from "../i18n/index.js";
 
 const SUBTABS = ["status", "settings", "diagnostics", "recipes"];
 

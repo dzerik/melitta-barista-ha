@@ -31,7 +31,7 @@ await Promise.all([
 ]);
 
 import { LitElement, html, css } from "./lit-base.js";
-import { t } from "./i18n.js";
+import { t } from "./i18n/index.js";
 
 const TAB_IDS = [
   "sommelier", "beans", "additives", "system",

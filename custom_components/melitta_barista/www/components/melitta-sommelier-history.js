@@ -21,7 +21,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { sharedStyles } from "../design-tokens.js";
-import { t } from "../i18n.js";
+import { t } from "../i18n/index.js";
 import "./melitta-modal.js";
 import "./melitta-confirm.js";
 import "./ui/melitta-star-rating.js";

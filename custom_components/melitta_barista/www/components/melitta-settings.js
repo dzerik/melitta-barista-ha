@@ -15,7 +15,7 @@
  */
 
 import { LitElement, html, css } from "../lit-base.js";
-import { t } from "../i18n.js";
+import { t } from "../i18n/index.js";
 
 class MelittaSettings extends LitElement {
   static get properties() {

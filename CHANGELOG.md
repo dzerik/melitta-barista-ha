@@ -2,6 +2,11 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.74.1] — 2026-05-26
+
+### Fixed
+- **Panel components now import the i18n resolver from `./i18n/index.js` directly** instead of going through the `./i18n.js` re-export shim. The static-import path matters for browser HTTP caching: existing installs that had the pre-P11 monolithic `i18n.js` cached would keep serving the stale module to new component code, surfacing raw i18n keys (`presets.label`, `additives.fill_from_llm`, etc.) in the UI. The new path is a fresh URL that's never been in any browser cache. The `./i18n.js` shim stays in place for external consumers / Lovelace cards.
+
 ## [0.74.0] — 2026-05-26
 
 ### Changed (P11 — i18n decomposition)

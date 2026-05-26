@@ -17,7 +17,7 @@
  */
 
 import { LitElement, html, css } from "../lit-base.js";
-import { t } from "../i18n.js";
+import { t } from "../i18n/index.js";
 import "./melitta-sommelier-favorites.js";
 import "./melitta-sommelier-history.js";
 import "./melitta-sommelier-presets.js";
