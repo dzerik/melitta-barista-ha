@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.70.0] — 2026-05-26
+
+### Added (P8a — R1 slice 1: rich-field syrups & toppings catalogue)
+- **`syrups` and `toppings` catalogue tables gain `producer_id`, `variant`, `flavor_notes`, `composition`, and `attributes` columns.** Legacy DBs migrated via idempotent `ALTER TABLE` guards inside `_ensure_panel_schema` (extends the P4a pattern). `flavor_notes` is a JSON-encoded list of strings; `attributes` is a JSON-encoded object; both are NULL by default. The existing `brand` column carries over unchanged.
+- **`<table>/list` returns the new fields** with JSON values parsed back into Python lists/dicts. Bad JSON in a column returns `None` instead of crashing the handler (defensive fallback).
+- **`<table>/add` and `<table>/update`** accept the new fields as optional parameters with voluptuous length/type constraints. Existing partial-patch semantics on `update` (`no_fields` error when nothing changes) are preserved; the new fields count toward the patch.
+
+### Notes
+- Mirrors the existing `coffee_beans` rich-metadata shape. The producers table already supports cross-category use, so no producer-table changes are needed.
+- UI extensions to the Additives modal (producer dropdown, variant input, flavor-notes chips, attributes chips) and the LLM-backed `/syrups/autofill` / `/toppings/autofill` endpoints are deferred to **P8b**.
+- Milk-config rewrite (turning the flat list into a CRUD-able catalogue with the same rich fields) is a separate, larger refactor with a legacy shim for the existing `/milk/get|set` endpoints — scoped out of P8.
+- The Sommelier LLM prompt does not yet consume the new fields. Whether to enrich the prompt with brand / flavor_notes / composition is gated on observed recommendation quality — that's an optional future **P8c**.
+
 ## [0.69.0] — 2026-05-26
 
 ### Added (P7b — R8 slice 2: machine_profile UI)

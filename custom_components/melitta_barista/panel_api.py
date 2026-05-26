@@ -21,6 +21,7 @@ from homeassistant.components import websocket_api
 from homeassistant.components.websocket_api import async_register_command
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
     API_VERSION,
@@ -349,6 +350,11 @@ async def _ensure_panel_schema(db) -> None:
             brand TEXT,
             notes TEXT,
             available INTEGER NOT NULL DEFAULT 1,
+            producer_id   INTEGER REFERENCES producers(id),
+            variant       TEXT,
+            flavor_notes  TEXT,
+            composition   TEXT,
+            attributes    TEXT,
             created_at TEXT NOT NULL
         );
 
@@ -358,6 +364,11 @@ async def _ensure_panel_schema(db) -> None:
             brand TEXT,
             notes TEXT,
             available INTEGER NOT NULL DEFAULT 1,
+            producer_id   INTEGER REFERENCES producers(id),
+            variant       TEXT,
+            flavor_notes  TEXT,
+            composition   TEXT,
+            attributes    TEXT,
             created_at TEXT NOT NULL
         );
 
@@ -376,6 +387,17 @@ async def _ensure_panel_schema(db) -> None:
     # Legacy-DB migration: ensure `available` column exists on additive tables.
     # On fresh DBs the CREATE above already includes it, so the PRAGMA check
     # short-circuits the ALTER.
+    #
+    # P8a R1 slice 1 extends this guard with the rich-field columns
+    # (producer_id, variant, flavor_notes, composition, attributes) so that
+    # legacy DBs created before P8a get migrated lazily on the next request.
+    _additive_rich_columns = (
+        ("producer_id", "INTEGER REFERENCES producers(id)"),
+        ("variant", "TEXT"),
+        ("flavor_notes", "TEXT"),
+        ("composition", "TEXT"),
+        ("attributes", "TEXT"),
+    )
     for _additive_table in ("syrups", "toppings"):
         cursor = await db_handle.execute(
             f"PRAGMA table_info({_additive_table})"  # nosec B608
@@ -386,6 +408,15 @@ async def _ensure_panel_schema(db) -> None:
                 f"ALTER TABLE {_additive_table} "  # nosec B608
                 "ADD COLUMN available INTEGER NOT NULL DEFAULT 1"
             )
+        for _col_name, _col_type in _additive_rich_columns:
+            if _col_name not in cols:
+                # SQLite cannot ALTER ADD a column with a FK reference clause
+                # that varies — but the literal in `_additive_rich_columns`
+                # is a hardcoded whitelist, never user input.
+                await db_handle.execute(
+                    f"ALTER TABLE {_additive_table} "  # nosec B608
+                    f"ADD COLUMN {_col_name} {_col_type}"
+                )
 
     await db_handle.commit()
 
@@ -722,13 +753,32 @@ def _make_additive_handlers(table: str):
     @websocket_api.async_response
     async def _ws_list(hass, connection, msg):
         """List rows from an additive table (syrups / toppings)."""
+        import json as _json  # noqa: PLC0415
+
         db = await _async_get_db(hass)
         # `table` is bound at handler-factory call time to a literal
         # string ("syrups" / "toppings"), never user input.
         cursor = await db._db.execute(
-            f"SELECT id, name, brand, notes, available FROM {table} ORDER BY name"  # nosec B608
+            f"SELECT id, name, brand, notes, available, "  # nosec B608
+            f"producer_id, variant, flavor_notes, composition, attributes "
+            f"FROM {table} ORDER BY name"
         )
         rows = await cursor.fetchall()
+
+        def _safe_json(raw):
+            """Best-effort JSON decode; return None on NULL or invalid payload.
+
+            Defensive: a row may have been hand-edited or written by an older
+            client that stored a non-JSON string. We swallow the decode error
+            rather than crashing the entire list response for one bad row.
+            """
+            if raw is None:
+                return None
+            try:
+                return _json.loads(raw)
+            except (ValueError, TypeError):
+                return None
+
         _send_versioned(connection, msg["id"], {
             table: [
                 {
@@ -738,6 +788,11 @@ def _make_additive_handlers(table: str):
                     "notes": r[3],
                     # Defensive: NULL/missing -> available (legacy rows pre-default).
                     "available": bool(r[4]) if r[4] is not None else True,
+                    "producer_id": r[5],
+                    "variant": r[6],
+                    "flavor_notes": _safe_json(r[7]),
+                    "composition": r[8],
+                    "attributes": _safe_json(r[9]),
                 }
                 for r in rows
             ],
@@ -748,15 +803,43 @@ def _make_additive_handlers(table: str):
         vol.Required("name"): str,
         vol.Optional("brand"): str,
         vol.Optional("notes"): str,
+        # P8a R1 slice 1: rich-field catalogue (mirrors coffee_beans).
+        vol.Optional("producer_id"): int,
+        vol.Optional("variant"): vol.All(cv.string, vol.Length(max=120)),
+        vol.Optional("flavor_notes"): [cv.string],
+        vol.Optional("composition"): vol.All(cv.string, vol.Length(max=2000)),
+        vol.Optional("attributes"): dict,
     })
     @websocket_api.require_admin
     @websocket_api.async_response
     async def _ws_add(hass, connection, msg):
-        """Insert a row into an additive table; returns new id."""
+        """Insert a row into an additive table; returns new id.
+
+        JSON-typed columns (`flavor_notes`, `attributes`) are encoded to a TEXT
+        payload before persistence so the read path can `json.loads` them back.
+        Omitted params bind to NULL.
+        """
+        import json as _json  # noqa: PLC0415
+
         db = await _async_get_db(hass)
+        flavor_notes = msg.get("flavor_notes")
+        attributes = msg.get("attributes")
         cursor = await db._db.execute(
-            f"INSERT INTO {table} (name, brand, notes, created_at) VALUES (?, ?, ?, ?)",  # nosec B608
-            (msg["name"], msg.get("brand"), msg.get("notes"), _now_iso()),
+            f"INSERT INTO {table} "  # nosec B608
+            "(name, brand, notes, created_at, producer_id, variant, "
+            "flavor_notes, composition, attributes) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                msg["name"],
+                msg.get("brand"),
+                msg.get("notes"),
+                _now_iso(),
+                msg.get("producer_id"),
+                msg.get("variant"),
+                _json.dumps(flavor_notes) if flavor_notes is not None else None,
+                msg.get("composition"),
+                _json.dumps(attributes) if attributes is not None else None,
+            ),
         )
         await db._db.commit()
         _send_versioned(connection, msg["id"], {"id": cursor.lastrowid})
@@ -793,18 +876,45 @@ def _make_additive_update_handler(table: str):
         vol.Optional("brand"): str,
         vol.Optional("notes"): str,
         vol.Optional("available"): bool,
+        # P8a R1 slice 1: rich-field patches.
+        vol.Optional("producer_id"): int,
+        vol.Optional("variant"): vol.All(cv.string, vol.Length(max=120)),
+        vol.Optional("flavor_notes"): [cv.string],
+        vol.Optional("composition"): vol.All(cv.string, vol.Length(max=2000)),
+        vol.Optional("attributes"): dict,
     })
     @websocket_api.require_admin
     @websocket_api.async_response
     async def _ws_update(hass, connection, msg):
-        """Patch the writable additive fields (name, brand, notes, available)."""
+        """Patch the writable additive fields.
+
+        Now covers the P8a rich-field set on top of the original
+        (name, brand, notes, available) patches. JSON-typed columns
+        (`flavor_notes`, `attributes`) are encoded to TEXT before writing;
+        `attributes` is replaced as a full object (not merged), per the
+        documented semantics in the catalogue spec.
+        """
+        import json as _json  # noqa: PLC0415
+
         db = await _async_get_db(hass)
         fields: dict[str, object] = {
-            k: msg[k] for k in ("name", "brand", "notes") if k in msg
+            k: msg[k]
+            for k in (
+                "name", "brand", "notes",
+                "producer_id", "variant", "flavor_notes",
+                "composition", "attributes",
+            )
+            if k in msg
         }
         if "available" in msg:
             # SQLite stores bool as INTEGER 0/1.
             fields["available"] = 1 if msg["available"] else 0
+        # JSON-encode list/dict fields after the dict has been assembled so
+        # the "no_fields" check below still counts them towards "any patch".
+        if "flavor_notes" in fields:
+            fields["flavor_notes"] = _json.dumps(fields["flavor_notes"])
+        if "attributes" in fields:
+            fields["attributes"] = _json.dumps(fields["attributes"])
         if not fields:
             connection.send_error(msg["id"], "no_fields", "No fields to update")
             return
