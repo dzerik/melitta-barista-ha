@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.73.0] — 2026-05-26
+
+### Added (P10 — Nivona-safe Sommelier)
+- **`LiveCapabilities` now carries `supports_recipe_writes: bool`** (schema v1 → v2). The flag is sourced from each family's `MachineCapabilities.supports_recipe_writes`. Surfaced through `melitta_barista/capabilities/get`. v1 cached blobs default to `True` on parse so existing Melitta installs see no change.
+- **`ws_brew` and `ws_favorites_brew` refuse the BLE write** when the active machine reports `supports_recipe_writes=False`, surfacing `recipe_writes_unsupported` via `send_error` instead of failing silently in the BLE layer. The new `RecipeWritesUnsupportedError` carries the offending `family_key`.
+- **Brew-related buttons are disabled in the Sommelier UI** when the active machine doesn't support recipe writes — applies to the per-card "Brew this" action, the brewing wizard's "Start brewing" button, and the brew / "Brew again" actions in the Favorites and History modals. The wizard still opens so the user can read the recipe + steps as a print-only card; an inline note in the pre-phase explains why brewing is unavailable. EN + RU i18n via `brewing.unsupported_tooltip` / `unsupported_note` / `unsupported_error`.
+
+### Notes
+- All Nivona families declare `supports_recipe_writes=False` because their recipe protocol differs from Melitta's freestyle slot — the integration cannot write a custom recipe to a Nivona machine. Adding Nivona freestyle support is a separate RE / protocol effort, out of scope here.
+- The Sommelier data + UI surface (generation, favorites, history, ratings, presets, pantry) is brand-agnostic and remains fully functional on Nivona as a recipe notebook.
+
 ## [0.72.0] — 2026-05-26
 
 ### Fixed (TZ §10 B6 — preference-key write allowlist)
