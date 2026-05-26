@@ -1005,8 +1005,12 @@ class NivonaProfile:
     # resolve to "NIVO" and no family would match (see EugsterMobileApp
     # name-filter logic). The 5-dash suffix is the distinguisher from
     # Melitta's ``8xxx + hex`` advertisement format.
+    # Some Nivona models (e.g. NICR 779, reported in #14) advertise as a
+    # 15-digit serial *with* the 5-dash trailing suffix, not just a bare
+    # 15-digit form. Allow 10..15 digits + 5 dashes alongside the
+    # original 15-digit-no-dashes branch.
     ble_name_regex: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(?:NIVONA-)?(?:\d{15}|\d{10}-----)$"
+        r"^(?:NIVONA-)?(?:\d{15}|\d{10,15}-----)$"
     )
 
     # Nivona machines do not expose recipe read/write commands.

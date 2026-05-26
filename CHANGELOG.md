@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.74.2] — 2026-05-26
+
+### Fixed
+- **Nivona NICR 779 (and other 7xx variants advertising as 15 digits + 5 dashes) is now detected as Nivona instead of falling back to Melitta** (#14). The `ble_name_regex` only matched `\d{15}` (no dashes) OR `\d{10}-----`; NICR 779's `779573191222251-----` advertisement form was neither, so the brand resolver picked Melitta, the wrong RC4 keys were used, and the HU handshake timed out. The regex now accepts `\d{10,15}-----` alongside the existing `\d{15}` branch.
+
+### Notes
+- The second half of #14 (registering the `_NoInputOutputAgent` D-Bus agent during ongoing connections, not just initial pairing) is **not** included in 0.74.2. The agent is already wired in via `config_flow.py` for first-time pairing and via `bleak-retry-connector`'s `establish_connection(pair=True)` for reconnects. If headless-Linux Nivona installs still need agent-during-every-notify-subscribe coverage we'll iterate after hardware confirmation from the reporter.
+- 16+ digit + dashes ad forms continue to be rejected, intentionally.
+
 ## [0.74.1] — 2026-05-26
 
 ### Fixed

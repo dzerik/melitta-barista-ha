@@ -81,6 +81,15 @@ def test_advertisement_matches_nivona_pattern():
     # 15-digit no-dash form (observed on real NICR 930, firmware 0254A013A10)
     profile = detect_from_advertisement("930254000000000")
     assert profile is not None and profile.brand_slug == "nivona"
+    # 15-digit + 5-dash form — observed on NICR 779 in #14. Before the
+    # regex was widened the device fell back to the Melitta branch and
+    # the HU handshake timed out because the wrong RC4 keys were used.
+    profile = detect_from_advertisement("779573191222251-----")
+    assert profile is not None and profile.brand_slug == "nivona"
+    profile = detect_from_advertisement("NIVONA-779573191222251-----")
+    assert profile is not None and profile.brand_slug == "nivona"
+    # Detected family should be "700" since 779 prefix routes there.
+    assert profile.detect_family("779573191222251-----") == "700"
 
 
 def test_advertisement_no_match():
@@ -90,6 +99,9 @@ def test_advertisement_no_match():
     # Purely numeric names that should NOT match Nivona
     assert detect_from_advertisement("1234567890") is None       # 10 digits, no dashes
     assert detect_from_advertisement("12345678901234") is None   # 14 digits
+    # Sixteen digits + 5 dashes — must NOT be treated as Nivona (the
+    # 10..15-digit range is the intentional contract from #14).
+    assert detect_from_advertisement("7795731912222515-----") is None
 
 
 # ---------------------------------------------------------------------------
