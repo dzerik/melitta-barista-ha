@@ -113,6 +113,15 @@ VALID_PREFERENCE_KEYS = [
     "default_temperature",
     "default_caffeine",
     "default_dietary",
+    # Weather + presence integration. The values are read by ws_generate
+    # (use_weather / use_presence as "true"/"false" strings;
+    # weather_entity as the HA entity_id of the weather sensor). They
+    # were live on the read side from the start but missing from the
+    # write allowlist, so callers couldn't actually configure them via
+    # the WS API. Added in 0.72.0 (closes §10 B6).
+    "use_weather",
+    "weather_entity",
+    "use_presence",
 ]
 VALID_CUP_SIZES = ["espresso_cup", "cup", "mug", "tall_glass", "travel"]
 VALID_MOODS = ["energizing", "relaxing", "dessert", "classic"]

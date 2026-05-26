@@ -240,6 +240,22 @@ class TestSettingsAllowlist:
         out = self._preferences_schema()({"key": "default_cup_size", "value": "mug"})
         assert out["key"] == "default_cup_size"
 
+    def test_preferences_schema_accepts_use_weather(self):
+        # 0.72.0 (P9 / TZ §10 B6): use_weather was readable but not
+        # writable via WS. Now in the allowlist.
+        out = self._preferences_schema()({"key": "use_weather", "value": "true"})
+        assert out["key"] == "use_weather"
+
+    def test_preferences_schema_accepts_use_presence(self):
+        out = self._preferences_schema()({"key": "use_presence", "value": "false"})
+        assert out["key"] == "use_presence"
+
+    def test_preferences_schema_accepts_weather_entity(self):
+        out = self._preferences_schema()(
+            {"key": "weather_entity", "value": "weather.home"}
+        )
+        assert out["key"] == "weather_entity"
+
 
 # ── #C3 frontend: safeHttpUrl URL sanitiser shape ────────────────────
 

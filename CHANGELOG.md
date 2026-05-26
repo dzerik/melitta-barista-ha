@@ -2,6 +2,14 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.72.0] — 2026-05-26
+
+### Fixed (TZ §10 B6 — preference-key write allowlist)
+- **`use_weather`, `weather_entity`, and `use_presence` are now writable via `melitta_barista/sommelier/preferences/set`.** They have always been **read** by `ws_generate` (powering the weather and presence context blocks in the LLM prompt), but the write-side allowlist `VALID_PREFERENCE_KEYS` only covered the four `default_*` keys, so the WS API surface couldn't actually configure them. Frontends had to write into the DB out-of-band. Now they're first-class preferences.
+
+### Notes
+- This closes the only live backend bug from the TZ's §10 open-issues snapshot. The remaining items in that list are either documentation placeholders (`recipes/list` empty `base_recipes`), explicit deferrals (multi-machine routing, milk catalogue rewrite), or non-issues now (R9 audit, P3 ratings/history, rich-field syrups/toppings).
+
 ## [0.71.0] — 2026-05-26
 
 ### Added (P8b — R1 slice 2: autofill endpoints + UI modal extension)
