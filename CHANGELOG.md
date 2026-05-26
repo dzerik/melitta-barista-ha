@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.74.0] — 2026-05-26
+
+### Changed (P11 — i18n decomposition)
+- **Panel translations split into per-locale ESM modules** under `www/i18n/locales/`. The 731-line monolith is now `www/i18n/index.js` (54-line resolver) + `www/i18n/locales/en.js` + `www/i18n/locales/ru.js`. `www/i18n.js` is a tiny re-export shim so existing callsites (`import { t } from "./i18n.js"`) keep working unchanged.
+- **`tests/test_i18n_parity.py`** enforces full key-set parity between every non-English locale and `en.js` (both directions — no missing keys, no stale orphans). Adding a new key requires touching every locale in the same PR.
+
+### Notes
+- Resolver API (`t`, `makeT`, `SUPPORTED_LANGUAGES`) is unchanged. No JS callsite edits.
+- 302 keys × 2 locales as of 0.74.0. Adding a new language is now a single PR: drop `www/i18n/locales/<HA-lang-code>.js` mirroring `en.js`, register it in `index.js`'s STRINGS dict, parity test guards the rest.
+
 ## [0.73.0] — 2026-05-26
 
 ### Added (P10 — Nivona-safe Sommelier)
