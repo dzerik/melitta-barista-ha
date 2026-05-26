@@ -34,6 +34,7 @@ class MelittaSommelierHistory extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      activeProfile: { type: Number },
       open: { type: Boolean, reflect: true },
       _sessions: { state: true },
       _loading: { state: true },
@@ -70,11 +71,15 @@ class MelittaSommelierHistory extends LitElement {
     this._loading = true;
     this._error = "";
     try {
-      const result = await this.hass.callWS({
+      const payload = {
         type: "melitta_barista/sommelier/history/list",
         limit: PAGE_SIZE,
         offset,
-      });
+      };
+      if (this.activeProfile != null) {
+        payload.machine_profile_filter = this.activeProfile;
+      }
+      const result = await this.hass.callWS(payload);
       const page = result.sessions || [];
       this._sessions = offset === 0 ? page : [...this._sessions, ...page];
       this._hasMore = page.length === PAGE_SIZE;

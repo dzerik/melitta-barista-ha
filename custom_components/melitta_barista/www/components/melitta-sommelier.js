@@ -77,7 +77,9 @@ class MelittaSommelier extends LitElement {
       _saveAsOpen: { state: true },
       _saveAsName: { state: true },
       _saveAsDescription: { state: true },
+      _saveAsBindToProfile: { state: true },
       _selectedPresetId: { state: true },
+      _activeProfile: { state: true },
     };
   }
 
@@ -119,7 +121,9 @@ class MelittaSommelier extends LitElement {
     this._saveAsOpen = false;
     this._saveAsName = "";
     this._saveAsDescription = "";
+    this._saveAsBindToProfile = false;
     this._selectedPresetId = "";
+    this._activeProfile = null;
   }
 
   /**
@@ -146,15 +150,41 @@ class MelittaSommelier extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._loadAvailable();
+    this._loadActiveProfile();
     this._loadPresets();
+  }
+
+  /**
+   * Fetch the machine's active hardware profile slot (1..n) from
+   * `melitta_barista/status`. Stored in `_activeProfile`, which then
+   * drives the `machine_profile_filter` on list endpoints and the
+   * `machine_profile` tag on generate / save-as. Silent on failure
+   * (no profile aware-mode, everything stays shared).
+   */
+  async _loadActiveProfile() {
+    if (!this.hass || !this.entryId) return;
+    try {
+      const status = await this.hass.callWS({
+        type: "melitta_barista/status",
+        entry_id: this.entryId,
+      });
+      const p = status?.active_profile;
+      this._activeProfile = typeof p === "number" && p > 0 ? p : null;
+    } catch {
+      this._activeProfile = null;
+    }
   }
 
   async _loadPresets() {
     if (!this.hass) return;
     try {
-      const result = await this.hass.callWS({
+      const payload = {
         type: "melitta_barista/sommelier/presets/list",
-      });
+      };
+      if (this._activeProfile !== null) {
+        payload.machine_profile_filter = this._activeProfile;
+      }
+      const result = await this.hass.callWS(payload);
       this._presets = result.presets || [];
     } catch (e) {
       // Silent — presets are optional UI; log only.
@@ -230,12 +260,14 @@ class MelittaSommelier extends LitElement {
     this._saveAsOpen = true;
     this._saveAsName = "";
     this._saveAsDescription = "";
+    this._saveAsBindToProfile = false;
   }
 
   _cancelSaveAs() {
     this._saveAsOpen = false;
     this._saveAsName = "";
     this._saveAsDescription = "";
+    this._saveAsBindToProfile = false;
   }
 
   async _saveAsSubmit() {
@@ -248,6 +280,12 @@ class MelittaSommelier extends LitElement {
         payload: this._serializeFormToPayload(),
       };
       if (this._saveAsDescription) payload.description = this._saveAsDescription;
+      // Optional binding to the active machine profile. When the user
+      // leaves the checkbox unchecked, the preset is shared (NULL on
+      // the backend) and shows up under every profile.
+      if (this._saveAsBindToProfile && this._activeProfile !== null) {
+        payload.machine_profile = this._activeProfile;
+      }
       await this.hass.callWS(payload);
       this._cancelSaveAs();
       await this._loadPresets();
@@ -330,6 +368,10 @@ class MelittaSommelier extends LitElement {
     };
     if (this._preference) payload.preference = this._preference;
     if (this._occasion) payload.occasion = this._occasion;
+    // Tag the generated session with the machine's current hardware
+    // profile so history/list with `machine_profile_filter = active`
+    // surfaces it. NULL when no profile is active.
+    if (this._activeProfile !== null) payload.machine_profile = this._activeProfile;
     try {
       const result = await this.hass.callWS(payload);
       this._session = result.session;
@@ -461,6 +503,12 @@ class MelittaSommelier extends LitElement {
           </label>
           <button class="ghost" @click=${() => this._openSaveAs()}>${this._t("presets.save_as")}</button>
           <button class="ghost" @click=${() => this._openPresetsModal()}>${this._t("presets.manage")}</button>
+          ${this._activeProfile !== null ? html`
+            <span class="profile-badge"
+                  title=${this._t("profile.tooltip")}>
+              ${this._t("profile.label", { n: this._activeProfile })}
+            </span>
+          ` : ""}
         </div>
         ${this._saveAsOpen ? html`
           <div class="save-as-panel">
@@ -470,6 +518,14 @@ class MelittaSommelier extends LitElement {
             <textarea rows="2" placeholder=${this._t("presets.description")}
                       .value=${this._saveAsDescription}
                       @input=${(e) => { this._saveAsDescription = e.target.value; }}></textarea>
+            ${this._activeProfile !== null ? html`
+              <label class="bind-toggle">
+                <input type="checkbox"
+                       .checked=${this._saveAsBindToProfile}
+                       @change=${(e) => { this._saveAsBindToProfile = e.target.checked; }} />
+                ${this._t("presets.bind_to_profile", { n: this._activeProfile })}
+              </label>
+            ` : ""}
             <div class="actions save-as-actions">
               <button class="ghost" @click=${() => this._cancelSaveAs()}>${this._t("common.cancel")}</button>
               <button class="primary" @click=${() => this._saveAsSubmit()}>${this._t("presets.save")}</button>
@@ -767,6 +823,7 @@ class MelittaSommelier extends LitElement {
         .hass=${this.hass}
         .entryId=${this.entryId}
         .lang=${this.lang}
+        .activeProfile=${this._activeProfile}
         ?open=${this._favoritesModalOpen}
         @close=${() => { this._favoritesModalOpen = false; }}
         @brew=${(e) => this._onFavoriteBrewRequested(e)}>
@@ -775,6 +832,7 @@ class MelittaSommelier extends LitElement {
         .hass=${this.hass}
         .entryId=${this.entryId}
         .lang=${this.lang}
+        .activeProfile=${this._activeProfile}
         ?open=${this._historyModalOpen}
         @close=${() => { this._historyModalOpen = false; }}
         @brew=${(e) => this._onHistoryBrewRequested(e)}>
@@ -1025,6 +1083,24 @@ class MelittaSommelier extends LitElement {
         font-size: 13px;
         min-width: 160px;
       }
+      .profile-badge {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--primary-color);
+        color: var(--text-primary-color, white);
+        letter-spacing: 0.4px;
+        margin-left: auto;
+      }
+      .bind-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .bind-toggle input { margin: 0; }
       .save-as-panel {
         display: flex;
         flex-direction: column;

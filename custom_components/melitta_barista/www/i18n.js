@@ -171,6 +171,10 @@ const STRINGS = {
     "presets.system.after_lunch": "After lunch",
     "presets.system.work": "Work",
     "presets.system.guests": "Guests",
+    "presets.bind_to_profile": "Bind to profile {n}",
+
+    "profile.label": "Profile {n}",
+    "profile.tooltip": "Active machine profile. Lists are filtered to this profile and shared entries.",
 
     "common.validation_errors": "Validation errors:",
 
@@ -491,6 +495,10 @@ const STRINGS = {
     "presets.system.after_lunch": "После обеда",
     "presets.system.work": "Работа",
     "presets.system.guests": "Гости",
+    "presets.bind_to_profile": "Привязать к профилю {n}",
+
+    "profile.label": "Профиль {n}",
+    "profile.tooltip": "Активный профиль машины. Списки отфильтрованы по этому профилю и общим записям.",
 
     "common.validation_errors": "Ошибки валидации:",
 

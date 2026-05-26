@@ -30,6 +30,7 @@ class MelittaSommelierFavorites extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      activeProfile: { type: Number },
       open: { type: Boolean, reflect: true },
       _favorites: { state: true },
       _loading: { state: true },
@@ -66,9 +67,11 @@ class MelittaSommelierFavorites extends LitElement {
     this._loading = true;
     this._error = "";
     try {
-      const result = await this.hass.callWS({
-        type: "melitta_barista/sommelier/favorites/list",
-      });
+      const payload = { type: "melitta_barista/sommelier/favorites/list" };
+      if (this.activeProfile != null) {
+        payload.machine_profile_filter = this.activeProfile;
+      }
+      const result = await this.hass.callWS(payload);
       this._favorites = result.favorites || [];
     } catch (e) {
       this._error = `${this._t("favorites.load_failed")}: ${e.message || e}`;
