@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.66.0] — 2026-05-26
+
+### Added (P6a — API contract foundation, R10 slice 1)
+- **`docs/SOMMELIER_API.md`.** Exhaustive enumeration of every `melitta_barista/*` WebSocket endpoint (~55 entries), organised by namespace, with inputs / outputs / decorators / stability tag. This is now the canonical API contract — bumping `api_version` requires updating this doc. Each endpoint is marked `≤0.65.0` (pre-existing) or `0.66.0` (the new `api/info` itself).
+- **`API_VERSION = "1.0"` constant** in `const.py`. Semver: bump **major** on a breaking change to any endpoint's input or output shape; bump **minor** on additive changes (new endpoint, new optional field, new optional response key).
+- **`melitta_barista/api/info` WS endpoint.** Non-admin discovery handshake returning `{api_version, integration_version, schema_db_version, endpoints}`. `endpoints` is the domain-prefixed subset of HA's registered WS commands; consumers cross-reference `docs/SOMMELIER_API.md` for per-endpoint details. The integration-version lookup is wrapped in a broad try/except so the handshake never fails.
+
+### Notes
+- Per-response `schema_version` envelopes (TZ §R10's MUST) are deferred to **P6b** — a mechanical retrofit across ~55 handlers and their tests.
+- Slim list variants and a REST wrapper (TZ §O10.1) stay out of scope until there's a concrete consumer asking for them; HA companion app and Lovelace both speak WS.
+
 ## [0.65.0] — 2026-05-26
 
 ### Added (P5b — Sommelier presets closing slice + §O7.1)

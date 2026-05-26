@@ -23,6 +23,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
+    API_VERSION,
     AROMA_MAP,
     DirectKeyCategory,
     DOMAIN,
@@ -1382,6 +1383,49 @@ async def _ws_llm_agents(hass, connection, msg):
     connection.send_result(msg["id"], {"agents": agents})
 
 
+# ── api/info — discovery handshake ──────────────────────────────────────
+
+
+@websocket_api.websocket_command({vol.Required("type"): "melitta_barista/api/info"})
+@websocket_api.async_response
+async def _ws_api_info(hass: HomeAssistant, connection, msg) -> None:
+    """Return the WS API contract version and a snapshot of available types.
+
+    Discovery endpoint for external consumers (mobile app, Lovelace
+    cards, REST gateways). Not gated behind require_admin so any
+    authenticated WS session can probe the surface. See
+    docs/SOMMELIER_API.md for the canonical per-endpoint contract.
+    """
+    from homeassistant.loader import async_get_integration  # noqa: PLC0415
+    from .sommelier_db import SCHEMA_VERSION  # noqa: PLC0415
+
+    try:
+        integration = await async_get_integration(hass, DOMAIN)
+        integration_version = integration.manifest.get("version", "unknown")
+    except Exception:  # noqa: BLE001
+        integration_version = "unknown"
+
+    # Snapshot of registered WS commands. Filtered to our domain prefix so
+    # consumers see exactly the integration's surface, not HA's globals.
+    # `hass.data["websocket_api"]` is the framework's command registry —
+    # falling back to an empty dict keeps the handshake safe in tests.
+    registry = hass.data.get("websocket_api", {}) or {}
+    endpoints = sorted(
+        cmd for cmd in registry
+        if isinstance(cmd, str) and cmd.startswith(f"{DOMAIN}/")
+    )
+
+    connection.send_result(
+        msg["id"],
+        {
+            "api_version": API_VERSION,
+            "integration_version": integration_version,
+            "schema_db_version": SCHEMA_VERSION,
+            "endpoints": endpoints,
+        },
+    )
+
+
 # ── registration ────────────────────────────────────────────────────────
 
 
@@ -1428,6 +1472,7 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
     if domain_data.get("panel_api_registered"):
         return
 
+    async_register_command(hass, _ws_api_info)
     async_register_command(hass, _wrap_sync_with_schema(_ws_status, _STATUS_SCHEMA))
     async_register_command(
         hass, _wrap_sync_with_schema(_ws_diagnostics, _DIAG_SCHEMA, admin=True)

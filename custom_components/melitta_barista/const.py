@@ -7,6 +7,12 @@ from uuid import UUID
 
 DOMAIN = "melitta_barista"
 
+# Integration-wide WebSocket API contract version. Bump MAJOR on a
+# breaking change to any endpoint's input/output shape. Bump MINOR on
+# additive changes (new endpoint, new optional field, new optional
+# response key). See docs/SOMMELIER_API.md for the canonical contract.
+API_VERSION = "1.0"
+
 
 # ---------------------------------------------------------------------------
 # Machine types
