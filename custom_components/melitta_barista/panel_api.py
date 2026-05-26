@@ -84,6 +84,18 @@ def _process_name(value: int | None) -> str | None:
     return None
 
 
+def _send_versioned(connection, msg_id, data, *, schema_version: int = 1) -> None:
+    """Send a WS result with the per-endpoint schema_version envelope.
+
+    All `melitta_barista/*` responses ship `schema_version` starting in
+    0.67.0; consumers pin against this per-endpoint version to detect
+    breaking changes without forcing a bump of the integration-wide
+    API_VERSION. Default is 1 — bump only when an endpoint's response
+    shape changes in a non-additive way.
+    """
+    connection.send_result(msg_id, {"schema_version": schema_version, **data})
+
+
 # ── /status ──────────────────────────────────────────────────────────────
 
 
@@ -153,7 +165,7 @@ def _build_status_payload(client) -> dict[str, Any]:
 def _ws_status(hass: HomeAssistant, connection, msg) -> None:
     """Return a snapshot of the requested machine's runtime state."""
     client = _resolve_client(hass, msg["entry_id"])
-    connection.send_result(msg["id"], _build_status_payload(client))
+    _send_versioned(connection, msg["id"], _build_status_payload(client))
 
 
 # ── /diagnostics ────────────────────────────────────────────────────────
@@ -165,7 +177,7 @@ def _ws_diagnostics(hass: HomeAssistant, connection, msg) -> None:
     entry = _resolve_entry(hass, msg["entry_id"])
     client = getattr(entry, "runtime_data", None) if entry else None
     if client is None or entry is None:
-        connection.send_result(msg["id"], {"available": False})
+        _send_versioned(connection, msg["id"], {"available": False})
         return
 
     # Best-effort transport detection: an ESPHome BLE proxy device's
@@ -189,7 +201,7 @@ def _ws_diagnostics(hass: HomeAssistant, connection, msg) -> None:
         "recent_errors": list(getattr(client, "_recent_errors", [])),
         "recent_frames": list(getattr(client, "_recent_frames", [])),
     }
-    connection.send_result(msg["id"], payload)
+    _send_versioned(connection, msg["id"], payload)
 
 
 @callback
@@ -205,13 +217,13 @@ def _ws_diagnostics_clear(hass: HomeAssistant, connection, msg) -> None:
         client._recent_frames.clear()
     # LLM call buffer is domain-wide (cross-entry).
     _llm_call_buffer(hass).clear()
-    connection.send_result(msg["id"], {"cleared": True})
+    _send_versioned(connection, msg["id"], {"cleared": True})
 
 
 @callback
 def _ws_diagnostics_llm_calls(hass: HomeAssistant, connection, msg) -> None:
     """Return the recent LLM calls (full prompt + response). Domain-wide."""
-    connection.send_result(msg["id"], {
+    _send_versioned(connection, msg["id"], {
         "llm_calls": list(_llm_call_buffer(hass)),
     })
 
@@ -292,7 +304,7 @@ def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
             "recipes": rows,
         })
 
-    connection.send_result(msg["id"], {
+    _send_versioned(connection, msg["id"], {
         "base_recipes": [],
         "directkey": directkey,
     })
@@ -395,7 +407,7 @@ async def _ws_producers_list(hass, connection, msg):
         "SELECT id, name, country, website, notes FROM producers ORDER BY name"
     )
     rows = await cursor.fetchall()
-    connection.send_result(msg["id"], {
+    _send_versioned(connection, msg["id"], {
         "producers": [
             {"id": r[0], "name": r[1], "country": r[2], "website": r[3], "notes": r[4]}
             for r in rows
@@ -421,7 +433,7 @@ async def _ws_producers_add(hass, connection, msg):
             (msg["name"], msg.get("country"), msg.get("website"), msg.get("notes"), _now_iso()),
         )
         await db._db.commit()
-        connection.send_result(msg["id"], {"id": cursor.lastrowid})
+        _send_versioned(connection, msg["id"], {"id": cursor.lastrowid})
     except Exception:
         _LOGGER.exception("producers/add failed")
         connection.send_error(msg["id"], "db_error", "Database operation failed")
@@ -456,7 +468,7 @@ async def _ws_producers_update(hass, connection, msg):
         (*fields.values(), msg["producer_id"]),
     )
     await db._db.commit()
-    connection.send_result(msg["id"], {"updated": True})
+    _send_versioned(connection, msg["id"], {"updated": True})
 
 
 @websocket_api.websocket_command({
@@ -470,7 +482,7 @@ async def _ws_producers_delete(hass, connection, msg):
     db = await _async_get_db(hass)
     await db._db.execute("DELETE FROM producers WHERE id = ?", (msg["producer_id"],))
     await db._db.commit()
-    connection.send_result(msg["id"], {"deleted": True})
+    _send_versioned(connection, msg["id"], {"deleted": True})
 
 
 # beans/autofill -----------------------------------------------------------
@@ -695,7 +707,7 @@ async def _ws_beans_autofill(hass, connection, msg):
         )
         return
 
-    connection.send_result(msg["id"], result)
+    _send_versioned(connection, msg["id"], result)
 
 
 # additives: syrups + toppings --------------------------------------------
@@ -717,7 +729,7 @@ def _make_additive_handlers(table: str):
             f"SELECT id, name, brand, notes, available FROM {table} ORDER BY name"  # nosec B608
         )
         rows = await cursor.fetchall()
-        connection.send_result(msg["id"], {
+        _send_versioned(connection, msg["id"], {
             table: [
                 {
                     "id": r[0],
@@ -747,7 +759,7 @@ def _make_additive_handlers(table: str):
             (msg["name"], msg.get("brand"), msg.get("notes"), _now_iso()),
         )
         await db._db.commit()
-        connection.send_result(msg["id"], {"id": cursor.lastrowid})
+        _send_versioned(connection, msg["id"], {"id": cursor.lastrowid})
 
     @websocket_api.websocket_command({
         vol.Required("type"): f"melitta_barista/{table}/delete",
@@ -761,7 +773,7 @@ def _make_additive_handlers(table: str):
         db = await _async_get_db(hass)
         await db._db.execute(f"DELETE FROM {table} WHERE id = ?", (msg["additive_id"],))  # nosec B608
         await db._db.commit()
-        connection.send_result(msg["id"], {"deleted": True})
+        _send_versioned(connection, msg["id"], {"deleted": True})
 
     return _ws_list, _ws_add, _ws_delete
 
@@ -804,7 +816,7 @@ def _make_additive_update_handler(table: str):
             (*fields.values(), msg["additive_id"]),
         )
         await db._db.commit()
-        connection.send_result(msg["id"], {"updated": True})
+        _send_versioned(connection, msg["id"], {"updated": True})
 
     return _ws_update
 
@@ -846,7 +858,7 @@ def _make_additive_set_available_handler(table: str):
             (flag, msg["additive_id"]),
         )
         await db._db.commit()
-        connection.send_result(msg["id"], {"updated": True})
+        _send_versioned(connection, msg["id"], {"updated": True})
 
     return _ws_set_available
 
@@ -880,7 +892,7 @@ async def _ws_tags_list(hass, connection, msg):
                         explicit.add(tag)
         except (TypeError, ValueError):
             continue
-    connection.send_result(msg["id"], {"tags": sorted(explicit)})
+    _send_versioned(connection, msg["id"], {"tags": sorted(explicit)})
 
 
 @websocket_api.websocket_command({
@@ -901,7 +913,7 @@ async def _ws_tags_add(hass, connection, msg):
         (name, _now_iso()),
     )
     await db._db.commit()
-    connection.send_result(msg["id"], {"name": name})
+    _send_versioned(connection, msg["id"], {"name": name})
 
 
 @websocket_api.websocket_command({
@@ -915,7 +927,7 @@ async def _ws_tags_delete(hass, connection, msg):
     db = await _async_get_db(hass)
     await db._db.execute("DELETE FROM flavor_tags WHERE name = ?", (msg["name"],))
     await db._db.commit()
-    connection.send_result(msg["id"], {"deleted": True})
+    _send_versioned(connection, msg["id"], {"deleted": True})
 
 
 # prompts + structured output --------------------------------------------
@@ -1196,7 +1208,7 @@ async def _ws_prompts_list(hass, connection, msg):
             "schema": _schema_for(slot),
             "placeholders": PROMPT_PLACEHOLDERS.get(slot, []),
         })
-    connection.send_result(msg["id"], {"prompts": items})
+    _send_versioned(connection, msg["id"], {"prompts": items})
 
 
 @websocket_api.websocket_command({
@@ -1219,7 +1231,7 @@ async def _ws_prompts_save(hass, connection, msg):
         (msg["slot"], msg["template"], _now_iso()),
     )
     await db._db.commit()
-    connection.send_result(msg["id"], {"saved": True})
+    _send_versioned(connection, msg["id"], {"saved": True})
 
 
 @websocket_api.websocket_command({
@@ -1256,7 +1268,7 @@ async def _ws_prompts_preview(hass, connection, msg):
         }
         template = await _resolve_prompt(hass, slot)
         prompt = _assemble_prompt(slot, template, sample)
-        connection.send_result(msg["id"], {"prompt": prompt, "sample": sample})
+        _send_versioned(connection, msg["id"], {"prompt": prompt, "sample": sample})
         return
 
     if slot == "sommelier_intro":
@@ -1314,7 +1326,7 @@ async def _ws_prompts_preview(hass, connection, msg):
                 "No prose, no markdown fences, no commentary.\n\n"
                 f"{_json.dumps(schema, indent=2, ensure_ascii=False)}"
             )
-        connection.send_result(msg["id"], {
+        _send_versioned(connection, msg["id"], {
             "prompt": prebuilt,
             "sample": {"count": 3, "mode": "surprise_me"},
         })
@@ -1325,7 +1337,7 @@ async def _ws_prompts_preview(hass, connection, msg):
     template = await _resolve_prompt(hass, slot)
     sample = {ph["name"]: f"<{ph['name']}>" for ph in PROMPT_PLACEHOLDERS.get(slot, [])}
     prompt = _assemble_prompt(slot, template, sample)
-    connection.send_result(msg["id"], {"prompt": prompt, "sample": sample})
+    _send_versioned(connection, msg["id"], {"prompt": prompt, "sample": sample})
 
 
 @websocket_api.websocket_command({
@@ -1339,7 +1351,7 @@ async def _ws_prompts_reset(hass, connection, msg):
     db = await _async_get_db(hass)
     await db._db.execute("DELETE FROM panel_prompts WHERE slot = ?", (msg["slot"],))
     await db._db.commit()
-    connection.send_result(msg["id"], {"reset": True})
+    _send_versioned(connection, msg["id"], {"reset": True})
 
 
 async def _resolve_prompt(hass, slot: str) -> str:
@@ -1380,7 +1392,7 @@ async def _ws_llm_agents(hass, connection, msg):
             "id": state.entity_id,
             "name": state.attributes.get("friendly_name") or state.entity_id,
         })
-    connection.send_result(msg["id"], {"agents": agents})
+    _send_versioned(connection, msg["id"], {"agents": agents})
 
 
 # ── api/info — discovery handshake ──────────────────────────────────────
@@ -1415,7 +1427,8 @@ async def _ws_api_info(hass: HomeAssistant, connection, msg) -> None:
         if isinstance(cmd, str) and cmd.startswith(f"{DOMAIN}/")
     )
 
-    connection.send_result(
+    _send_versioned(
+        connection,
         msg["id"],
         {
             "api_version": API_VERSION,

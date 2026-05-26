@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PROCESS_MAP, SHOTS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP
+from .panel_api import _send_versioned
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -211,7 +212,7 @@ async def ws_beans_list(
     """List all coffee beans."""
     db = await _async_get_db(hass)
     beans = await db.async_list_beans()
-    connection.send_result(msg["id"], {"beans": beans})
+    _send_versioned(connection, msg["id"], {"beans": beans})
 
 
 @websocket_api.websocket_command(
@@ -238,7 +239,7 @@ async def ws_beans_add(
         if k in msg
     }
     bean = await db.async_add_bean(data)
-    connection.send_result(msg["id"], {"bean": bean})
+    _send_versioned(connection, msg["id"], {"bean": bean})
 
 
 @websocket_api.websocket_command(
@@ -281,7 +282,7 @@ async def ws_beans_update(
     if bean is None:
         connection.send_error(msg["id"], "not_found", f"Bean {bean_id} not found")
         return
-    connection.send_result(msg["id"], {"bean": bean})
+    _send_versioned(connection, msg["id"], {"bean": bean})
 
 
 @websocket_api.websocket_command(
@@ -303,7 +304,7 @@ async def ws_beans_delete(
     if not deleted:
         connection.send_error(msg["id"], "not_found", "Bean not found")
         return
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Hoppers ───────────────────────────────────────────────────────────
@@ -320,7 +321,7 @@ async def ws_hoppers_get(
     """Get current hopper assignments."""
     db = await _async_get_db(hass)
     hoppers = await db.async_get_hoppers()
-    connection.send_result(msg["id"], hoppers)
+    _send_versioned(connection, msg["id"], hoppers)
 
 
 # ── Capabilities ──────────────────────────────────────────────────────
@@ -359,7 +360,7 @@ async def ws_capabilities_get(hass, connection, msg) -> None:
                     entry_id,
                 )
             else:
-                connection.send_result(msg["id"], {
+                _send_versioned(connection, msg["id"], {
                     "schema_version": 1,
                     "entry_id": entry_id,
                     "source": "cache",
@@ -391,7 +392,7 @@ async def ws_capabilities_get(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "client_not_ready", str(exc))
         return
 
-    connection.send_result(msg["id"], {
+    _send_versioned(connection, msg["id"], {
         "schema_version": 1,
         "entry_id": entry_id,
         "source": "derive",
@@ -427,7 +428,7 @@ async def ws_hoppers_assign(
     """Assign a bean to a hopper."""
     db = await _async_get_db(hass)
     await db.async_assign_hopper(msg["hopper_id"], msg.get("bean_id"))
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Milk ──────────────────────────────────────────────────────────────
@@ -444,7 +445,7 @@ async def ws_milk_get(
     """Get available milk types."""
     db = await _async_get_db(hass)
     milk = await db.async_get_milk()
-    connection.send_result(msg["id"], {"milk_types": milk})
+    _send_versioned(connection, msg["id"], {"milk_types": milk})
 
 
 @websocket_api.websocket_command(
@@ -469,7 +470,7 @@ async def ws_milk_set(
     """Set available milk types."""
     db = await _async_get_db(hass)
     await db.async_set_milk(msg["milk_types"])
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Generate ──────────────────────────────────────────────────────────
@@ -741,7 +742,7 @@ async def ws_generate(
         extras_context=extras_context,
         weather_context=weather_context,
     )
-    connection.send_result(msg["id"], {"session": session})
+    _send_versioned(connection, msg["id"], {"session": session})
 
 
 # ── Brew (from generated recipe) ─────────────────────────────────────
@@ -786,7 +787,7 @@ async def ws_brew(
         return
 
     await db.async_mark_recipe_brewed(msg["recipe_id"])
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Favorites ─────────────────────────────────────────────────────────
@@ -803,7 +804,7 @@ async def ws_favorites_list(
     """List favorites."""
     db = await _async_get_db(hass)
     favorites = await db.async_list_favorites()
-    connection.send_result(msg["id"], {"favorites": favorites})
+    _send_versioned(connection, msg["id"], {"favorites": favorites})
 
 
 @websocket_api.websocket_command(
@@ -847,7 +848,7 @@ async def ws_favorites_add(
         "source_recipe_id": recipe["id"],
         "source_bean_id": source_bean["id"] if source_bean else None,
     })
-    connection.send_result(msg["id"], {"favorite": fav})
+    _send_versioned(connection, msg["id"], {"favorite": fav})
 
 
 @websocket_api.websocket_command(
@@ -869,7 +870,7 @@ async def ws_favorites_remove(
     if not removed:
         connection.send_error(msg["id"], "not_found", "Favorite not found")
         return
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 @websocket_api.websocket_command({
@@ -896,7 +897,7 @@ async def ws_favorites_update(hass, connection, msg) -> None:
     if not changed:
         connection.send_error(msg["id"], "not_found", f"favorite {msg['favorite_id']} not found")
         return
-    connection.send_result(msg["id"], {})
+    _send_versioned(connection, msg["id"], {})
 
 
 @websocket_api.websocket_command(
@@ -939,7 +940,7 @@ async def ws_favorites_brew(
         return
 
     await db.async_increment_favorite_brew(msg["favorite_id"])
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── History ───────────────────────────────────────────────────────────
@@ -966,7 +967,7 @@ async def ws_history_list(
     sessions = await db.async_list_history(
         limit=msg["limit"], offset=msg["offset"]
     )
-    connection.send_result(msg["id"], {"sessions": sessions})
+    _send_versioned(connection, msg["id"], {"sessions": sessions})
 
 
 @websocket_api.websocket_command({
@@ -984,7 +985,7 @@ async def ws_history_clear(
     db = await _async_get_db(hass)
     keep = msg.get("keep_favorited", True)
     cleared = await db.async_clear_history(keep_favorited=keep)
-    connection.send_result(msg["id"], {"cleared": cleared})
+    _send_versioned(connection, msg["id"], {"cleared": cleared})
 
 
 # ── Bean Presets (static catalogue from coffee_presets.json) ──────────
@@ -1020,7 +1021,7 @@ async def ws_bean_presets_list(
                 msg["id"], "load_failed", "Bean preset list failed to load"
             )
             return
-    connection.send_result(msg["id"], {"presets": _BEAN_PRESETS_CACHE})
+    _send_versioned(connection, msg["id"], {"presets": _BEAN_PRESETS_CACHE})
 
 
 # ── Sommelier Presets (R7 — user-defined preset templates) ────────────
@@ -1038,7 +1039,7 @@ async def ws_presets_list(
     """List user-defined sommelier presets."""
     db = await _async_get_db(hass)
     presets = await db.async_list_presets()
-    connection.send_result(msg["id"], {"presets": presets})
+    _send_versioned(connection, msg["id"], {"presets": presets})
 
 
 @websocket_api.websocket_command(
@@ -1061,7 +1062,7 @@ async def ws_presets_add(
     preset_id = await db.async_add_preset(
         msg["name"], msg.get("description"), msg["payload"]
     )
-    connection.send_result(msg["id"], {"id": preset_id})
+    _send_versioned(connection, msg["id"], {"id": preset_id})
 
 
 @websocket_api.websocket_command(
@@ -1104,7 +1105,7 @@ async def ws_presets_update(
     if not changed:
         connection.send_error(msg["id"], "not_found", "Preset not found")
         return
-    connection.send_result(msg["id"], {"updated": True})
+    _send_versioned(connection, msg["id"], {"updated": True})
 
 
 @websocket_api.websocket_command(
@@ -1138,7 +1139,7 @@ async def ws_presets_delete(
     if not deleted:
         connection.send_error(msg["id"], "not_found", "Preset not found")
         return
-    connection.send_result(msg["id"], {"deleted": True})
+    _send_versioned(connection, msg["id"], {"deleted": True})
 
 
 # ── Settings ──────────────────────────────────────────────────────────
@@ -1155,7 +1156,7 @@ async def ws_settings_get(
     """Get Sommelier settings."""
     db = await _async_get_db(hass)
     settings = await db.async_get_settings()
-    connection.send_result(msg["id"], {"settings": settings})
+    _send_versioned(connection, msg["id"], {"settings": settings})
 
 
 @websocket_api.websocket_command(
@@ -1175,7 +1176,7 @@ async def ws_settings_set(
     """Set a Sommelier setting."""
     db = await _async_get_db(hass)
     await db.async_set_setting(msg["key"], msg["value"])
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Extras ───────────────────────────────────────────────────────────
@@ -1192,7 +1193,7 @@ async def ws_extras_get(
     """Get available extras (syrups, toppings, etc.)."""
     db = await _async_get_db(hass)
     extras = await db.async_get_pantry_extras()
-    connection.send_result(msg["id"], {"extras": extras})
+    _send_versioned(connection, msg["id"], {"extras": extras})
 
 
 @websocket_api.websocket_command(
@@ -1212,7 +1213,7 @@ async def ws_extras_set(
     """Set extras for a category."""
     db = await _async_get_db(hass)
     await db.async_set_extras(msg["category"], msg["items"])
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Recipe Ratings ────────────────────────────────────────────────────
@@ -1245,7 +1246,7 @@ async def ws_recipe_rate(
     except ValueError as exc:
         connection.send_error(msg["id"], "invalid_rating", str(exc))
         return
-    connection.send_result(msg["id"], {})
+    _send_versioned(connection, msg["id"], {})
 
 
 @websocket_api.websocket_command(
@@ -1265,7 +1266,7 @@ async def ws_recipe_unrate(
     """Remove a recipe rating."""
     db = await _async_get_db(hass)
     await db.async_clear_rating(msg["target_id"], msg["target_type"])
-    connection.send_result(msg["id"], {})
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Preferences ──────────────────────────────────────────────────────
@@ -1282,7 +1283,7 @@ async def ws_preferences_get(
     """Get user preferences."""
     db = await _async_get_db(hass)
     preferences = await db.async_get_preferences()
-    connection.send_result(msg["id"], {"preferences": preferences})
+    _send_versioned(connection, msg["id"], {"preferences": preferences})
 
 
 @websocket_api.websocket_command(
@@ -1302,7 +1303,7 @@ async def ws_preferences_set(
     """Set a user preference."""
     db = await _async_get_db(hass)
     await db.async_set_preference(msg["key"], msg["value"])
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 # ── Profiles ─────────────────────────────────────────────────────────
@@ -1319,7 +1320,7 @@ async def ws_profiles_list(
     """List all profiles."""
     db = await _async_get_db(hass)
     profiles = await db.async_list_profiles()
-    connection.send_result(msg["id"], {"profiles": profiles})
+    _send_versioned(connection, msg["id"], {"profiles": profiles})
 
 
 @websocket_api.websocket_command(
@@ -1346,7 +1347,7 @@ async def ws_profiles_add(
     data: dict[str, Any] = {"name": msg["name"]}
     data.update(msg.get("preferences", {}))
     profile = await db.async_add_profile(data)
-    connection.send_result(msg["id"], {"profile": profile})
+    _send_versioned(connection, msg["id"], {"profile": profile})
 
 
 @websocket_api.websocket_command(
@@ -1377,7 +1378,7 @@ async def ws_profiles_update(
             msg["id"], "not_found", f"Profile {msg['profile_id']} not found"
         )
         return
-    connection.send_result(msg["id"], {"profile": profile})
+    _send_versioned(connection, msg["id"], {"profile": profile})
 
 
 @websocket_api.websocket_command(
@@ -1399,7 +1400,7 @@ async def ws_profiles_delete(
     if not deleted:
         connection.send_error(msg["id"], "not_found", "Profile not found")
         return
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
 
 
 @websocket_api.websocket_command(
@@ -1421,4 +1422,4 @@ async def ws_profiles_activate(
     if not activated:
         connection.send_error(msg["id"], "not_found", "Profile not found")
         return
-    connection.send_result(msg["id"])
+    _send_versioned(connection, msg["id"], {})
