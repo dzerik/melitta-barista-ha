@@ -8,8 +8,10 @@ profile slot.
 
 from __future__ import annotations
 
+import inspect
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import aiosqlite
 import pytest
@@ -356,5 +358,158 @@ async def test_list_history_filter_includes_shared():
         # Sanity: no filter returns all three.
         all_rows = await db.async_list_history()
         assert len(all_rows) == 3
+
+        await db.async_close()
+
+
+# ── WS-layer integration (P7a Task 2) ─────────────────────────────────
+
+
+async def _make_hass_with_db(db: SommelierDB) -> MagicMock:
+    hass = MagicMock()
+    hass.data = {"melitta_barista": {"sommelier_db": db}}
+    return hass
+
+
+def _make_connection() -> MagicMock:
+    connection = MagicMock()
+    connection.send_result = MagicMock()
+    connection.send_error = MagicMock()
+    return connection
+
+
+@pytest.mark.asyncio
+async def test_ws_presets_list_honors_machine_profile_filter():
+    """ws_presets_list passes machine_profile_filter through to the DB."""
+    from custom_components.melitta_barista import sommelier_api as sa
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = SommelierDB(str(Path(tmpdir) / "test.db"))
+        await db.async_setup()
+
+        # System presets are shared. Add one bound to profile 1.
+        await db.async_add_preset("Profile-1 preset", None, {"a": 1}, machine_profile=1)
+        await db.async_add_preset("Profile-2 preset", None, {"a": 2}, machine_profile=2)
+
+        hass = await _make_hass_with_db(db)
+        connection = _make_connection()
+        msg = {
+            "id": 1,
+            "type": "melitta_barista/sommelier/presets/list",
+            "machine_profile_filter": 1,
+        }
+
+        handler = inspect.unwrap(sa.ws_presets_list)
+        await handler(hass, connection, msg)
+
+        connection.send_error.assert_not_called()
+        payload = connection.send_result.call_args.args[1]
+        names = [p["name"] for p in payload["presets"]]
+        # 4 system (shared) + Profile-1 preset; NOT Profile-2 preset.
+        assert "Profile-1 preset" in names
+        assert "Profile-2 preset" not in names
+
+        await db.async_close()
+
+
+@pytest.mark.asyncio
+async def test_ws_presets_add_persists_machine_profile():
+    """ws_presets_add forwards machine_profile to async_add_preset."""
+    from custom_components.melitta_barista import sommelier_api as sa
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = SommelierDB(str(Path(tmpdir) / "test.db"))
+        await db.async_setup()
+
+        hass = await _make_hass_with_db(db)
+        connection = _make_connection()
+        msg = {
+            "id": 2,
+            "type": "melitta_barista/sommelier/presets/add",
+            "name": "Bound",
+            "payload": {"k": 1},
+            "machine_profile": 3,
+        }
+
+        handler = inspect.unwrap(sa.ws_presets_add)
+        await handler(hass, connection, msg)
+
+        connection.send_error.assert_not_called()
+        rows = [p for p in await db.async_list_presets() if p["name"] == "Bound"]
+        assert len(rows) == 1
+        assert rows[0]["machine_profile"] == 3
+
+        await db.async_close()
+
+
+@pytest.mark.asyncio
+async def test_ws_favorites_list_honors_machine_profile_filter():
+    """ws_favorites_list passes machine_profile_filter through to the DB."""
+    from custom_components.melitta_barista import sommelier_api as sa
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = SommelierDB(str(Path(tmpdir) / "test.db"))
+        await db.async_setup()
+
+        await db.async_add_favorite(_minimal_favorite_data(name="Shared"))
+        await db.async_add_favorite(_minimal_favorite_data(name="P1", machine_profile=1))
+        await db.async_add_favorite(_minimal_favorite_data(name="P2", machine_profile=2))
+
+        hass = await _make_hass_with_db(db)
+        connection = _make_connection()
+        msg = {
+            "id": 3,
+            "type": "melitta_barista/sommelier/favorites/list",
+            "machine_profile_filter": 1,
+        }
+
+        handler = inspect.unwrap(sa.ws_favorites_list)
+        await handler(hass, connection, msg)
+
+        connection.send_error.assert_not_called()
+        payload = connection.send_result.call_args.args[1]
+        names = {f["name"] for f in payload["favorites"]}
+        assert names == {"Shared", "P1"}
+
+        await db.async_close()
+
+
+@pytest.mark.asyncio
+async def test_ws_history_list_honors_machine_profile_filter():
+    """ws_history_list passes machine_profile_filter through to the DB."""
+    from custom_components.melitta_barista import sommelier_api as sa
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = SommelierDB(str(Path(tmpdir) / "test.db"))
+        await db.async_setup()
+
+        await db.async_create_session(**_minimal_session_kwargs())  # shared
+        await db.async_create_session(
+            **_minimal_session_kwargs(), machine_profile=1
+        )
+        await db.async_create_session(
+            **_minimal_session_kwargs(), machine_profile=2
+        )
+
+        hass = await _make_hass_with_db(db)
+        connection = _make_connection()
+        msg = {
+            "id": 4,
+            "type": "melitta_barista/sommelier/history/list",
+            "limit": 100,
+            "offset": 0,
+            "machine_profile_filter": 1,
+        }
+
+        handler = inspect.unwrap(sa.ws_history_list)
+        await handler(hass, connection, msg)
+
+        connection.send_error.assert_not_called()
+        payload = connection.send_result.call_args.args[1]
+        profiles = {s["machine_profile"] for s in payload["sessions"]}
+        # Shared (None) + profile 1, no profile 2.
+        assert 2 not in profiles
+        assert 1 in profiles
+        assert None in profiles
 
         await db.async_close()

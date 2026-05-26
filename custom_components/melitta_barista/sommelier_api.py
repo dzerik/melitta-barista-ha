@@ -508,6 +508,11 @@ async def ws_milk_set(
         # Defaults to the first config entry when omitted (single-machine
         # case). Multi-machine support will use this field.
         vol.Optional("entry_id"): cv.string,
+        # P7a — bind this session (and its recipes) to the machine's
+        # hardware profile slot. NULL/omitted means the session is
+        # shared across profiles. The FE typically reads this from
+        # `melitta_barista/status`'s `active_profile`.
+        vol.Optional("machine_profile"): int,
     }
 )
 @websocket_api.require_admin
@@ -741,6 +746,7 @@ async def ws_generate(
         servings=msg.get("servings", 1),
         extras_context=extras_context,
         weather_context=weather_context,
+        machine_profile=msg.get("machine_profile"),
     )
     _send_versioned(connection, msg["id"], {"session": session})
 
@@ -793,7 +799,10 @@ async def ws_brew(
 # ── Favorites ─────────────────────────────────────────────────────────
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "melitta_barista/sommelier/favorites/list"}
+    {
+        vol.Required("type"): "melitta_barista/sommelier/favorites/list",
+        vol.Optional("machine_profile_filter"): int,
+    }
 )
 @websocket_api.async_response
 async def ws_favorites_list(
@@ -801,9 +810,11 @@ async def ws_favorites_list(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """List favorites."""
+    """List favorites, optionally filtered to a machine profile + shared."""
     db = await _async_get_db(hass)
-    favorites = await db.async_list_favorites()
+    favorites = await db.async_list_favorites(
+        machine_profile_filter=msg.get("machine_profile_filter"),
+    )
     _send_versioned(connection, msg["id"], {"favorites": favorites})
 
 
@@ -811,6 +822,7 @@ async def ws_favorites_list(
     {
         vol.Required("type"): "melitta_barista/sommelier/favorites/add",
         vol.Required("recipe_id"): cv.string,
+        vol.Optional("machine_profile"): int,
     }
 )
 @websocket_api.require_admin
@@ -820,7 +832,7 @@ async def ws_favorites_add(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Add a generated recipe to favorites."""
+    """Add a generated recipe to favorites. NULL machine_profile = shared."""
     db = await _async_get_db(hass)
     recipe = await db.async_get_recipe(msg["recipe_id"])
     if recipe is None:
@@ -847,6 +859,7 @@ async def ws_favorites_add(
         "cup_type": recipe.get("cup_type"),
         "source_recipe_id": recipe["id"],
         "source_bean_id": source_bean["id"] if source_bean else None,
+        "machine_profile": msg.get("machine_profile"),
     })
     _send_versioned(connection, msg["id"], {"favorite": fav})
 
@@ -954,6 +967,7 @@ async def ws_favorites_brew(
         vol.Optional("offset", default=0): vol.All(
             vol.Coerce(int), vol.Range(min=0)
         ),
+        vol.Optional("machine_profile_filter"): int,
     }
 )
 @websocket_api.async_response
@@ -962,10 +976,12 @@ async def ws_history_list(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """List generation history."""
+    """List generation history, optionally filtered to a machine profile + shared."""
     db = await _async_get_db(hass)
     sessions = await db.async_list_history(
-        limit=msg["limit"], offset=msg["offset"]
+        limit=msg["limit"],
+        offset=msg["offset"],
+        machine_profile_filter=msg.get("machine_profile_filter"),
     )
     _send_versioned(connection, msg["id"], {"sessions": sessions})
 
@@ -1027,7 +1043,10 @@ async def ws_bean_presets_list(
 # ── Sommelier Presets (R7 — user-defined preset templates) ────────────
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "melitta_barista/sommelier/presets/list"}
+    {
+        vol.Required("type"): "melitta_barista/sommelier/presets/list",
+        vol.Optional("machine_profile_filter"): int,
+    }
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -1036,9 +1055,16 @@ async def ws_presets_list(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """List user-defined sommelier presets."""
+    """List user-defined sommelier presets.
+
+    When `machine_profile_filter` is set, the response includes presets
+    bound to that machine profile plus shared (machine_profile IS NULL)
+    presets. Without the filter the entire list is returned.
+    """
     db = await _async_get_db(hass)
-    presets = await db.async_list_presets()
+    presets = await db.async_list_presets(
+        machine_profile_filter=msg.get("machine_profile_filter"),
+    )
     _send_versioned(connection, msg["id"], {"presets": presets})
 
 
@@ -1048,6 +1074,7 @@ async def ws_presets_list(
         vol.Required("name"): vol.All(cv.string, vol.Length(min=1, max=80)),
         vol.Optional("description"): vol.All(cv.string, vol.Length(max=500)),
         vol.Required("payload"): dict,
+        vol.Optional("machine_profile"): int,
     }
 )
 @websocket_api.require_admin
@@ -1057,10 +1084,13 @@ async def ws_presets_add(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Create a new sommelier preset."""
+    """Create a new sommelier preset. NULL machine_profile = shared."""
     db = await _async_get_db(hass)
     preset_id = await db.async_add_preset(
-        msg["name"], msg.get("description"), msg["payload"]
+        msg["name"],
+        msg.get("description"),
+        msg["payload"],
+        machine_profile=msg.get("machine_profile"),
     )
     _send_versioned(connection, msg["id"], {"id": preset_id})
 
