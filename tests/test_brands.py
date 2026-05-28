@@ -338,6 +338,30 @@ def test_stats_1030_apk_alignment():
     assert "experimental" in by_id[224].title.lower()
 
 
+def test_nivona_first_mycoffee_selector_is_20():
+    """Every Nivona family advertises MyCoffee brew-selector base 20.
+
+    Cross-referenced from APK
+    ``EugsterMobileApp.Model.ExtensionMethods.cs:17-101`` —
+    `CoffeeMachineRecipeCapability(model, strength_levels, mycoffees,
+    firstMyCoffeJobProductParameter=20, ...)`. The constant is the
+    same (20) for every Nivona model the APK ships, including NIVO
+    8000 family and all NICR 6xx/7xx/79x/9xx/10xx variants.
+
+    MyCoffee slot N maps to HE.payload[3] = 20 + N when brewing.
+    """
+    np_ = NivonaProfile()
+    for fk in (
+        "600", "700", "79x", "900", "900-light",
+        "1030", "1040", "8000",
+    ):
+        caps = np_.capabilities_for(fk)
+        assert caps.first_mycoffee_selector == 20, (
+            f"Family {fk} must use APK base 20 for MyCoffee brew selectors; "
+            f"got {caps.first_mycoffee_selector}"
+        )
+
+
 def test_nivona_per_model_capabilities_overrides():
     """capabilities_for_model returns per-model my_coffee_slots / strength."""
     np_ = NivonaProfile()

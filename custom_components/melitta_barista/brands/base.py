@@ -99,6 +99,17 @@ class MachineCapabilities:
     my_coffee_slots: int = 0
     strength_levels: int = 5
     has_aroma_balance: bool = False
+    # Brew-selector base for MyCoffee slots. On Nivona (per APK
+    # `CoffeeMachineRecipeCapability(model, strength, mycoffees,
+    # firstMyCoffeJobProductParameter=20, ...)` in
+    # `EugsterMobileApp.Model.ExtensionMethods.cs`), MyCoffee slot N
+    # is brewed by sending HE with `payload[3] = first_mycoffee_selector
+    # + N`. The APK uses 20 for every Nivona model it ships. Melitta
+    # has its own MyCoffee scheme (per-slot DirectKey IDs) and doesn't
+    # use this field — the default sits unused.
+    #
+    # Added in v0.77.1 (Gap #4 in `docs/PROTOCOL_VERIFICATION.md`).
+    first_mycoffee_selector: int = 20
     image_transfer: bool | None = None               # None until HI answers
 
     # Protocol quirks

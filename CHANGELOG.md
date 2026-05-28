@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.77.1] — 2026-05-28
+
+### Added
+- **`MachineCapabilities.first_mycoffee_selector`** — new constant (default `20`) carrying the MyCoffee brew-selector base. Per the official Nivona APK (`EugsterMobileApp.Model.ExtensionMethods`), every Nivona model uses `firstMyCoffeJobProductParameter = 20`, so to brew MyCoffee slot N the HE command needs `payload[3] = 20 + N`. Without this constant exposed in capabilities, callers had to hardcode the magic number. This PR is purely additive — no behavior change yet; consumers will be wired up in a follow-up PR (Gap #6 in `docs/PROTOCOL_VERIFICATION.md`).
+
+### Tests
+- `tests/test_brands.py::test_nivona_first_mycoffee_selector_is_20` locks the default at 20 for all eight Nivona families.
+- Full suite: 964 passed (was 963 on v0.77.0).
+
 ## [0.77.0] — 2026-05-28
 
 ### Fixed
