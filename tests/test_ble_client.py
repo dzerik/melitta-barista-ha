@@ -3590,3 +3590,72 @@ class TestReadMyCoffeeSlots:
         )
         # milk_foam_amount IS in 600 layout (offset 11), so it must be present.
         assert "milk_foam_amount" in cached[0]
+
+
+# ---------------------------------------------------------------------------
+# brew_mycoffee_slot — Nivona MyCoffee brew (PR — 0.78.0 batch)
+# ---------------------------------------------------------------------------
+
+class TestBrewMyCoffeeSlot:
+    """Brew a saved MyCoffee recipe stored in slot N.
+
+    Wire path: HE with `payload[3] = first_mycoffee_selector + N` and
+    `payload[5] = 0` (use saved recipe defaults). No temp-recipe write
+    — the slot's recipe is already persisted on the machine.
+    """
+
+    async def test_returns_false_when_not_connected(self):
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        assert await client.brew_mycoffee_slot(0) is False
+
+    async def test_returns_false_without_capabilities(self, mock_bleak_client):
+        from custom_components.melitta_barista.brands.nivona import NivonaProfile
+        client = _make_connected_client(mock_bleak_client, brand=NivonaProfile())
+        client._capabilities = None
+        client._status = MagicMock(is_ready_for_brew=MagicMock(return_value=True))
+        assert await client.brew_mycoffee_slot(0) is False
+
+    async def test_returns_false_for_out_of_range_slot(self, mock_bleak_client):
+        from custom_components.melitta_barista.brands.nivona import NivonaProfile
+        client = _make_connected_client(mock_bleak_client, brand=NivonaProfile())
+        client._capabilities = NivonaProfile().capabilities_for_model(
+            "NIVONA-8101000000-----",
+        )
+        client._status = MagicMock(is_ready_for_brew=MagicMock(return_value=True))
+        # 8000 family → 9 slots, valid slots 0..8.
+        assert await client.brew_mycoffee_slot(9) is False
+        assert await client.brew_mycoffee_slot(-1) is False
+
+    async def test_returns_false_when_not_ready(self, mock_bleak_client):
+        from custom_components.melitta_barista.brands.nivona import NivonaProfile
+        client = _make_connected_client(mock_bleak_client, brand=NivonaProfile())
+        client._capabilities = NivonaProfile().capabilities_for_model(
+            "NIVONA-8101000000-----",
+        )
+        client._status = MagicMock(is_ready_for_brew=MagicMock(return_value=False))
+        assert await client.brew_mycoffee_slot(0) is False
+
+    async def test_calls_start_process_nivona_with_correct_selector(
+        self, mock_bleak_client,
+    ):
+        """slot N → recipe_selector = 20 + N, use_temp_recipe=False."""
+        from custom_components.melitta_barista.brands.nivona import NivonaProfile
+        client = _make_connected_client(mock_bleak_client, brand=NivonaProfile())
+        client._capabilities = NivonaProfile().capabilities_for_model(
+            "NIVONA-8101000000-----",
+        )
+        assert client._capabilities.first_mycoffee_selector == 20
+        client._status = MagicMock(is_ready_for_brew=MagicMock(return_value=True))
+        client._protocol.start_process_nivona = AsyncMock(return_value=True)
+
+        result = await client.brew_mycoffee_slot(3)
+        assert result is True
+
+        client._protocol.start_process_nivona.assert_awaited_once()
+        kwargs = client._protocol.start_process_nivona.await_args.kwargs
+        args = client._protocol.start_process_nivona.await_args.args
+        # signature: (write_func, recipe_selector, brew_mode, *, use_temp_recipe, chilled)
+        # Selector = 20 + 3 = 23, use_temp_recipe must be False.
+        assert args[1] == 23, f"expected selector 23 (= 20 + slot 3); got {args[1]}"
+        assert kwargs.get("use_temp_recipe") is False
+        assert kwargs.get("chilled") is False

@@ -24,10 +24,13 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
   Foundation for the broader MyCoffee CRUD work — write support and code-style params (profile, two_cups, per-fluid temperatures) will follow in later releases.
 
+- **Per-slot "Brew MyCoffee slot N" buttons** for Nivona. One button per slot (1..my_coffee_slots) — sends HE with the saved recipe (no temp-recipe write). Press is gated at runtime on the slot's cached `enabled` flag — slots that aren't "armed" stay unavailable so users don't accidentally fire an empty recipe. Button display number is 1-indexed (display "Brew MyCoffee slot 1" → cache slot 0 → HE `payload[3] = 20`).
+
 ### Tests
 - 8 new tests for the factory-reset path (`tests/test_protocol.py::TestExecuteCommand` + `tests/test_button.py`).
 - 6 new tests for MyCoffee bulk read (`tests/test_ble_client.py::TestReadMyCoffeeSlots`) + 4 sensor-registration tests (`tests/test_sensor.py`).
-- Full suite: 982 passed (was 964 on v0.77.1).
+- 5 new tests for the brew-by-slot path (`tests/test_ble_client.py::TestBrewMyCoffeeSlot`) + 3 button tests (registration count, availability gating, press wiring).
+- Full suite: 990 passed (was 964 on v0.77.1).
 
 ## [0.77.1] — 2026-05-28
 

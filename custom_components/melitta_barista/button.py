@@ -13,7 +13,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .ble_client import MelittaBleClient
+from homeassistant.const import CONF_ADDRESS
+from .ble_client import MelittaBleClient, resolve_caps_from_scanner
 from .const import (
     FREESTYLE_RECIPE_TYPE, HE_CMD_FACTORY_RESET_RECIPES,
     HE_CMD_FACTORY_RESET_SETTINGS, PROMPT_MANIPULATIONS, RECIPE_NAMES,
@@ -73,6 +74,21 @@ async def async_setup_entry(
     if client.brand.brand_slug == "nivona":
         entities.append(NivonaFactoryResetSettingsButton(client, entry, name))
         entities.append(NivonaFactoryResetRecipesButton(client, entry, name))
+
+        # Per-slot MyCoffee brew buttons. Selector resolved as
+        # `first_mycoffee_selector + slot` (vendor uses 20 as the
+        # base for every Nivona model). Press is gated at runtime on
+        # the slot's cached `enabled` flag — slots that aren't
+        # "armed" stay unavailable so users don't accidentally fire
+        # an empty recipe.
+        caps_for_brew = client.capabilities
+        if caps_for_brew is None:
+            caps_for_brew = resolve_caps_from_scanner(
+                hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+            )
+        if caps_for_brew is not None and caps_for_brew.my_coffee_slots > 0:
+            for slot in range(caps_for_brew.my_coffee_slots):
+                entities.append(NivonaBrewMyCoffeeButton(client, entry, name, slot))
 
     # Maintenance buttons
     entities.append(MelittaMaintenanceButton(
@@ -552,3 +568,61 @@ class MelittaMaintenanceButton(_MelittaButtonBase):
                 _LOGGER.error("Failed to start %s", self._attr_name)
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("BLE error while starting %s", self._attr_name)
+
+
+class NivonaBrewMyCoffeeButton(_MelittaButtonBase):
+    """Brew a saved MyCoffee recipe by slot (Nivona only).
+
+    One button per slot 0..N-1, where N is the family's
+    `my_coffee_slots`. Gated at runtime on:
+    - client.connected
+    - machine status `is_ready_for_brew`
+    - the slot's cached `enabled` flag (so slots that aren't armed
+      stay unavailable instead of firing an empty recipe)
+    """
+
+    _attr_icon = "mdi:coffee-to-go"
+
+    def __init__(
+        self,
+        client: MelittaBleClient,
+        entry: ConfigEntry,
+        name: str,
+        slot: int,
+    ) -> None:
+        super().__init__(client, entry, name)
+        self._slot = slot
+        self._attr_name = f"Brew MyCoffee slot {slot + 1}"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_brew_mycoffee_slot_{self._slot}"
+
+    @property
+    def available(self) -> bool:
+        if not self._client.connected:
+            return False
+        status = self._client.status
+        # Be permissive on tolerated manipulation flags so the button
+        # follows the same readiness contract as the main brew button.
+        caps = getattr(self._client, "capabilities", None)
+        tolerated = caps.tolerated_brew_manipulations if caps else ()
+        if status is None or not status.is_ready_for_brew(tolerated):
+            return False
+        slots = self._client.my_coffee_slots
+        if slots is None or self._slot >= len(slots):
+            return False
+        return slots[self._slot].get("enabled", 0) == 1
+
+    async def async_press(self) -> None:
+        _LOGGER.info("Brewing MyCoffee slot %d", self._slot + 1)
+        try:
+            success = await self._client.brew_mycoffee_slot(self._slot)
+            if not success:
+                _LOGGER.error(
+                    "Failed to start MyCoffee brew for slot %d", self._slot + 1,
+                )
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception(
+                "BLE error while brewing MyCoffee slot %d", self._slot + 1,
+            )

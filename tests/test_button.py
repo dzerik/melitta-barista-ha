@@ -714,3 +714,82 @@ async def test_factory_reset_recipes_press_invokes_command_51(
         "button", "press", {"entity_id": recipes_eid}, blocking=True,
     )
     client.execute_he_command.assert_awaited_with(51)
+
+
+async def test_mycoffee_brew_buttons_registered_for_nivona_8000(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """9 slots on 8000 family → 9 brew-MyCoffee buttons."""
+    client = _mock_nivona_client(family_key="8000")
+    client.capabilities.my_coffee_slots = 9
+    client.my_coffee_slots = None
+    await _setup_integration(hass, mock_entry, client)
+
+    brew_buttons = [
+        s.entity_id for s in hass.states.async_all("button")
+        if "brew_mycoffee_slot_" in s.entity_id
+    ]
+    assert len(brew_buttons) == 9, brew_buttons
+
+
+async def test_mycoffee_brew_buttons_unavailable_when_slot_not_enabled(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Slot N's button stays unavailable if the cached `enabled` flag is 0."""
+    client = _mock_nivona_client(family_key="8000")
+    client.capabilities.my_coffee_slots = 3
+    # Simulate post-connect cache: only slot 1 is armed.
+    client.my_coffee_slots = [
+        {"enabled": 0, "coffee_amount": 0},
+        {"enabled": 1, "coffee_amount": 40},
+        {"enabled": 0, "coffee_amount": 0},
+    ]
+    # Real-shape status — other platforms inspect `.process` and trip
+    # over a plain MagicMock substitution.
+    client.status = MachineStatus(process=MachineProcess.READY)
+
+    await _setup_integration(hass, mock_entry, client)
+
+    states = {
+        s.entity_id: s.state
+        for s in hass.states.async_all("button")
+        if "brew_mycoffee_slot_" in s.entity_id
+    }
+    # Entity ids are 1-indexed (derived from the display name
+    # "Brew MyCoffee slot N+1"). Slots 0/2 (cache index) → display
+    # 1/3 → unavailable. Slot 1 → display 2 → available.
+    slot_eids = {eid.rsplit("_", 1)[-1]: eid for eid in states}
+    assert states[slot_eids["1"]] == "unavailable", states
+    assert states[slot_eids["2"]] != "unavailable", (
+        f"slot 1 (display 2) should be available; got {states[slot_eids['2']]}"
+    )
+    assert states[slot_eids["3"]] == "unavailable", states
+
+
+async def test_mycoffee_brew_button_press_invokes_brew_mycoffee_slot(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Pressing the slot-N button calls brew_mycoffee_slot(N)."""
+    client = _mock_nivona_client(family_key="8000")
+    client.capabilities.my_coffee_slots = 4
+    client.my_coffee_slots = [
+        {"enabled": 1, "coffee_amount": 30},  # slot 0
+        {"enabled": 1, "coffee_amount": 40},
+        {"enabled": 1, "coffee_amount": 50},
+        {"enabled": 1, "coffee_amount": 60},
+    ]
+    client.status = MachineStatus(process=MachineProcess.READY)
+    client.brew_mycoffee_slot = AsyncMock(return_value=True)
+
+    await _setup_integration(hass, mock_entry, client)
+
+    # Entity id is 1-indexed; press the display-3 entity, which maps
+    # to cache slot index 2.
+    slot3_eid = next(
+        s.entity_id for s in hass.states.async_all("button")
+        if s.entity_id.endswith("_brew_mycoffee_slot_3")
+    )
+    await hass.services.async_call(
+        "button", "press", {"entity_id": slot3_eid}, blocking=True,
+    )
+    client.brew_mycoffee_slot.assert_awaited_with(2)

@@ -205,6 +205,46 @@ class BleCommandsMixin(_MixinBase):
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
 
+    async def brew_mycoffee_slot(self, slot: int) -> bool:
+        """Brew the MyCoffee recipe saved in slot ``slot``.
+
+        Wire path: HE with ``payload[3] = first_mycoffee_selector + slot``
+        and ``payload[5] = 0`` (use saved recipe defaults — the slot's
+        recipe is already persisted on the machine). No temp-recipe
+        write involved; this is the simplest brew variant.
+
+        Returns ``False`` if not connected, machine not ready, no
+        capabilities resolved, or ``slot`` out of range.
+        """
+        if self._brew_lock.locked():
+            _LOGGER.warning("Brew already in progress, ignoring")
+            return False
+        if not self.connected:
+            return False
+        caps = getattr(self, "_capabilities", None)
+        if caps is None:
+            return False
+        if slot < 0 or slot >= caps.my_coffee_slots:
+            return False
+        if not self._is_brew_ready():
+            _LOGGER.warning("Machine not ready: %s", self._status)
+            return False
+
+        brew_mode = caps.brew_command_mode
+        selector = caps.first_mycoffee_selector + slot
+
+        async with self._brew_lock:
+            self._stop_polling()
+            try:
+                return await self._protocol.start_process_nivona(
+                    self._write_ble, selector, brew_mode,
+                    use_temp_recipe=False,
+                    chilled=False,
+                )
+            finally:
+                if self.connected:
+                    self.start_polling(interval=self._poll_interval)
+
     async def brew_directkey(self, category: DirectKeyCategory, *, two_cups: bool = False) -> bool:
         """Brew from a DirectKey slot of the active profile.
 
