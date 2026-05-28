@@ -465,3 +465,67 @@ class BleRecipesMixin(_MixinBase):
             except Exception:  # noqa: BLE900 — callback from user code
                 _LOGGER.exception("Error in cups callback")
         return True
+
+    async def read_mycoffee_slots(self) -> bool:
+        """Bulk-read the current MyCoffee slot params from the machine.
+
+        Nivona-only: Melitta has its own MyCoffee scheme that goes
+        through DirectKey IDs and doesn't share these registers. For
+        Nivona, MyCoffee slot N lives at
+        ``MY_COFFEE_BASE_REGISTER + N * MY_COFFEE_SLOT_STRIDE``, with
+        per-family byte offsets describing which slot field is at which
+        sub-register; the layout comes from
+        ``brand.mycoffee_layout(family_key)``.
+
+        Currently reads only the ``coffee_amount`` field per slot (the
+        most informative single number per slot). Result is cached on
+        the client at ``_my_coffee_slots`` and surfaced through the
+        ``my_coffee_slots`` property. Returns ``True`` if at least the
+        cache slot list was initialised (even if some individual HR
+        reads failed), ``False`` if the call was skipped (wrong brand /
+        not connected / no capabilities).
+        """
+        if not self.connected:
+            return False
+        if getattr(self._brand, "brand_slug", "") != "nivona":
+            return False
+        caps = self._capabilities
+        if caps is None or caps.my_coffee_slots <= 0:
+            return False
+
+        # Lazily import the Nivona-specific helpers so we don't drag
+        # them into the mixin for brands that don't use them.
+        from .brands.nivona import (
+            mycoffee_layout, mycoffee_register,
+        )  # noqa: PLC0415
+
+        layout = mycoffee_layout(caps.family_key)
+        if layout is None or layout.coffee_amount_offset is None:
+            return False
+
+        slots: list[dict[str, int]] = [
+            {} for _ in range(caps.my_coffee_slots)
+        ]
+        for slot in range(caps.my_coffee_slots):
+            register = mycoffee_register(slot, layout.coffee_amount_offset)
+            try:
+                val = await self._protocol.read_numerical(
+                    self._write_ble, register,
+                )
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.debug(
+                    "MyCoffee read failed for slot %d (register %d)",
+                    slot, register,
+                )
+                continue
+            if val is not None:
+                slots[slot]["coffee_amount"] = val
+
+        self._my_coffee_slots = slots
+        _LOGGER.debug("MyCoffee slot cache populated: %s", slots)
+        for cb in self._mycoffee_callbacks:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001 — never propagate from a callback
+                _LOGGER.exception("Error in mycoffee callback")
+        return True

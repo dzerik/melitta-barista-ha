@@ -35,6 +35,8 @@ class BleClientProtocol(Protocol):
     _cups_callbacks: list[Callable[[], None]]
     _cup_counters: dict[str, int]
     _total_cups: int | None
+    _my_coffee_slots: list[dict[str, int]] | None
+    _mycoffee_callbacks: list[Callable[[], None]]
     _brand: BrandProfile
     _capabilities: MachineCapabilities | None
     active_profile: int

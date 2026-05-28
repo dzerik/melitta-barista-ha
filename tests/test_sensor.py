@@ -211,3 +211,45 @@ async def test_total_cups_sensor_still_created_for_melitta(
     assert any("total_cups" in eid for eid in sensor_ids), (
         f"Total Cups sensor should still register for Melitta; saw: {sensor_ids}"
     )
+
+
+async def test_mycoffee_amount_sensors_registered_for_nivona_8000(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Nivona 8000 family with 9 MyCoffee slots → 9 amount sensors."""
+    client = _mock_client()  # default mock fits — we override below
+    client.brand.brand_slug = "nivona"
+    client.brand.brand_name = "Nivona"
+    client.brand.supported_extensions = frozenset()
+    caps = MagicMock()
+    caps.family_key = "8000"
+    caps.my_coffee_slots = 9
+    caps.stats = ()
+    client.capabilities = caps
+    client.my_coffee_slots = None
+    await _setup_integration(hass, mock_entry, client)
+
+    mycoffee_sensors = [
+        s for s in hass.states.async_all("sensor")
+        if "mycoffee_slot_" in s.entity_id and "_coffee_amount" in s.entity_id
+    ]
+    assert len(mycoffee_sensors) == 9, (
+        f"Expected 9 mycoffee amount sensors for 8000 family; "
+        f"got {[s.entity_id for s in mycoffee_sensors]}"
+    )
+
+
+async def test_mycoffee_sensors_not_registered_for_melitta(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Melitta has its own MyCoffee scheme; no per-slot amount sensors register."""
+    client = _mock_client()  # default brand = melitta
+    await _setup_integration(hass, mock_entry, client)
+
+    mycoffee_sensors = [
+        s for s in hass.states.async_all("sensor")
+        if "mycoffee_slot_" in s.entity_id
+    ]
+    assert mycoffee_sensors == [], (
+        f"Melitta must not get Nivona mycoffee sensors; got {mycoffee_sensors}"
+    )

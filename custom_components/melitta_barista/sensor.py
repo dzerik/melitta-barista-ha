@@ -100,6 +100,20 @@ async def async_setup_entry(
         for descriptor in caps.stats:
             entities.append(BrandStatSensor(client, entry, name, descriptor))
 
+    # MyCoffee slot amount sensors — Nivona only, one per slot for the
+    # ``coffee_amount`` field (the most informative single number per
+    # slot). Populated by the post-connect bulk read in
+    # ``BleRecipesMixin.read_mycoffee_slots``; sensors register
+    # eagerly regardless of slot-enabled state and read from the cache
+    # once it's filled.
+    if (
+        caps is not None
+        and client.brand.brand_slug == "nivona"
+        and caps.my_coffee_slots > 0
+    ):
+        for slot in range(caps.my_coffee_slots):
+            entities.append(NivonaMyCoffeeAmountSensor(client, entry, name, slot))
+
     async_add_entities(entities)
 
 
@@ -430,3 +444,66 @@ class BrandStatSensor(_MelittaSensorBase):
             _LOGGER.debug(
                 "BrandStatSensor %s refresh failed", self._desc.key, exc_info=True,
             )
+
+
+class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
+    """Per-slot MyCoffee coffee_amount sensor (Nivona only, read-only).
+
+    Reads from the client's ``my_coffee_slots`` cache, which is filled
+    once per connect by ``BleRecipesMixin.read_mycoffee_slots``. Stays
+    ``unavailable`` until that first read completes.
+
+    First slice exposes only ``coffee_amount``; future PRs will expand
+    to other params (strength, milk amounts, enabled flag, etc.) and
+    add write support.
+    """
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_native_unit_of_measurement = None  # raw byte value; vendor-specific scale
+    _attr_icon = "mdi:cup-outline"
+
+    def __init__(
+        self,
+        client: MelittaBleClient,
+        entry: ConfigEntry,
+        name: str,
+        slot: int,
+    ) -> None:
+        super().__init__(client, entry, name)
+        self._slot = slot
+        self._attr_name = f"MyCoffee slot {slot + 1} coffee amount"
+        self._attr_translation_key = "mycoffee_amount"
+        self._attr_translation_placeholders = {"slot": str(slot + 1)}
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_mycoffee_slot_{self._slot}_coffee_amount"
+
+    @property
+    def available(self) -> bool:
+        slots = self._client.my_coffee_slots
+        return (
+            self._client.connected
+            and slots is not None
+            and self._slot < len(slots)
+            and "coffee_amount" in slots[self._slot]
+        )
+
+    @property
+    def native_value(self) -> int | None:
+        slots = self._client.my_coffee_slots
+        if slots is None or self._slot >= len(slots):
+            return None
+        return slots[self._slot].get("coffee_amount")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._client.add_mycoffee_callback(self._on_mycoffee_update)
+
+    async def async_will_remove_from_hass(self) -> None:
+        await super().async_will_remove_from_hass()
+        self._client.remove_mycoffee_callback(self._on_mycoffee_update)
+
+    @callback
+    def _on_mycoffee_update(self) -> None:
+        self.async_write_ha_state()

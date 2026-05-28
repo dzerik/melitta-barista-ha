@@ -175,6 +175,15 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self.active_profile: int = 0  # 0 = default "My Coffee"
         self._cup_counters: dict[str, int] = {}  # recipe_name -> count
         self._total_cups: int | None = None
+        # MyCoffee bulk-read cache (PR E). Populated by
+        # `read_mycoffee_slots` on Nivona connect. ``None`` until the
+        # first successful (or partial) bulk read completes; once
+        # populated, indexed by slot 0..N-1 with a dict of param
+        # name → int value per slot. Missing keys inside a slot dict
+        # mean that particular HR read failed and the value is not
+        # known.
+        self._my_coffee_slots: list[dict[str, int]] | None = None
+        self._mycoffee_callbacks: list[Callable[[], None]] = []
         self._cups_callbacks: list[Callable[[], None]] = []
         # Called after a base recipe is (re-)read post-HD reset; consumers use
         # this to refresh cached attributes in select entities / attributes.
@@ -327,6 +336,24 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     @property
     def cup_counters(self) -> dict[str, int]:
         return self._cup_counters
+
+    @property
+    def my_coffee_slots(self) -> list[dict[str, int]] | None:
+        """Cached MyCoffee slot params, or ``None`` if not yet read.
+
+        Indexed by slot number 0..N-1; each slot dict maps a param
+        name (currently only ``coffee_amount``) to the last value read
+        from the machine. A param key missing inside a slot dict means
+        the corresponding HR read failed.
+        """
+        return self._my_coffee_slots
+
+    def add_mycoffee_callback(self, callback: Callable[[], None]) -> None:
+        self._mycoffee_callbacks.append(callback)
+
+    def remove_mycoffee_callback(self, callback: Callable[[], None]) -> None:
+        if callback in self._mycoffee_callbacks:
+            self._mycoffee_callbacks.remove(callback)
 
     @property
     def profile_names(self) -> dict[int, str]:
@@ -887,10 +914,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return False
 
     async def _load_post_connect_data(self) -> None:
-        """Load cup counters and profile data after connect (non-blocking)."""
+        """Load cup counters, profile data and MyCoffee slot cache after connect."""
         try:
             await self.read_cup_counters()
             await self.read_profile_data()
+            await self.read_mycoffee_slots()
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.debug("Error loading post-connect data", exc_info=True)
         except Exception:
