@@ -238,20 +238,32 @@ class TestHandshake:
     """Test HU handshake flow."""
 
     @pytest.mark.asyncio
-    async def test_handshake_sends_challenge(self):
+    async def test_handshake_sends_challenge(self, monkeypatch):
         proto = MelittaProtocol()
         write_calls = []
+
+        # Pin the seed so we can craft the exact echoed-seed +
+        # verifier the response handler now requires.
+        fixed_seed = b"\x01\x02\x03\x04"
+        monkeypatch.setattr(
+            "custom_components.melitta_barista.protocol.os.urandom",
+            lambda n: fixed_seed if n == 4 else b"\x00" * n,
+        )
 
         async def mock_write(data: bytes) -> None:
             write_calls.append(data)
 
-        # Simulate machine responding with HU response in background
         async def respond():
             await asyncio.sleep(0.05)
-            # Build HU response: challenge(4) + key_prefix(2) + validation(2)
-            response_payload = b"\x01\x02\x03\x04\xAA\xBB\xCC\xDD"
+            # Wire layout after our verification PR:
+            #   payload[0:4]  = echoed seed (= fixed_seed)
+            #   payload[4:6]  = key_prefix
+            #   payload[6:8]  = hu_verifier(payload[0:6])
+            key_prefix = b"\xAA\xBB"
+            body = fixed_seed + key_prefix
+            verifier = proto._brand.hu_verifier(body, 0, len(body))
+            response_payload = body + verifier
             cmd_bytes = b"HU"
-            # Compute correct checksum: ~(sum(cmd + payload)) & 0xFF
             cs = (~sum(cmd_bytes + response_payload)) & 0xFF
             frame = bytes([FRAME_START]) + cmd_bytes
             if proto._rc4_key:
@@ -266,7 +278,7 @@ class TestHandshake:
         await task
 
         assert len(write_calls) > 0  # HU frame was sent
-        assert proto._key_prefix is not None
+        assert proto._key_prefix == b"\xAA\xBB"
         assert result is True
 
     @pytest.mark.asyncio
@@ -584,14 +596,19 @@ class TestTryParseFrameEdgeCases:
 
 
 class TestHandshakeResponseEdgeCases:
-    """Cover _handle_handshake_response short payload (lines 517-518)."""
+    """Cover _handle_handshake_response short payload and reject paths."""
 
     def test_handshake_response_too_short(self):
-        """HU response with less than 6 bytes is rejected."""
+        """HU response with fewer than 8 bytes is rejected.
+
+        New contract (post-Gap-#1 fix): the response handler now also
+        sets `_handshake_done` on rejection so `perform_handshake`
+        returns False fast instead of hanging until the frame-timeout.
+        """
         proto = MelittaProtocol()
         proto._handle_handshake_response(b"\x01\x02\x03")
         assert proto._key_prefix is None
-        assert not proto._handshake_done.is_set()
+        assert proto._handshake_done.is_set()
 
 
 class TestHighLevelReadAPI:

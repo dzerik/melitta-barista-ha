@@ -287,6 +287,13 @@ class EugsterProtocol:
 
         self._rc4_key: bytes | None = None
         self._key_prefix: bytes | None = None
+        # Stored across the request/response of a single HU handshake so
+        # the response handler can verify the echoed seed. Cleared on
+        # entry to `perform_handshake`, set after the challenge is
+        # generated, and remains set after handshake completes — that
+        # way a duplicate / late HU notify is still bound to the right
+        # challenge.
+        self._pending_challenge: bytes | None = None
         self._recv_buffer = bytearray()
         self._frame_start_time: float = 0.0
         self._frame_futures: dict[str, asyncio.Future] = {}
@@ -550,12 +557,60 @@ class EugsterProtocol:
                 future.set_result(payload)
 
     def _handle_handshake_response(self, payload: bytes) -> None:
-        """Process HU handshake response: challenge(4) + key_prefix(2) + validation(2)."""
-        if len(payload) < 6:
-            _LOGGER.error("HU response too short: %d bytes", len(payload))
+        """Process HU handshake response and validate it end-to-end.
+
+        Wire layout (8 bytes, post-RC4-decrypt):
+            payload[0:4]  echoed seed — must equal the challenge we sent
+            payload[4:6]  session_key (key_prefix in our terminology)
+            payload[6:8]  verifier — must equal hu_verifier(payload[0:6])
+
+        On any mismatch the method records the failure, leaves
+        ``_key_prefix`` as ``None`` and still sets ``_handshake_done`` so
+        ``perform_handshake`` returns ``False`` instead of hanging. This
+        mirrors upstream ``parseHuResponsePayload`` (esp-coffee-bridge
+        ``src/nivona.cpp``) — without these checks an invalid response
+        would silently install a junk session key and every subsequent
+        RC4-encrypted frame would be undecryptable.
+        """
+        # Length gate. Upstream demands exactly 8; we accept >= 8 to
+        # tolerate a hypothetical trailing-byte firmware variant, then
+        # only consume the first 8.
+        if len(payload) < 8:
+            _LOGGER.warning(
+                "HU response too short: %d bytes (need >= 8); rejecting",
+                len(payload),
+            )
+            self._handshake_done.set()
             return
 
+        echoed_seed = payload[0:4]
         key_prefix = payload[4:6]
+        response_verifier = payload[6:8]
+
+        if self._pending_challenge is None:
+            _LOGGER.warning(
+                "HU response received without a pending challenge; rejecting"
+            )
+            self._handshake_done.set()
+            return
+
+        if echoed_seed != self._pending_challenge:
+            _LOGGER.warning(
+                "HU echoed seed mismatch: sent %s, got %s; rejecting",
+                self._pending_challenge.hex(), echoed_seed.hex(),
+            )
+            self._handshake_done.set()
+            return
+
+        expected_verifier = self._brand.hu_verifier(payload, 0, 6)
+        if response_verifier != expected_verifier:
+            _LOGGER.warning(
+                "HU verifier mismatch: expected %s, got %s; rejecting",
+                expected_verifier.hex(), response_verifier.hex(),
+            )
+            self._handshake_done.set()
+            return
+
         self._key_prefix = key_prefix
         self._handshake_done.set()
         _LOGGER.info("Handshake complete, key_prefix=%s", key_prefix.hex())
@@ -570,10 +625,13 @@ class EugsterProtocol:
         """Perform HU challenge-response handshake."""
         self._handshake_done.clear()
         self._key_prefix = None
+        self._pending_challenge = None
 
         challenge = os.urandom(4)
         verifier = self._brand.hu_verifier(challenge, 0, len(challenge))
         hu_payload = challenge + verifier  # 6 bytes
+        # Stored BEFORE we write — the response is verified against it.
+        self._pending_challenge = challenge
 
         frame = self.build_frame(CMD_HANDSHAKE, hu_payload, include_key_prefix=False)
         chunks = self.chunk_for_ble(frame)

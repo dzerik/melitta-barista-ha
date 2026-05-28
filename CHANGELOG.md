@@ -2,6 +2,15 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.76.1] — 2026-05-28
+
+### Fixed
+- **HU handshake response is now fully validated** end-to-end (Gap #1 in `docs/PROTOCOL_VERIFICATION.md`). The response handler now requires the response to be ≥ 8 bytes, verifies that `payload[0:4]` echoes the random seed we sent, and recomputes the HU verifier over `payload[0:6]` to check `payload[6:8]`. Any mismatch is logged at WARNING and rejected — `_key_prefix` stays `None` and `_handshake_done` is set so `perform_handshake` returns `False` immediately instead of hanging until the frame-timeout. Previously the handler trusted whatever the machine sent: a corrupted / mismatched response would install a junk session key, and every subsequent RC4-encrypted frame would fail to decrypt with no obvious error. Mirrors the upstream `parseHuResponsePayload` from `esp-coffee-bridge/src/nivona.cpp`.
+
+### Tests
+- 4 new tests in `tests/test_protocol.py::TestHandshakeResponseVerification` (happy path, wrong echoed seed, wrong verifier, short response).
+- Existing `test_handshake_sends_challenge` pins `os.urandom` to a fixed seed so the test response can be crafted with the correct verifier; existing `test_handshake_response_too_short` updated for the new "event set on reject" contract.
+
 ## [0.76.0] — 2026-05-27
 
 ### Fixed

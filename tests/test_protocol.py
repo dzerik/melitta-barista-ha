@@ -10,6 +10,7 @@ from custom_components.melitta_barista.const import (
 )
 from custom_components.melitta_barista.protocol import (
     KNOWN_COMMANDS,
+    EugsterProtocol,
     MachineRecipe,
     MachineStatus,
     NumericalValue,
@@ -19,6 +20,7 @@ from custom_components.melitta_barista.protocol import (
     _rc4_crypt,
 )
 from custom_components.melitta_barista.brands.melitta import MelittaProfile
+from custom_components.melitta_barista.brands.nivona import NivonaProfile
 
 
 class TestRC4:
@@ -349,3 +351,79 @@ class TestStartProcessNivonaPayload:
         """Chilled NICR 8107 selectors always use 0x00 even if temp set."""
         p = self._build_payload(use_temp_recipe=True, chilled=True)
         assert p[5] == 0x00
+
+
+class TestHandshakeResponseVerification:
+    """HU response validation per upstream `parseHuResponsePayload`.
+
+    Wire layout (8 bytes after RC4 decrypt):
+        [0..4)  echoed seed — must equal the challenge we sent
+        [4..6)  session_key (key_prefix in our terminology)
+        [6..8)  verifier — must equal hu_verifier(payload[0..6])
+    """
+
+    def _make_proto(self) -> EugsterProtocol:
+        # Nivona has a non-trivial HU table; that's what's at risk if
+        # a wrong-brand machine responded. Using Nivona forces real
+        # verifier computation.
+        return EugsterProtocol(brand=NivonaProfile())
+
+    def test_valid_response_sets_key_prefix(self):
+        proto = self._make_proto()
+        challenge = bytes.fromhex("01020304")
+        proto._pending_challenge = challenge
+        key_prefix = b"\xAB\xCD"
+        body = challenge + key_prefix  # 6 bytes
+        verifier = proto._brand.hu_verifier(body, 0, len(body))
+        payload = body + verifier  # 8 bytes total
+
+        proto._handle_handshake_response(payload)
+
+        assert proto._key_prefix == key_prefix
+        assert proto._handshake_done.is_set()
+
+    def test_wrong_echoed_seed_rejects(self):
+        """Machine echoes a different seed than we sent — reject."""
+        proto = self._make_proto()
+        proto._pending_challenge = bytes.fromhex("01020304")
+        # Build a payload that's internally consistent but with
+        # a *different* echoed seed than the one we stored.
+        bad_seed = bytes.fromhex("FFFFFFFF")
+        key_prefix = b"\xAB\xCD"
+        body = bad_seed + key_prefix
+        verifier = proto._brand.hu_verifier(body, 0, len(body))
+        payload = body + verifier
+
+        proto._handle_handshake_response(payload)
+
+        assert proto._key_prefix is None, (
+            "Wrong echoed seed must reject the session key"
+        )
+        # Event must still be set so perform_handshake returns False
+        # (instead of hanging until timeout).
+        assert proto._handshake_done.is_set()
+
+    def test_wrong_verifier_rejects(self):
+        """Echoed seed is correct but the verifier bytes are wrong."""
+        proto = self._make_proto()
+        challenge = bytes.fromhex("01020304")
+        proto._pending_challenge = challenge
+        key_prefix = b"\xAB\xCD"
+        body = challenge + key_prefix
+        # Deliberately wrong verifier.
+        payload = body + b"\x00\x00"
+
+        proto._handle_handshake_response(payload)
+
+        assert proto._key_prefix is None
+        assert proto._handshake_done.is_set()
+
+    def test_short_response_rejects(self):
+        """Payload shorter than 8 bytes — reject."""
+        proto = self._make_proto()
+        proto._pending_challenge = bytes.fromhex("01020304")
+
+        proto._handle_handshake_response(b"\x00\x00\x00")  # 3 bytes
+
+        assert proto._key_prefix is None
+        assert proto._handshake_done.is_set()
