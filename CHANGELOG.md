@@ -2,6 +2,37 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.77.0] — 2026-05-28
+
+### Fixed
+- **`Total Cups` sensor no longer registers on Nivona** (Gap #12 from `docs/PROTOCOL_VERIFICATION.md`; reported in #15). The legacy `MelittaTotalCupsSensor` reads HR id 150 (`TOTAL_CUPS_ID`), which is a Melitta-specific register that does not exist on Nivona machines — so the sensor stayed `unknown` forever on every Nivona install. The equivalent "total brews" counter on Nivona is already exposed via the capability-driven `BrandStatSensor` (`total_beverages`, id 213 on the 8000 family, id 215 on the 1030 family). For Melitta the sensor still registers unchanged.
+
+### Changed
+- **Stat slugs renamed to match the official Nivona APK** (`brands/nivona.py`):
+  - 8000 family, id 206: `warm_milk` → `hot_milk` (APK uses `Anz_Bezuege_Heisse_Milch`).
+  - 1030/1040 family, id 201: `lungo` → `coffee` (APK uses `Anz_Bezuege_Coffee`).
+  Existing entity registry entries are migrated automatically via `async_migrate_entry` v2 → v3 — HA's long-term statistics history follows the rename.
+- **`_STATS_1030` id 224** (`beverages_via_kanne`) title updated to `"Beverages via Kanne (experimental)"` to mark it as unverified — this register is not in the APK's `diagnostics_0.json`. Keep watching field reports; remove the entry in a future release if no real machine ever reports a non-zero value.
+
+### Added (new diagnostic sensors for NIVO 8000-family)
+All four are read-only `HR` register polls; the values are present in the APK's `diagnostics_X.json` but were missing from our `_STATS_8000`:
+- id 211 `grinding_count` (`Anz_Mahlung`) — total grinder uses.
+- id 212 `reserve_count` (`Anz_Reserve`) — internal reserve counter (purpose unclear from APK; surfaced for parity).
+- id 602 `descale_status` (`Entkalken_Status`) — descale state machine flag, complements id 600 (descale percent) and id 601 (descale warning).
+- id 630 `frother_rinse_needed` (`SpuelenAufsch_Notwendig`) — flag that the milk frother needs a rinse cycle.
+
+### Added (1030/1040 family)
+- id 210 `my_coffee` (`Anz_Bezuege_MyCoffee`) — the MyCoffee dispense counter was missing entirely on these families. Cross-references the existing MyCoffee slot system.
+
+### Migration
+- Config entry version bumped from 2 → 3. `async_migrate_entry` handles the slug renames automatically on the next HA restart after upgrade. Old entity IDs (e.g. `sensor.<name>_warm_milk`) become the new ones (`sensor.<name>_hot_milk`); statistics history is preserved.
+
+### Tests
+- 3 new tests in `tests/test_brands.py` verifying per-family stat sizes and specific (id, key) APK alignment.
+- 2 new tests in `tests/test_sensor.py` for the Total Cups brand gating.
+- 3 new tests in `tests/test_init.py::TestMigrateEntryV2ToV3` covering both renames and a Melitta no-op case.
+- Full suite: 963 passed (was 956 on v0.76.1).
+
 ## [0.76.1] — 2026-05-28
 
 ### Fixed

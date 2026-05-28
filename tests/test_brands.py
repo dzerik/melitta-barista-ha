@@ -272,9 +272,15 @@ def test_nivona_settings_per_family():
 
 
 def test_nivona_stats_for_stats_families():
-    """Every Nivona family exposes its authoritative stat ID set
-    (v0.49.0+). Sizes are the per-family counts from the canonical
-    stats-factory mapping.
+    """Every Nivona family exposes its authoritative stat ID set.
+
+    Sizes are the per-family counts from the canonical stats-factory
+    mapping. Updated in PR B (Gaps #9 + #10):
+
+    - 8000 grows by 4 (ids 211 grinding, 212 reserve, 602 descale status,
+      630 frother-rinse needed) from the APK diagnostics_X.json list.
+    - 1030 grows by 1 (id 210 my_coffee — was missing entirely).
+    - 1040 inherits the 1030 change.
     """
     np_ = NivonaProfile()
     expected_sizes = {
@@ -283,15 +289,53 @@ def test_nivona_stats_for_stats_families():
         "79x": 17,       # 700 minus selector 204 (Cappuccino)
         "900": 31,       # 22 counters + 8 gauges + 101 dep
         "900-light": 31,
-        "1030": 33,      # 24 counters + 8 gauges + 101 dep
-        "1040": 32,      # 1030 minus id 207 (HeisseMilch)
-        "8000": 27,
+        "1030": 34,      # 25 counters + 8 gauges + 101 dep (was 33, +1 for id 210 my_coffee)
+        "1040": 33,      # 1030 minus id 207 (HeisseMilch)
+        "8000": 31,      # 27 + 4 (211, 212, 602, 630) per APK diagnostics_X.json
     }
     for fk, size in expected_sizes.items():
         caps = np_.capabilities_for(fk)
         assert len(caps.stats) == size, (
             f"Nivona family {fk} expected {size} stats, got {len(caps.stats)}"
         )
+
+
+def test_stats_8000_apk_alignment():
+    """Specific (id, key) pairs that must match APK diagnostics_X.json.
+
+    Cross-checked against
+    ``apk_study/decompiled_per_class/EugsterMobileApp/EugsterMobileApp.Model.Configuration.diagnostics_X.json``.
+    """
+    caps = NivonaProfile().capabilities_for("8000")
+    by_id = {s.stat_id: s for s in caps.stats}
+    # APK id 206 is `Anz_Bezuege_Heisse_Milch` (Hot milk); PR B renames
+    # our slug from `warm_milk` to `hot_milk`.
+    assert by_id[206].key == "hot_milk"
+    # Newly added entries (Gap #9) — all from diagnostics_X.json.
+    assert by_id[211].key == "grinding_count"
+    assert by_id[212].key == "reserve_count"
+    assert by_id[602].key == "descale_status"
+    assert by_id[630].key == "frother_rinse_needed"
+
+
+def test_stats_1030_apk_alignment():
+    """Specific (id, key) pairs for 1030 must match APK diagnostics_0.json.
+
+    Gap #10 fixes:
+    - id 201 is "Anz_Bezuege_Coffee" in APK; we used to call it `lungo`.
+    - id 210 is "Anz_Bezuege_MyCoffee" in APK; we used to skip it.
+    - id 224 stays but is marked "experimental" in title (not in APK).
+    """
+    caps = NivonaProfile().capabilities_for("1030")
+    by_id = {s.stat_id: s for s in caps.stats}
+    assert by_id[201].key == "coffee", (
+        "APK diagnostics_0.json id 201 = Anz_Bezuege_Coffee, not Lungo"
+    )
+    assert 210 in by_id, "APK id 210 = MyCoffee — must be exposed on 1030"
+    assert by_id[210].key == "my_coffee"
+    # id 224 retained for now; title carries the 'experimental' marker.
+    assert 224 in by_id
+    assert "experimental" in by_id[224].title.lower()
 
 
 def test_nivona_per_model_capabilities_overrides():

@@ -377,11 +377,18 @@ _STATS_8000: tuple[StatDescriptor, ...] = (
     _count(203, "cappuccino", "Cappuccino"),
     _count(204, "caffe_latte", "Caffè latte"),
     _count(205, "macchiato", "Latte macchiato"),
-    _count(206, "warm_milk", "Warm milk"),
+    # APK id 206 = Anz_Bezuege_Heisse_Milch (Hot milk, not Warm).
+    # Slug changed from `warm_milk` in v0.77.0 to match APK; entity
+    # registry migration in async_migrate_entry v2 → v3 renames
+    # existing user entries.
+    _count(206, "hot_milk", "Hot milk"),
     _count(207, "hot_water", "Hot water"),
     _count(208, "my_coffee", "My coffee"),
     _count(209, "steam_drinks", "Steam drinks"),
     _count(210, "powder_coffee", "Powder coffee"),
+    # Added in v0.77.0 (Gap #9) from APK diagnostics_X.json:
+    _count(211, "grinding_count", "Grinding count", "maintenance"),
+    _count(212, "reserve_count", "Reserve count", "maintenance"),
     _count(213, "total_beverages", "Total beverages"),
     _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
     _count(215, "clean_frother", "Clean frother", "maintenance"),
@@ -391,10 +398,14 @@ _STATS_8000: tuple[StatDescriptor, ...] = (
     _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
     _pct(600, "descale_percent", "Descale progress"),
     _flag(601, "descale_warning", "Descale warning"),
+    # Added in v0.77.0 (Gap #9): APK Entkalken_Status — descale state machine.
+    _flag(602, "descale_status", "Descale status"),
     _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
     _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
     _pct(620, "frother_clean_percent", "Frother clean progress"),
     _flag(621, "frother_clean_warning", "Frother clean warning"),
+    # Added in v0.77.0 (Gap #9): APK SpuelenAufsch_Notwendig — frother-rinse needed.
+    _flag(630, "frother_rinse_needed", "Frother rinse needed"),
     _pct(640, "filter_percent", "Filter progress"),
     _flag(641, "filter_warning", "Filter warning"),
     _flag(642, "filter_dependency", "Filter dependency"),
@@ -515,7 +526,10 @@ _STATS_900_LIGHT: tuple[StatDescriptor, ...] = _STATS_900
 # Filter dependency is 101.
 _STATS_1030: tuple[StatDescriptor, ...] = (
     _count(200, "espresso", "Espresso"),
-    _count(201, "lungo", "Lungo"),
+    # APK id 201 = Anz_Bezuege_Coffee. We used to label it `lungo` —
+    # corrected in v0.77.0 (Gap #10); entity registry migration renames
+    # existing user entries.
+    _count(201, "coffee", "Coffee"),
     _count(202, "americano", "Americano"),
     _count(203, "cappuccino", "Cappuccino"),
     _count(204, "caffe_latte", "Caffè latte"),
@@ -524,6 +538,9 @@ _STATS_1030: tuple[StatDescriptor, ...] = (
     _count(207, "hot_milk", "Hot milk"),
     _count(208, "milk_foam", "Milk foam"),
     _count(209, "hot_water", "Hot water"),
+    # Added in v0.77.0 (Gap #10): APK diagnostics_0.json id 210 is
+    # Anz_Bezuege_MyCoffee — was missing entirely on 1030/1040.
+    _count(210, "my_coffee", "My coffee"),
     _count(211, "steam_drinks", "Steam drinks"),
     _count(212, "powder_coffee", "Powder coffee"),
     _count(213, "single_cup", "Single cup brews"),
@@ -537,7 +554,10 @@ _STATS_1030: tuple[StatDescriptor, ...] = (
     _count(221, "filter_changes", "Filter changes", "maintenance"),
     _count(222, "descaling", "Descaling", "maintenance"),
     _count(223, "beverages_via_app", "Beverages via app", "maintenance"),
-    _count(224, "beverages_via_kanne", "Beverages via Kanne", "maintenance"),
+    # id 224 is not in APK diagnostics_0.json — origin unclear. Kept
+    # enabled until we get a field-confirmed read from a real NICR
+    # 1030/1040; "(experimental)" in the title flags the uncertainty.
+    _count(224, "beverages_via_kanne", "Beverages via Kanne (experimental)", "maintenance"),
     _pct(600, "descale_percent", "Descale progress"),
     _flag(601, "descale_warning", "Descale warning"),
     _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),

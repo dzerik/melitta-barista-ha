@@ -76,8 +76,17 @@ async def async_setup_entry(
         MelittaFirmwareSensor(client, entry, name),
         MelittaSerialSensor(client, entry, name),
         MelittaFeaturesSensor(client, entry, name),
-        MelittaTotalCupsSensor(client, entry, name),
     ]
+
+    # Legacy MelittaTotalCupsSensor reads HR id=150 (TOTAL_CUPS_ID) which
+    # is a Melitta-specific register. On Nivona the register doesn't
+    # exist and the sensor stayed at `unknown` (reported in #15). For
+    # non-Melitta brands the equivalent counter is exposed via the
+    # capability-driven `BrandStatSensor` (`total_beverages`, id 213 on
+    # 8000 family, id 215 on 1030, etc.) — no need to register the
+    # Melitta-specific sensor at all.
+    if client.brand.brand_slug == "melitta":
+        entities.append(MelittaTotalCupsSensor(client, entry, name))
 
     # Brand-capability-driven stat sensors (Nivona). Melitta has its own
     # hand-tailored total_cups + per-recipe counters; generic stat sensors

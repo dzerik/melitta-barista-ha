@@ -164,3 +164,50 @@ async def test_action_required_sensor(
     action = [s for s in hass.states.async_all("sensor") if "action" in s.entity_id or "manipulation" in s.entity_id]
     assert len(action) >= 1
     assert action[0].state == "Fill Water"
+
+
+def _mock_nivona_client(status=None):
+    """Same as `_mock_client` but with brand_slug = 'nivona' and no HC/HJ.
+
+    Used to verify brand-gated sensor registration logic.
+    """
+    client = _mock_client(status=status)
+    client.brand.brand_slug = "nivona"
+    client.brand.brand_name = "Nivona"
+    client.brand.supported_extensions = frozenset()
+    # capabilities resolved before setup so BrandStatSensor gets created
+    client.capabilities = None
+    return client
+
+
+async def test_total_cups_sensor_only_for_melitta(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Legacy `MelittaTotalCupsSensor` reads HR id 150 (`TOTAL_CUPS_ID`),
+    which is a Melitta-only register. On Nivona the register doesn't
+    exist and the sensor was stuck at `unknown` (reported in #15).
+    Gap #12 fix: gate registration to brand_slug == 'melitta'.
+
+    For Melitta the entity still appears as before.
+    """
+    client = _mock_nivona_client()
+    await _setup_integration(hass, mock_entry, client)
+
+    sensor_ids = [s.entity_id for s in hass.states.async_all("sensor")]
+    # On Nivona, NO sensor.*_total_cups should be present.
+    assert not any(eid.endswith("_total_cups") or "total_cups" in eid for eid in sensor_ids), (
+        f"Total Cups sensor must not be registered for Nivona; saw: {sensor_ids}"
+    )
+
+
+async def test_total_cups_sensor_still_created_for_melitta(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Sanity check that Melitta brand still gets the Total Cups sensor."""
+    client = _mock_client()  # default brand = melitta
+    await _setup_integration(hass, mock_entry, client)
+
+    sensor_ids = [s.entity_id for s in hass.states.async_all("sensor")]
+    assert any("total_cups" in eid for eid in sensor_ids), (
+        f"Total Cups sensor should still register for Melitta; saw: {sensor_ids}"
+    )

@@ -838,3 +838,126 @@ def test_time_platform_included_in_platforms():
     from custom_components.melitta_barista import PLATFORMS
 
     assert Platform.TIME in PLATFORMS
+
+
+class TestMigrateEntryV2ToV3:
+    """Entity-registry slug renames for Nivona stat sensors (PR B / v0.77.0).
+
+    Old (v0.76.x) Nivona installations had `BrandStatSensor` entities
+    with two now-incorrect slugs:
+    - `warm_milk` on 8000 family — should be `hot_milk`.
+    - `lungo` on 1030 family — should be `coffee`.
+
+    On migration to v3, async_migrate_entry rewrites the entity
+    registry's unique_id so HA's statistics history follows the rename.
+    """
+
+    async def test_v2_to_v3_renames_warm_milk_to_hot_milk(
+        self, hass: HomeAssistant,
+    ) -> None:
+        from homeassistant.helpers import entity_registry as er
+
+        from custom_components.melitta_barista import async_migrate_entry
+        from custom_components.melitta_barista.const import (
+            CONF_BRAND, DOMAIN,
+        )
+
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={**MOCK_CONFIG_DATA, CONF_BRAND: "nivona"},
+            version=2,
+            unique_id="aabbccddeeff",
+        )
+        entry.add_to_hass(hass)
+
+        registry = er.async_get(hass)
+        registry.async_get_or_create(
+            "sensor",
+            DOMAIN,
+            f"{MOCK_ADDRESS}_stat_warm_milk",
+            suggested_object_id="stat_warm_milk_8000",
+        )
+
+        assert await async_migrate_entry(hass, entry) is True
+
+        # Old unique_id is gone, new one is present.
+        assert registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{MOCK_ADDRESS}_stat_warm_milk",
+        ) is None
+        new_eid = registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{MOCK_ADDRESS}_stat_hot_milk",
+        )
+        assert new_eid is not None
+        assert entry.version == 3
+
+    async def test_v2_to_v3_renames_lungo_to_coffee(
+        self, hass: HomeAssistant,
+    ) -> None:
+        from homeassistant.helpers import entity_registry as er
+
+        from custom_components.melitta_barista import async_migrate_entry
+        from custom_components.melitta_barista.const import (
+            CONF_BRAND, DOMAIN,
+        )
+
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={**MOCK_CONFIG_DATA, CONF_BRAND: "nivona"},
+            version=2,
+            unique_id="aabbccddeeff2",
+        )
+        entry.add_to_hass(hass)
+
+        registry = er.async_get(hass)
+        registry.async_get_or_create(
+            "sensor",
+            DOMAIN,
+            f"{MOCK_ADDRESS}_stat_lungo",
+            suggested_object_id="stat_lungo_1030",
+        )
+
+        assert await async_migrate_entry(hass, entry) is True
+
+        assert registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{MOCK_ADDRESS}_stat_lungo",
+        ) is None
+        assert registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{MOCK_ADDRESS}_stat_coffee",
+        ) is not None
+
+    async def test_v2_to_v3_skips_melitta(
+        self, hass: HomeAssistant,
+    ) -> None:
+        """Melitta entries have different sensors — rename must be no-op."""
+        from homeassistant.helpers import entity_registry as er
+
+        from custom_components.melitta_barista import async_migrate_entry
+        from custom_components.melitta_barista.const import (
+            CONF_BRAND, DEFAULT_BRAND, DOMAIN,
+        )
+
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={**MOCK_CONFIG_DATA, CONF_BRAND: DEFAULT_BRAND},
+            version=2,
+            unique_id="aabbccddeeff3",
+        )
+        entry.add_to_hass(hass)
+
+        registry = er.async_get(hass)
+        # If a Melitta install somehow had a `warm_milk` stat entity
+        # (it shouldn't — Melitta uses different sensors), the migration
+        # must leave it untouched.
+        registry.async_get_or_create(
+            "sensor",
+            DOMAIN,
+            f"{MOCK_ADDRESS}_stat_warm_milk",
+            suggested_object_id="melitta_should_not_be_touched",
+        )
+
+        assert await async_migrate_entry(hass, entry) is True
+
+        assert registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{MOCK_ADDRESS}_stat_warm_milk",
+        ) is not None
+        assert entry.version == 3

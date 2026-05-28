@@ -137,7 +137,7 @@ def _describe_advertisement(
 class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the config flow for Melitta and Nivona coffee machines."""
 
-    VERSION = 2
+    VERSION = 3
 
     @staticmethod
     @callback

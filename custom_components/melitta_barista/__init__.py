@@ -701,7 +701,15 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     v1 → v2: introduce ``brand`` field. All pre-existing entries are
     Melitta (the only previously supported brand).
+
+    v2 → v3 (0.77.0): rename two Nivona stat-sensor slugs to match the
+    official APK's ``diagnostics_*.json`` register descriptions. The
+    underlying register IDs (and therefore the wire reads) are
+    unchanged; only the entity ``unique_id`` and slug change, so HA's
+    statistics history follows the renames.
     """
+    from homeassistant.helpers import entity_registry as er  # noqa: PLC0415
+
     if entry.version < 2:
         new_data = {**entry.data}
         new_data.setdefault(CONF_BRAND, DEFAULT_BRAND)
@@ -710,6 +718,53 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "Migrated entry %s to v2 (brand=%s)",
             entry.entry_id, new_data[CONF_BRAND],
         )
+
+    if entry.version < 3:
+        # Only Nivona entries carry BrandStatSensor; Melitta uses
+        # different sensors and is unaffected by these slug changes.
+        if entry.data.get(CONF_BRAND) != DEFAULT_BRAND:
+            address: str = entry.data.get(CONF_ADDRESS, "")
+            if address:
+                # (old_key → new_key) slug renames for BrandStatSensor.
+                # Unique-id format is `{address}_stat_{key}` per
+                # `sensor.BrandStatSensor.unique_id`.
+                renames = {
+                    # 8000 family — APK id 206 is Hot Milk, not Warm.
+                    "warm_milk": "hot_milk",
+                    # 1030/1040 family — APK id 201 is Coffee, not Lungo.
+                    "lungo": "coffee",
+                }
+                registry = er.async_get(hass)
+                for old_key, new_key in renames.items():
+                    old_uid = f"{address}_stat_{old_key}"
+                    new_uid = f"{address}_stat_{new_key}"
+                    eid = registry.async_get_entity_id(
+                        "sensor", DOMAIN, old_uid,
+                    )
+                    if eid is None:
+                        continue
+                    # If the new unique_id already exists, leave the old
+                    # one alone — the user (or a partial prior migration)
+                    # already has the renamed entity; renaming on top of
+                    # it would collide.
+                    if registry.async_get_entity_id(
+                        "sensor", DOMAIN, new_uid,
+                    ) is not None:
+                        _LOGGER.warning(
+                            "Skipping stat rename %s → %s on %s: "
+                            "target unique_id already exists",
+                            old_uid, new_uid, eid,
+                        )
+                        continue
+                    registry.async_update_entity(eid, new_unique_id=new_uid)
+                    _LOGGER.info(
+                        "Renamed stat sensor unique_id %s → %s (entity %s)",
+                        old_uid, new_uid, eid,
+                    )
+
+        hass.config_entries.async_update_entry(entry, version=3)
+        _LOGGER.info("Migrated entry %s to v3 (stat sensor slug renames)", entry.entry_id)
+
     return True
 
 
