@@ -2,6 +2,24 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.79.0] — 2026-05-28
+
+### Refactored
+
+- **BrandProfile contract extended, brand_slug checks removed from shared layers.** A multi-stage cleanup so HA entity factories and BLE mixins no longer test `client.brand.brand_slug == "X"` or import directly from `brands.<vendor>`. The integration is now a platform layer where adding a new coffee-machine brand means implementing the `BrandProfile` Protocol and per-family `MachineCapabilities` flags — no edits to shared code.
+- **New BrandProfile Protocol methods**: `temp_recipe_type_register` (class attr), `temp_recipe_register`, `fluid_write_scale`, `mycoffee_layout`, `mycoffee_register`, `is_chilled_selector`. NivonaProfile already implemented these (lifted from module-level @staticmethods); MelittaProfile gets stub implementations returning `None` / `1` / `False`. `_ble_commands.py`, `_ble_recipes.py`, `sensor.py` dropped their `from .brands.nivona import …` calls in favour of `client.brand.<method>(…)`.
+- **New MachineCapabilities feature flags**: `supports_factory_reset`, `supports_brew_overrides`, `uses_legacy_total_cups_sensor`. Set per-family in `_family_*.py` and per-model in MelittaProfile. Entity factories in `button.py`, `number.py`, `sensor.py` use these flags instead of `brand_slug == "X"` gates. Hardcoded `_FACTORY_RESET_FAMILIES = {"600", "700", …}` set deleted — the gating is now `caps.supports_factory_reset`.
+- **Redundant brand_slug gates dropped**: `button.py` / `select.py` HE-selector brew entities now key off `"HC" not in supported_extensions` alone (the brand_slug half was redundant); `number.py` / `select.py` settings-entity gates rely on `caps.settings` being empty for Melitta (which it is).
+
+### Added
+
+- **`docs/BRAND_PROFILE_SPEC.md`** — contract specification documenting the required `BrandProfile` Protocol surface, the `MachineCapabilities` field set, how to add a new brand step-by-step, and explicitly-forbidden anti-patterns (`brand_slug ==` checks in shared layers, direct `brands.<vendor>` imports, etc.).
+
+### Tests
+
+- Test fixtures across `tests/test_button.py`, `tests/test_init.py`, `tests/test_sensor.py` switched from `client.brand = MagicMock()` to real `MelittaProfile()` / `NivonaProfile()` instances + `capabilities_for(family_key)`. Real BrandProfile/Capabilities give the capability-driven gating actual values to compare against, avoiding MagicMock-truthy false positives. Tests that mutated `caps.my_coffee_slots` directly now use `dataclasses.replace()` (MachineCapabilities is frozen).
+- Full suite: 992 passed (unchanged from v0.78.1 — no behavior change, only refactor).
+
 ## [0.78.1] — 2026-05-28
 
 ### Refactored
