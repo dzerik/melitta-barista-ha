@@ -3514,11 +3514,11 @@ class TestReadMyCoffeeSlots:
 
 
     async def test_reads_all_four_amounts_per_slot(self, mock_bleak_client):
-        """8000 family layout exposes coffee/water/milk/milk_foam amounts.
+        """8000 family layout exposes 4 amounts + enabled / strength / temperature.
 
-        Bulk read should fetch all four per slot, indexed by the
-        param key. Offsets used: 8 (coffee), 9 (water), 10 (milk),
-        11 (milk_foam).
+        Bulk read should fetch each param via a separate HR register
+        derived from the slot's `MY_COFFEE_BASE_REGISTER + N*100 + offset`
+        and key the result by the param name in the cache.
         """
         from custom_components.melitta_barista.brands.nivona import (
             MY_COFFEE_BASE_REGISTER, MY_COFFEE_SLOT_STRIDE, NivonaProfile,
@@ -3544,13 +3544,24 @@ class TestReadMyCoffeeSlots:
         cached = client.my_coffee_slots
         assert cached is not None
         assert len(cached) == 9
+
+        # 8000 family offsets: enabled=0, strength=4, temperature=6,
+        # coffee_amount=8, water_amount=9, milk_amount=10, milk_foam_amount=11.
+        expected = {
+            "enabled": 0,
+            "strength": 4,
+            "temperature": 6,
+            "coffee_amount": 8,
+            "water_amount": 9,
+            "milk_amount": 10,
+            "milk_foam_amount": 11,
+        }
         for slot in range(9):
-            # Each amount has a distinct register offset on 8000 family
-            # (8, 9, 10, 11). The fake_read encoding mirrors that.
-            assert cached[slot]["coffee_amount"] == slot * 100 + 8
-            assert cached[slot]["water_amount"] == slot * 100 + 9
-            assert cached[slot]["milk_amount"] == slot * 100 + 10
-            assert cached[slot]["milk_foam_amount"] == slot * 100 + 11
+            for key, off in expected.items():
+                assert cached[slot][key] == slot * 100 + off, (
+                    f"slot {slot} {key}: expected offset {off}, got "
+                    f"register {cached[slot][key]}"
+                )
 
     async def test_skips_params_missing_from_layout(self, mock_bleak_client):
         """600 family has milk_foam_amount but no milk_amount offset —

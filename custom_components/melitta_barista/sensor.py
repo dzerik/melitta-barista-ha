@@ -473,14 +473,26 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_native_unit_of_measurement = None  # raw byte value; vendor-specific scale
-    _attr_icon = "mdi:cup-outline"
 
-    # Human-readable suffix per param.
+    # Human-readable suffix per param + an icon hint.
     _LABELS = {
         "coffee_amount": "coffee amount",
         "water_amount": "water amount",
         "milk_amount": "milk amount",
         "milk_foam_amount": "milk foam amount",
+        "enabled": "enabled",
+        "strength": "strength",
+        "temperature": "temperature",
+    }
+
+    _ICONS = {
+        "coffee_amount": "mdi:cup-outline",
+        "water_amount": "mdi:cup-water",
+        "milk_amount": "mdi:bottle-tonic-plus-outline",
+        "milk_foam_amount": "mdi:bottle-tonic-outline",
+        "enabled": "mdi:check-circle-outline",
+        "strength": "mdi:weight",
+        "temperature": "mdi:thermometer",
     }
 
     def __init__(
@@ -498,6 +510,7 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
         self._attr_name = f"MyCoffee slot {slot + 1} {label}"
         self._attr_translation_key = f"mycoffee_{param_key}"
         self._attr_translation_placeholders = {"slot": str(slot + 1)}
+        self._attr_icon = self._ICONS.get(param_key, "mdi:cup-outline")
 
     @property
     def unique_id(self) -> str:

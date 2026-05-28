@@ -216,10 +216,11 @@ async def test_total_cups_sensor_still_created_for_melitta(
 async def test_mycoffee_amount_sensors_registered_for_nivona_8000(
     hass: HomeAssistant, mock_entry: MockConfigEntry
 ) -> None:
-    """Nivona 8000 family — 9 slots × 4 amounts = 36 sensors.
+    """Nivona 8000 family — 9 slots × 7 params = 63 sensors.
 
-    Layout offsets for 8000 family include all four amounts
-    (coffee / water / milk / milk_foam), so all four register per slot.
+    Layout offsets for 8000 family include 4 amounts (coffee / water /
+    milk / milk_foam) plus enabled / strength / temperature. The 7
+    params register per slot.
     """
     client = _mock_client()  # default mock fits — we override below
     client.brand.brand_slug = "nivona"
@@ -237,16 +238,49 @@ async def test_mycoffee_amount_sensors_registered_for_nivona_8000(
         s for s in hass.states.async_all("sensor")
         if "mycoffee_slot_" in s.entity_id
     ]
-    assert len(mycoffee_sensors) == 36, (
-        f"Expected 36 mycoffee amount sensors for 8000 family (9 slots × 4 amounts); "
+    assert len(mycoffee_sensors) == 63, (
+        f"Expected 63 mycoffee sensors for 8000 family (9 slots × 7 params); "
         f"got {len(mycoffee_sensors)}: {[s.entity_id for s in mycoffee_sensors]}"
     )
-    # Each amount param appears once per slot.
-    for param in ("coffee_amount", "water_amount", "milk_amount", "milk_foam_amount"):
+    # Each param appears once per slot.
+    for param in (
+        "coffee_amount", "water_amount", "milk_amount", "milk_foam_amount",
+        "enabled", "strength", "temperature",
+    ):
         per_param = [s for s in mycoffee_sensors if param in s.entity_id]
         assert len(per_param) == 9, (
             f"Expected 9 sensors for {param}; got {len(per_param)}"
         )
+
+
+async def test_mycoffee_skips_temperature_on_1030_family(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """1030 / 1040 / 900 layouts use per-fluid temperatures and have
+    no plain `temperature_offset`. The sensor must skip the
+    `temperature` param on those families.
+    """
+    client = _mock_client()
+    client.brand.brand_slug = "nivona"
+    client.brand.brand_name = "Nivona"
+    client.brand.supported_extensions = frozenset()
+    caps = MagicMock()
+    caps.family_key = "1030"
+    # 1030 has 18 MyCoffee slots; we only need a few to verify gating.
+    caps.my_coffee_slots = 2
+    caps.stats = ()
+    client.capabilities = caps
+    client.my_coffee_slots = None
+    await _setup_integration(hass, mock_entry, client)
+
+    sensor_ids = [s.entity_id for s in hass.states.async_all("sensor")]
+    assert not any(
+        "mycoffee_slot_1_temperature" in eid for eid in sensor_ids
+    ), f"1030 family must not get a `temperature` sensor; saw {sensor_ids}"
+    # But enabled / strength / amounts are present.
+    assert any("mycoffee_slot_1_enabled" in eid for eid in sensor_ids)
+    assert any("mycoffee_slot_1_strength" in eid for eid in sensor_ids)
+    assert any("mycoffee_slot_1_coffee_amount" in eid for eid in sensor_ids)
 
 
 async def test_mycoffee_skips_params_missing_from_layout_600(

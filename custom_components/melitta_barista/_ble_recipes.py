@@ -33,15 +33,29 @@ _LOGGER = logging.getLogger("melitta_barista")
 
 # Param keys (and `<key>_offset` attribute names on RecipeFieldLayout)
 # that the MyCoffee bulk-read pulls per slot. Single source of truth
-# also used by `sensor.py` to decide which sensors to register.
-# Only "amount" params for now — the rest (strength / temperature /
-# enabled flag / profile / two_cups) will follow in later PRs once we
-# decide on entity shapes for them.
+# also used by `sensor.py` to decide which sensors to register. Only
+# params present in the family layout are read / exposed — see
+# `mycoffee_layout()` for per-family offsets. The exposed set is
+# intentionally narrow:
+#
+# - 4 amounts (coffee / water / milk / milk_foam): the most informative
+#   numeric params per slot. The 900 / 1030 / 1040 families that use
+#   per-fluid temperature offsets instead of a single `temperature`
+#   one still expose all four amounts.
+# - enabled (0/1 flag): tells the user whether the slot is "armed" —
+#   future write-side gating can use this.
+# - strength (code 0..N): bean strength selector inside the slot.
+# - temperature (code 0..3): single-byte families (600/700/79x/8000)
+#   have one offset; multi-fluid families (900/1030/1040) have none
+#   and the param is silently skipped.
 _MYCOFFEE_AMOUNT_PARAMS: tuple[str, ...] = (
     "coffee_amount",
     "water_amount",
     "milk_amount",
     "milk_foam_amount",
+    "enabled",
+    "strength",
+    "temperature",
 )
 
 
