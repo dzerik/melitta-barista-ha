@@ -63,7 +63,13 @@ from ._registers import (
     standard_recipe_register,
 )
 from ._stats_helpers import _count, _flag, _pct
-from . import _family_600
+from . import (
+    _family_600,
+    _family_700,
+    _family_900,
+    _family_1030,
+    _family_8000,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -73,87 +79,15 @@ from . import _family_600
 
 _RECIPES_600: tuple[RecipeDescriptor, ...] = _family_600.RECIPES
 
-_RECIPES_700: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Cream", "coffee"),
-    RecipeDescriptor(2, "Lungo", "coffee"),
-    RecipeDescriptor(3, "Americano", "americano"),
-    RecipeDescriptor(4, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
-)
-
-_RECIPES_79X: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
-)
-
-_RECIPES_900: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Hot Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
-)
-
-# 900-light family reuses the 900 table.
-_RECIPES_900_LIGHT: tuple[RecipeDescriptor, ...] = _RECIPES_900
-
-_RECIPES_1030: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Hot Water", "water"),
-    RecipeDescriptor(7, "Warm Milk", "milk_drink"),
-    RecipeDescriptor(8, "Hot Milk", "milk_drink"),
-    RecipeDescriptor(9, "Frothy Milk", "milk_drink"),
-)
-
-_RECIPES_1040: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Hot Water", "water"),
-    RecipeDescriptor(7, "Warm Milk", "milk_drink"),
-    RecipeDescriptor(8, "Frothy Milk", "milk_drink"),
-)
-
-_RECIPES_8000: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
-)
-
-# NICR 8107 additionally exposes chilled-brew selectors 8/9/10.
-# These recipes are brewed with a distinct HE flags byte (byte[5]=0,
-# not 0x01) — see `start_process_nivona` for the chilled-mode wiring.
-_RECIPES_8000_CHILLED: tuple[RecipeDescriptor, ...] = _RECIPES_8000 + (
-    RecipeDescriptor(8,  "Chilled Espresso",  "espresso"),
-    RecipeDescriptor(9,  "Chilled Lungo",     "coffee"),
-    RecipeDescriptor(10, "Chilled Americano", "americano"),
-)
-# Selectors that require the chilled-brew flag byte when sent as HE.
-_CHILLED_SELECTORS: frozenset[int] = frozenset({8, 9, 10})
+_RECIPES_700: tuple[RecipeDescriptor, ...] = _family_700.RECIPES_700
+_RECIPES_79X: tuple[RecipeDescriptor, ...] = _family_700.RECIPES_79X
+_RECIPES_900: tuple[RecipeDescriptor, ...] = _family_900.RECIPES_900
+_RECIPES_900_LIGHT: tuple[RecipeDescriptor, ...] = _family_900.RECIPES_900_LIGHT
+_RECIPES_1030: tuple[RecipeDescriptor, ...] = _family_1030.RECIPES_1030
+_RECIPES_1040: tuple[RecipeDescriptor, ...] = _family_1030.RECIPES_1040
+_RECIPES_8000: tuple[RecipeDescriptor, ...] = _family_8000.RECIPES_8000
+_RECIPES_8000_CHILLED: tuple[RecipeDescriptor, ...] = _family_8000.RECIPES_8000_CHILLED
+_CHILLED_SELECTORS: frozenset[int] = _family_8000.CHILLED_SELECTORS
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -174,95 +108,16 @@ _LOGGER = logging.getLogger("melitta_barista")
 # IDs are Nivona-specific and do NOT overlap with Melitta's setting IDs.
 # ---------------------------------------------------------------------------
 
-_SETTINGS_8000: tuple[SettingDescriptor, ...] = (
-    SettingDescriptor(101, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
-    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
-    SettingDescriptor(104, "auto_off", "Auto-off", _AUTO_OFF_8000_OPTIONS),
-    SettingDescriptor(105, "coffee_temperature", "Coffee temperature", _TEMP_ON_OFF),
-)
-
-# 600 and 700 families share settings; 79X differs (no 103 off-rinse).
+_SETTINGS_8000: tuple[SettingDescriptor, ...] = _family_8000.SETTINGS_8000
 _SETTINGS_600: tuple[SettingDescriptor, ...] = _family_600.SETTINGS
-
-# 700-proper: identical to 600.
-_SETTINGS_700: tuple[SettingDescriptor, ...] = _SETTINGS_600
-
-# 79X: drops id 103 (off-rinse not exposed on 79X hardware).
-_SETTINGS_79X: tuple[SettingDescriptor, ...] = tuple(
-    s for s in _SETTINGS_700 if s.setting_id != 103
-)
-
-# Legacy alias kept only to avoid breaking imports in older tests /
-# docstrings. Points at the 600/700 table.
+_SETTINGS_700: tuple[SettingDescriptor, ...] = _family_700.SETTINGS_700
+_SETTINGS_79X: tuple[SettingDescriptor, ...] = _family_700.SETTINGS_79X
+# Legacy alias preserved for older tests / docstrings.
 _SETTINGS_600_700_BASE: tuple[SettingDescriptor, ...] = _SETTINGS_600
-
-# 900 family — 8 settings including tank-lighting accents and
-# AutoOn hours/minutes pair (111/112).
-_SETTINGS_900: tuple[SettingDescriptor, ...] = (
-    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
-    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
-    SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
-    SettingDescriptor(105, "tank_light", "Tank light", _OFF_ON_OPTIONS),
-    SettingDescriptor(106, "tank_light_color", "Tank light color", _TANK_LIGHT_COLOR_900_OPTIONS),
-    SettingDescriptor(107, "tank_light_brightness", "Tank light brightness", _TANK_LIGHT_BRIGHTNESS_900_OPTIONS),
-    SettingDescriptor(108, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
-    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
-    # Hours / minutes for AutoOn time. No options list — numeric.
-    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
-    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
-)
-
-# 900-Light — strip the tank-lighting / touch-lock accents; keep
-# save-energy + AutoOn.
-_SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
-    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
-    SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
-    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
-    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
-    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
-)
-
-# 1030 — adds cup-heater / milk-active / direct-start / touch-lock /
-# AutoOn pair versus the previous skeleton.
-_SETTINGS_1030: tuple[SettingDescriptor, ...] = (
-    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
-    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
-    SettingDescriptor(104, "cup_heater", "Cup heater", _OFF_ON_OPTIONS),
-    SettingDescriptor(105, "milk_products_active", "Milk products active", _OFF_ON_OPTIONS),
-    SettingDescriptor(106, "direct_start_deactivated", "Direct-start deactivated", _OFF_ON_OPTIONS),
-    SettingDescriptor(107, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
-    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
-    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
-    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
-    SettingDescriptor(113, "profile", "Profile", _PROFILE_STANDARD_OPTIONS),
-    SettingDescriptor(114, "coffee_temperature", "Coffee temperature", _TEMPERATURE_OPTIONS),
-    SettingDescriptor(115, "water_temperature", "Water temperature", _TEMPERATURE_OPTIONS),
-    SettingDescriptor(116, "milk_temperature", "Milk temperature", _MILK_TEMPERATURE_1030_OPTIONS),
-)
-
-# 1040 — 1030 superset plus the frothing / power-on extras.
-_SETTINGS_1040: tuple[SettingDescriptor, ...] = (
-    SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
-    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
-    SettingDescriptor(104, "cup_heater", "Cup heater", _OFF_ON_OPTIONS),
-    SettingDescriptor(105, "milk_products_active", "Milk products active", _OFF_ON_OPTIONS),
-    SettingDescriptor(106, "direct_start_deactivated", "Direct-start deactivated", _OFF_ON_OPTIONS),
-    SettingDescriptor(107, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
-    SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
-    SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
-    SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
-    SettingDescriptor(113, "profile", "Profile", _PROFILE_1040_OPTIONS),
-    SettingDescriptor(114, "coffee_temperature", "Coffee temperature", _TEMPERATURE_OPTIONS),
-    SettingDescriptor(115, "water_temperature", "Water temperature", _TEMPERATURE_OPTIONS),
-    SettingDescriptor(116, "milk_temperature", "Milk temperature", _MILK_TEMPERATURE_1040_OPTIONS),
-    SettingDescriptor(117, "milk_foam_temperature", "Milk foam temperature", _MILK_FOAM_TEMPERATURE_1040_OPTIONS),
-    SettingDescriptor(118, "power_on_rinse", "Power-on rinse", _OFF_ON_OPTIONS),
-    SettingDescriptor(119, "power_on_frother_time", "Power-on frother time", _POWER_ON_FROTHER_TIME_1040_OPTIONS),
-)
+_SETTINGS_900: tuple[SettingDescriptor, ...] = _family_900.SETTINGS_900
+_SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = _family_900.SETTINGS_900_LIGHT
+_SETTINGS_1030: tuple[SettingDescriptor, ...] = _family_1030.SETTINGS_1030
+_SETTINGS_1040: tuple[SettingDescriptor, ...] = _family_1030.SETTINGS_1040
 
 
 # ---------------------------------------------------------------------------
@@ -275,191 +130,14 @@ _SETTINGS_1040: tuple[SettingDescriptor, ...] = (
 # 105 on 700/79X/600).
 # ---------------------------------------------------------------------------
 
-_STATS_8000: tuple[StatDescriptor, ...] = (
-    _count(200, "espresso", "Espresso"),
-    _count(201, "coffee", "Coffee"),
-    _count(202, "americano", "Americano"),
-    _count(203, "cappuccino", "Cappuccino"),
-    _count(204, "caffe_latte", "Caffè latte"),
-    _count(205, "macchiato", "Latte macchiato"),
-    # id 206 = "Heisse Milch" (Hot milk, not Warm). Slug changed from
-    # `warm_milk` in v0.77.0 to align with vendor terminology; entity
-    # registry migration in async_migrate_entry v2 → v3 renames
-    # existing user entries.
-    _count(206, "hot_milk", "Hot milk"),
-    _count(207, "hot_water", "Hot water"),
-    _count(208, "my_coffee", "My coffee"),
-    _count(209, "steam_drinks", "Steam drinks"),
-    _count(210, "powder_coffee", "Powder coffee"),
-    # Added in v0.77.0 from extended vendor register set:
-    _count(211, "grinding_count", "Grinding count", "maintenance"),
-    _count(212, "reserve_count", "Reserve count", "maintenance"),
-    _count(213, "total_beverages", "Total beverages"),
-    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
-    _count(215, "clean_frother", "Clean frother", "maintenance"),
-    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
-    _count(219, "filter_changes", "Filter changes", "maintenance"),
-    _count(220, "descaling", "Descaling", "maintenance"),
-    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
-    _pct(600, "descale_percent", "Descale progress"),
-    _flag(601, "descale_warning", "Descale warning"),
-    # Added in v0.77.0: "Entkalken_Status" — descale state machine.
-    _flag(602, "descale_status", "Descale status"),
-    _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
-    _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
-    _pct(620, "frother_clean_percent", "Frother clean progress"),
-    _flag(621, "frother_clean_warning", "Frother clean warning"),
-    # Added in v0.77.0: "SpuelenAufsch_Notwendig" — frother-rinse needed.
-    _flag(630, "frother_rinse_needed", "Frother rinse needed"),
-    _pct(640, "filter_percent", "Filter progress"),
-    _flag(641, "filter_warning", "Filter warning"),
-    _flag(642, "filter_dependency", "Filter dependency"),
-)
-
-# 700 family — recipe counters 200..208 only; no 213-221 cumulative
-# counters on this hardware. Maintenance gauges universal; 105 is the
-# filter dependency.
-_STATS_700: tuple[StatDescriptor, ...] = (
-    _count(200, "espresso", "Espresso"),
-    _count(201, "cream", "Cream"),                          # "Creme" (700-proper)
-    _count(202, "lungo", "Lungo"),
-    _count(203, "americano", "Americano"),
-    _count(204, "cappuccino", "Cappuccino"),
-    _count(205, "latte_macchiato", "Latte macchiato"),
-    _count(206, "milk", "Milk"),
-    _count(207, "hot_water", "Hot water"),
-    _count(208, "my_coffee", "My coffee"),
-    _pct(600, "descale_percent", "Descaling progress"),
-    _flag(601, "descale_warning", "Descaling warning"),
-    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
-    _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
-    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
-    _flag(621, "frother_clean_warning", "Frother cleaning warning"),
-    _pct(640, "filter_percent", "Filter progress"),
-    _flag(641, "filter_warning", "Filter warning"),
-    _flag(105, "filter_dependency", "Filter dependency"),
-)
-
-# 79X family — like 700 but id 201 is "Kaffee" (not "Creme"),
-# selector 204 (Cappuccino) is absent, and there are no cumulative
-# counters (213-221) — recipe counters only.
-_STATS_79X: tuple[StatDescriptor, ...] = (
-    _count(200, "espresso", "Espresso"),
-    _count(201, "coffee", "Coffee"),                        # "Kaffee" on 79X
-    _count(202, "lungo", "Lungo"),
-    _count(203, "americano", "Americano"),
-    # selector 204 absent on 79X hardware
-    _count(205, "latte_macchiato", "Latte macchiato"),
-    _count(206, "milk", "Milk"),
-    _count(207, "hot_water", "Hot water"),
-    _count(208, "my_coffee", "My coffee"),
-    _pct(600, "descale_percent", "Descaling progress"),
-    _flag(601, "descale_warning", "Descaling warning"),
-    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
-    _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
-    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
-    _flag(621, "frother_clean_warning", "Frother cleaning warning"),
-    _pct(640, "filter_percent", "Filter progress"),
-    _flag(641, "filter_warning", "Filter warning"),
-    _flag(105, "filter_dependency", "Filter dependency"),
-)
-
+_STATS_8000: tuple[StatDescriptor, ...] = _family_8000.STATS_8000
+_STATS_700: tuple[StatDescriptor, ...] = _family_700.STATS_700
+_STATS_79X: tuple[StatDescriptor, ...] = _family_700.STATS_79X
 _STATS_600: tuple[StatDescriptor, ...] = _family_600.STATS
-
-# 900 / 900-Light family — 21 counters (recipe 200..208 + cumulative
-# 209..221), maintenance gauges, 101 dependency.
-_STATS_900: tuple[StatDescriptor, ...] = (
-    _count(200, "espresso", "Espresso"),
-    _count(201, "coffee", "Coffee"),
-    _count(202, "americano", "Americano"),
-    _count(203, "cappuccino", "Cappuccino"),
-    _count(204, "caffe_latte", "Caffè latte"),
-    _count(205, "macchiato", "Latte macchiato"),
-    _count(206, "milk", "Milk"),
-    _count(207, "hot_water", "Hot water"),
-    _count(208, "my_coffee", "My coffee"),
-    _count(209, "steam_drinks", "Steam drinks"),
-    _count(210, "powder_coffee", "Powder coffee"),
-    _count(211, "single_cup", "Single cup brews"),
-    _count(212, "double_cup", "Double cup brews"),
-    _count(213, "total_beverages", "Total beverages"),
-    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
-    _count(215, "clean_frother", "Clean frother", "maintenance"),
-    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
-    _count(217, "rinse_frother", "Rinse frother", "maintenance"),
-    _count(218, "rinse_filter", "Rinse filter", "maintenance"),
-    _count(219, "filter_changes", "Filter changes", "maintenance"),
-    _count(220, "descaling", "Descaling", "maintenance"),
-    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
-    _pct(600, "descale_percent", "Descale progress"),
-    _flag(601, "descale_warning", "Descale warning"),
-    _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
-    _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
-    _pct(620, "frother_clean_percent", "Frother clean progress"),
-    _flag(621, "frother_clean_warning", "Frother clean warning"),
-    _pct(640, "filter_percent", "Filter progress"),
-    _flag(641, "filter_warning", "Filter warning"),
-    _flag(101, "filter_dependency", "Filter dependency"),
-)
-
-# 900-Light shares the same stats table as 900 (same hardware counter
-# set on both variants).
-_STATS_900_LIGHT: tuple[StatDescriptor, ...] = _STATS_900
-
-# 1030 family — 24 counters, distinctly numbered from 8000/900:
-# id 213 is "single cup" (not Total), 215 is Total, 222 is Descaling.
-# Filter dependency is 101.
-_STATS_1030: tuple[StatDescriptor, ...] = (
-    _count(200, "espresso", "Espresso"),
-    # id 201 = "Coffee" counter, not Lungo. We used to label it `lungo`
-    # — corrected in v0.77.0; entity registry migration renames
-    # existing user entries.
-    _count(201, "coffee", "Coffee"),
-    _count(202, "americano", "Americano"),
-    _count(203, "cappuccino", "Cappuccino"),
-    _count(204, "caffe_latte", "Caffè latte"),
-    _count(205, "macchiato", "Latte macchiato"),
-    _count(206, "warm_milk", "Warm milk"),
-    _count(207, "hot_milk", "Hot milk"),
-    _count(208, "milk_foam", "Milk foam"),
-    _count(209, "hot_water", "Hot water"),
-    # Added in v0.77.0: id 210 is the MyCoffee counter — was missing
-    # entirely on 1030/1040.
-    _count(210, "my_coffee", "My coffee"),
-    _count(211, "steam_drinks", "Steam drinks"),
-    _count(212, "powder_coffee", "Powder coffee"),
-    _count(213, "single_cup", "Single cup brews"),
-    _count(214, "double_cup", "Double cup brews"),
-    _count(215, "total_beverages", "Total beverages"),
-    _count(216, "clean_coffee_system", "Clean coffee system", "maintenance"),
-    _count(217, "clean_frother", "Clean frother", "maintenance"),
-    _count(218, "rinse_cycles", "Rinse cycles", "maintenance"),
-    _count(219, "rinse_frother", "Rinse frother", "maintenance"),
-    _count(220, "rinse_filter", "Rinse filter", "maintenance"),
-    _count(221, "filter_changes", "Filter changes", "maintenance"),
-    _count(222, "descaling", "Descaling", "maintenance"),
-    _count(223, "beverages_via_app", "Beverages via app", "maintenance"),
-    # id 224 hasn't been seen in any vendor reference data we trust —
-    # origin unclear. Kept enabled until we get a field-confirmed read
-    # from a real NICR 1030/1040; "(experimental)" in the title flags
-    # the uncertainty.
-    _count(224, "beverages_via_kanne", "Beverages via Kanne (experimental)", "maintenance"),
-    _pct(600, "descale_percent", "Descale progress"),
-    _flag(601, "descale_warning", "Descale warning"),
-    _pct(610, "brew_unit_clean_percent", "Brew unit clean progress"),
-    _flag(611, "brew_unit_clean_warning", "Brew unit clean warning"),
-    _pct(620, "frother_clean_percent", "Frother clean progress"),
-    _flag(621, "frother_clean_warning", "Frother clean warning"),
-    _pct(640, "filter_percent", "Filter progress"),
-    _flag(641, "filter_warning", "Filter warning"),
-    _flag(101, "filter_dependency", "Filter dependency"),
-)
-
-# 1040 family — identical to 1030 minus selector 207 (HeisseMilch):
-# 1040 doesn't expose a separate hot-milk counter.
-_STATS_1040: tuple[StatDescriptor, ...] = tuple(
-    s for s in _STATS_1030 if s.stat_id != 207
-)
+_STATS_900: tuple[StatDescriptor, ...] = _family_900.STATS_900
+_STATS_900_LIGHT: tuple[StatDescriptor, ...] = _family_900.STATS_900_LIGHT
+_STATS_1030: tuple[StatDescriptor, ...] = _family_1030.STATS_1030
+_STATS_1040: tuple[StatDescriptor, ...] = _family_1030.STATS_1040
 
 
 # ---------------------------------------------------------------------------
@@ -470,68 +148,13 @@ _STATS_1040: tuple[StatDescriptor, ...] = tuple(
 
 _STANDARD_RECIPE_LAYOUTS: dict[str, RecipeFieldLayout] = {
     "600": _family_600.STANDARD_LAYOUT,
-    "700": RecipeFieldLayout(
-        family_key="700",
-        strength_offset=1, profile_offset=2, temperature_offset=3,
-        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
-        milk_amount_offset=7, milk_foam_amount_offset=8,
-    ),
-    "79x": RecipeFieldLayout(
-        family_key="79x",
-        strength_offset=1, profile_offset=2, temperature_offset=3,
-        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
-        milk_amount_offset=7, milk_foam_amount_offset=8,
-    ),
-    "900": RecipeFieldLayout(
-        family_key="900",
-        strength_offset=1, profile_offset=2, preparation_offset=3,
-        two_cups_offset=4,
-        coffee_temperature_offset=5, water_temperature_offset=6,
-        milk_temperature_offset=7, milk_foam_temperature_offset=8,
-        coffee_amount_offset=9, water_amount_offset=10,
-        milk_amount_offset=11, milk_foam_amount_offset=12,
-        overall_temperature_offset=13,
-        # fluid_write_scale_10: previously set True here; the upstream
-        # RE flagged it but the observed machine behaviour does not
-        # apply a ×10 scaling to fluid amounts in HW writes. Reverted
-        # to the default of False until a live trace confirms a
-        # family that actually needs it.
-        fluid_write_scale_10=False,
-    ),
-    "900-light": RecipeFieldLayout(
-        family_key="900-light",
-        strength_offset=1, profile_offset=2, preparation_offset=3,
-        two_cups_offset=4,
-        coffee_temperature_offset=5, water_temperature_offset=6,
-        milk_temperature_offset=7, milk_foam_temperature_offset=8,
-        coffee_amount_offset=9, water_amount_offset=10,
-        milk_amount_offset=11, milk_foam_amount_offset=12,
-        overall_temperature_offset=13,
-    ),
-    "1030": RecipeFieldLayout(
-        family_key="1030",
-        strength_offset=1, profile_offset=2, preparation_offset=3,
-        two_cups_offset=4,
-        coffee_temperature_offset=5, water_temperature_offset=6,
-        milk_temperature_offset=7, milk_foam_temperature_offset=8,
-        coffee_amount_offset=9, water_amount_offset=10,
-        milk_amount_offset=11, milk_foam_amount_offset=12,
-    ),
-    "1040": RecipeFieldLayout(
-        family_key="1040",
-        strength_offset=1, profile_offset=2, preparation_offset=3,
-        two_cups_offset=4,
-        coffee_temperature_offset=5, water_temperature_offset=6,
-        milk_temperature_offset=7, milk_foam_temperature_offset=8,
-        coffee_amount_offset=9, water_amount_offset=10,
-        milk_amount_offset=11, milk_foam_amount_offset=12,
-    ),
-    "8000": RecipeFieldLayout(
-        family_key="8000",
-        strength_offset=1, profile_offset=2, temperature_offset=3,
-        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
-        milk_amount_offset=7, milk_foam_amount_offset=8,
-    ),
+    "700": _family_700.STANDARD_LAYOUT_700,
+    "79x": _family_700.STANDARD_LAYOUT_79X,
+    "900": _family_900.STANDARD_LAYOUT_900,
+    "900-light": _family_900.STANDARD_LAYOUT_900_LIGHT,
+    "1030": _family_1030.STANDARD_LAYOUT_1030,
+    "1040": _family_1030.STANDARD_LAYOUT_1040,
+    "8000": _family_8000.STANDARD_LAYOUT_8000,
 }
 
 
@@ -542,75 +165,13 @@ _STANDARD_RECIPE_LAYOUTS: dict[str, RecipeFieldLayout] = {
 
 _MYCOFFEE_LAYOUTS: dict[str, RecipeFieldLayout] = {
     "600": _family_600.MYCOFFEE_LAYOUT,
-    "700": RecipeFieldLayout(
-        family_key="700",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, temperature_offset=6,
-        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
-        milk_amount_offset=10, milk_foam_amount_offset=11,
-    ),
-    "79x": RecipeFieldLayout(
-        family_key="79x",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, temperature_offset=6,
-        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
-        milk_amount_offset=10, milk_foam_amount_offset=11,
-    ),
-    "900": RecipeFieldLayout(
-        family_key="900",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, preparation_offset=6,
-        two_cups_offset=7,
-        coffee_temperature_offset=8, water_temperature_offset=9,
-        milk_temperature_offset=10, milk_foam_temperature_offset=11,
-        coffee_amount_offset=12, water_amount_offset=13,
-        milk_amount_offset=14, milk_foam_amount_offset=15,
-        overall_temperature_offset=16,
-        # fluid_write_scale_10: previously set True here; the upstream
-        # RE flagged it but the observed machine behaviour does not
-        # apply a ×10 scaling to fluid amounts in HW writes. Reverted
-        # to the default of False until a live trace confirms a
-        # family that actually needs it.
-        fluid_write_scale_10=False,
-    ),
-    "900-light": RecipeFieldLayout(
-        family_key="900-light",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, preparation_offset=6,
-        two_cups_offset=7,
-        coffee_temperature_offset=8, water_temperature_offset=9,
-        milk_temperature_offset=10, milk_foam_temperature_offset=11,
-        coffee_amount_offset=12, water_amount_offset=13,
-        milk_amount_offset=14, milk_foam_amount_offset=15,
-        overall_temperature_offset=16,
-    ),
-    "1030": RecipeFieldLayout(
-        family_key="1030",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, preparation_offset=6,
-        two_cups_offset=7,
-        coffee_temperature_offset=8, water_temperature_offset=9,
-        milk_temperature_offset=10, milk_foam_temperature_offset=11,
-        coffee_amount_offset=12, water_amount_offset=13,
-        milk_amount_offset=14, milk_foam_amount_offset=15,
-    ),
-    "1040": RecipeFieldLayout(
-        family_key="1040",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, preparation_offset=6,
-        two_cups_offset=7,
-        coffee_temperature_offset=8, water_temperature_offset=9,
-        milk_temperature_offset=10, milk_foam_temperature_offset=11,
-        coffee_amount_offset=12, water_amount_offset=13,
-        milk_amount_offset=14, milk_foam_amount_offset=15,
-    ),
-    "8000": RecipeFieldLayout(
-        family_key="8000",
-        enabled_offset=0, name_offset=2, icon_offset=3, type_offset=3,
-        strength_offset=4, profile_offset=5, temperature_offset=6,
-        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
-        milk_amount_offset=10, milk_foam_amount_offset=11,
-    ),
+    "700": _family_700.MYCOFFEE_LAYOUT_700,
+    "79x": _family_700.MYCOFFEE_LAYOUT_79X,
+    "900": _family_900.MYCOFFEE_LAYOUT_900,
+    "900-light": _family_900.MYCOFFEE_LAYOUT_900_LIGHT,
+    "1030": _family_1030.MYCOFFEE_LAYOUT_1030,
+    "1040": _family_1030.MYCOFFEE_LAYOUT_1040,
+    "8000": _family_8000.MYCOFFEE_LAYOUT_8000,
 }
 
 
@@ -653,99 +214,13 @@ _FAMILY_STATS: dict[str, tuple[StatDescriptor, ...]] = {
 
 _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
     "600": _family_600.CAPABILITIES,
-    "700": MachineCapabilities(
-        family_key="700",
-        model_name="Nivona NICR 7xx",
-        supports_recipe_writes=False,
-        supports_stats=True,
-        my_coffee_slots=4,
-        strength_levels=3,
-        has_aroma_balance=True,
-        brew_command_mode=0x0B,
-        recipes=_RECIPES_700,
-        settings=_FAMILY_SETTINGS['700'],
-        stats=_FAMILY_STATS['700'],
-    ),
-    "79x": MachineCapabilities(
-        family_key="79x",
-        model_name="Nivona NICR 79x",
-        supports_recipe_writes=False,
-        supports_stats=True,
-        my_coffee_slots=4,
-        strength_levels=5,
-        has_aroma_balance=True,
-        brew_command_mode=0x0B,
-        recipes=_RECIPES_79X,
-        settings=_FAMILY_SETTINGS['79x'],
-        stats=_FAMILY_STATS['79x'],
-    ),
-    "900": MachineCapabilities(
-        family_key="900",
-        model_name="Nivona NICR 9xx",
-        supports_recipe_writes=False,
-        supports_stats=True,
-        my_coffee_slots=4,
-        strength_levels=5,
-        has_aroma_balance=False,
-        brew_command_mode=0x0B,
-        fluid_scale_factor=10,
-        # NICR 930 leaves MOVE_CUP_TO_FROTHER (11) set after a brew
-        # until the next status frame; tolerate so subsequent brews
-        # are not falsely blocked.
-        tolerated_brew_manipulations=(11,),
-        recipes=_RECIPES_900,
-        settings=_FAMILY_SETTINGS['900'],
-        stats=_FAMILY_STATS['900'],
-    ),
-    "900-light": MachineCapabilities(
-        family_key="900-light",
-        model_name="Nivona NICR 9xx Light",
-        supports_recipe_writes=False,
-        supports_stats=True,
-        my_coffee_slots=4,
-        strength_levels=3,
-        brew_command_mode=0x0B,
-        tolerated_brew_manipulations=(11,),
-        recipes=_RECIPES_900_LIGHT,
-        settings=_FAMILY_SETTINGS['900-light'],
-        stats=_FAMILY_STATS['900-light'],
-    ),
-    "1030": MachineCapabilities(
-        family_key="1030",
-        model_name="Nivona NICR 1030",
-        supports_recipe_writes=False,
-        supports_stats=False,
-        my_coffee_slots=4,
-        strength_levels=5,
-        brew_command_mode=0x0B,
-        recipes=_RECIPES_1030,
-        settings=_FAMILY_SETTINGS['1030'],
-        stats=_FAMILY_STATS['1030'],
-    ),
-    "1040": MachineCapabilities(
-        family_key="1040",
-        model_name="Nivona NICR 1040",
-        supports_recipe_writes=False,
-        supports_stats=False,
-        my_coffee_slots=4,
-        strength_levels=5,
-        brew_command_mode=0x0B,
-        recipes=_RECIPES_1040,
-        settings=_FAMILY_SETTINGS['1040'],
-        stats=_FAMILY_STATS['1040'],
-    ),
-    "8000": MachineCapabilities(
-        family_key="8000",
-        model_name="Nivona NIVO 8xxx",
-        supports_recipe_writes=False,
-        supports_stats=True,
-        my_coffee_slots=4,
-        strength_levels=5,
-        brew_command_mode=0x04,    # NIVO8000 uses different brew opcode byte
-        recipes=_RECIPES_8000,
-        settings=_FAMILY_SETTINGS['8000'],
-        stats=_FAMILY_STATS['8000'],
-    ),
+    "700": _family_700.CAPABILITIES_700,
+    "79x": _family_700.CAPABILITIES_79X,
+    "900": _family_900.CAPABILITIES_900,
+    "900-light": _family_900.CAPABILITIES_900_LIGHT,
+    "1030": _family_1030.CAPABILITIES_1030,
+    "1040": _family_1030.CAPABILITIES_1040,
+    "8000": _family_8000.CAPABILITIES_8000,
 }
 
 # ---------------------------------------------------------------------------
