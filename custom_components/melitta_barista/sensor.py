@@ -107,15 +107,13 @@ async def async_setup_entry(
     # cache is populated by the post-connect bulk read in
     # ``BleRecipesMixin.read_mycoffee_slots``; sensors stay
     # ``unavailable`` until the first read completes.
-    if (
-        caps is not None
-        and client.brand.brand_slug == "nivona"
-        and caps.my_coffee_slots > 0
-    ):
-        from .brands.nivona import mycoffee_layout  # noqa: PLC0415
-        from ._ble_recipes import _MYCOFFEE_AMOUNT_PARAMS  # noqa: PLC0415
-        layout = mycoffee_layout(caps.family_key)
-        if layout is not None:
+    # MyCoffee bulk-read sensors — only register for brands whose profile
+    # advertises a MyCoffee layout (Nivona). Melitta's mycoffee_layout
+    # returns None and the block short-circuits.
+    if caps is not None:
+        layout = client.brand.mycoffee_layout(caps.family_key)
+        if layout is not None and caps.my_coffee_slots > 0:
+            from ._ble_recipes import _MYCOFFEE_AMOUNT_PARAMS  # noqa: PLC0415
             for slot in range(caps.my_coffee_slots):
                 for param_key in _MYCOFFEE_AMOUNT_PARAMS:
                     if getattr(layout, f"{param_key}_offset") is None:

@@ -518,19 +518,14 @@ class BleRecipesMixin(_MixinBase):
         """
         if not self.connected:
             return False
-        if getattr(self._brand, "brand_slug", "") != "nivona":
-            return False
         caps = self._capabilities
         if caps is None or caps.my_coffee_slots <= 0:
             return False
 
-        # Lazily import the Nivona-specific helpers so we don't drag
-        # them into the mixin for brands that don't use them.
-        from .brands.nivona import (
-            mycoffee_layout, mycoffee_register,
-        )  # noqa: PLC0415
-
-        layout = mycoffee_layout(caps.family_key)
+        # Brand-agnostic MyCoffee read: ask the profile for the layout.
+        # Brands without a contiguous MyCoffee register block (e.g.
+        # Melitta — DirectKey-per-slot) return None and we skip.
+        layout = self._brand.mycoffee_layout(caps.family_key)
         if layout is None:
             return False
 
@@ -548,7 +543,9 @@ class BleRecipesMixin(_MixinBase):
             for param_key, offset in param_specs:
                 if offset is None:
                     continue
-                register = mycoffee_register(slot, offset)
+                register = self._brand.mycoffee_register(slot, offset)
+                if register is None:
+                    continue
                 try:
                     val = await self._protocol.read_numerical(
                         self._write_ble, register,

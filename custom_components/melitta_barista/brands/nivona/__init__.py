@@ -132,6 +132,12 @@ class NivonaProfile:
 
     families: ClassVar[dict[str, MachineCapabilities]] = _NIVONA_FAMILIES
 
+    # Temp-recipe class-announcement register — written before HE brew
+    # with per-brew overrides so the firmware knows which recipe class
+    # the subsequent offsets belong to. Same register as the temp-recipe
+    # base on Nivona (single fixed slot).
+    temp_recipe_type_register: ClassVar[int | None] = TEMP_RECIPE_TYPE_REGISTER
+
     @property
     def runtime_rc4_key(self) -> bytes:
         return _NIVONA_RC4_KEY

@@ -18,7 +18,7 @@ from typing import ClassVar
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from .base import MachineCapabilities
+from .base import MachineCapabilities, RecipeFieldLayout
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -198,3 +198,47 @@ class MelittaProfile:
         (READY=2, PRODUCT=4, …) — delegate to the canonical parser."""
         from ..protocol import MachineStatus  # noqa: PLC0415
         return MachineStatus.from_payload(data)
+
+    # ----------------------------------------------------------------- #
+    # Recipe write-path contract (PR-32).
+    #
+    # Melitta uses HC/HJ-based recipe writes and DirectKey-per-slot
+    # MyCoffee — neither of which goes through the temp-recipe /
+    # contiguous-MyCoffee-register pattern Nivona uses. All stubs
+    # return None / 1 / False so shared mixins don't need to test
+    # ``brand_slug``.
+    # ----------------------------------------------------------------- #
+
+    temp_recipe_type_register: ClassVar[int | None] = None
+
+    @staticmethod
+    def temp_recipe_register(
+        family_key: str, recipe_id: int, field: str,
+    ) -> int | None:
+        """Melitta doesn't expose a temp-recipe register block."""
+        del family_key, recipe_id, field
+        return None
+
+    @staticmethod
+    def fluid_write_scale(family_key: str) -> int:
+        """Melitta writes fluid amounts in ml directly — scale = 1."""
+        del family_key
+        return 1
+
+    @staticmethod
+    def mycoffee_layout(family_key: str) -> RecipeFieldLayout | None:
+        """Melitta uses DirectKey-per-slot, not a layout-driven block."""
+        del family_key
+        return None
+
+    @staticmethod
+    def mycoffee_register(slot: int, offset: int) -> int | None:
+        """Melitta has no contiguous MyCoffee register region."""
+        del slot, offset
+        return None
+
+    @staticmethod
+    def is_chilled_selector(selector: int) -> bool:
+        """Melitta has no chilled-brew recipes."""
+        del selector
+        return False

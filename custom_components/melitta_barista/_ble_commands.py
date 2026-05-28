@@ -142,11 +142,9 @@ class BleCommandsMixin(_MixinBase):
                 # (the PERSISTENT standard-recipe slot) and silently
                 # corrupted the machine's default recipe definitions.
                 # Fixed in v0.49.0 after audit Finding 10.
-                if overrides and family_key and hasattr(self._brand, "temp_recipe_register"):
-                    from .brands.nivona import TEMP_RECIPE_TYPE_REGISTER  # noqa: PLC0415
-
-                    scale = getattr(self._brand, "fluid_write_scale",
-                                    lambda _: 1)(family_key)
+                type_register = self._brand.temp_recipe_type_register
+                if overrides and family_key and type_register is not None:
+                    scale = self._brand.fluid_write_scale(family_key)
 
                     # Step 1 — announce the recipe type with the
                     # selector as the value. write_numerical packs
@@ -154,13 +152,13 @@ class BleCommandsMixin(_MixinBase):
                     # pair so passing the selector suffices.
                     type_ok = await self._protocol.write_numerical(
                         self._write_ble,
-                        TEMP_RECIPE_TYPE_REGISTER,
+                        type_register,
                         int(recipe_selector),
                     )
                     if not type_ok:
                         _LOGGER.warning(
                             "Temp-recipe type announce at reg %d failed",
-                            TEMP_RECIPE_TYPE_REGISTER,
+                            type_register,
                         )
                     await asyncio.sleep(0.08)
 

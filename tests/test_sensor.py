@@ -8,6 +8,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.melitta_barista.brands import MelittaProfile, NivonaProfile
 from custom_components.melitta_barista.const import DOMAIN, MachineProcess, Manipulation
 from custom_components.melitta_barista.protocol import MachineStatus
 
@@ -33,11 +34,10 @@ def _mock_client(status=None):
     client.start_polling = MagicMock()
     client.profile_names = {0: "My Coffee"}
     client.directkey_recipes = {}
-    # Brand profile mock (Melitta default — supports HC/HJ)
-    client.brand = MagicMock()
-    client.brand.brand_slug = "melitta"
-    client.brand.brand_name = "Melitta"
-    client.brand.supported_extensions = frozenset({"HC", "HJ"})
+    # Real Melitta profile — stateless, gives proper BrandProfile contract
+    # behaviour (mycoffee_layout returns None, temp_recipe_type_register
+    # is None, etc.) without per-method MagicMock setup.
+    client.brand = MelittaProfile()
     return client
 
 
@@ -167,14 +167,11 @@ async def test_action_required_sensor(
 
 
 def _mock_nivona_client(status=None):
-    """Same as `_mock_client` but with brand_slug = 'nivona' and no HC/HJ.
-
-    Used to verify brand-gated sensor registration logic.
-    """
+    """Same as `_mock_client` but with a real NivonaProfile (so the
+    BrandProfile contract methods — mycoffee_layout, supported_extensions,
+    etc. — behave like the real brand)."""
     client = _mock_client(status=status)
-    client.brand.brand_slug = "nivona"
-    client.brand.brand_name = "Nivona"
-    client.brand.supported_extensions = frozenset()
+    client.brand = NivonaProfile()
     # capabilities resolved before setup so BrandStatSensor gets created
     client.capabilities = None
     return client
@@ -223,9 +220,7 @@ async def test_mycoffee_amount_sensors_registered_for_nivona_8000(
     params register per slot.
     """
     client = _mock_client()  # default mock fits — we override below
-    client.brand.brand_slug = "nivona"
-    client.brand.brand_name = "Nivona"
-    client.brand.supported_extensions = frozenset()
+    client.brand = NivonaProfile()
     caps = MagicMock()
     caps.family_key = "8000"
     caps.my_coffee_slots = 9
@@ -261,9 +256,7 @@ async def test_mycoffee_skips_temperature_on_1030_family(
     `temperature` param on those families.
     """
     client = _mock_client()
-    client.brand.brand_slug = "nivona"
-    client.brand.brand_name = "Nivona"
-    client.brand.supported_extensions = frozenset()
+    client.brand = NivonaProfile()
     caps = MagicMock()
     caps.family_key = "1030"
     # 1030 has 18 MyCoffee slots; we only need a few to verify gating.
@@ -290,9 +283,7 @@ async def test_mycoffee_skips_params_missing_from_layout_600(
     the sensor must not register for that param on slots 0..N-1.
     """
     client = _mock_client()
-    client.brand.brand_slug = "nivona"
-    client.brand.brand_name = "Nivona"
-    client.brand.supported_extensions = frozenset()
+    client.brand = NivonaProfile()
     caps = MagicMock()
     caps.family_key = "600"
     caps.my_coffee_slots = 1  # NICR 660 has 1 MyCoffee slot

@@ -178,6 +178,50 @@ class BrandProfile(Protocol):
         translate raw codes to the abstract ``MachineProcess`` enum.
         """
 
+    # ----------------------------------------------------------------- #
+    # Recipe write-path contract (introduced v0.79.0 — see PR-32).
+    #
+    # Brands that don't expose recipe writes / brew overrides
+    # implement these as no-op stubs returning ``None`` / ``1`` /
+    # ``False``. Callers in shared mixins (``_ble_commands``,
+    # ``_ble_recipes``, ``sensor``) use them to drive behaviour
+    # without testing ``brand_slug``.
+    # ----------------------------------------------------------------- #
+
+    # Fixed HW register that announces the temp-recipe class before
+    # an HE brew with per-brew overrides. ``None`` on brands that
+    # don't use this single-slot temp-recipe pattern.
+    temp_recipe_type_register: int | None
+
+    def temp_recipe_register(
+        self,
+        family_key: str,
+        recipe_id: int,
+        field: str,
+    ) -> int | None:
+        """HW register for a per-brew override field, or ``None`` if
+        the family / field is not writable on this brand."""
+
+    def fluid_write_scale(self, family_key: str) -> int:
+        """Per-family fluid-amount scaling factor for write paths.
+        Returns 1 for brands that use ml directly, 10 for families
+        like Nivona 900 that historically wrote ml × 10."""
+
+    def mycoffee_layout(self, family_key: str) -> RecipeFieldLayout | None:
+        """RecipeFieldLayout describing per-slot MyCoffee parameter
+        offsets, or ``None`` if the brand doesn't expose bulk MyCoffee
+        read / per-slot parameter sensors."""
+
+    def mycoffee_register(self, slot: int, offset: int) -> int | None:
+        """Absolute HW register for ``(slot, offset)`` in the
+        MyCoffee region, or ``None`` if the brand doesn't have a
+        contiguous MyCoffee register block."""
+
+    def is_chilled_selector(self, selector: int) -> bool:
+        """True if ``selector`` requires the chilled-brew flag byte
+        when building the HE payload. False for brands without chilled
+        recipes."""
+
 
 # ---------------------------------------------------------------------------
 # Helpers
