@@ -427,3 +427,56 @@ class TestHandshakeResponseVerification:
 
         assert proto._key_prefix is None
         assert proto._handshake_done.is_set()
+
+
+class TestExecuteCommand:
+    """Generic HE-with-commandId path (factory reset etc.).
+
+    Wire layout (18 bytes, before RC4 encryption):
+        payload[0:2]  command_id (BE uint16)
+        payload[2:18] zero padding
+
+    Sent under the existing ``CMD_START_PROCESS`` ("HE") opcode. The
+    same opcode is used both for brewing (`MakeCoffee` payload) and
+    for "execute command" admin actions like factory reset; the
+    firmware distinguishes them by the shape of the 18 bytes.
+    """
+
+    def test_payload_layout_for_factory_reset_settings(self):
+        """commandId 50 (0x0032) — HE_CMD_FACTORY_RESET_SETTINGS."""
+        from custom_components.melitta_barista.protocol import (
+            _build_he_command_payload,
+        )
+        p = _build_he_command_payload(50)
+        assert len(p) == 18
+        assert p[0:2] == b"\x00\x32"
+        assert all(b == 0 for b in p[2:])
+
+    def test_payload_layout_for_factory_reset_recipes(self):
+        """commandId 51 (0x0033) — HE_CMD_FACTORY_RESET_RECIPES."""
+        from custom_components.melitta_barista.protocol import (
+            _build_he_command_payload,
+        )
+        p = _build_he_command_payload(51)
+        assert p[0:2] == b"\x00\x33"
+        assert all(b == 0 for b in p[2:])
+
+    def test_payload_distinguishable_from_brew(self):
+        """A brew payload (MakeCoffee) sets payload[1]=brew_mode (0x0B or
+        0x04), payload[3]=selector, payload[5]=0x01. A command payload
+        sets payload[0:2]=commandId, rest zero. The shapes don't
+        overlap: commandId 50/51 have payload[0]=0 (high byte) and
+        payload[1]=0x32/0x33, while brew has payload[0]=0 and
+        payload[1]=0x0B or 0x04 — distinguishable by the firmware.
+        """
+        from custom_components.melitta_barista.protocol import (
+            _build_he_command_payload,
+        )
+        cmd = _build_he_command_payload(50)
+        # commandId 50 → payload[1] = 0x32, NOT 0x0B or 0x04
+        assert cmd[1] == 0x32
+        assert cmd[1] not in (0x04, 0x0B)
+        # Selector slot stays zero for command-mode payloads
+        assert cmd[3] == 0
+        # Mode-byte slot stays zero (vs 0x01 for use-temp-recipe brew)
+        assert cmd[5] == 0

@@ -95,6 +95,24 @@ def _rc4_crypt(data: bytes, key: bytes) -> bytes:
     return bytes(out)
 
 
+def _build_he_command_payload(command_id: int) -> bytes:
+    """Build the 18-byte HE-with-commandId payload.
+
+    Layout:
+
+        payload[0:2]  command_id (BE uint16)
+        payload[2:18] zero padding
+
+    Sent under the same ``HE`` opcode that brew uses; the firmware
+    distinguishes brew from "execute command" by the payload shape.
+    See ``EugsterProtocol.execute_command``.
+    """
+    payload = bytearray(18)
+    payload[0] = (command_id >> 8) & 0xFF
+    payload[1] = command_id & 0xFF
+    return bytes(payload)
+
+
 def _calculate_checksum(frame: bytes, length: int) -> int:
     """Calculate frame checksum: ~(sum of bytes[1..length]) & 0xFF."""
     s = 0
@@ -870,6 +888,22 @@ class EugsterProtocol:
         payload[3] = recipe_selector & 0xFF
         payload[5] = 0x00 if chilled or not use_temp_recipe else 0x01
         return await self.send_and_wait_ack(CMD_START_PROCESS, bytes(payload), write_func)
+
+    async def execute_command(self, write_func, command_id: int) -> bool:
+        """Send an HE-with-commandId action (factory reset etc.).
+
+        The same opcode (`HE`, `CMD_START_PROCESS`) is used for brewing
+        and for "execute command" admin actions; the firmware
+        distinguishes them by the 18-byte payload shape. See
+        `_build_he_command_payload` for the layout.
+
+        Used by `melitta_barista.button` factory-reset entities for
+        Nivona families that expose the corresponding menu in the
+        vendor app (600 / 700 / 79x / 900 / 900-light / 1030 / 1040 —
+        NOT NIVO 8000).
+        """
+        payload = _build_he_command_payload(command_id)
+        return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
 
     async def cancel_process(self, write_func, process_value: int) -> bool:
         payload = struct.pack(">h", process_value) + b"\x00\x00"

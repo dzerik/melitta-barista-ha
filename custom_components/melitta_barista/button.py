@@ -6,7 +6,7 @@ import asyncio
 import logging
 
 from bleak.exc import BleakError
-from homeassistant.components.button import ButtonEntity
+from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
@@ -15,7 +15,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import MelittaBleClient
 from .const import (
-    FREESTYLE_RECIPE_TYPE, PROMPT_MANIPULATIONS, RECIPE_NAMES, MachineProcess,
+    FREESTYLE_RECIPE_TYPE, HE_CMD_FACTORY_RESET_RECIPES,
+    HE_CMD_FACTORY_RESET_SETTINGS, PROMPT_MANIPULATIONS, RECIPE_NAMES,
+    MachineProcess,
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
 )
 from .entity import MelittaDeviceMixin
@@ -62,6 +64,15 @@ async def async_setup_entry(
 
     # Confirm machine prompt (HY command) — generic
     entities.append(MelittaConfirmPromptButton(client, entry, name))
+
+    # Factory reset buttons — Nivona only. The vendor app exposes
+    # these on families 600 / 700 / 79x / 900 / 900-light / 1030 /
+    # 1040 but NOT on NIVO 8000, so we mirror that gating. Buttons
+    # are gated at runtime via the `available` property so a
+    # late-resolving family is handled gracefully.
+    if client.brand.brand_slug == "nivona":
+        entities.append(NivonaFactoryResetSettingsButton(client, entry, name))
+        entities.append(NivonaFactoryResetRecipesButton(client, entry, name))
 
     # Maintenance buttons
     entities.append(MelittaMaintenanceButton(
@@ -299,6 +310,88 @@ class MelittaResetRecipeButton(_MelittaButtonBase):
                 )
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("BLE error while resetting recipe %s", recipe_name)
+
+
+
+# Nivona families that expose factory-reset buttons in the vendor app.
+# NIVO 8000 does not — its settings screen has no reset entries — so
+# we follow the same gating here.
+_FACTORY_RESET_FAMILIES = frozenset(
+    {"600", "700", "79x", "900", "900-light", "1030", "1040"}
+)
+
+
+class _NivonaFactoryResetButtonBase(_MelittaButtonBase):
+    """Shared base for the two Nivona factory-reset buttons.
+
+    Both buttons send the same HE opcode with different 18-byte
+    command-id payloads (see `protocol._build_he_command_payload`).
+    Available only on Nivona families that expose the corresponding
+    menu in the vendor app — NIVO 8000 has no factory-reset menu
+    there, so we hide the entity for it.
+    """
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_device_class = ButtonDeviceClass.RESTART
+    _attr_icon = "mdi:restore-alert"
+
+    # Subclasses provide these.
+    _command_id: int = 0
+    _slug: str = ""
+    _log_label: str = ""
+
+    @property
+    def unique_id(self) -> str:
+        return f"{self._client.address}_factory_reset_{self._slug}"
+
+    @property
+    def available(self) -> bool:
+        if not self._client.connected:
+            return False
+        caps = getattr(self._client, "capabilities", None)
+        if caps is None:
+            # Capability hasn't resolved yet (usually moments after
+            # connect). Stay unavailable until we know whether this is
+            # an 8000-family machine.
+            return False
+        return caps.family_key in _FACTORY_RESET_FAMILIES
+
+    async def async_press(self) -> None:
+        _LOGGER.warning(
+            "Initiating Nivona factory reset (%s, HE commandId=%d) on %s",
+            self._log_label, self._command_id, self._client.address,
+        )
+        try:
+            success = await self._client.execute_he_command(self._command_id)
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception(
+                "BLE error during factory reset %s", self._log_label,
+            )
+            return
+        if not success:
+            _LOGGER.warning(
+                "Factory reset %s returned NACK or timeout — machine "
+                "may not be in a ready state",
+                self._log_label,
+            )
+
+
+class NivonaFactoryResetSettingsButton(_NivonaFactoryResetButtonBase):
+    """Reset machine-wide settings to factory defaults (HE commandId 50)."""
+
+    _attr_name = "Factory Reset Settings"
+    _command_id = HE_CMD_FACTORY_RESET_SETTINGS
+    _slug = "settings"
+    _log_label = "settings"
+
+
+class NivonaFactoryResetRecipesButton(_NivonaFactoryResetButtonBase):
+    """Reset per-recipe customizations to factory defaults (HE commandId 51)."""
+
+    _attr_name = "Factory Reset Recipes"
+    _command_id = HE_CMD_FACTORY_RESET_RECIPES
+    _slug = "recipes"
+    _log_label = "recipes"
 
 
 class MelittaConfirmPromptButton(_MelittaButtonBase):

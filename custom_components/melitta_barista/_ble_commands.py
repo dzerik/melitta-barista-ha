@@ -378,6 +378,26 @@ class BleCommandsMixin(_MixinBase):
                     _LOGGER.exception("Error in recipe refresh callback")
         return True
 
+    async def execute_he_command(self, command_id: int) -> bool:
+        """Run an HE-with-commandId Nivona admin action.
+
+        Currently used for the factory-reset buttons
+        (`HE_CMD_FACTORY_RESET_SETTINGS` = 50, `HE_CMD_FACTORY_RESET_RECIPES`
+        = 51). Returns ``True`` on machine ACK, ``False`` on NACK /
+        timeout / disconnected.
+        """
+        if not self.connected:
+            return False
+        try:
+            return await self._protocol.execute_command(
+                self._write_ble, command_id,
+            )
+        except (BleakError, OSError, asyncio.TimeoutError):
+            _LOGGER.exception(
+                "BLE error executing HE commandId %d", command_id,
+            )
+            return False
+
     async def confirm_prompt(self) -> bool:
         """Send HY to confirm the current machine prompt (move cup, flush, ...).
 

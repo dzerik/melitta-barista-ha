@@ -64,6 +64,12 @@ CMD_READ_ALPHA = "HA"
 CMD_WRITE_ALPHA = "HB"
 CMD_READ_RECIPE = "HC"
 CMD_START_PROCESS = "HE"
+
+# Nivona "execute command" IDs sent inside an HE 18-byte payload
+# (payload[0:2] = command_id BE). Each commandId triggers a maintenance /
+# admin action on the machine.
+HE_CMD_FACTORY_RESET_SETTINGS = 50  # 0x0032 — wipes machine-wide settings
+HE_CMD_FACTORY_RESET_RECIPES = 51   # 0x0033 — wipes per-recipe customizations
 CMD_WRITE_RECIPE = "HJ"
 CMD_READ_NUMERICAL = "HR"
 CMD_READ_VERSION = "HV"

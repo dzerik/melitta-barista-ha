@@ -605,3 +605,112 @@ async def test_confirm_prompt_button_press(
     await btn.async_press()
 
     client.confirm_prompt.assert_awaited_once()
+
+
+def _mock_nivona_client(family_key="700"):
+    """Nivona client mock with capabilities preset to the given family.
+
+    Used to verify factory-reset button gating per family.
+    """
+    client = _mock_client()
+    client.brand.brand_slug = "nivona"
+    client.brand.brand_name = "Nivona"
+    client.brand.supported_extensions = frozenset()
+    # Minimal capabilities stub — enough for `available` checks.
+    caps = MagicMock()
+    caps.family_key = family_key
+    caps.my_coffee_slots = 1
+    caps.stats = ()
+    client.capabilities = caps
+    client.execute_he_command = AsyncMock(return_value=True)
+    return client
+
+
+async def test_factory_reset_buttons_registered_for_nivona_700(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Both factory-reset buttons appear for a Nivona 700-family entry."""
+    client = _mock_nivona_client(family_key="700")
+    await _setup_integration(hass, mock_entry, client)
+
+    button_ids = [
+        s.entity_id for s in hass.states.async_all("button")
+    ]
+    assert any("factory_reset_settings" in eid for eid in button_ids), button_ids
+    assert any("factory_reset_recipes" in eid for eid in button_ids), button_ids
+
+
+async def test_factory_reset_buttons_unavailable_for_nivona_8000(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Buttons register on Nivona but stay 'unavailable' for 8000 family.
+
+    Mirrors the vendor-app gating: NIVO 8000 has no factory-reset
+    menu, so the buttons stay unavailable even though they're
+    registered as Nivona-brand entities.
+    """
+    client = _mock_nivona_client(family_key="8000")
+    await _setup_integration(hass, mock_entry, client)
+
+    settings_state = next(
+        (s for s in hass.states.async_all("button")
+         if "factory_reset_settings" in s.entity_id),
+        None,
+    )
+    recipes_state = next(
+        (s for s in hass.states.async_all("button")
+         if "factory_reset_recipes" in s.entity_id),
+        None,
+    )
+    assert settings_state is not None, "Button registered (state must exist)"
+    assert recipes_state is not None
+    # Family is 8000 → button stays unavailable.
+    assert settings_state.state == "unavailable"
+    assert recipes_state.state == "unavailable"
+
+
+async def test_factory_reset_buttons_not_registered_for_melitta(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Melitta brand does not get the Nivona factory-reset buttons at all."""
+    client = _mock_client()  # default brand = melitta
+    await _setup_integration(hass, mock_entry, client)
+
+    button_ids = [s.entity_id for s in hass.states.async_all("button")]
+    assert not any(
+        "factory_reset" in eid for eid in button_ids
+    ), button_ids
+
+
+async def test_factory_reset_settings_press_invokes_command_50(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Pressing the settings reset button calls execute_he_command(50)."""
+    client = _mock_nivona_client(family_key="700")
+    await _setup_integration(hass, mock_entry, client)
+
+    settings_eid = next(
+        s.entity_id for s in hass.states.async_all("button")
+        if "factory_reset_settings" in s.entity_id
+    )
+    await hass.services.async_call(
+        "button", "press", {"entity_id": settings_eid}, blocking=True,
+    )
+    client.execute_he_command.assert_awaited_with(50)
+
+
+async def test_factory_reset_recipes_press_invokes_command_51(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Pressing the recipes reset button calls execute_he_command(51)."""
+    client = _mock_nivona_client(family_key="700")
+    await _setup_integration(hass, mock_entry, client)
+
+    recipes_eid = next(
+        s.entity_id for s in hass.states.async_all("button")
+        if "factory_reset_recipes" in s.entity_id
+    )
+    await hass.services.async_call(
+        "button", "press", {"entity_id": recipes_eid}, blocking=True,
+    )
+    client.execute_he_command.assert_awaited_with(51)
