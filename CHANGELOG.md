@@ -2,6 +2,21 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.78.1] — 2026-05-28
+
+### Refactored
+
+- **`brands/nivona.py` split into a package**: 1277-line monolith decomposed into per-family modules. The single file becomes `brands/nivona/` with five brand-level primitives (`_crypto.py`, `_options.py`, `_registers.py`, `_stats_helpers.py`, `_prefixes.py`) plus one module per family (`_family_600.py`, `_family_700.py` for 700+79x, `_family_900.py` for 900+900-light, `_family_1030.py` for 1030+1040, `_family_8000.py`). The public `NivonaProfile` class and every external import path through `brands.nivona` (`NivonaProfile`, `mycoffee_layout`, `mycoffee_register`, `MY_COFFEE_BASE_REGISTER`, `MY_COFFEE_SLOT_STRIDE`, `TEMP_RECIPE_TYPE_REGISTER`) stay unchanged. `__init__.py` shrinks to ~280 lines: dispatch tables of family-module attributes + the `NivonaProfile` class only.
+
+### Fixed
+
+- **`NivonaProfile.parse_status` broken since v0.78.0 rename**: the lazy `from ..const import …` / `from ..protocol import MachineStatus` references inside `parse_status` did not get re-rooted when the file moved one level deeper into the new package, so any HX status frame would crash with `ModuleNotFoundError`. Re-pointed at `...const` / `...protocol` and added regression tests covering the 8000 and 700 process-code dispatch.
+
+### Tests
+
+- 2 new regression tests pinning `parse_status` against future package moves (`tests/test_brands.py::test_nivona_parse_status_8000_ready` + `test_nivona_parse_status_700_product`).
+- Full suite: 992 passed (was 990 on v0.78.0).
+
 ## [0.78.0] — 2026-05-28
 
 ### Added

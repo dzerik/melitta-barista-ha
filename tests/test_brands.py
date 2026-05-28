@@ -463,6 +463,26 @@ def test_nivona_recipe_contains_espresso():
         assert first.name == "Espresso"
 
 
+def test_nivona_parse_status_8000_ready():
+    """parse_status maps process=3 to READY on 8000 (regression guard for
+    the brands.nivona → brands.nivona/__init__ package move, which broke
+    the ``..const`` / ``..protocol`` relative imports used inside this
+    method until they were re-rooted to ``...const`` / ``...protocol``)."""
+    from custom_components.melitta_barista.const import MachineProcess
+    np_ = NivonaProfile()
+    # 8 bytes: process=3, sub=0, message=0, progress=0
+    status = np_.parse_status("8000", bytes([0, 3, 0, 0, 0, 0, 0, 0]))
+    assert status.process == MachineProcess.READY
+
+
+def test_nivona_parse_status_700_product():
+    """Non-8000 families: process=11 maps to PRODUCT."""
+    from custom_components.melitta_barista.const import MachineProcess
+    np_ = NivonaProfile()
+    status = np_.parse_status("700", bytes([0, 11, 0, 0, 0, 0, 0, 0]))
+    assert status.process == MachineProcess.PRODUCT
+
+
 # ---------------------------------------------------------------------------
 # Error sugar
 # ---------------------------------------------------------------------------
