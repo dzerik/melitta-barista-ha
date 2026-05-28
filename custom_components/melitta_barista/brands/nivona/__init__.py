@@ -63,6 +63,7 @@ from ._registers import (
     standard_recipe_register,
 )
 from ._stats_helpers import _count, _flag, _pct
+from . import _family_600
 
 
 # ---------------------------------------------------------------------------
@@ -70,14 +71,7 @@ from ._stats_helpers import _count, _flag, _pct
 # Per-family standard-recipe lists. Each entry is (selector, key, title).
 # ---------------------------------------------------------------------------
 
-_RECIPES_600: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Frothy Milk", "milk_drink"),
-    RecipeDescriptor(5, "Hot Water", "water"),
-)
+_RECIPES_600: tuple[RecipeDescriptor, ...] = _family_600.RECIPES
 
 _RECIPES_700: tuple[RecipeDescriptor, ...] = (
     RecipeDescriptor(0, "Espresso", "espresso"),
@@ -187,16 +181,8 @@ _SETTINGS_8000: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(105, "coffee_temperature", "Coffee temperature", _TEMP_ON_OFF),
 )
 
-# 600 and 700 families share most settings. 600 carries the same 5
-# entries the 700 family does. 79X differs — no 103 off-rinse exposed.
-# NICR758 additionally has no 106 profile (handled per-model later).
-_SETTINGS_600: tuple[SettingDescriptor, ...] = (
-    SettingDescriptor(101, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
-    SettingDescriptor(102, "temperature", "Temperature", _TEMPERATURE_OPTIONS),
-    SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
-    SettingDescriptor(104, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
-    SettingDescriptor(106, "profile", "Profile", _PROFILE_STANDARD_OPTIONS),
-)
+# 600 and 700 families share settings; 79X differs (no 103 off-rinse).
+_SETTINGS_600: tuple[SettingDescriptor, ...] = _family_600.SETTINGS
 
 # 700-proper: identical to 600.
 _SETTINGS_700: tuple[SettingDescriptor, ...] = _SETTINGS_600
@@ -378,27 +364,7 @@ _STATS_79X: tuple[StatDescriptor, ...] = (
     _flag(105, "filter_dependency", "Filter dependency"),
 )
 
-# 600 family — 7 recipe counters (gaps at 202, 205 because those
-# recipes don't exist on 600 hardware). Same maintenance gauges as
-# 700/79X, with 105 dependency.
-_STATS_600: tuple[StatDescriptor, ...] = (
-    _count(200, "espresso", "Espresso"),
-    _count(201, "coffee", "Coffee"),
-    _count(203, "americano", "Americano"),
-    _count(204, "cappuccino", "Cappuccino"),
-    _count(206, "milk", "Milk"),
-    _count(207, "hot_water", "Hot water"),
-    _count(208, "my_coffee", "My coffee"),
-    _pct(600, "descale_percent", "Descaling progress"),
-    _flag(601, "descale_warning", "Descaling warning"),
-    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
-    _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
-    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
-    _flag(621, "frother_clean_warning", "Frother cleaning warning"),
-    _pct(640, "filter_percent", "Filter progress"),
-    _flag(641, "filter_warning", "Filter warning"),
-    _flag(105, "filter_dependency", "Filter dependency"),
-)
+_STATS_600: tuple[StatDescriptor, ...] = _family_600.STATS
 
 # 900 / 900-Light family — 21 counters (recipe 200..208 + cumulative
 # 209..221), maintenance gauges, 101 dependency.
@@ -503,12 +469,7 @@ _STATS_1040: tuple[StatDescriptor, ...] = tuple(
 # ---------------------------------------------------------------------------
 
 _STANDARD_RECIPE_LAYOUTS: dict[str, RecipeFieldLayout] = {
-    "600": RecipeFieldLayout(
-        family_key="600",
-        strength_offset=1, profile_offset=2, temperature_offset=3,
-        two_cups_offset=4, coffee_amount_offset=5, water_amount_offset=6,
-        milk_foam_amount_offset=8, preparation_offset=9,
-    ),
+    "600": _family_600.STANDARD_LAYOUT,
     "700": RecipeFieldLayout(
         family_key="700",
         strength_offset=1, profile_offset=2, temperature_offset=3,
@@ -580,13 +541,7 @@ _STANDARD_RECIPE_LAYOUTS: dict[str, RecipeFieldLayout] = {
 # ---------------------------------------------------------------------------
 
 _MYCOFFEE_LAYOUTS: dict[str, RecipeFieldLayout] = {
-    "600": RecipeFieldLayout(
-        family_key="600",
-        enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
-        strength_offset=4, profile_offset=5, temperature_offset=6,
-        two_cups_offset=7, coffee_amount_offset=8, water_amount_offset=9,
-        milk_foam_amount_offset=11, preparation_offset=12,
-    ),
+    "600": _family_600.MYCOFFEE_LAYOUT,
     "700": RecipeFieldLayout(
         family_key="700",
         enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
@@ -697,19 +652,7 @@ _FAMILY_STATS: dict[str, tuple[StatDescriptor, ...]] = {
 
 
 _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
-    "600": MachineCapabilities(
-        family_key="600",
-        model_name="Nivona NICR 6xx",
-        supports_recipe_writes=False,
-        supports_stats=False,
-        my_coffee_slots=1,
-        strength_levels=3,
-        has_aroma_balance=False,
-        brew_command_mode=0x0B,
-        recipes=_RECIPES_600,
-        settings=_FAMILY_SETTINGS['600'],
-        stats=_FAMILY_STATS['600'],
-    ),
+    "600": _family_600.CAPABILITIES,
     "700": MachineCapabilities(
         family_key="700",
         model_name="Nivona NICR 7xx",
