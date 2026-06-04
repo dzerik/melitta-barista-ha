@@ -11,7 +11,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .ble_client import MelittaBleClient, resolve_caps_from_scanner
+from .ble_client import resolve_caps_from_scanner
+from .coffee_platform.contract import CoffeeMachineClient
 from .const import FeatureFlags, InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
@@ -64,7 +65,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up sensor entities for the configured coffee machine."""
-    client: MelittaBleClient = entry.runtime_data
+    client: CoffeeMachineClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
     entities = [
@@ -142,7 +143,7 @@ class _MelittaSensorBase(MelittaDeviceMixin, SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self, client: MelittaBleClient, entry: ConfigEntry, name: str) -> None:
+    def __init__(self, client: CoffeeMachineClient, entry: ConfigEntry, name: str) -> None:
         self._client = client
         self._entry = entry
         self._machine_name = name
@@ -400,7 +401,7 @@ class BrandStatSensor(_MelittaSensorBase):
     gauges through the shared Eugster numeric-register protocol.
     """
 
-    def __init__(self, client: MelittaBleClient, entry, name: str, descriptor) -> None:
+    def __init__(self, client: CoffeeMachineClient, entry, name: str, descriptor) -> None:
         super().__init__(client, entry, name)
         self._desc = descriptor
         self._value: int | None = None
@@ -505,7 +506,7 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
 
     def __init__(
         self,
-        client: MelittaBleClient,
+        client: CoffeeMachineClient,
         entry: ConfigEntry,
         name: str,
         slot: int,
