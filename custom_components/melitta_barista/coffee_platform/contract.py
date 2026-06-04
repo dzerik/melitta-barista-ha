@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Protocol, runtime_checkable
 
+from .domain import BrandProfile, MachineCapabilities, MachineStatus
+
 
 @runtime_checkable
 class CoffeeMachineClient(Protocol):
@@ -22,12 +24,12 @@ class CoffeeMachineClient(Protocol):
     # --- Identity / state (properties) ---
     address: str
     connected: bool
-    status: Any            # MachineStatus | None — kept Any to avoid contract→protocol import
+    status: MachineStatus | None
     firmware_version: str | None
     serial_number: str | None
     model_name: str
-    brand: Any             # BrandProfile
-    capabilities: Any      # MachineCapabilities | None
+    brand: BrandProfile
+    capabilities: MachineCapabilities | None
     dis_info: dict[str, str]
     total_cups: int | None
     cup_counters: dict[str, int]
@@ -37,11 +39,11 @@ class CoffeeMachineClient(Protocol):
     # --- Lifecycle ---
     async def connect(self) -> bool: ...
     async def disconnect(self) -> None: ...
-    async def poll_status(self) -> Any: ...
+    async def poll_status(self) -> MachineStatus | None: ...
 
     # --- Callbacks (subscribe to state changes) ---
-    def add_status_callback(self, callback: Callable[[Any], None]) -> None: ...
-    def remove_status_callback(self, callback: Callable[[Any], None]) -> None: ...
+    def add_status_callback(self, callback: Callable[[MachineStatus], None]) -> None: ...
+    def remove_status_callback(self, callback: Callable[[MachineStatus], None]) -> None: ...
     def add_connection_callback(self, callback: Callable[[bool], None]) -> None: ...
     def remove_connection_callback(self, callback: Callable[[bool], None]) -> None: ...
 
