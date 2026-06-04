@@ -23,7 +23,7 @@ async def test_probe_callback_derives_and_saves_on_connect():
     caps.model_name = "Melitta Barista TS"
     caps.strength_levels = 5
     caps.has_aroma_balance = True
-    client._capabilities = caps
+    client.capabilities = caps
 
     hass = MagicMock()
     pending_tasks = []
@@ -68,7 +68,7 @@ async def test_probe_callback_swallows_derive_errors():
     db = MagicMock()
     db.async_save_capabilities = AsyncMock()
     client = MagicMock()
-    client._capabilities = None  # derive will raise ValueError
+    client.capabilities = None  # derive will raise ValueError
 
     hass = MagicMock()
     pending = []

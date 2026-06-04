@@ -84,7 +84,7 @@ def _make_client(family_key: str, model_name: str, strength_levels: int = 5,
         stats=(),
     )
     client = MagicMock()
-    client._capabilities = caps
+    client.capabilities = caps
     return client
 
 
@@ -126,8 +126,8 @@ def test_derive_without_aroma_balance():
 
 
 def test_derive_raises_when_client_has_no_capabilities():
-    """If client._capabilities is None, derive raises ValueError."""
+    """If client.capabilities is None, derive raises ValueError."""
     client = MagicMock()
-    client._capabilities = None
+    client.capabilities = None
     with pytest.raises(ValueError, match="capabilities"):
         derive_capabilities(client)

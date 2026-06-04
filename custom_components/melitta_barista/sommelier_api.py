@@ -95,7 +95,7 @@ async def _brew_recipe_components(
     # the failure mode explicit instead of failing silently inside the BLE
     # layer. WS handlers translate this into a "recipe_writes_unsupported"
     # send_error so the panel can show a clear print-only state.
-    caps = getattr(client, "_capabilities", None)
+    caps = getattr(client, "capabilities", None)
     if caps is not None and not caps.supports_recipe_writes:
         family_key = getattr(caps, "family_key", "unknown")
         raise RecipeWritesUnsupportedError(family_key)

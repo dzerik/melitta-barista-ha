@@ -83,7 +83,7 @@ async def test_falls_back_to_live_derive_when_db_empty():
     )
 
     client = MagicMock()
-    client._capabilities = caps
+    client.capabilities = caps
 
     entry = MagicMock()
     entry.entry_id = "entry_new"
@@ -161,7 +161,7 @@ async def test_cache_with_corrupt_payload_falls_back_to_derive():
     )
 
     client = MagicMock()
-    client._capabilities = caps
+    client.capabilities = caps
 
     entry = MagicMock()
     entry.entry_id = "entry_corrupt"

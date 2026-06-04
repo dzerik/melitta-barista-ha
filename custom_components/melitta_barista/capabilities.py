@@ -95,7 +95,7 @@ def derive_capabilities(client: Any) -> LiveCapabilities:
     -> only 'standard'). portion_limits gets a global default; per-process
     overrides are a stretch goal for P1b+.
     """
-    caps = getattr(client, "_capabilities", None)
+    caps = getattr(client, "capabilities", None)
     if caps is None:
         raise ValueError(
             "client has no capabilities (MachineCapabilities is None); "

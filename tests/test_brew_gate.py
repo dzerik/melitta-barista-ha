@@ -58,7 +58,7 @@ def _make_phases() -> list[dict]:
 async def test_brew_recipe_components_raises_when_recipe_writes_unsupported():
     """Nivona-family client must raise RecipeWritesUnsupportedError before BLE."""
     client = MagicMock()
-    client._capabilities = MagicMock(
+    client.capabilities = MagicMock(
         supports_recipe_writes=False,
         family_key="900",
     )
@@ -81,7 +81,7 @@ async def test_brew_recipe_components_raises_when_recipe_writes_unsupported():
 async def test_brew_recipe_components_allows_when_supported():
     """Melitta-family client (supports_recipe_writes=True) reaches brew_freestyle."""
     client = MagicMock()
-    client._capabilities = MagicMock(
+    client.capabilities = MagicMock(
         supports_recipe_writes=True,
         family_key="barista_ts",
     )
@@ -99,14 +99,14 @@ async def test_brew_recipe_components_allows_when_supported():
 
 @pytest.mark.asyncio
 async def test_brew_recipe_components_allows_when_capabilities_missing():
-    """Pre-handshake clients (_capabilities=None) fall through to the BLE call.
+    """Pre-handshake clients (capabilities=None) fall through to the BLE call.
 
     This preserves existing test-double behaviour for callers that haven't
     attached a MachineCapabilities yet; the gate only fires when the flag is
     explicitly False.
     """
     client = MagicMock()
-    client._capabilities = None
+    client.capabilities = None
     client.brew_freestyle = AsyncMock(return_value=True)
 
     await _brew_recipe_components(
@@ -135,7 +135,7 @@ async def test_ws_sommelier_brew_translates_unsupported_error():
     db.async_mark_recipe_brewed = AsyncMock()
 
     client = MagicMock()
-    client._capabilities = MagicMock(
+    client.capabilities = MagicMock(
         supports_recipe_writes=False,
         family_key="900",
     )
@@ -182,7 +182,7 @@ async def test_ws_favorites_brew_translates_unsupported_error():
     db.async_increment_favorite_brew = AsyncMock()
 
     client = MagicMock()
-    client._capabilities = MagicMock(
+    client.capabilities = MagicMock(
         supports_recipe_writes=False,
         family_key="700",
     )

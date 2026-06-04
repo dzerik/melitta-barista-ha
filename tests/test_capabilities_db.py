@@ -197,7 +197,7 @@ def test_derive_capabilities_sources_recipe_writes_from_machine_caps():
         stats=(),
     )
     client = MagicMock()
-    client._capabilities = caps
+    client.capabilities = caps
 
     live = derive_capabilities(client)
     assert live.supports_recipe_writes is False

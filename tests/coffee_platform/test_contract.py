@@ -34,3 +34,40 @@ def test_melitta_client_satisfies_contract():
     required = _protocol_members(CoffeeMachineClient)
     missing = sorted(m for m in required if not hasattr(MelittaBleClient, m))
     assert not missing, f"MelittaBleClient missing contract members: {missing}"
+
+
+import pathlib
+
+
+def test_no_private_capabilities_leak_in_consumers():
+    """Consumers must read `.capabilities` (contract), not `._capabilities`.
+
+    Guards against re-introducing private-attribute coupling that would break
+    when a non-Eugster brand provider (no `_capabilities` attr) is registered.
+    The client's OWN backing field (`self._capabilities`) is allowed; reaching
+    into another object's `_capabilities` is not.
+    """
+    root = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "custom_components"
+        / "melitta_barista"
+    )
+    offenders = []
+    for name in ("capabilities.py", "sommelier_api.py"):
+        text = (root / name).read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            # Match only lines that access `._capabilities` as an attribute
+            # on *another* object (i.e., not `self._capabilities`).
+            # We check for the string `"_capabilities"` in getattr calls and
+            # for direct attribute access `.<something>._capabilities` — but
+            # NOT lines that merely contain `_capabilities` as part of a longer
+            # identifier like `derive_capabilities` or `machine_capabilities`.
+            stripped = line.strip()
+            if (
+                '"_capabilities"' in line
+                or "._capabilities" in line
+            ) and "self._capabilities" not in line:
+                offenders.append(f"{name}:{lineno}: {stripped}")
+    assert not offenders, (
+        "private _capabilities access in consumers:\n" + "\n".join(offenders)
+    )
