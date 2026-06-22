@@ -1,0 +1,4341 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Home Assistant integration for Melitta Barista T/TS Smart and Nivona NICR/NIVO coffee machines over BLE">
+      
+      
+      
+        <link rel="canonical" href="https://dzerik.github.io/melitta-barista-ha/SOMMELIER_API/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Melitta Barista — WebSocket API reference - Melitta Barista & Nivona — HA Integration</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#melitta-barista-websocket-api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-header__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Melitta Barista & Nivona — HA Integration
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Melitta Barista — WebSocket API reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-nav__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Melitta Barista & Nivona — HA Integration
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BLE_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BLE architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROTOCOL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wire protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/001-brand-profile-abstraction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001: Brand profile abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#namespaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Namespaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        api
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="api">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristaapiinfo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/api/info
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        entries
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="entries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristaentries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        status
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="status">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristastatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/status
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristadiagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristadiagnosticsclear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/diagnostics/clear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristadiagnosticsllm_calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/diagnostics/llm_calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recipes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="recipes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristarecipeslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/recipes/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#producers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        producers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="producers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristaproducerslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/producers/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristaproducersadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/producers/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristaproducersupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/producers/update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristaproducersdelete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/producers/delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additives-syrups-toppings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        additives (syrups + toppings)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="additives (syrups + toppings)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatablelist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/&lt;table&gt;/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatableadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/&lt;table&gt;/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatableupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/&lt;table&gt;/update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatabledelete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/&lt;table&gt;/delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatableset_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/&lt;table&gt;/set_available
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tags
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="tags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatagslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/tags/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatagsadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/tags/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristatagsdelete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/tags/delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#beans-autofill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        beans autofill
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="beans autofill">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristabeansautofill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/beans/autofill
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prompts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        prompts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="prompts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristapromptslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/prompts/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristapromptssave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/prompts/save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristapromptspreview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/prompts/preview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristapromptsreset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/prompts/reset
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        llm agents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="llm agents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristallmagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/llm/agents
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        capabilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristacapabilitiesget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/capabilities/get
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-beans" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — beans
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — beans">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierbeanslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/beans/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierbeansadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/beans/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierbeansupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/beans/update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierbeansdelete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/beans/delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-hoppers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — hoppers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — hoppers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierhoppersget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/hoppers/get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierhoppersassign" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/hoppers/assign
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-milk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — milk
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — milk">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommeliermilkget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/milk/get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommeliermilkset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/milk/set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — extras
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — extras">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierextrasget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/extras/get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierextrasset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/extras/set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-generate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — generate
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — generate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommeliergenerate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/generate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-brew" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — brew
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — brew">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierbrew" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/brew
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-favorites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — favorites
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — favorites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierfavoriteslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/favorites/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierfavoritesadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/favorites/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierfavoritesremove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/favorites/remove
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierfavoritesupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/favorites/update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierfavoritesbrew" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/favorites/brew
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — history
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — history">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierhistorylist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/history/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierhistoryclear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/history/clear
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-recipe-ratings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — recipe ratings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — recipe ratings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierreciperate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/recipe/rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierrecipeunrate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/recipe/unrate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-presets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — presets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — presets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierpresetslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/presets/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierpresetsadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/presets/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierpresetsupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/presets/update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierpresetsdelete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/presets/delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-bean-presets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — bean presets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — bean presets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierbean_presetslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/bean_presets/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — settings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommeliersettingsget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/settings/get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommeliersettingsset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/settings/set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-preferences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — preferences
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — preferences">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierpreferencesget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/preferences/get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierpreferencesset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/preferences/set
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sommelier-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sommelier — profiles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sommelier — profiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierprofileslist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/profiles/list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierprofilesadd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/profiles/add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierprofilesupdate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/profiles/update
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierprofilesdelete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/profiles/delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#melitta_baristasommelierprofilesactivate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        melitta_barista/sommelier/profiles/activate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#endpoint-index-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Endpoint index (checklist)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/dzerik/melitta-barista-ha/edit/main/docs/SOMMELIER_API.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="melitta-barista-websocket-api-reference">Melitta Barista — WebSocket API reference<a class="headerlink" href="#melitta-barista-websocket-api-reference" title="Permanent link">&para;</a></h1>
+<p><strong>API version:</strong> 1.0
+<strong>Integration version:</strong> 0.66.0
+<strong>Last reviewed:</strong> 2026-05-26</p>
+<p>This document is the canonical contract for the integration's WebSocket
+surface. Bumping <code>api_version</code> requires updating this doc.</p>
+<h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>api_version</code> covers the integration-wide WS surface. Bump <strong>major</strong>
+  on a breaking change to any endpoint's input or output shape. Bump
+  <strong>minor</strong> on additive changes (new endpoint, new optional field, new
+  optional response key).</li>
+<li>Individual endpoints may carry their own <code>schema_version</code> inside the
+  response (planned for P6b); for now the integration-wide version is
+  the only contract.</li>
+</ul>
+<h2 id="conventions">Conventions<a class="headerlink" href="#conventions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>id</code> at the top level is reserved by the HA WebSocket framework for
+  the message id. Endpoints that need to reference an entity id use a
+  named parameter (<code>additive_id</code>, <code>favorite_id</code>, <code>preset_id</code>, etc.).</li>
+<li><code>require_admin</code> endpoints reject unauthenticated WS sessions and any
+  session whose user lacks admin rights.</li>
+<li>All endpoints return either <code>connection.send_result(msg["id"], ...)</code>
+  (success) or <code>connection.send_error(msg["id"], code, message)</code>
+  (failure). Error codes are documented per endpoint where they aren't
+  the framework defaults.</li>
+<li>Voluptuous schemas are translated below to plain-English types
+  (<code>str (max 80)</code>, <code>int (1..5)</code>, <code>list[str]</code>, <code>bool</code>, etc.). When a
+  parameter has a <code>default</code>, it is shown in the parameter description.</li>
+<li>Many <code>send_result</code> calls pass <code>{}</code> (success ack with no payload) or
+  pass no payload at all (the framework synthesizes <code>{ "result": null }</code>).
+  Both are documented as "empty success ack".</li>
+</ul>
+<h2 id="discovery">Discovery<a class="headerlink" href="#discovery" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>melitta_barista/api/info</code></td>
+<td><code>{api_version, integration_version, schema_db_version, endpoints: [...]}</code></td>
+</tr>
+</tbody>
+</table>
+<p>(The <code>api/info</code> endpoint is being added in 0.66.0 — see the entry below.
+At the time this document was committed, only the contract was reserved.)</p>
+<hr />
+<h2 id="namespaces">Namespaces<a class="headerlink" href="#namespaces" title="Permanent link">&para;</a></h2>
+<p>The following sections group endpoints by their <code>melitta_barista/&lt;namespace&gt;/...</code> prefix.</p>
+<ul>
+<li><a href="#api"><code>api/*</code></a> — discovery (reserved for <code>api/info</code>, 0.66.0)</li>
+<li><a href="#entries"><code>entries</code></a> — list config entries</li>
+<li><a href="#status"><code>status</code></a> — runtime status snapshot per config entry</li>
+<li><a href="#diagnostics"><code>diagnostics*</code></a> — diagnostic ring buffers</li>
+<li><a href="#recipes"><code>recipes/*</code></a> — machine-cached DirectKey recipes</li>
+<li><a href="#producers"><code>producers/*</code></a> — coffee producer catalogue (panel)</li>
+<li><a href="#additives-syrups--toppings"><code>syrups/*</code> + <code>toppings/*</code></a> — additive
+  catalogue (panel, factory-generated)</li>
+<li><a href="#tags"><code>tags/*</code></a> — flavor tag catalogue</li>
+<li><a href="#beans-autofill"><code>beans/*</code></a> — LLM autofill helper (panel)</li>
+<li><a href="#prompts"><code>prompts/*</code></a> — user-editable prompt slots</li>
+<li><a href="#llm-agents"><code>llm/agents</code></a> — list HA conversation agents</li>
+<li><a href="#capabilities"><code>capabilities/*</code></a> — live machine capabilities</li>
+<li><a href="#sommelier-beans"><code>sommelier/beans/*</code></a> — bean catalogue (sommelier)</li>
+<li><a href="#sommelier-hoppers"><code>sommelier/hoppers/*</code></a> — hopper-to-bean mapping</li>
+<li><a href="#sommelier-milk"><code>sommelier/milk/*</code></a> — available milk types</li>
+<li><a href="#sommelier-extras"><code>sommelier/extras/*</code></a> — extras whitelist</li>
+<li><a href="#sommelier-generate"><code>sommelier/generate</code></a> — AI recipe generation</li>
+<li><a href="#sommelier-brew"><code>sommelier/brew</code></a> — brew a generated recipe</li>
+<li><a href="#sommelier-favorites"><code>sommelier/favorites/*</code></a> — favorites CRUD + brew</li>
+<li><a href="#sommelier-history"><code>sommelier/history/*</code></a> — generation history</li>
+<li><a href="#sommelier-recipe-ratings"><code>sommelier/recipe/*</code></a> — recipe ratings</li>
+<li><a href="#sommelier-presets"><code>sommelier/presets/*</code></a> — user-managed preset templates</li>
+<li><a href="#sommelier-bean-presets"><code>sommelier/bean_presets/*</code></a> — static bean preset
+  catalogue</li>
+<li><a href="#sommelier-settings"><code>sommelier/settings/*</code></a> — sommelier-wide settings</li>
+<li><a href="#sommelier-preferences"><code>sommelier/preferences/*</code></a> — user preferences</li>
+<li><a href="#sommelier-profiles"><code>sommelier/profiles/*</code></a> — user profile templates</li>
+</ul>
+<hr />
+<h2 id="api"><code>api</code><a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristaapiinfo"><code>melitta_barista/api/info</code><a class="headerlink" href="#melitta_baristaapiinfo" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td>none (planned: none — public discovery)</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>reserved (0.66.0 P6a Task 2)</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>0.66.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response (planned)</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;api_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;integration_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.66.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;schema_db_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;endpoints&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;melitta_barista/status&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Reserved here so callers can negotiate the API version before issuing
+  feature calls. The handler itself lands in P6a Task 2 — this entry is
+  a forward reference.</p>
+<hr />
+<h2 id="entries"><code>entries</code><a class="headerlink" href="#entries" title="Permanent link">&para;</a></h2>
+<p>Defined in <code>__init__.py</code> (panel bootstrap handler).</p>
+<h3 id="melitta_baristaentries"><code>melitta_barista/entries</code><a class="headerlink" href="#melitta_baristaentries" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>@callback</code> (sync); no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;entry_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc123&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Melitta Barista&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;address&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;F1:01:02:03:04:05&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;brand&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;melitta&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Lists every melitta_barista config entry so the SPA panel can offer a
+  picker in multi-machine setups. Read-only, no auth gate.</p>
+<hr />
+<h2 id="status"><code>status</code><a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
+<p>Defined in <code>panel_api.py</code>; sync handler wrapped by <code>_wrap_sync_with_schema</code>.</p>
+<h3 id="melitta_baristastatus"><code>melitta_barista/status</code><a class="headerlink" href="#melitta_baristastatus" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td>sync <code>@callback</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>entry_id: str</code> (required)</p>
+<p><strong>Response — when no live client for the entry</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Response — when client is live</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;address&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;F1:...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;connected&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;firmware&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.2.3&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;features&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FEATURE_X&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;raw&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;dis&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;manufacturer_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Melitta&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;machine_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BARISTA_TS_SMART&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Barista TS Smart&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;capabilities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;family_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;my_coffee_slots&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;last_handshake_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1716700000.0</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;active_profile&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;selected_recipe&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">200</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;total_cups&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1234</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;cup_counters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;espresso&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;process&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;sub_process&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;manipulation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;info_messages&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- <code>features</code>, <code>dis</code>, <code>capabilities</code>, <code>model</code>, <code>machine_type</code>, and <code>status</code>
+  can each be <code>null</code> if not yet read from the machine.</p>
+<hr />
+<h2 id="diagnostics"><code>diagnostics</code><a class="headerlink" href="#diagnostics" title="Permanent link">&para;</a></h2>
+<p>Defined in <code>panel_api.py</code>. All three handlers are admin-only.</p>
+<h3 id="melitta_baristadiagnostics"><code>melitta_barista/diagnostics</code><a class="headerlink" href="#melitta_baristadiagnostics" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td>sync <code>@callback</code>, <code>require_admin</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>entry_id: str</code> (required)</p>
+<p><strong>Response — when entry/client unknown</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Response — when client is live</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;address&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;F1:...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;brand&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;melitta&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;proxy&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;local&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;remote&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;poll_interval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;ble_connect_timeout&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;frame_timeout&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;recent_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;recent_frames&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- <code>proxy</code> is best-effort: deduced from the BleakDevice details dict
+  (<code>source</code> containing <code>":"</code> ⇒ ESPHome proxy; otherwise local). Hence
+  "unknown" when the heuristic can't decide.</p>
+<h3 id="melitta_baristadiagnosticsclear"><code>melitta_barista/diagnostics/clear</code><a class="headerlink" href="#melitta_baristadiagnosticsclear" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td>sync <code>@callback</code>, <code>require_admin</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>entry_id: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;cleared&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — no live client for the given <code>entry_id</code>.</p>
+<p><strong>Notes</strong>
+- Clears the per-entry ring buffers (<code>_recent_errors</code>, <code>_recent_frames</code>)
+  <strong>and</strong> the domain-wide <code>_llm_call_buffer</code> (cross-entry).</p>
+<h3 id="melitta_baristadiagnosticsllm_calls"><code>melitta_barista/diagnostics/llm_calls</code><a class="headerlink" href="#melitta_baristadiagnosticsllm_calls" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td>sync <code>@callback</code>, <code>require_admin</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none (domain-wide buffer; no <code>entry_id</code>)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;llm_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1716700000.0</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;slot&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sommelier_intro&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;agent_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conversation.smartchain_openai&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;prompt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;prompt_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1234</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;raw&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;raw_len&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;via&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;smartchain_structured&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;text_with_validation&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;validation_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Ring buffer is capped at 20 entries (<code>_llm_call_buffer.maxlen=20</code>).
+- Prompt and raw fields are truncated to 8000 chars; full length kept in
+  <code>prompt_len</code> / <code>raw_len</code>.</p>
+<hr />
+<h2 id="recipes"><code>recipes</code><a class="headerlink" href="#recipes" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristarecipeslist"><code>melitta_barista/recipes/list</code><a class="headerlink" href="#melitta_baristarecipeslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td>sync <code>@callback</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>entry_id: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;base_recipes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">  </span><span class="nt">&quot;directkey&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;profile_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;profile_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Profile 0&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;recipes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">256</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Espresso&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="p">{</span>
+<span class="w">              </span><span class="nt">&quot;process&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;coffee&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;process_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;shots&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;one&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;intensity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;medium&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;aroma&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;standard&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;normal&quot;</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;blend&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">              </span><span class="nt">&quot;portion_ml&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="kc">null</span>
+<span class="w">          </span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — no live client for <code>entry_id</code>.</p>
+<p><strong>Notes</strong>
+- <code>base_recipes</code> is currently always <code>[]</code>. Base recipes (HR/HS, IDs
+  200-223) are not pre-cached; a loader is wired in a follow-up commit.
+- Each component may be <code>null</code> if absent (e.g. single-pour recipe ⇒
+  <code>components[1] == null</code>).</p>
+<hr />
+<h2 id="producers"><code>producers</code><a class="headerlink" href="#producers" title="Permanent link">&para;</a></h2>
+<p>CRUD set for the producer catalogue, panel-side.</p>
+<h3 id="melitta_baristaproducerslist"><code>melitta_barista/producers/list</code><a class="headerlink" href="#melitta_baristaproducerslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;producers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Lavazza&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;country&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Italy&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;website&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristaproducersadd"><code>melitta_barista/producers/add</code><a class="headerlink" href="#melitta_baristaproducersadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>name: str</code> (required)
+- <code>country: str</code> (optional)
+- <code>website: str</code> (optional)
+- <code>notes: str</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>db_error</code> — INSERT failed (e.g. UNIQUE constraint on <code>name</code>).</p>
+<h3 id="melitta_baristaproducersupdate"><code>melitta_barista/producers/update</code><a class="headerlink" href="#melitta_baristaproducersupdate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>producer_id: int</code> (required) — note the non-<code>id</code> name; see <a href="#conventions">Conventions</a>.
+- <code>name: str</code> (optional)
+- <code>country: str</code> (optional)
+- <code>website: str</code> (optional)
+- <code>notes: str</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;updated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>no_fields</code> — no patchable field was supplied.</p>
+<h3 id="melitta_baristaproducersdelete"><code>melitta_barista/producers/delete</code><a class="headerlink" href="#melitta_baristaproducersdelete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>producer_id: int</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Always returns <code>{deleted: true}</code> whether or not the row existed (DELETE
+  is idempotent in SQLite).</p>
+<hr />
+<h2 id="additives-syrups-toppings"><code>additives</code> (syrups + toppings)<a class="headerlink" href="#additives-syrups-toppings" title="Permanent link">&para;</a></h2>
+<p>Both <code>syrups</code> and <code>toppings</code> are independent tables sharing the same
+shape. The five endpoints in each family are generated by closures
+(<code>_make_additive_handlers</code>, <code>_make_additive_update_handler</code>,
+<code>_make_additive_set_available_handler</code>) — each invocation produces a
+concrete handler at runtime. The two families are documented together;
+substitute <code>&lt;table&gt;</code> with <code>syrups</code> or <code>toppings</code>.</p>
+<h3 id="melitta_baristatablelist"><code>melitta_barista/&lt;table&gt;/list</code><a class="headerlink" href="#melitta_baristatablelist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;syrups&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Vanilla&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;brand&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Monin&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;available&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+(The result key matches <code>&lt;table&gt;</code> — <code>"syrups"</code> or <code>"toppings"</code>.)</p>
+<p><strong>Notes</strong>
+- <code>available</code> defaults to <code>true</code> for legacy rows where the column is
+  NULL (pre-P4a DBs).</p>
+<h3 id="melitta_baristatableadd"><code>melitta_barista/&lt;table&gt;/add</code><a class="headerlink" href="#melitta_baristatableadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>name: str</code> (required)
+- <code>brand: str</code> (optional)
+- <code>notes: str</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristatableupdate"><code>melitta_barista/&lt;table&gt;/update</code><a class="headerlink" href="#melitta_baristatableupdate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>additive_id: int</code> (required)
+- <code>name: str</code> (optional)
+- <code>brand: str</code> (optional)
+- <code>notes: str</code> (optional)
+- <code>available: bool</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;updated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>no_fields</code> — no patchable field was supplied.</p>
+<h3 id="melitta_baristatabledelete"><code>melitta_barista/&lt;table&gt;/delete</code><a class="headerlink" href="#melitta_baristatabledelete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>additive_id: int</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristatableset_available"><code>melitta_barista/&lt;table&gt;/set_available</code><a class="headerlink" href="#melitta_baristatableset_available" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>additive_id: int</code> (required)
+- <code>available: bool</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;updated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — additive id does not exist.</p>
+<p><strong>Notes</strong>
+- Convenience endpoint to flip the <code>available</code> flag without going through
+  the full update endpoint. As of P4b the Sommelier prompt reads the
+  catalogue directly, so this no longer mirrors into <code>user_extras</code>.</p>
+<p><strong>Concrete endpoint expansion</strong></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>melitta_barista/syrups/list</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/syrups/add</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/syrups/update</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/syrups/delete</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/syrups/set_available</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/toppings/list</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/toppings/add</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/toppings/update</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/toppings/delete</code></td>
+</tr>
+<tr>
+<td><code>melitta_barista/toppings/set_available</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="tags"><code>tags</code><a class="headerlink" href="#tags" title="Permanent link">&para;</a></h2>
+<p>Flavor-tag catalogue. The list endpoint unions explicit tags with any
+tag string referenced by a coffee bean row.</p>
+<h3 id="melitta_baristatagslist"><code>melitta_barista/tags/list</code><a class="headerlink" href="#melitta_baristatagslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;chocolate&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;citrus&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fruity&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Returns the union of explicit <code>flavor_tags</code> rows and any tag string
+  found inside any <code>coffee_beans.flavor_notes</code> array. Sorted, deduped.</p>
+<h3 id="melitta_baristatagsadd"><code>melitta_barista/tags/add</code><a class="headerlink" href="#melitta_baristatagsadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>name: str</code> (required, must be non-empty after <code>.strip()</code>)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;chocolate&quot;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>empty</code> — <code>name</code> was empty / whitespace-only.</p>
+<p><strong>Notes</strong>
+- INSERT OR IGNORE — idempotent.</p>
+<h3 id="melitta_baristatagsdelete"><code>melitta_barista/tags/delete</code><a class="headerlink" href="#melitta_baristatagsdelete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>name: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Removes only the explicit <code>flavor_tags</code> row. Beans referencing the tag
+  by string keep their reference.</p>
+<hr />
+<h2 id="beans-autofill"><code>beans</code> autofill<a class="headerlink" href="#beans-autofill" title="Permanent link">&para;</a></h2>
+<p>The bean catalogue itself lives at <code>sommelier/beans/*</code> (see <a href="#sommelier-beans">Sommelier
+Beans</a>). The single <code>beans/autofill</code> endpoint is an
+LLM helper that fills bean attributes from <code>brand</code> + <code>product</code>.</p>
+<h3 id="melitta_baristabeansautofill"><code>melitta_barista/beans/autofill</code><a class="headerlink" href="#melitta_baristabeansautofill" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>brand: str</code> (required)
+- <code>product: str</code> (required)
+- <code>website: str</code> (optional) — producer page URL hint
+- <code>agent_id: str</code> (optional) — override the configured conversation
+  agent for this single call</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;raw&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;parsed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;roast&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;medium&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;bean_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;arabica&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;origin&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;blend&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;origin_country&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Italy&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;flavor_notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;chocolate&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;nutty&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;composition&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;brewing_recommendation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;validation_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">  </span><span class="nt">&quot;via&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;smartchain_structured&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;text_with_validation&quot;</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>conversation_error</code> — the LLM call itself failed (HA log has the
+  exception).</p>
+<p><strong>Notes</strong>
+- <code>parsed</code> is the validated dict on success, the unvalidated dict on
+  validation failure (so the UI can still preview), or <code>null</code> when the
+  reply wasn't valid JSON.
+- <code>validation_errors</code> is a list of <code>{ "loc": ..., "msg": ... }</code> entries
+  from Pydantic, empty on success.
+- <code>via</code> reflects which code path produced the result.</p>
+<hr />
+<h2 id="prompts"><code>prompts</code><a class="headerlink" href="#prompts" title="Permanent link">&para;</a></h2>
+<p>CRUD-ish endpoints for user-editable LLM prompt slots. The "save" /
+"reset" operations only ever touch the <code>panel_prompts</code> table — the
+bundled defaults live in <code>DEFAULT_PROMPTS</code>.</p>
+<h3 id="melitta_baristapromptslist"><code>melitta_barista/prompts/list</code><a class="headerlink" href="#melitta_baristapromptslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;prompts&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;slot&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;beans_autofill&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;default&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;template&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;is_default&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;properties&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;placeholders&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;brand&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;desc&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Producer name (e.g. Lavazza)&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- One entry per registered slot in <code>DEFAULT_PROMPTS</code> (<code>beans_autofill</code>,
+  <code>sommelier_intro</code>). <code>schema</code> is <code>null</code> for slots without a Pydantic
+  model.</p>
+<h3 id="melitta_baristapromptssave"><code>melitta_barista/prompts/save</code><a class="headerlink" href="#melitta_baristapromptssave" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>slot: str</code> (required) — must be one of the known slot ids.
+- <code>template: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;saved&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>unknown_slot</code> — <code>slot</code> is not in <code>DEFAULT_PROMPTS</code>.</p>
+<h3 id="melitta_baristapromptspreview"><code>melitta_barista/prompts/preview</code><a class="headerlink" href="#melitta_baristapromptspreview" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>slot: str</code> (required)
+- <code>entry_id: str</code> (optional) — when provided for the <code>sommelier_intro</code>
+  slot, hydrates <code>LiveCapabilities</code> so the preview matches what
+  <code>/sommelier/generate</code> would produce.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;prompt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...full assembled prompt text...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;sample&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;surprise_me&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>unknown_slot</code> — <code>slot</code> is not in <code>DEFAULT_PROMPTS</code>.</p>
+<p><strong>Notes</strong>
+- The response shape branches on <code>slot</code>:
+  - <code>beans_autofill</code> uses a hardcoded <code>brand</code>/<code>product</code>/<code>website_hint</code>
+    sample.
+  - <code>sommelier_intro</code> runs the real <code>_build_prompt</code> with current DB
+    state (hoppers, milk, extras) plus optional capabilities.
+  - Other slots fall back to placeholder substitution via
+    <code>PROMPT_PLACEHOLDERS</code>.
+  The wrapper shape (<code>{prompt, sample}</code>) is the same across branches.</p>
+<h3 id="melitta_baristapromptsreset"><code>melitta_barista/prompts/reset</code><a class="headerlink" href="#melitta_baristapromptsreset" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>slot: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;reset&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Drops the user override; falls back to the bundled <code>DEFAULT_PROMPTS</code>
+  value. Idempotent — succeeds even if no override existed.</p>
+<hr />
+<h2 id="llm-agents"><code>llm</code> agents<a class="headerlink" href="#llm-agents" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristallmagents"><code>melitta_barista/llm/agents</code><a class="headerlink" href="#melitta_baristallmagents" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;agents&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;homeassistant&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Home Assistant (default)&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conversation.smartchain_openai&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SmartChain — OpenAI&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Always includes the synthetic <code>homeassistant</code> legacy default first;
+  the remainder is taken from the live <code>conversation</code> domain state
+  machine (<code>hass.states.async_all("conversation")</code>).</p>
+<hr />
+<h2 id="capabilities"><code>capabilities</code><a class="headerlink" href="#capabilities" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristacapabilitiesget"><code>melitta_barista/capabilities/get</code><a class="headerlink" href="#melitta_baristacapabilitiesget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>entry_id: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;entry_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;abc123&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cache&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;derive&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;probed_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-26T10:00:00+00:00&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;capabilities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;family_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;supported_processes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;coffee&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;milk&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;water&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;supported_intensities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mild&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;medium&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;strong&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;supported_aromas&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;standard&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;intense&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;supported_temperatures&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;supported_shots&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;one&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;two&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;portion_limits&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;min&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;max&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">250</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;forbidden_combinations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>entry_not_found</code> — config entry id is unknown or has no live client
+  and DB cache is empty.
+- <code>client_not_ready</code> — live derive failed because the runtime client
+  isn't initialised yet.</p>
+<p><strong>Notes</strong>
+- Response shape is identical between cache hit (<code>source: "cache"</code>,
+  <code>probed_at</code> populated) and live derive (<code>source: "derive"</code>,
+  <code>probed_at: null</code>). The <code>schema_version</code> field is hardcoded <code>1</code>.
+- If the cached row deserializes badly (corrupt JSON, future schema),
+  the handler logs and falls through to the live-derive path silently.</p>
+<hr />
+<h2 id="sommelier-beans">Sommelier — beans<a class="headerlink" href="#sommelier-beans" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierbeanslist"><code>melitta_barista/sommelier/beans/list</code><a class="headerlink" href="#melitta_baristasommelierbeanslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;beans&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;brand&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;product&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierbeansadd"><code>melitta_barista/sommelier/beans/add</code><a class="headerlink" href="#melitta_baristasommelierbeansadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>brand: str</code> (required)
+- <code>product: str</code> (required)
+- <code>roast: "light" \| "medium" \| "medium_dark" \| "dark"</code> (required)
+- <code>bean_type: "arabica" \| "arabica_robusta" \| "robusta"</code> (required)
+- <code>origin: "single_origin" \| "blend"</code> (required)
+- <code>origin_country: str</code> (optional)
+- <code>flavor_notes: list[str]</code> (optional, default <code>[]</code>) — free-form tag list.
+- <code>composition: str</code> (optional)
+- <code>preset_id: str</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;bean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;brand&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierbeansupdate"><code>melitta_barista/sommelier/beans/update</code><a class="headerlink" href="#melitta_baristasommelierbeansupdate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>bean_id: str</code> (required)
+- All add-fields as <strong>optional</strong> (<code>brand</code>, <code>product</code>, <code>roast</code>, <code>bean_type</code>,
+  <code>origin</code>, <code>origin_country</code>, <code>flavor_notes</code>, <code>composition</code>, <code>preset_id</code>).</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;bean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — bean id is unknown.</p>
+<h3 id="melitta_baristasommelierbeansdelete"><code>melitta_barista/sommelier/beans/delete</code><a class="headerlink" href="#melitta_baristasommelierbeansdelete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>bean_id: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — bean id is unknown.</p>
+<hr />
+<h2 id="sommelier-hoppers">Sommelier — hoppers<a class="headerlink" href="#sommelier-hoppers" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierhoppersget"><code>melitta_barista/sommelier/hoppers/get</code><a class="headerlink" href="#melitta_baristasommelierhoppersget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;hopper1&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;bean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;hopper2&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;bean&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Response body is the bare hoppers dict — there is no wrapper key.</p>
+<h3 id="melitta_baristasommelierhoppersassign"><code>melitta_barista/sommelier/hoppers/assign</code><a class="headerlink" href="#melitta_baristasommelierhoppersassign" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>hopper_id: 1 \| 2</code> (required)
+- <code>bean_id: str \| null</code> (optional) — pass <code>null</code> (or omit) to clear.</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<hr />
+<h2 id="sommelier-milk">Sommelier — milk<a class="headerlink" href="#sommelier-milk" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommeliermilkget"><code>melitta_barista/sommelier/milk/get</code><a class="headerlink" href="#melitta_baristasommeliermilkget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;milk_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Oat&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Whole&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommeliermilkset"><code>melitta_barista/sommelier/milk/set</code><a class="headerlink" href="#melitta_baristasommeliermilkset" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>milk_types: list[str]</code> (required) — free-form list of names; the
+  legacy English-only whitelist (<code>VALID_MILK_TYPES</code>) was dropped in
+  favour of free-text so Cyrillic / brand names work.</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<hr />
+<h2 id="sommelier-extras">Sommelier — extras<a class="headerlink" href="#sommelier-extras" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierextrasget"><code>melitta_barista/sommelier/extras/get</code><a class="headerlink" href="#melitta_baristasommelierextrasget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;extras&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;syrups&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Vanilla&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;toppings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Cocoa&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;liqueurs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierextrasset"><code>melitta_barista/sommelier/extras/set</code><a class="headerlink" href="#melitta_baristasommelierextrasset" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>category: "syrups" \| "toppings" \| "liqueurs"</code> (required)
+- <code>items: list[str]</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<hr />
+<h2 id="sommelier-generate">Sommelier — generate<a class="headerlink" href="#sommelier-generate" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommeliergenerate"><code>melitta_barista/sommelier/generate</code><a class="headerlink" href="#melitta_baristasommeliergenerate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>mode: "surprise_me" \| "custom"</code> (optional, default <code>surprise_me</code>)
+- <code>preference: str</code> (optional)
+- <code>count: int (1..5)</code> (optional, default <code>3</code>)
+- <code>mood: "energizing" \| "relaxing" \| "dessert" \| "classic"</code> (optional) — legacy single-value field.
+- <code>moods: list[&lt;mood&gt;]</code> (optional) — multi-select; wins over <code>mood</code>.
+- <code>occasion: "morning" \| "after_lunch" \| "guests" \| "romantic" \| "work"</code> (optional)
+- <code>temperature: "auto" \| "hot" \| "iced"</code> (optional, default <code>auto</code>)
+- <code>servings: int (1..4)</code> (optional, default <code>1</code>)
+- <code>dietary: list["no_sugar" \| "lactose_free" \| "low_calorie" \| "vegan"]</code> (optional)
+- <code>caffeine_pref: "regular" \| "low" \| "decaf_evening"</code> (optional)
+- <code>cup_size: "espresso_cup" \| "cup" \| "mug" \| "tall_glass" \| "travel"</code> (optional)
+- <code>allow_syrups: list[str]</code> (optional) — whitelist override.
+- <code>allow_toppings: list[str]</code> (optional) — whitelist override.
+- <code>allow_milk: list[str]</code> (optional) — whitelist override.
+- <code>agent_id: str</code> (optional) — per-request override of the conversation agent.
+- <code>entry_id: str</code> (optional) — scope <code>LiveCapabilities</code> lookup; defaults to first entry.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;session&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;recipes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;surprise_me&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;preference&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>generation_failed</code> — <code>_structured_call</code> raised (LLM transport error).
+- <code>no_recipes</code> — LLM returned an empty or unparsable <code>recipes</code> array
+  (<code>validation_errors</code> are included in the message body).</p>
+<p><strong>Notes</strong>
+- The complete <code>session</code> shape is built by <code>db.async_create_session</code>
+  and includes the persisted recipes, mood/occasion/temperature inputs,
+  weather/people-home context, profile id, etc.</p>
+<hr />
+<h2 id="sommelier-brew">Sommelier — brew<a class="headerlink" href="#sommelier-brew" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierbrew"><code>melitta_barista/sommelier/brew</code><a class="headerlink" href="#melitta_baristasommelierbrew" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>recipe_id: str</code> (required) — id of a recipe returned by <code>generate</code>.</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — recipe id is unknown.
+- <code>no_device</code> — no live BLE client / config entry.
+- <code>brew_failed</code> — BLE brew call raised; see HA logs.</p>
+<p><strong>Notes</strong>
+- Always calls <code>async_mark_recipe_brewed</code> on success.
+- Internally invokes <code>_brew_recipe_components</code> which handles single-
+  and two-phase recipes (a missing phase[1] is encoded as a <code>none</code>-
+  process component2).</p>
+<hr />
+<h2 id="sommelier-favorites">Sommelier — favorites<a class="headerlink" href="#sommelier-favorites" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierfavoriteslist"><code>melitta_barista/sommelier/favorites/list</code><a class="headerlink" href="#melitta_baristasommelierfavoriteslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;favorites&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierfavoritesadd"><code>melitta_barista/sommelier/favorites/add</code><a class="headerlink" href="#melitta_baristasommelierfavoritesadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>recipe_id: str</code> (required) — must be a previously-generated recipe.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;favorite&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — recipe id is unknown.</p>
+<p><strong>Notes</strong>
+- Pulls the source recipe and the current hopper bean to populate
+  <code>source_recipe_id</code> / <code>source_bean_id</code> on the new favorite row.</p>
+<h3 id="melitta_baristasommelierfavoritesremove"><code>melitta_barista/sommelier/favorites/remove</code><a class="headerlink" href="#melitta_baristasommelierfavoritesremove" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>favorite_id: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — favorite id is unknown.</p>
+<h3 id="melitta_baristasommelierfavoritesupdate"><code>melitta_barista/sommelier/favorites/update</code><a class="headerlink" href="#melitta_baristasommelierfavoritesupdate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>favorite_id: str</code> (required)
+- <code>name: str</code> (optional)
+- <code>description: str</code> (optional)
+- <code>note: str \| null</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>no_fields</code> — none of <code>name</code> / <code>description</code> / <code>note</code> was provided.
+- <code>invalid_update</code> — DB layer raised <code>ValueError</code>.
+- <code>not_found</code> — favorite id is unknown.</p>
+<h3 id="melitta_baristasommelierfavoritesbrew"><code>melitta_barista/sommelier/favorites/brew</code><a class="headerlink" href="#melitta_baristasommelierfavoritesbrew" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>favorite_id: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — favorite id is unknown.
+- <code>no_device</code> — no live BLE client / config entry.
+- <code>brew_failed</code> — BLE brew call raised; see HA logs.</p>
+<p><strong>Notes</strong>
+- Always increments the favorite's brew counter on success.</p>
+<hr />
+<h2 id="sommelier-history">Sommelier — history<a class="headerlink" href="#sommelier-history" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierhistorylist"><code>melitta_barista/sommelier/history/list</code><a class="headerlink" href="#melitta_baristasommelierhistorylist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>limit: int (1..100)</code> (optional, default <code>20</code>)
+- <code>offset: int (&gt;=0)</code> (optional, default <code>0</code>)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;sessions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierhistoryclear"><code>melitta_barista/sommelier/history/clear</code><a class="headerlink" href="#melitta_baristasommelierhistoryclear" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>keep_favorited: bool</code> (optional, default <code>true</code>)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;cleared&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Returns the count of sessions actually removed. With <code>keep_favorited:
+  true</code> (default), sessions linked to a favorite are preserved.</p>
+<hr />
+<h2 id="sommelier-recipe-ratings">Sommelier — recipe ratings<a class="headerlink" href="#sommelier-recipe-ratings" title="Permanent link">&para;</a></h2>
+<h3 id="melitta_baristasommelierreciperate"><code>melitta_barista/sommelier/recipe/rate</code><a class="headerlink" href="#melitta_baristasommelierreciperate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>target_id: str</code> (required)
+- <code>target_type: "generated" \| "favorite"</code> (required)
+- <code>rating: int (1..5)</code> (required)
+- <code>note: str \| null</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>invalid_rating</code> — DB layer raised <code>ValueError</code> (defensive — voluptuous
+  catches range violations first).</p>
+<p><strong>Notes</strong>
+- Upserts on <code>(target_id, target_type)</code>; a second call replaces the
+  prior rating.</p>
+<h3 id="melitta_baristasommelierrecipeunrate"><code>melitta_barista/sommelier/recipe/unrate</code><a class="headerlink" href="#melitta_baristasommelierrecipeunrate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>target_id: str</code> (required)
+- <code>target_type: "generated" \| "favorite"</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{}</span>
+</code></pre></div></p>
+<p><strong>Notes</strong>
+- Idempotent — succeeds even if no rating existed.</p>
+<hr />
+<h2 id="sommelier-presets">Sommelier — presets<a class="headerlink" href="#sommelier-presets" title="Permanent link">&para;</a></h2>
+<p>User-managed preset templates. Distinct from <code>sommelier/bean_presets</code>
+(the static catalogue) — these are CRUD-managed structured payloads.</p>
+<h3 id="melitta_baristasommelierpresetslist"><code>melitta_barista/sommelier/presets/list</code><a class="headerlink" href="#melitta_baristasommelierpresetslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;presets&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;payload&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierpresetsadd"><code>melitta_barista/sommelier/presets/add</code><a class="headerlink" href="#melitta_baristasommelierpresetsadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>name: str (1..80)</code> (required)
+- <code>description: str (max 500)</code> (optional)
+- <code>payload: dict</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierpresetsupdate"><code>melitta_barista/sommelier/presets/update</code><a class="headerlink" href="#melitta_baristasommelierpresetsupdate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>preset_id: str</code> (required)
+- <code>name: str (1..80)</code> (optional)
+- <code>description: str (max 500)</code> (optional)
+- <code>payload: dict</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;updated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>no_fields</code> — none of <code>name</code> / <code>description</code> / <code>payload</code> provided.
+- <code>system_preset_readonly</code> — the preset is a bundled / built-in one
+  and cannot be modified.
+- <code>invalid_update</code> — generic <code>ValueError</code> from the DB layer.
+- <code>not_found</code> — preset id is unknown.</p>
+<h3 id="melitta_baristasommelierpresetsdelete"><code>melitta_barista/sommelier/presets/delete</code><a class="headerlink" href="#melitta_baristasommelierpresetsdelete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>preset_id: str</code> (required)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;deleted&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>system_preset_readonly</code> — built-in presets cannot be deleted.
+- <code>invalid_delete</code> — generic <code>ValueError</code> from the DB layer.
+- <code>not_found</code> — preset id is unknown.</p>
+<hr />
+<h2 id="sommelier-bean-presets">Sommelier — bean presets<a class="headerlink" href="#sommelier-bean-presets" title="Permanent link">&para;</a></h2>
+<p>Static catalogue moved here in 0.64.0. Read-only — bundled JSON file.</p>
+<h3 id="melitta_baristasommelierbean_presetslist"><code>melitta_barista/sommelier/bean_presets/list</code><a class="headerlink" href="#melitta_baristasommelierbean_presetslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;presets&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;lavazza_crema_e_aroma&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;brand&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Lavazza&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>load_failed</code> — bundled <code>coffee_presets.json</code> could not be read.</p>
+<p><strong>Notes</strong>
+- Cached in module-level state after first successful load; subsequent
+  calls hit the cache and never re-read the file.</p>
+<hr />
+<h2 id="sommelier-settings">Sommelier — settings<a class="headerlink" href="#sommelier-settings" title="Permanent link">&para;</a></h2>
+<p>Sommelier-wide settings stored in the shared <code>settings</code> table. The
+allowed keys are gated by <code>VALID_SETTING_KEYS</code> (currently
+<code>["llm_agent_id"]</code>) — see source for why this is a hard schema guarantee
+rather than a UX gate.</p>
+<h3 id="melitta_baristasommeliersettingsget"><code>melitta_barista/sommelier/settings/get</code><a class="headerlink" href="#melitta_baristasommeliersettingsget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;llm_agent_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conversation.smartchain_openai&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommeliersettingsset"><code>melitta_barista/sommelier/settings/set</code><a class="headerlink" href="#melitta_baristasommeliersettingsset" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>key: "llm_agent_id"</code> (required) — only key currently allowed.
+- <code>value: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<hr />
+<h2 id="sommelier-preferences">Sommelier — preferences<a class="headerlink" href="#sommelier-preferences" title="Permanent link">&para;</a></h2>
+<p>User preferences stored in <code>user_preferences</code>. Allowed keys gated by
+<code>VALID_PREFERENCE_KEYS</code>.</p>
+<h3 id="melitta_baristasommelierpreferencesget"><code>melitta_barista/sommelier/preferences/get</code><a class="headerlink" href="#melitta_baristasommelierpreferencesget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;preferences&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;default_cup_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierpreferencesset"><code>melitta_barista/sommelier/preferences/set</code><a class="headerlink" href="#melitta_baristasommelierpreferencesset" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>key: "default_cup_size" \| "default_temperature" \| "default_caffeine" \| "default_dietary"</code> (required)
+- <code>value: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<hr />
+<h2 id="sommelier-profiles">Sommelier — profiles<a class="headerlink" href="#sommelier-profiles" title="Permanent link">&para;</a></h2>
+<p>User-managed preference profiles (cup size, dietary, caffeine, etc.).
+One profile may be "active" at a time and feeds defaults into
+<code>/sommelier/generate</code>.</p>
+<h3 id="melitta_baristasommelierprofileslist"><code>melitta_barista/sommelier/profiles/list</code><a class="headerlink" href="#melitta_baristasommelierprofileslist" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>async_response</code>; no admin requirement</td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- none</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;profiles&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;active&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierprofilesadd"><code>melitta_barista/sommelier/profiles/add</code><a class="headerlink" href="#melitta_baristasommelierprofilesadd" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>name: str</code> (required)
+- <code>preferences: dict</code> (optional, default <code>{}</code>) — merged into the new
+  profile row (e.g. <code>cup_size</code>, <code>dietary</code>, <code>caffeine_pref</code>).</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;profile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="melitta_baristasommelierprofilesupdate"><code>melitta_barista/sommelier/profiles/update</code><a class="headerlink" href="#melitta_baristasommelierprofilesupdate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>profile_id: str</code> (required)
+- <code>name: str</code> (optional)
+- <code>preferences: dict</code> (optional)</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;profile&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;...&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — profile id is unknown.</p>
+<h3 id="melitta_baristasommelierprofilesdelete"><code>melitta_barista/sommelier/profiles/delete</code><a class="headerlink" href="#melitta_baristasommelierprofilesdelete" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>profile_id: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — profile id is unknown.</p>
+<h3 id="melitta_baristasommelierprofilesactivate"><code>melitta_barista/sommelier/profiles/activate</code><a class="headerlink" href="#melitta_baristasommelierprofilesactivate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decorators</strong></td>
+<td><code>require_admin</code>, <code>async_response</code></td>
+</tr>
+<tr>
+<td><strong>Stability</strong></td>
+<td>stable</td>
+</tr>
+<tr>
+<td><strong>Introduced</strong></td>
+<td>≤0.65.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Inputs</strong>
+- <code>profile_id: str</code> (required)</p>
+<p><strong>Response</strong>
+- empty success ack.</p>
+<p><strong>Errors</strong>
+- <code>not_found</code> — profile id is unknown.</p>
+<p><strong>Notes</strong>
+- Deactivates all other profiles atomically (DB-level constraint).</p>
+<hr />
+<h2 id="endpoint-index-checklist">Endpoint index (checklist)<a class="headerlink" href="#endpoint-index-checklist" title="Permanent link">&para;</a></h2>
+<p>The complete enumeration produced by
+<code>grep -rE 'vol.Required\("type"\)' custom_components/melitta_barista/*.py</code>,
+expanded for the factory-generated additive handlers. <strong>Total: 65
+runtime endpoints.</strong> (One additional <code>melitta_barista/api/info</code> entry
+ships in 0.66.0 Task 2.)</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">#</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td><code>melitta_barista/entries</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td><code>melitta_barista/status</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td><code>melitta_barista/diagnostics</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td><code>melitta_barista/diagnostics/clear</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td><code>melitta_barista/diagnostics/llm_calls</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">6</td>
+<td><code>melitta_barista/recipes/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">7</td>
+<td><code>melitta_barista/producers/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td><code>melitta_barista/producers/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">9</td>
+<td><code>melitta_barista/producers/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">10</td>
+<td><code>melitta_barista/producers/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">11</td>
+<td><code>melitta_barista/syrups/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">12</td>
+<td><code>melitta_barista/syrups/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">13</td>
+<td><code>melitta_barista/syrups/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">14</td>
+<td><code>melitta_barista/syrups/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">15</td>
+<td><code>melitta_barista/syrups/set_available</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">16</td>
+<td><code>melitta_barista/toppings/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">17</td>
+<td><code>melitta_barista/toppings/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">18</td>
+<td><code>melitta_barista/toppings/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">19</td>
+<td><code>melitta_barista/toppings/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">20</td>
+<td><code>melitta_barista/toppings/set_available</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">21</td>
+<td><code>melitta_barista/tags/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">22</td>
+<td><code>melitta_barista/tags/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">23</td>
+<td><code>melitta_barista/tags/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">24</td>
+<td><code>melitta_barista/beans/autofill</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">25</td>
+<td><code>melitta_barista/prompts/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">26</td>
+<td><code>melitta_barista/prompts/save</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">27</td>
+<td><code>melitta_barista/prompts/preview</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">28</td>
+<td><code>melitta_barista/prompts/reset</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">29</td>
+<td><code>melitta_barista/llm/agents</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">30</td>
+<td><code>melitta_barista/capabilities/get</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">31</td>
+<td><code>melitta_barista/sommelier/beans/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">32</td>
+<td><code>melitta_barista/sommelier/beans/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">33</td>
+<td><code>melitta_barista/sommelier/beans/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">34</td>
+<td><code>melitta_barista/sommelier/beans/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">35</td>
+<td><code>melitta_barista/sommelier/hoppers/get</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">36</td>
+<td><code>melitta_barista/sommelier/hoppers/assign</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">37</td>
+<td><code>melitta_barista/sommelier/milk/get</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">38</td>
+<td><code>melitta_barista/sommelier/milk/set</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">39</td>
+<td><code>melitta_barista/sommelier/extras/get</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">40</td>
+<td><code>melitta_barista/sommelier/extras/set</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">41</td>
+<td><code>melitta_barista/sommelier/generate</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">42</td>
+<td><code>melitta_barista/sommelier/brew</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">43</td>
+<td><code>melitta_barista/sommelier/favorites/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">44</td>
+<td><code>melitta_barista/sommelier/favorites/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">45</td>
+<td><code>melitta_barista/sommelier/favorites/remove</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">46</td>
+<td><code>melitta_barista/sommelier/favorites/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">47</td>
+<td><code>melitta_barista/sommelier/favorites/brew</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">48</td>
+<td><code>melitta_barista/sommelier/history/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">49</td>
+<td><code>melitta_barista/sommelier/history/clear</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">50</td>
+<td><code>melitta_barista/sommelier/recipe/rate</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">51</td>
+<td><code>melitta_barista/sommelier/recipe/unrate</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">52</td>
+<td><code>melitta_barista/sommelier/presets/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">53</td>
+<td><code>melitta_barista/sommelier/presets/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">54</td>
+<td><code>melitta_barista/sommelier/presets/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">55</td>
+<td><code>melitta_barista/sommelier/presets/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">56</td>
+<td><code>melitta_barista/sommelier/bean_presets/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">57</td>
+<td><code>melitta_barista/sommelier/settings/get</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">58</td>
+<td><code>melitta_barista/sommelier/settings/set</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">59</td>
+<td><code>melitta_barista/sommelier/preferences/get</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">60</td>
+<td><code>melitta_barista/sommelier/preferences/set</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">61</td>
+<td><code>melitta_barista/sommelier/profiles/list</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">62</td>
+<td><code>melitta_barista/sommelier/profiles/add</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">63</td>
+<td><code>melitta_barista/sommelier/profiles/update</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">64</td>
+<td><code>melitta_barista/sommelier/profiles/delete</code></td>
+</tr>
+<tr>
+<td style="text-align: right;">65</td>
+<td><code>melitta_barista/sommelier/profiles/activate</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dzerik/melitta-barista-ha" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
