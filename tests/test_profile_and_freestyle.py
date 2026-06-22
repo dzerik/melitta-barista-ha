@@ -333,3 +333,81 @@ class TestBleClientFreestyle:
             "Test", 24, RecipeComponent(), RecipeComponent()
         )
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_freestyle_two_cups_passthrough(self):
+        """brew_freestyle(two_cups=True) forwards the flag to start_process.
+
+        Regression for the broken brew_freestyle service: the method had no
+        ``two_cups`` parameter while the service handler passed it as a
+        keyword, raising TypeError → HTTP 500 on every service call (#31).
+        """
+        from custom_components.melitta_barista.ble_client import MelittaBleClient
+
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._connected = True
+        client._client = MagicMock(is_connected=True)
+        client._client.write_gatt_char = AsyncMock()
+        client._status = MachineStatus(process=MachineProcess.READY)
+        client._protocol.write_recipe = AsyncMock(return_value=True)
+        client._protocol.write_alphanumeric = AsyncMock(return_value=True)
+        client._protocol.start_process = AsyncMock(return_value=True)
+
+        result = await client.brew_freestyle(
+            "Two", 24, RecipeComponent(), RecipeComponent(), two_cups=True,
+        )
+        client._stop_polling()
+        assert result is True
+        assert client._protocol.start_process.await_args.kwargs["two_cups"] is True
+
+
+class TestFreestyleBlend:
+    """Bean-hopper (blend) selection in freestyle (#31)."""
+
+    def test_blend_map_values(self):
+        from custom_components.melitta_barista.const import BLEND_MAP, Blend
+
+        assert BLEND_MAP["hopper_1"] == Blend.BLEND_1
+        assert BLEND_MAP["hopper_2"] == Blend.BLEND_2
+
+    async def test_button_maps_blend_per_component(
+        self, hass: HomeAssistant
+    ) -> None:
+        """The freestyle button maps freestyle_blend1/2 to comp.blend."""
+        from custom_components.melitta_barista.button import (
+            MelittaBrewFreestyleButton,
+        )
+        from custom_components.melitta_barista.const import Blend
+
+        client = _mock_client()
+        client.freestyle_name = "Decaf"
+        client.freestyle_process1 = "coffee"
+        client.freestyle_intensity1 = "medium"
+        client.freestyle_aroma1 = "standard"
+        client.freestyle_portion1_ml = 40
+        client.freestyle_temperature1 = "normal"
+        client.freestyle_shots1 = "one"
+        client.freestyle_blend1 = "hopper_2"
+        client.freestyle_process2 = "none"
+        client.freestyle_intensity2 = "medium"
+        client.freestyle_aroma2 = "standard"
+        client.freestyle_portion2_ml = 0
+        client.freestyle_temperature2 = "normal"
+        client.freestyle_shots2 = "none"
+        client.freestyle_blend2 = "hopper_1"
+        client.brew_freestyle = AsyncMock(return_value=True)
+
+        entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG_DATA)
+        btn = MelittaBrewFreestyleButton(client, entry, "Test")
+        await btn.async_press()
+
+        kwargs = client.brew_freestyle.call_args[1]
+        assert kwargs["component1"].blend == Blend.BLEND_2
+        assert kwargs["component2"].blend == Blend.BLEND_1
+
+    def test_button_blend_defaults_to_hopper1(self):
+        """Unset/unknown blend falls back to hopper 1 (universal default)."""
+        from custom_components.melitta_barista.button import _BLEND_MAP
+        from custom_components.melitta_barista.const import Blend
+
+        assert _BLEND_MAP.get("nonsense", Blend.BLEND_1) == Blend.BLEND_1

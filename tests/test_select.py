@@ -135,3 +135,51 @@ def test_profile_select_marks_directkey_unrecorded() -> None:
     from custom_components.melitta_barista.select import MelittaProfileSelect
 
     assert "directkey_recipes" in MelittaProfileSelect._unrecorded_attributes
+
+
+def _blend_unique_ids(hass) -> list[str]:
+    """Unique IDs of freestyle bean-hopper selects in the entity registry."""
+    from homeassistant.helpers import entity_registry as er
+
+    reg = er.async_get(hass)
+    return [
+        e.unique_id
+        for e in reg.entities.values()
+        if e.domain == "select" and "_freestyle_blend_" in e.unique_id
+    ]
+
+
+async def test_blend_selects_created_for_dual_hopper(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Both bean-hopper selects appear on a dual-hopper Barista TS (#31)."""
+    from custom_components.melitta_barista.const import MachineType
+
+    client = _mock_client()
+    client.machine_type = MachineType.BARISTA_TS
+    await _setup_integration(hass, mock_entry, client)
+
+    assert len(_blend_unique_ids(hass)) == 2
+
+
+async def test_blend_selects_created_for_unknown_type(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """When the type is not yet known, show the selects (mirror TS_ONLY gate)."""
+    client = _mock_client()  # machine_type = None
+    await _setup_integration(hass, mock_entry, client)
+
+    assert len(_blend_unique_ids(hass)) == 2
+
+
+async def test_blend_selects_hidden_for_single_hopper(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Single-hopper Barista T has no second hopper → no bean-hopper selects."""
+    from custom_components.melitta_barista.const import MachineType
+
+    client = _mock_client()
+    client.machine_type = MachineType.BARISTA_T
+    await _setup_integration(hass, mock_entry, client)
+
+    assert _blend_unique_ids(hass) == []

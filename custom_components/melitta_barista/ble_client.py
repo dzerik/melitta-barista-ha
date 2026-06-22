@@ -204,12 +204,14 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self.freestyle_portion1_ml: int = 40
         self.freestyle_temperature1: str = "normal"
         self.freestyle_shots1: str = "one"
+        self.freestyle_blend1: str = "hopper_1"
         self.freestyle_process2: str = "none"
         self.freestyle_intensity2: str = "medium"
         self.freestyle_aroma2: str = "standard"
         self.freestyle_portion2_ml: int = 0
         self.freestyle_temperature2: str = "normal"
         self.freestyle_shots2: str = "none"
+        self.freestyle_blend2: str = "hopper_1"
 
         # BLE pairing state: skip pair=True on reconnect if already bonded
         self._paired = False

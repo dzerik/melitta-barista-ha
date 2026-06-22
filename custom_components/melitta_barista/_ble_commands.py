@@ -319,11 +319,19 @@ class BleCommandsMixin(_MixinBase):
         recipe_type: int,
         component1: RecipeComponent,
         component2: RecipeComponent,
+        *,
+        two_cups: bool = False,
     ) -> bool:
         """Brew a freestyle (custom) recipe.
 
         Writes the provided components to the temp recipe slot and starts brewing.
         recipe_type is typically 24 (freestyle).
+
+        ``two_cups`` sets the HE double-brew flag (passed through to
+        ``start_process``). The ``brew_freestyle`` service exposes it; the
+        button entity brews single by default. Kept keyword-only so the
+        positional ``(name, recipe_type, comp1, comp2)`` call sites stay
+        valid — a previous mismatch made the service raise ``TypeError``.
         """
         if self._brew_lock.locked():
             _LOGGER.warning("Brew already in progress, ignoring")
@@ -359,7 +367,7 @@ class BleCommandsMixin(_MixinBase):
                 await asyncio.sleep(0.2)
 
                 return await self._protocol.start_process(
-                    self._write_ble, MachineProcess.PRODUCT,
+                    self._write_ble, MachineProcess.PRODUCT, two_cups=two_cups,
                 )
             finally:
                 if self.connected:
