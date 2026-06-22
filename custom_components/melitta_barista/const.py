@@ -529,6 +529,12 @@ INTENSITY_MAP: dict[str, int] = {
 AROMA_MAP: dict[str, int] = {"standard": 0, "intense": 1}
 TEMPERATURE_MAP: dict[str, int] = {"cold": 0, "normal": 1, "high": 2}
 SHOTS_MAP: dict[str, int] = {"none": 0, "one": 1, "two": 2, "three": 3}
+# Bean hopper selection (dual-hopper Barista TS only). Maps the freestyle
+# select option / service param to the per-component ``blend`` byte
+# (see ``Blend`` enum). ``hopper_1`` is the universal default; ``hopper_2``
+# selects the second hopper, used e.g. for decaf beans. Single-hopper
+# Barista T machines ignore the byte.
+BLEND_MAP: dict[str, int] = {"hopper_1": Blend.BLEND_1, "hopper_2": Blend.BLEND_2}
 
 # ---------------------------------------------------------------------------
 # Clock auto-sync (0.52.0)

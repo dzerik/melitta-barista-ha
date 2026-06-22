@@ -21,6 +21,7 @@ from .const import (
     HE_CMD_FACTORY_RESET_SETTINGS, PROMPT_MANIPULATIONS, RECIPE_NAMES,
     MachineProcess,
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
+    BLEND_MAP, Blend,
 )
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
@@ -213,6 +214,7 @@ _INTENSITY_MAP = INTENSITY_MAP
 _AROMA_MAP = AROMA_MAP
 _TEMPERATURE_MAP = TEMPERATURE_MAP
 _SHOTS_MAP = SHOTS_MAP
+_BLEND_MAP = BLEND_MAP
 
 
 class MelittaBrewFreestyleButton(_MelittaButtonBase):
@@ -240,7 +242,7 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
         comp1 = RecipeComponent(
             process=_PROCESS_MAP.get(c.freestyle_process1, 1),
             shots=_SHOTS_MAP.get(c.freestyle_shots1, 1),
-            blend=1,
+            blend=_BLEND_MAP.get(c.freestyle_blend1, Blend.BLEND_1),
             intensity=_INTENSITY_MAP.get(c.freestyle_intensity1, 2),
             aroma=_AROMA_MAP.get(c.freestyle_aroma1, 0),
             temperature=_TEMPERATURE_MAP.get(c.freestyle_temperature1, 1),
@@ -249,7 +251,7 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
         comp2 = RecipeComponent(
             process=_PROCESS_MAP.get(c.freestyle_process2, 0),
             shots=_SHOTS_MAP.get(c.freestyle_shots2, 0),
-            blend=0,
+            blend=_BLEND_MAP.get(c.freestyle_blend2, Blend.BLEND_1),
             intensity=_INTENSITY_MAP.get(c.freestyle_intensity2, 2),
             aroma=_AROMA_MAP.get(c.freestyle_aroma2, 0),
             temperature=_TEMPERATURE_MAP.get(c.freestyle_temperature2, 1),

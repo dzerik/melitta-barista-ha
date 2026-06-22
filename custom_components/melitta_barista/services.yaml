@@ -291,6 +291,16 @@ brew_freestyle:
             - "one"
             - "two"
             - "three"
+    blend1:
+      name: Component 1 Bean Hopper
+      description: "Bean hopper for the first component (dual-hopper Barista TS only): hopper_1 or hopper_2"
+      required: false
+      default: "hopper_1"
+      selector:
+        select:
+          options:
+            - "hopper_1"
+            - "hopper_2"
     process2:
       name: Component 2 Process
       description: "Process type for second component: none, coffee, milk, water"
@@ -355,6 +365,16 @@ brew_freestyle:
             - "one"
             - "two"
             - "three"
+    blend2:
+      name: Component 2 Bean Hopper
+      description: "Bean hopper for the second component (dual-hopper Barista TS only): hopper_1 or hopper_2"
+      required: false
+      default: "hopper_1"
+      selector:
+        select:
+          options:
+            - "hopper_1"
+            - "hopper_2"
     two_cups:
       name: Two Cups
       description: "Brew two cups (2x mode)"

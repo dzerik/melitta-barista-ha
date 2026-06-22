@@ -37,6 +37,7 @@ from .const import (
     DOMAIN,
     DEFAULT_POLL_INTERVAL,
     PROCESS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP, SHOTS_MAP,
+    BLEND_MAP, Blend,
     CONF_POLL_INTERVAL,
     CONF_RECONNECT_DELAY,
     CONF_RECONNECT_MAX_DELAY,
@@ -1121,6 +1122,7 @@ _INTENSITY_MAP = INTENSITY_MAP
 _AROMA_MAP = AROMA_MAP
 _TEMPERATURE_MAP = TEMPERATURE_MAP
 _SHOTS_MAP = SHOTS_MAP
+_BLEND_MAP = BLEND_MAP
 
 _DIRECTKEY_CATEGORIES = [
     "espresso", "cafe_creme", "cappuccino",
@@ -1183,12 +1185,14 @@ BREW_FREESTYLE_SCHEMA = vol.Schema({
     vol.Optional("portion1_ml", default=40): vol.All(int, vol.Range(min=5, max=250)),
     vol.Optional("temperature1", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots1", default="one"): vol.In(_SHOTS_MAP),
+    vol.Optional("blend1", default="hopper_1"): vol.In(_BLEND_MAP),
     vol.Optional("process2", default="none"): vol.In(_PROCESS_MAP),
     vol.Optional("intensity2", default="medium"): vol.In(_INTENSITY_MAP),
     vol.Optional("aroma2", default="standard"): vol.In(_AROMA_MAP),
     vol.Optional("portion2_ml", default=0): vol.All(int, vol.Range(min=0, max=250)),
     vol.Optional("temperature2", default="normal"): vol.In(_TEMPERATURE_MAP),
     vol.Optional("shots2", default="none"): vol.In(_SHOTS_MAP),
+    vol.Optional("blend2", default="hopper_1"): vol.In(_BLEND_MAP),
     vol.Optional("two_cups", default=False): cv.boolean,
 })
 
@@ -1263,7 +1267,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         comp1 = RecipeComponent(
             process=_PROCESS_MAP[call.data["process1"]],
             shots=_SHOTS_MAP[call.data.get("shots1", "one")],
-            blend=1,  # BLEND_1
+            blend=_BLEND_MAP.get(call.data.get("blend1", "hopper_1"), Blend.BLEND_1),
             intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
             aroma=_AROMA_MAP[call.data.get("aroma1", "standard")],
             temperature=_TEMPERATURE_MAP[call.data.get("temperature1", "normal")],
@@ -1273,7 +1277,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         comp2 = RecipeComponent(
             process=_PROCESS_MAP[call.data.get("process2", "none")],
             shots=_SHOTS_MAP[call.data.get("shots2", "none")],
-            blend=0,  # BARISTA_T
+            blend=_BLEND_MAP.get(call.data.get("blend2", "hopper_1"), Blend.BLEND_1),
             intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
             aroma=_AROMA_MAP[call.data.get("aroma2", "standard")],
             temperature=_TEMPERATURE_MAP[call.data.get("temperature2", "normal")],

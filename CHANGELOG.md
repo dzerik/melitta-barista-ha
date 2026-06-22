@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.82.0] — 2026-06-22
+
+### Added
+
+- **Bean hopper selection in Freestyle (dual-hopper Barista TS)** (#31). Each freestyle component can now choose its bean hopper. Two new selects — *Freestyle Bean Hopper 1* and *Freestyle Bean Hopper 2* (`hopper_1` / `hopper_2`) — plus matching `blend1` / `blend2` parameters on the `brew_freestyle` service. This makes it possible to brew, e.g., decaf from hopper 2. The selects are shown on a Barista TS (and when the machine type is not yet known) and hidden on a single-hopper Barista T. Previously the hopper byte was hardcoded to hopper 1, so the second hopper was unreachable over BLE.
+
+### Fixed
+
+- **`brew_freestyle` service raised HTTP 500 on every call**. The service handler passed `two_cups` as a keyword, but `MelittaBleClient.brew_freestyle` had no such parameter, raising `TypeError`. The flag is now a keyword-only argument forwarded to the HE double-brew flag in `start_process`. The freestyle button (single-cup) is unaffected.
+
 ## [0.81.1] — 2026-06-10
 
 ### Fixed

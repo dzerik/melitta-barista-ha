@@ -25,6 +25,7 @@ from .const import (
     Intensity,
     Temperature,
     Shots,
+    MachineType,
     get_available_recipes,
     get_user_profile_count,
 )
@@ -41,6 +42,8 @@ _INTENSITY_OPTIONS = ["very_mild", "mild", "medium", "strong", "very_strong"]
 _AROMA_OPTIONS = ["standard", "intense"]
 _TEMPERATURE_OPTIONS = ["cold", "normal", "high"]
 _SHOTS_OPTIONS = ["none", "one", "two", "three"]
+# Bean hopper selection — only meaningful on dual-hopper Barista TS.
+_BLEND_OPTIONS = ["hopper_1", "hopper_2"]
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -163,6 +166,15 @@ async def async_setup_entry(
             MelittaFreestyleSelect(client, entry, name, "temperature_2", "Temperature 2", "mdi:thermometer", _TEMPERATURE_OPTIONS, "freestyle_temperature2"),
             MelittaFreestyleSelect(client, entry, name, "shots_2", "Shots 2", "mdi:numeric", _SHOTS_OPTIONS, "freestyle_shots2"),
         ])
+        # Bean hopper selection — only on dual-hopper machines. Mirror the
+        # TS_ONLY gating used for switches: show on a confirmed TS and on an
+        # as-yet-unknown machine type, hide only on a confirmed single-hopper
+        # Barista T (which has no second hopper to select).
+        if client.machine_type != MachineType.BARISTA_T:
+            entities.extend([
+                MelittaFreestyleSelect(client, entry, name, "blend_1", "Bean Hopper 1", "mdi:silo", _BLEND_OPTIONS, "freestyle_blend1"),
+                MelittaFreestyleSelect(client, entry, name, "blend_2", "Bean Hopper 2", "mdi:silo", _BLEND_OPTIONS, "freestyle_blend2"),
+            ])
     async_add_entities(entities)
 
 
