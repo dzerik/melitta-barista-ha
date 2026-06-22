@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.83.0] — 2026-06-22
+
+Nivona brew-override improvements, ported from community testing on real NICR hardware.
+
+### Added
+
+- **Brew Water Amount override** for Nivona. A new `water_amount` slider (0–240 mL, default 100) joins the existing strength / coffee-amount / temperature / milk-amount overrides. The field was already supported by the temp-recipe write path; it is now exposed as an entity.
+- **Reset Brew Overrides button** for Nivona. Clears the `user_set` flag on every override slider and restores defaults, so the next brew uses the machine's own saved recipe instead of a temp-recipe override.
+
+### Fixed
+
+- **Partial temp-recipe writes brewed wrong amounts on Nivona**. When any override slider was set, only the changed fields were written, and the firmware filled the omitted fields with hardware defaults (not the saved-recipe values) — silently brewing wrong amounts for the untouched fields. Brew overrides are now all-or-nothing: setting any slider sends the complete set of current slider values; setting none leaves the saved recipe untouched.
+
 ## [0.82.0] — 2026-06-22
 
 ### Added

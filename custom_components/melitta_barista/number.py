@@ -16,7 +16,7 @@ from homeassistant.const import CONF_ADDRESS
 
 from .ble_client import resolve_caps_from_scanner
 from .coffee_platform.contract import CoffeeMachineClient
-from .const import MachineSettingId
+from .const import DOMAIN, MachineSettingId
 from .entity import MelittaDeviceMixin
 
 
@@ -129,6 +129,10 @@ async def async_setup_entry(
         entities.append(NivonaBrewOverrideNumber(
             client, entry, name, "coffee_amount", "Brew Coffee Amount",
             "mdi:cup-water", 20, 240, 5, default=40, unit="mL",
+        ))
+        entities.append(NivonaBrewOverrideNumber(
+            client, entry, name, "water_amount", "Brew Water Amount",
+            "mdi:water", 0, 240, 5, default=100, unit="mL",
         ))
         entities.append(NivonaBrewOverrideNumber(
             client, entry, name, "temperature", "Brew Temperature Preset",
@@ -415,6 +419,21 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
                 pass
             if last.attributes.get("user_set"):
                 self._user_set = True
+        # Listen for the per-slider reset event fired by
+        # NivonaResetOverridesButton — clears user_set and restores default.
+        self.async_on_remove(
+            self.hass.bus.async_listen(
+                f"{DOMAIN}_reset_override_{self._attr_unique_id}",
+                self._handle_reset_event,
+            )
+        )
+
+    @callback
+    def _handle_reset_event(self, event) -> None:
+        """Clear the user_set flag and restore the default on reset."""
+        self._user_set = False
+        self._attr_native_value = self._default
+        self.async_write_ha_state()
 
     async def async_set_native_value(self, value: float) -> None:
         self._attr_native_value = value
