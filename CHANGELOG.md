@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.85.0] — 2026-07-08
+
+### Fixed
+
+- **Proxy-mode pairing failed when the host also has a local BlueZ adapter** (community forum post #4). With an ESPHome BLE proxy, the machine may be visible only through the proxy while an (unused) local adapter still exists on the host; the config flow then attempted D-Bus pairing against `hci0`, introspecting a device object the local adapter had never seen, and died with `InterfaceNotFoundError: org.bluez.Device1`. The config flow now asks the HA Bluetooth registry which scanner actually sees the device and skips D-Bus pairing when it is a remote (proxy) scanner — bonding is left to the proxy, exactly as in the no-adapter path.
+
 ## [0.84.0] — 2026-07-08
 
 ### Added

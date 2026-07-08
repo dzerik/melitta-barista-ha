@@ -368,16 +368,50 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    def _device_via_remote_scanner(self) -> bool:
+        """True when the device is currently reachable via a remote scanner.
+
+        With an ESPHome BLE proxy the device may be visible only through
+        the proxy while a (possibly unused) local BlueZ adapter also
+        exists on the host. D-Bus pairing against the local adapter then
+        introspects a device object hci0 has never seen and fails with
+        InterfaceNotFoundError (community forum post #4, Spitfyre) —
+        bonding must be left to the proxy instead.
+        """
+        try:
+            from homeassistant.components import bluetooth  # noqa: PLC0415
+
+            info = bluetooth.async_last_service_info(
+                self.hass, self._address, connectable=True
+            )
+            if info is None:
+                return False
+            scanner = bluetooth.async_scanner_by_source(self.hass, info.source)
+            return isinstance(scanner, bluetooth.BaseHaRemoteScanner)
+        except Exception:  # noqa: BLE001 — registry probing must never break the flow
+            _LOGGER.debug("Remote-scanner detection failed", exc_info=True)
+            return False
+
     async def _async_try_pair(self) -> str:
         """Attempt pre-pairing with the device.
 
         Tries D-Bus BlueZ Agent1 pairing first (works with local BT adapter).
-        If D-Bus is unavailable (ESPHome proxy, non-Linux, container),
+        If D-Bus is unavailable (ESPHome proxy, non-Linux, container) or the
+        device is only reachable through a remote (ESPHome proxy) scanner,
         returns "ok" — pairing will be handled automatically by Bleak's
         pair=True parameter during the actual BLE connection.
         """
         if not self._address:
             return "cannot_connect"
+
+        if self._device_via_remote_scanner():
+            _LOGGER.info(
+                "Device %s is reachable via a remote (ESPHome BLE proxy) "
+                "scanner — skipping D-Bus pairing; bonding is handled by "
+                "the proxy on connect",
+                self._address,
+            )
+            return "ok"
 
         try:
             from .ble_agent import async_pair_device

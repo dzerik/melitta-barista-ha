@@ -743,6 +743,101 @@ async def test_try_pair_delegates_to_ble_agent(
     mock_pair.assert_awaited_once_with(MOCK_ADDRESS, timeout=30.0)
 
 
+async def test_try_pair_skips_dbus_for_remote_scanner_device(
+    hass: HomeAssistant,
+) -> None:
+    """Device reachable only via an ESPHome proxy skips D-Bus pairing.
+
+    Regression test for community forum post #4: a local BlueZ adapter
+    exists on the host, but the machine is visible only through the
+    remote scanner — D-Bus pairing against hci0 would introspect a
+    device object the adapter has never seen (InterfaceNotFoundError).
+    """
+    from custom_components.melitta_barista.config_flow import (
+        MelittaBaristaConfigFlow,
+    )
+
+    flow = MelittaBaristaConfigFlow()
+    flow.hass = hass
+    flow._address = MOCK_ADDRESS
+
+    with (
+        patch.object(
+            MelittaBaristaConfigFlow,
+            "_device_via_remote_scanner",
+            return_value=True,
+        ),
+        patch(
+            "custom_components.melitta_barista.ble_agent.async_pair_device",
+            new_callable=AsyncMock,
+        ) as mock_pair,
+    ):
+        result = await flow._async_try_pair()
+
+    assert result == "ok"
+    mock_pair.assert_not_awaited()
+
+
+async def test_device_via_remote_scanner_detection(
+    hass: HomeAssistant,
+) -> None:
+    """_device_via_remote_scanner: remote scanner → True, local/none → False."""
+    from homeassistant.components import bluetooth
+
+    from custom_components.melitta_barista.config_flow import (
+        MelittaBaristaConfigFlow,
+    )
+
+    flow = MelittaBaristaConfigFlow()
+    flow.hass = hass
+    flow._address = MOCK_ADDRESS
+
+    service_info = MagicMock()
+    service_info.source = "AA:BB:CC:DD:EE:FF"
+    remote_scanner = MagicMock(spec=bluetooth.BaseHaRemoteScanner)
+    local_scanner = MagicMock()  # not a BaseHaRemoteScanner
+
+    # Remote scanner → True
+    with (
+        patch(
+            "homeassistant.components.bluetooth.async_last_service_info",
+            return_value=service_info,
+        ),
+        patch(
+            "homeassistant.components.bluetooth.async_scanner_by_source",
+            return_value=remote_scanner,
+        ),
+    ):
+        assert flow._device_via_remote_scanner() is True
+
+    # Local scanner → False
+    with (
+        patch(
+            "homeassistant.components.bluetooth.async_last_service_info",
+            return_value=service_info,
+        ),
+        patch(
+            "homeassistant.components.bluetooth.async_scanner_by_source",
+            return_value=local_scanner,
+        ),
+    ):
+        assert flow._device_via_remote_scanner() is False
+
+    # No advertisement info → False (fall through to normal pairing)
+    with patch(
+        "homeassistant.components.bluetooth.async_last_service_info",
+        return_value=None,
+    ):
+        assert flow._device_via_remote_scanner() is False
+
+    # Registry probing blows up → False, never breaks the flow
+    with patch(
+        "homeassistant.components.bluetooth.async_last_service_info",
+        side_effect=RuntimeError("no bluetooth manager"),
+    ):
+        assert flow._device_via_remote_scanner() is False
+
+
 # ---------------------------------------------------------------------------
 # BleakScanner fallback filters by device name
 # ---------------------------------------------------------------------------
