@@ -13,13 +13,13 @@
 [![Brands](https://img.shields.io/badge/brands-Melitta%20%2B%20Nivona-8b5a2b?style=flat-square)](#supported-brands-and-models)
 [![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#localization)
 
-A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** plus **NIVO 8xxx** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance — all from your Home Assistant dashboard.
+A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart** and **Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** plus **NIVO 8xxx / 9101** coffee machines over Bluetooth Low Energy (BLE). Both brands are built on the shared Eugster/Frismag OEM stack, so a single integration drives either. Monitor machine status, brew recipes, adjust settings, trigger maintenance — all from your Home Assistant dashboard.
 
 **This release ships an alpha version of the in-HA admin SPA panel + AI Coffee Sommelier — recipe generation goes through any HA conversation agent (OpenAI / Anthropic / Gemini / GigaChat / SmartChain / Ollama), the result is brewable in one tap. See [AI Coffee Sommelier (alpha)](#ai-coffee-sommelier-alpha) below.**
 
 > 📖 **Documentation site**: [dzerik.github.io/melitta-barista-ha](https://dzerik.github.io/melitta-barista-ha/) — BLE architecture, wire protocol, ADRs and changelog with navigation, search, and rendered Mermaid diagrams.
 
-> **⚠️ Nivona testers wanted.** Nivona support (v0.41.0) is shipped as **alpha** — cryptography and handshake are validated against upstream RE vectors, but the code path has not been live-tested on real Nivona hardware by the maintainer. If you own a **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx** machine, please try this release and [open a GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with your results (handshake / status / brew / prompts). See [Nivona support](#nivona-alpha-testers-wanted) below for details.
+> **⚠️ Nivona testers wanted.** Nivona support (v0.41.0) is shipped as **alpha** — cryptography and handshake are validated against upstream RE vectors, but the code path has not been live-tested on real Nivona hardware by the maintainer. If you own a **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx / 9101** machine, please try this release and [open a GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with your results (handshake / status / brew / prompts). See [Nivona support](#nivona-alpha-testers-wanted) below for details.
 
 ---
 
@@ -43,6 +43,7 @@ A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart
 | **900-light** | NICR 960 / 965 / 970 | 4 | 3 | — |
 | **1030** / **1040** | NICR 1030 / 1040 | 4 | 5 | — |
 | **8000** | NIVO 8101 / 8103 / 8107 | 4 | 5 | different brew opcode |
+| **9000** (2025) | NIVO 9101 | 4 | 5 | alpha — mapped to the 8000 profile, untested |
 
 The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona, which advertises as either the legacy `NIVONA-NNNNNNNNNN-----` form, the bare `NNNNNNNNNN-----` form, or — on newer firmware like NICR 930 — a 15-digit serial without dashes such as `930254000000000`) and confirmed via the BLE protocol. Nivona firmware does not expose recipe-editing opcodes, so recipe/freestyle/profile entities are suppressed for Nivona entries.
 

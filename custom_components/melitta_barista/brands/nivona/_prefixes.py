@@ -25,6 +25,11 @@ _MODEL_OVERRIDES: dict[str, dict] = {
     "8101": {"my_coffee_slots": 9, "strength_levels": 5},
     "8103": {"my_coffee_slots": 9, "strength_levels": 5},
     "8107": {"my_coffee_slots": 9, "strength_levels": 5},
+    # 4-char NIVO 9xxx (2025 9000 series). ALPHA: mapped onto the 8000
+    # family baseline (same NIVO line, brew opcode 0x04) pending live
+    # confirmation from real hardware — requested on the HA community
+    # forum. Slot/strength values mirror the 8xxx baseline.
+    "9101": {"my_coffee_slots": 9, "strength_levels": 5},
     # NICR 600 — all 5 strength levels; MyCoffee slot count varies.
     "660": {"my_coffee_slots": 1, "strength_levels": 5},
     "670": {"my_coffee_slots": 5, "strength_levels": 5},
@@ -81,6 +86,8 @@ _PREFIX_TO_FAMILY: dict[str, str] = {
     # the field (#15) fall through to "unknown family"; we'd rather
     # surface that honestly than guess at capability layouts.
     "8101": "8000", "8103": "8000", "8107": "8000",
+    # NIVO 9xxx (2025) — alpha, mapped to the 8000 family baseline.
+    "9101": "8000",
     # 3-char (NICR series; matched after 4-char miss)
     "660": "600", "670": "600", "675": "600", "680": "600",
     "756": "700", "758": "700", "759": "700",
