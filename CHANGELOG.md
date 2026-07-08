@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.84.0] — 2026-07-08
+
+### Added
+
+- **NIVO 9101 (2025 "9000 series") — alpha support**, requested on the HA community forum. The `9101` serial prefix is now recognized and mapped onto the NIVO 8000 family baseline (brew opcode `0x04`, 9 MyCoffee slots, 5 strength levels). Previously the machine was discovered over BLE (the permissive advertisement regex matched its serial) but fell through to "unknown family", so it never connected. Untested on real hardware — if you own a NIVO 9101, please report handshake / status / brew results in a [GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new).
+
 ## [0.83.0] — 2026-06-22
 
 Nivona brew-override improvements, ported from community testing on real NICR hardware.
