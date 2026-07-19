@@ -1,0 +1,1028 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Home Assistant integration for Melitta Barista T/TS Smart and Nivona NICR/NIVO coffee machines over BLE">
+      
+      
+      
+        <link rel="canonical" href="https://dzerik.github.io/melitta-barista-ha/BRAND_PROFILE_SPEC/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>BrandProfile Contract Specification - Melitta Barista & Nivona — HA Integration</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#brandprofile-contract-specification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-header__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Melitta Barista & Nivona — HA Integration
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              BrandProfile Contract Specification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="brown" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Melitta Barista &amp; Nivona — HA Integration" class="md-nav__button md-logo" aria-label="Melitta Barista & Nivona — HA Integration" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Melitta Barista & Nivona — HA Integration
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dzerik/melitta-barista-ha" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dzerik/melitta-barista-ha
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BLE_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BLE architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROTOCOL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wire protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/001-brand-profile-abstraction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001: Brand profile abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-required-brandprofile-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Required BrandProfile surface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Required BrandProfile surface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#capability-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability tables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#crypto" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crypto
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#family-resolution-status-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Family resolution + status parsing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipe-write-path-contract-v0790" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe write-path contract (v0.79.0+)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-required-machinecapabilities-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Required MachineCapabilities fields
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Required MachineCapabilities fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#feature-flags-defaults-shown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature flags (defaults shown)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol-quirks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol quirks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tables-filled-per-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tables (filled per family)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-how-to-add-a-new-brand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. How to add a new brand
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. How to add a new brand">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-create-the-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — create the package
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-implement-the-brandprofile-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — implement the BrandProfile Protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-register-in-brands__init__py" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — register in brands/__init__.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-add-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — add tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-anti-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Anti-patterns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-whats-not-in-the-contract-yet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. What's NOT in the contract yet
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/dzerik/melitta-barista-ha/edit/main/docs/BRAND_PROFILE_SPEC.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="brandprofile-contract-specification">BrandProfile Contract Specification<a class="headerlink" href="#brandprofile-contract-specification" title="Permanent link">&para;</a></h1>
+<p>Status: <strong>stable</strong> as of v0.79.0 (PR-30/31/32/33).</p>
+<p>This document describes the contract a new coffee-machine brand must
+satisfy to plug into the integration. The contract lives in
+<code>custom_components/melitta_barista/brands/base.py</code> as the
+<code>BrandProfile</code> <code>Protocol</code> and the <code>MachineCapabilities</code> dataclass.</p>
+<p>The integration's shared layers (<code>ble_client.py</code>, <code>_ble_commands.py</code>,
+<code>_ble_recipes.py</code>, HA entity platforms — <code>sensor.py</code>, <code>button.py</code>,
+<code>select.py</code>, <code>number.py</code>, <code>switch.py</code>) do <strong>not</strong> test
+<code>brand_slug == "X"</code> or import from <code>brands.&lt;vendor&gt;</code> directly. All
+brand-specific behaviour flows through the <code>BrandProfile</code> Protocol
+methods and per-family <code>MachineCapabilities</code> flags.</p>
+<hr />
+<h2 id="1-required-brandprofile-surface">1. Required <code>BrandProfile</code> surface<a class="headerlink" href="#1-required-brandprofile-surface" title="Permanent link">&para;</a></h2>
+<h3 id="identity">Identity<a class="headerlink" href="#identity" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">brand_slug</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># lowercase, no spaces; e.g. &quot;melitta&quot;, &quot;nivona&quot;</span>
+<span class="n">brand_name</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># display name; e.g. &quot;Melitta&quot;, &quot;Nivona&quot;</span>
+<span class="n">service_uuid</span><span class="p">:</span> <span class="nb">str</span>          <span class="c1"># BLE GATT primary service UUID</span>
+<span class="n">ble_name_regex</span><span class="p">:</span> <span class="n">re</span><span class="o">.</span><span class="n">Pattern</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>   <span class="c1"># matches advertisement local_name</span>
+<span class="n">handshake_response_size</span><span class="p">:</span> <span class="nb">int</span>      <span class="c1"># bytes the handshake reply takes (8 for current brands)</span>
+</code></pre></div>
+<p><code>brand_slug</code> is used in config-entry data and entity unique-ids; once
+released it MUST NOT change (it would orphan user devices).</p>
+<h3 id="capability-tables">Capability tables<a class="headerlink" href="#capability-tables" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">supported_extensions</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>    <span class="c1"># BLE opcodes the brand exposes (&quot;HC&quot;, &quot;HJ&quot;, …)</span>
+<span class="n">families</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MachineCapabilities</span><span class="p">]</span>  <span class="c1"># family_key → caps</span>
+</code></pre></div>
+<p><code>supported_extensions</code> documents which optional opcodes the brand
+firmware supports. Used by shared layers to decide whether to attempt
+e.g. <code>read_recipe</code> (HC). Current values:</p>
+<table>
+<thead>
+<tr>
+<th>Brand</th>
+<th><code>supported_extensions</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Melitta</td>
+<td><code>{"HC", "HJ"}</code></td>
+</tr>
+<tr>
+<td>Nivona</td>
+<td><code>frozenset()</code> (empty — uses HE-selector brewing)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="crypto">Crypto<a class="headerlink" href="#crypto" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">runtime_rc4_key</span><span class="p">:</span> <span class="nb">bytes</span>              <span class="c1"># 32-byte ASCII key</span>
+<span class="n">hu_table</span><span class="p">:</span> <span class="nb">bytes</span>                     <span class="c1"># 256-byte CRC table</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">hu_verifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;2-byte handshake verifier — brand-specific table-driven fold.&quot;&quot;&quot;</span>
+</code></pre></div>
+<p>The handshake verifier algorithm shape is the same across brands but
+the table values and the per-round offsets differ. Implement on the
+brand profile class.</p>
+<h3 id="family-resolution-status-parsing">Family resolution + status parsing<a class="headerlink" href="#family-resolution-status-parsing" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detect_family</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ble_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dis</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map advertisement local_name (+ optional DIS data) to a key in `families`.&quot;&quot;&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">capabilities_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MachineCapabilities</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return capability bag for the family. Raises KeyError if unknown.&quot;&quot;&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map an HX status payload to MachineStatus with brand-specific process codes.&quot;&quot;&quot;</span>
+</code></pre></div>
+<p>Different brands use different raw numbers for the same logical state.
+Examples observed in production:
+- Melitta: <code>READY = 2</code>, <code>PRODUCT = 4</code>
+- Nivona NIVO 8000: <code>READY = 3</code>, <code>PRODUCT = 4</code>
+- Nivona 600/700/79x/900/1030/1040: <code>READY = 8</code>, <code>PRODUCT = 11</code></p>
+<p><code>parse_status</code> translates raw integers to the brand-agnostic
+<code>MachineProcess</code> enum.</p>
+<h3 id="recipe-write-path-contract-v0790">Recipe write-path contract (v0.79.0+)<a class="headerlink" href="#recipe-write-path-contract-v0790" title="Permanent link">&para;</a></h3>
+<p>These methods exist so shared mixins (<code>_ble_commands</code>, <code>_ble_recipes</code>)
+and HA platforms don't <code>import from brands.&lt;vendor&gt;</code> directly. Brands
+that don't expose the corresponding feature return <code>None</code> / <code>1</code> /
+<code>False</code> stubs.</p>
+<div class="highlight"><pre><span></span><code><span class="n">temp_recipe_type_register</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>      <span class="c1"># ClassVar — fixed HW register or None</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">temp_recipe_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">,</span> <span class="n">recipe_id</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fluid_write_scale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>      <span class="c1"># 1 by default, 10 for some families</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">mycoffee_layout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecipeFieldLayout</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">mycoffee_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_chilled_selector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Returns when not supported</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temp_recipe_type_register</code></td>
+<td><code>None</code> (class attribute)</td>
+</tr>
+<tr>
+<td><code>temp_recipe_register</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>fluid_write_scale</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>mycoffee_layout</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>mycoffee_register</code></td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>is_chilled_selector</code></td>
+<td><code>False</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-required-machinecapabilities-fields">2. Required <code>MachineCapabilities</code> fields<a class="headerlink" href="#2-required-machinecapabilities-fields" title="Permanent link">&para;</a></h2>
+<p>Each entry in <code>families</code> is a <code>MachineCapabilities</code> dataclass with
+these mandatory fields:</p>
+<div class="highlight"><pre><span></span><code><span class="n">family_key</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># matches dict key — used by parse_status etc.</span>
+<span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># surfaced as HA `model` attribute on the device</span>
+</code></pre></div>
+<h3 id="feature-flags-defaults-shown">Feature flags (defaults shown)<a class="headerlink" href="#feature-flags-defaults-shown" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">supports_recipe_writes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>    <span class="c1"># HC/HD/HJ recipe editing</span>
+<span class="n">supports_stats</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>            <span class="c1"># has populated `stats` tuple</span>
+<span class="n">supports_factory_reset</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>    <span class="c1"># firmware exposes factory-reset HE commands</span>
+<span class="n">supports_brew_overrides</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>   <span class="c1"># per-brew temp-recipe slot pattern</span>
+<span class="n">uses_legacy_total_cups_sensor</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Melitta-only hand-tailored sensor</span>
+
+<span class="n">my_coffee_slots</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">strength_levels</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">has_aroma_balance</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">first_mycoffee_selector</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span>       <span class="c1"># MyCoffee HE selector base (20 for Nivona)</span>
+</code></pre></div>
+<h3 id="protocol-quirks">Protocol quirks<a class="headerlink" href="#protocol-quirks" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">fluid_scale_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>             <span class="c1"># ml × N when writing fluid amounts (Nivona 900 = 10)</span>
+<span class="n">brew_command_mode</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mh">0x0B</span>           <span class="c1"># HE byte; 0x04 for NIVO 8000</span>
+<span class="n">recipe_text_encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;legacy_1byte&quot;</span>   <span class="c1"># vs &quot;utf16_le&quot;</span>
+<span class="n">tolerated_brew_manipulations</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>  <span class="c1"># Manipulation flags that don&#39;t block brew</span>
+</code></pre></div>
+<h3 id="tables-filled-per-family">Tables (filled per family)<a class="headerlink" href="#tables-filled-per-family" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">recipes</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">RecipeDescriptor</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>      <span class="c1"># drink selectors</span>
+<span class="n">settings</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">SettingDescriptor</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>    <span class="c1"># HR-readable settings</span>
+<span class="n">stats</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">StatDescriptor</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>          <span class="c1"># HR counters</span>
+</code></pre></div>
+<p><strong>Important:</strong> Melitta leaves <code>settings = ()</code> even though it has
+settings entities — Melitta's settings are surfaced through the legacy
+hand-coded <code>MachineSettingSelect/Number/Switch</code> entities (driven by
+<code>const.MachineSettingId</code>), not the capability-driven <code>BrandSettingX</code>
+entities. The capability-driven entities check <code>if caps.settings:</code> and
+skip when empty.</p>
+<hr />
+<h2 id="3-how-to-add-a-new-brand">3. How to add a new brand<a class="headerlink" href="#3-how-to-add-a-new-brand" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-create-the-package">Step 1 — create the package<a class="headerlink" href="#step-1-create-the-package" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>brands/&lt;vendor&gt;/
+  __init__.py              # YourProfile class + module-level helpers
+  _crypto.py               # RC4 key + HU table constants (if brand-wide)
+  _options.py              # setting-option enums (optional)
+  _registers.py            # register bases + address helpers (if brand has them)
+  _stats_helpers.py        # _count / _pct / _flag factories (optional)
+  _prefixes.py             # serial-prefix → family map (if multiple families)
+  _family_&lt;key&gt;.py         # one per family, exporting CAPABILITIES + EXPORTS dict
+</code></pre></div>
+<p>Patterns for <code>_family_*.py</code> and the <code>EXPORTS</code> aggregation loop in
+<code>__init__.py</code> are documented in <code>brands/nivona/</code> — copy that structure.</p>
+<h3 id="step-2-implement-the-brandprofile-protocol">Step 2 — implement the BrandProfile Protocol<a class="headerlink" href="#step-2-implement-the-brandprofile-protocol" title="Permanent link">&para;</a></h3>
+<p>Minimum boilerplate:</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">YourProfile</span><span class="p">:</span>
+    <span class="n">brand_slug</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;your_vendor&quot;</span>
+    <span class="n">brand_name</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Your Vendor&quot;</span>
+    <span class="n">service_uuid</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;...&quot;</span>
+    <span class="n">handshake_response_size</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="n">ble_name_regex</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">Pattern</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^...&quot;</span><span class="p">)</span>
+    <span class="n">supported_extensions</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+    <span class="n">families</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MachineCapabilities</span><span class="p">]]</span> <span class="o">=</span> <span class="n">_YOUR_FAMILIES</span>
+
+    <span class="c1"># Crypto + handshake — required</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">runtime_rc4_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hu_table</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hu_verifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="c1"># Family resolution + status parsing — required</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">detect_family</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ble_name</span><span class="p">,</span> <span class="n">dis</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">capabilities_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MachineCapabilities</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span> <span class="o">...</span>
+
+    <span class="c1"># Recipe write-path — implement or use stub returns</span>
+    <span class="n">temp_recipe_type_register</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">temp_recipe_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">a</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fluid_write_scale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="k">return</span> <span class="mi">1</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mycoffee_layout</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family_key</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecipeFieldLayout</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mycoffee_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_chilled_selector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
+</code></pre></div>
+<h3 id="step-3-register-in-brands__init__py">Step 3 — register in <code>brands/__init__.py</code><a class="headerlink" href="#step-3-register-in-brands__init__py" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">.your_vendor</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourProfile</span>
+<span class="c1"># add YourProfile() to the BrandRegistry instance</span>
+</code></pre></div>
+<h3 id="step-4-add-tests">Step 4 — add tests<a class="headerlink" href="#step-4-add-tests" title="Permanent link">&para;</a></h3>
+<p>Minimum test coverage:
+- <code>test_brands.py::test_&lt;vendor&gt;_*</code> — verify family detection, HU
+  verifier with a known vector, capability shape
+- <code>test_protocol.py::test_&lt;vendor&gt;_handshake_*</code> — verify handshake
+  reply matches expected verifier output
+- <code>test_&lt;vendor&gt;_parse_status</code> — pin process-code dispatch</p>
+<hr />
+<h2 id="4-anti-patterns">4. Anti-patterns<a class="headerlink" href="#4-anti-patterns" title="Permanent link">&para;</a></h2>
+<p>These were removed in v0.79.0 and MUST NOT come back:</p>
+<p>❌ <code>if client.brand.brand_slug == "your_vendor": ...</code> in shared layers
+   → use a capability flag on <code>MachineCapabilities</code>.</p>
+<p>❌ <code>from .brands.your_vendor import some_helper</code> in shared layers
+   → lift the helper to a <code>BrandProfile</code> method with a stub on other brands.</p>
+<p>❌ <code>isinstance(client.brand, YourProfile)</code>
+   → same — use capability flag.</p>
+<p>❌ Hardcoded family-key lists like <code>_FACTORY_RESET_FAMILIES = {"600", ...}</code>
+   → use capability flag on <code>MachineCapabilities</code>.</p>
+<p>❌ Mutating <code>MachineCapabilities</code> fields after construction
+   → it's <code>@dataclass(frozen=True)</code>; use <code>dataclasses.replace()</code>.</p>
+<hr />
+<h2 id="5-whats-not-in-the-contract-yet">5. What's NOT in the contract yet<a class="headerlink" href="#5-whats-not-in-the-contract-yet" title="Permanent link">&para;</a></h2>
+<p>Forward-looking — not blocking new brands today, but worth flagging:</p>
+<ul>
+<li><strong>No external plugin loader.</strong> All brands live in-tree. Adding a 4th
+  brand still requires editing <code>brands/__init__.py</code> to register the
+  profile. Plugin-from-disk discovery is deliberately not built.</li>
+<li><strong>No versioning of the Protocol surface.</strong> Adding a method to
+  <code>BrandProfile</code> is a breaking change for any out-of-tree implementer.
+  There are zero out-of-tree implementers today, so we move freely.</li>
+<li><strong>No formal capability-coverage test framework.</strong> A new brand
+  passing 0 tests is technically allowed; we rely on PR review to
+  catch missing coverage.</li>
+</ul>
+<p>When/if these become bottlenecks (community-driven 3rd brand, external
+plugin requests), revisit. Until then the contract above is sufficient.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/dzerik/melitta-barista-ha" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
