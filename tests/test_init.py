@@ -967,3 +967,29 @@ class TestMigrateEntryV2ToV3:
             "sensor", DOMAIN, f"{MOCK_ADDRESS}_stat_warm_milk",
         ) is not None
         assert entry.version == 3
+
+
+def test_heavy_modules_imported_at_module_level():
+    """Issue #34: pydantic chain must load in the executor, not the event loop.
+
+    HA imports the integration package itself in the import executor, so
+    module-level imports of `.sommelier_api` / `.panel_api` (which pull in
+    pydantic) are safe. A first-time lazy import inside async_setup_entry
+    runs in the event loop and trips HA's blocking-call detector
+    ("Detected blocking call to import_module ... panel_api.py, line 18").
+    """
+    import ast
+    from pathlib import Path
+
+    import custom_components.melitta_barista as init_module
+
+    tree = ast.parse(Path(init_module.__file__).read_text())
+    top_level_relative_imports = set()
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.level == 1:
+            if node.module is None:  # `from . import panel_api, ...`
+                top_level_relative_imports.update(a.name for a in node.names)
+            else:  # `from .panel_api import ...`
+                top_level_relative_imports.add(node.module)
+    assert "sommelier_api" in top_level_relative_imports
+    assert "panel_api" in top_level_relative_imports

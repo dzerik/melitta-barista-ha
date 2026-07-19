@@ -33,6 +33,12 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .ble_client import MelittaBleClient
+# Imported at module level on purpose: HA loads this package in the import
+# executor, so the pydantic chain (panel_api → pydantic) is pulled in off
+# the event loop. A first-time lazy import inside async_setup_entry trips
+# HA's blocking-call detector (issue #34). Module (not symbol) imports keep
+# `mock.patch("...sommelier_api._async_get_db")`-style test patches working.
+from . import panel_api, sommelier_api
 from .const import (
     DOMAIN,
     DEFAULT_POLL_INTERVAL,
@@ -357,7 +363,6 @@ def _async_register_panel_websocket(hass: HomeAssistant) -> None:
     )
     @callback
     def _ws_list_entries(hass_, connection, msg):
-        from .panel_api import _send_versioned  # noqa: PLC0415
         entries = [
             {
                 "entry_id": entry.entry_id,
@@ -367,7 +372,7 @@ def _async_register_panel_websocket(hass: HomeAssistant) -> None:
             }
             for entry in hass_.config_entries.async_entries(DOMAIN)
         ]
-        _send_versioned(connection, msg["id"], {"entries": entries})
+        panel_api._send_versioned(connection, msg["id"], {"entries": entries})
 
     async_register_command(hass, _ws_list_entries)
     domain_data["panel_ws_registered"] = True
@@ -385,8 +390,7 @@ def _async_register_sommelier(hass: HomeAssistant) -> None:
         return
 
     try:
-        from .sommelier_api import async_register_websocket_handlers
-        async_register_websocket_handlers(hass)
+        sommelier_api.async_register_websocket_handlers(hass)
         domain_data["sommelier_registered"] = True
         _LOGGER.debug("AI Coffee Sommelier WS handlers registered")
     except Exception:
@@ -892,8 +896,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Eagerly initialize sommelier_db so the probe-on-connect callback
     # actually registers (was lazy-init via WS in P1a, leaving the
     # callback silently no-op'd on fresh setups).
-    from .sommelier_api import _async_get_db as _async_get_sommelier_db
-    sommelier_db = await _async_get_sommelier_db(hass)
+    sommelier_db = await sommelier_api._async_get_db(hass)
     if sommelier_db is not None:
         client.add_connection_callback(
             _make_capabilities_probe_callback(hass, sommelier_db, client, entry.entry_id)
@@ -1011,8 +1014,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # entry is added do nothing.
     _t0 = _time_perf_counter()
     _async_register_panel_websocket(hass)
-    from .panel_api import async_register_panel_websocket as _register_panel_api  # noqa: PLC0415
-    _register_panel_api(hass)
+    panel_api.async_register_panel_websocket(hass)
     await _async_register_panel(hass)
     _LOGGER.debug("[TIMING] %s register_panel: %.0fms", address, (_time_perf_counter() - _t0) * 1000)
 
