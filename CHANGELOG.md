@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.85.1] — 2026-07-19
+
+### Fixed
+
+- **"Detected blocking call to import_module inside the event loop" warning on setup** (#34). `async_setup_entry` lazily imported the Sommelier/panel modules, whose pydantic dependency loads its submodules on first use — inside the event loop, tripping HA's blocking-call detector. The modules are now imported at the top of the integration package, which Home Assistant loads in the import executor, so the pydantic chain is pulled in off the event loop. No functional change.
+
 ## [0.85.0] — 2026-07-08
 
 ### Fixed
