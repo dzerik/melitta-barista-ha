@@ -56,6 +56,18 @@ from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
 _LOGGER = logging.getLogger("melitta_barista")
 
 
+class NoBleDeviceError(BleakError):
+    """No BLEDevice is cached for the peer — connecting is impossible.
+
+    Raised by ``_establish_connection`` instead of a generic BleakError so
+    the connect ladder can short-circuit: without a BLEDevice every rung
+    (pair=False, pair=True, unpair, pair=True) fails identically in
+    microseconds, and running all four just spams the log four times per
+    reconnect cycle (issue #35). The reconnect loops treat it as a normal
+    failed attempt and wait for an advertisement.
+    """
+
+
 def resolve_caps_from_scanner(
     hass: HomeAssistant,
     address: str,
@@ -149,6 +161,18 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # device (quiet wait, no wedge) from a genuinely wedged device that
         # keeps advertising. See issue #12.
         self._presence_callback: Callable[[], bool] | None = None
+        # Callback set by __init__.py; performs a connection-less bond wipe
+        # for this peer via the ESPHome proxy API (bluetooth_device_unpair,
+        # handled firmware-side without an open link). Returns truthy on
+        # success. Lets _try_unpair work in the wedge state where no
+        # BLEDevice is cached and connecting is impossible. See issue #35.
+        self._unpair_callback: Callable[[], Any] | None = None
+        # Callback set by __init__.py; returns True when a connectable
+        # scanner looks starved (zero detections of ANY device for minutes).
+        # Overrides the presence gate: "device absent" cannot be trusted
+        # when the scanner itself has gone silent — that is exactly what a
+        # wedged proxy looks like from HA. See issue #35.
+        self._scanner_starved_callback: Callable[[], bool] | None = None
         self._connected = False
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
@@ -295,6 +319,32 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         ble_client.py stays free of a hass dependency.
         """
         self._presence_callback = callback
+
+    def set_unpair_callback(self, callback: Callable[[], Any] | None) -> None:
+        """Install a connection-less bond-wipe routine for this peer.
+
+        Wired in __init__.py to the ESPHome proxy API
+        (``bluetooth_device_unpair``), which the proxy firmware handles
+        without an open BLE link. ``_try_unpair`` tries this first, so a
+        stale bond can be cleared even when no BLEDevice is cached — the
+        exact state the issue-#35 proxy wedge produces. The callback is an
+        async callable returning truthy on success.
+        """
+        self._unpair_callback = callback
+
+    def set_scanner_starved_callback(
+        self, callback: Callable[[], bool] | None,
+    ) -> None:
+        """Install a callback reporting whether a connectable scanner is starved.
+
+        Wired in __init__.py to a check over HA's registered scanners
+        (``time_since_last_detection``). When the device looks absent BUT a
+        scanner has seen nothing at all for minutes, the absence cannot be
+        trusted — a wedged proxy stops forwarding every advertisement — so
+        the reconnect loops keep attempting (and counting failures) instead
+        of waiting forever. See issue #35.
+        """
+        self._scanner_starved_callback = callback
 
     @property
     def consecutive_connect_failures(self) -> int:
@@ -579,9 +629,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
         - If bleak_retry_connector is unavailable (tests / standalone scripts) we
           fall back to raw BleakClient.connect() — never reached inside HA.
-        - If we have no cached BLEDevice we raise BleakError so the caller waits
-          for an advertisement to arrive (via set_ble_device) instead of blocking
-          on raw BleakClient.connect() with a 30 s timeout.
+        - If we have no cached BLEDevice we raise NoBleDeviceError so
+          _connect_impl aborts the whole ladder and the reconnect loop waits
+          for an advertisement (via set_ble_device) instead of blocking on
+          raw BleakClient.connect() with a 30 s timeout.
         - If establish_connection raises we propagate — it already retries
           internally (max_attempts=3); a raw fallback would just double the work.
         """
@@ -603,8 +654,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # establish_connection() requires a real BLEDevice. Without one,
             # raise — the reconnect loop will wait for an advertisement
             # (set_ble_device sets _reconnect_event) instead of burning a
-            # 30 s connect timeout per attempt on a raw BleakClient.
-            raise BleakError(
+            # 30 s connect timeout per attempt on a raw BleakClient. The
+            # typed error lets _connect_impl short-circuit the whole ladder.
+            raise NoBleDeviceError(
                 f"No BLEDevice cached for {self._address}; "
                 "waiting for advertisement"
             )
@@ -698,6 +750,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
         try:
             self._client = await self._establish_connection(pair=pair)
+        except NoBleDeviceError:
+            # Propagate so _connect_impl can abort the whole ladder — the
+            # remaining rungs would fail identically without a BLEDevice.
+            self._client = None
+            raise
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.debug(
                 "BLE connect failed (pair=%s)", pair, exc_info=True,
@@ -748,7 +805,31 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         forever. If that happens, the user needs to clear the bond table
         on the ESP itself (see esphome/ble-proxy-xiao-c6.yaml — the
         `clear_ble_bonds` API action wired to `esp_ble_remove_bond_device`).
+
+        Preferred path (issue #35): the connection-less unpair callback
+        installed by __init__.py, which sends the proxy API UNPAIR request
+        handled firmware-side without an open link. That works even in the
+        wedge state where no BLEDevice is cached and the connect-then-unpair
+        fallback below is a guaranteed no-op.
         """
+        if self._unpair_callback is not None:
+            try:
+                if await self._unpair_callback():
+                    _LOGGER.info(
+                        "Cleared bond for %s via proxy API (connection-less)",
+                        self._address,
+                    )
+                    return
+                _LOGGER.debug(
+                    "Connection-less unpair unavailable for %s — falling "
+                    "back to connect-then-unpair",
+                    self._address,
+                )
+            except Exception:  # noqa: BLE001 — best-effort, fall back below
+                _LOGGER.debug(
+                    "Connection-less unpair failed for %s", self._address,
+                    exc_info=True,
+                )
         try:
             _LOGGER.info("Clearing stale bond for %s", self._address)
             client = await self._establish_connection(pair=False)
@@ -782,6 +863,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         1. Try pair=False first (fast — reuses existing bond on ESP32/BlueZ).
         2. If handshake fails, retry with pair=True (first-ever or bond lost).
         3. If pair=True also fails, unpair (clear stale bond) then pair=True again.
+
+        The whole ladder short-circuits on NoBleDeviceError (issue #35):
+        without a cached BLEDevice every rung fails identically, so we log
+        one line and wait for the next advertisement instead.
         """
         if self._connected and self._client and self._client.is_connected:
             return True
@@ -909,6 +994,18 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
             return True
 
+        except NoBleDeviceError:
+            # Short-circuit (issue #35): without a BLEDevice every rung of
+            # the ladder fails identically in microseconds — one quiet
+            # failure per cycle instead of four tracebacks. The reconnect
+            # loops count this attempt and wake up on the next advertisement.
+            _LOGGER.info(
+                "No BLEDevice cached for %s — waiting for an advertisement "
+                "before attempting to connect",
+                self._address,
+            )
+            self._connected = False
+            return False
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("Connection failed for %s", self._address)
             self._connected = False
@@ -931,6 +1028,74 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         if self._reconnect_task and not self._reconnect_task.done():
             return
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+
+    def _should_attempt_connect(self) -> bool:
+        """Presence gate shared by both connect loops (issues #12 / #35).
+
+        A device that is not advertising is normally powered off or out of
+        range — attempting to connect would just hammer establish_connection
+        and spam the log, so we skip (issue #12). BUT when a connectable
+        scanner itself has gone silent, "not advertising" cannot be trusted:
+        a wedged proxy forwards no advertisements from ANY device (issue
+        #35), and skipping forever would structurally exclude the wedge from
+        auto-repair. In that case we attempt anyway — the attempt fails fast
+        locally and counts toward the repair threshold.
+        """
+        if self._presence_callback is None or self._presence_callback():
+            return True
+        if (
+            self._scanner_starved_callback is not None
+            and self._scanner_starved_callback()
+        ):
+            _LOGGER.debug(
+                "%s looks absent but a connectable scanner is starved — "
+                "treating as a suspected proxy wedge and attempting anyway",
+                self._address,
+            )
+            return True
+        _LOGGER.debug(
+            "%s not advertising (powered off / out of range); "
+            "waiting for advertisement instead of connecting",
+            self._address,
+        )
+        return False
+
+    def _note_connect_failure(self) -> None:
+        """Count a failed connect() and fire the repair callback at threshold.
+
+        Shared by ``_reconnect_loop`` and the integration's initial-connect
+        loop (``_async_connect_and_poll``) — before issue #35 only the former
+        counted failures, so a machine that never connected after setup could
+        loop forever without ever escalating to repair. The counter resets
+        only on a successful connect (see ``_connect_impl``).
+        """
+        self._consecutive_connect_failures += 1
+        _LOGGER.debug(
+            "Connect failure %d/%d",
+            self._consecutive_connect_failures,
+            self._repair_after_failures,
+        )
+        if (
+            self._repair_after_failures > 0
+            and self._consecutive_connect_failures >= self._repair_after_failures
+            and self._repair_callback is not None
+        ):
+            # Fire-and-forget: the callback owns its own task lifetime
+            # (it reloads the ESPHome entry, which can take seconds).
+            # Zero the counter so we don't keep re-triggering while
+            # the proxy is busy reloading.
+            _LOGGER.warning(
+                "Pairing wedged after %d failed connects to %s — "
+                "triggering recovery",
+                self._consecutive_connect_failures, self._address,
+            )
+            self._consecutive_connect_failures = 0
+            try:
+                result = self._repair_callback()
+                if asyncio.iscoroutine(result):
+                    asyncio.create_task(result)
+            except Exception:
+                _LOGGER.exception("Repair callback raised")
 
     async def _reconnect_loop(self) -> None:
         """Try to reconnect with exponential backoff.
@@ -957,24 +1122,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             if not self._auto_reconnect:
                 break
 
-            # If the device is not currently advertising it is powered off or
-            # out of range — not a pairing wedge (issue #12). Skip the connect
-            # attempt entirely (avoids hammering establish_connection and
-            # spamming the log), clear any wedge counter accrued while it was
-            # present, and wait quietly for the next advertisement, which
-            # wakes this loop via set_ble_device -> _reconnect_event.
-            if self._presence_callback is not None and not self._presence_callback():
-                if self._consecutive_connect_failures:
-                    _LOGGER.debug(
-                        "%s stopped advertising — clearing wedge counter",
-                        self._address,
-                    )
-                    self._consecutive_connect_failures = 0
-                _LOGGER.debug(
-                    "%s not advertising (powered off / out of range); "
-                    "waiting for advertisement instead of connecting",
-                    self._address,
-                )
+            # Presence gate (issues #12 / #35): skip attempts while the
+            # device is genuinely off — but keep the accrued failure counter
+            # (it resets only on success) and override the gate when the
+            # scanner itself looks starved. Waking up happens via
+            # set_ble_device -> _reconnect_event on the next advertisement.
+            if not self._should_attempt_connect():
                 delay = min(delay * 2, self._reconnect_max_delay)
                 continue
 
@@ -990,34 +1143,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             except Exception:
                 _LOGGER.exception("Unexpected error during reconnect")
             if not connect_ok:
-                self._consecutive_connect_failures += 1
-                _LOGGER.debug(
-                    "Reconnect failure %d/%d",
-                    self._consecutive_connect_failures,
-                    self._repair_after_failures,
-                )
-                if (
-                    self._repair_after_failures > 0
-                    and self._consecutive_connect_failures
-                    >= self._repair_after_failures
-                    and self._repair_callback is not None
-                ):
-                    # Fire-and-forget: the callback owns its own task lifetime
-                    # (it reloads the ESPHome entry, which can take seconds).
-                    # Zero the counter so we don't keep re-triggering while
-                    # the proxy is busy reloading.
-                    _LOGGER.warning(
-                        "Pairing wedged after %d failed connects to %s — "
-                        "triggering recovery",
-                        self._consecutive_connect_failures, self._address,
-                    )
-                    self._consecutive_connect_failures = 0
-                    try:
-                        result = self._repair_callback()
-                        if asyncio.iscoroutine(result):
-                            asyncio.create_task(result)
-                    except Exception:
-                        _LOGGER.exception("Repair callback raised")
+                self._note_connect_failure()
             delay = min(delay * 2, self._reconnect_max_delay)
 
     async def disconnect(self) -> None:

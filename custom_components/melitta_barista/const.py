@@ -521,6 +521,11 @@ DEFAULT_PAIR_SETTLE_DELAY: float = 2.0
 # running into: a couple of fast retries + a couple of slow back-offs
 # before we conclude the bond/cache is wedged.
 DEFAULT_REPAIR_AFTER_FAILURES: int = 5
+# A connectable scanner that has detected NOTHING (from any device) for this
+# long is considered starved — its "device absent" verdict can't be trusted.
+# habluetooth's own scanner watchdog barks at 90 s; we use double that so a
+# quiet-but-healthy home doesn't trip the override. See issue #35.
+SCANNER_STARVED_AFTER_SECONDS: float = 180.0
 
 PROCESS_MAP: dict[str, int] = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 INTENSITY_MAP: dict[str, int] = {
