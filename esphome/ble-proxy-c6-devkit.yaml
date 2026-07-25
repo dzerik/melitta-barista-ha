@@ -1,25 +1,32 @@
-# ESPHome BLE Proxy — Seeed Studio XIAO ESP32-S3
+# ESPHome BLE Proxy — generic ESP32-C6 DevKitC-1 style boards
+# (Espressif ESP32-C6-DevKitC-1 and its clones: QIQIAZI, WeAct, etc.
+#  with the ESP32-C6-WROOM-1-N4 module)
 #
 # Full active Bluetooth proxy for Home Assistant.
-# Replaces XIAO ESP32-C6 with a more stable dual-core S3.
+# This is the variant of ble-proxy-xiao-c6.yaml for NON-XIAO C6 boards:
+#   - no FM8625H RF switch (antenna is hardwired to the onboard PCB trace)
+#   - no "External Antenna" switch
+#   - RGB status LED is a WS2812 on strapping pin GPIO8 (optional, below)
+#   - 4MB flash (WROOM-1-N4) — declared explicitly because the
+#     esp32-c6-devkitc-1 board definition claims 8MB
 #
-# Hardware: Seeed Studio XIAO ESP32-S3
-#   - Xtensa dual-core LX7 @ 240MHz
-#   - BLE 5.0 + WiFi (802.11 b/g/n) 2.4GHz
-#   - 8MB PSRAM + 8MB Flash
-#   - Onboard antenna + U.FL connector for external antenna
-#   - User LED on GPIO21
-#
-# Why S3 over C6:
-#   - Dual-core: WiFi and BLE don't compete for CPU
-#   - Mature chip: better NVS bond persistence across reboots
-#   - More RAM: stable with higher connection_slots
+# Hardware: ESP32-C6-WROOM-1-N4 devkit
+#   - RISC-V single-core @ 160MHz
+#   - BLE 5.0 + WiFi 6 (802.11ax) 2.4GHz — 11ax is compiled in and
+#     negotiated automatically by ESP-IDF; no sdkconfig tweaks needed
+#   - Dual USB-C on most boards: use the port labeled "USB" (native
+#     USB_SERIAL_JTAG) for flashing/logs, not the "UART" one
 #
 # Flash:
-#   1. First time (USB): esphome run ble-proxy-xiao-s3.yaml
+#   1. First time (USB): esphome run ble-proxy-c6-devkit.yaml
 #   2. Subsequent: OTA from HA ESPHome dashboard
 #
-# After flashing, HA auto-discovers the proxy.
+# RECOVERY CHEAT SHEET (C6-specific): if the proxy enters a status=133
+# connect loop with "ESP_GATTC_OPEN_EVT in DISCONNECTING state" +
+# "BT_HCI: opcode=0x2043 ... Cmd Disallowed" in the log, the C6 BLE
+# controller has a stale pending create-connection (esphome/esphome#17856).
+# Call esphome.${name}_restart_ble (or press Restart) — clear_ble_bonds
+# alone will NOT clear it.
 # ---------------------------------------------------------------
 
 substitutions:
@@ -48,24 +55,18 @@ esphome:
   min_version: 2026.7.0
 
 esp32:
-  board: seeed_xiao_esp32s3
-  variant: esp32s3
-  # ESPHome defaults to 4MB regardless of board; the XIAO S3 has 8MB.
-  # Declaring it doubles the app/OTA partitions and NVS headroom.
-  # NOTE: a partition-table change requires ONE serial reflash — OTA onto
-  # a different partition layout is unsafe.
-  flash_size: 8MB
+  board: esp32-c6-devkitc-1
+  variant: esp32c6
+  # WROOM-1-N4 module = 4MB. Must be explicit: the esp32-c6-devkitc-1
+  # board definition declares 8MB, which would brick OTA partitioning
+  # on N4 boards.
+  flash_size: 4MB
   framework:
     type: esp-idf
     # Deliberately NO `version:` pin — ESPHome's recommended ESP-IDF
     # (5.5.4+) is what we want. NEVER pin 5.5.2: it shipped a BT-controller
     # regression (espressif/esp-idf#18217) where BLE scanning silently dies
     # after hours/days with an HCI 0x200c timeout.
-
-# PSRAM — required for ESP32-S3 with 8MB PSRAM (XIAO S3 uses octal)
-psram:
-  mode: octal
-  speed: 80MHz
 
 # Safe-mode boot counter in RTC memory instead of NVS — spares a flash
 # write on every boot (2026.7.0+). Tradeoff: the counter doesn't survive a
@@ -98,20 +99,8 @@ captive_portal:
 # complements the fallback AP without rebuilding firmware. Works over the
 # USB_SERIAL_JTAG logger below. Deliberately NOT esp32_improv: that would
 # pull a GATT server + advertising onto the BLE controller shared with the
-# proxy.
+# proxy — worst on this single-core chip.
 improv_serial:
-
-# Standalone web UI (all sensors + buttons at http://<proxy-ip>) for when
-# HA or the API link is down — the exact moment you need diagnostics.
-# Comfortable on the S3 (dual-core + 8MB PSRAM); on the C6 this is a
-# commented-out option instead. Add `web_server_password` to secrets.yaml.
-web_server:
-  port: 80
-  version: 3
-  auth:
-    type: digest         # explicit: 'basic' sends the password ~in clear; digest becomes the default in 2027.1
-    username: admin
-    password: !secret web_server_password
 
 # ---------------------------------------------------------------
 # Home Assistant API + OTA
@@ -164,14 +153,6 @@ api:
     # the GAP layer to drop it so the next request actually opens a
     # new SMP exchange.
     #
-    # NOTE: the 2026.5 coex fix + the 2026.5.1 slot-leak fix sharply reduce
-    # the *connection-reliability* wedge, so this action should fire far
-    # less often. It does NOT address the stale-bond SMP rejection
-    # (reason=82) itself — clear_ble_bonds above remains the tool for that.
-    # Unlike the native API DISCONNECT (which goes through the proxy's
-    # tracked connection object), this raw GAP disconnect also works on
-    # links the proxy no longer tracks. Keep both as fallbacks.
-    #
     # In HA: Developer Tools → Services →
     #   esphome.${name}_disconnect_ble_peer
     #   data: {peer_mac: "F1:2C:72:3F:75:ED"}
@@ -197,6 +178,9 @@ api:
     # Restart/Factory reset (nuclear): tear down the whole BLE stack and
     # reinitialize it WITHOUT rebooting the ESP and WITHOUT touching NVS
     # bonds. Clears wedged GAP/GATT controller state; WiFi/API stay up.
+    # On the C6 this is THE fix for the status=133 / "Cmd Disallowed"
+    # connect loop (stale pending create-connection in the controller,
+    # esphome/esphome#17856).
     - action: restart_ble
       then:
         - ble.disable:
@@ -212,7 +196,7 @@ ota:
 # ---------------------------------------------------------------
 logger:
   level: INFO
-  hardware_uart: USB_SERIAL_JTAG   # XIAO S3 uses USB-JTAG for serial
+  hardware_uart: USB_SERIAL_JTAG   # use the "USB" port, not "UART"
   logs:
     bluetooth_proxy: INFO
     esp32_ble_tracker: WARN        # Suppress per-advertisement spam
@@ -221,29 +205,30 @@ logger:
 # ---------------------------------------------------------------
 # Bluetooth — core proxy functionality
 #
-# ESP32-S3 is dual-core Xtensa. WiFi runs on core 0, BLE on core 1,
-# so there's no CPU contention. Safe to use 4 connection slots
-# (vs 3 on single-core C3/C6).
+# ESP32-C6 is single-core RISC-V. Aggressive scan parameters
+# (1100ms/1100ms) cause CPU contention between WiFi and BLE.
+# Use defaults and on-demand scanning for stable operation.
 # See: https://esphome.io/components/bluetooth_proxy/
 #
 # Slot accounting (2026.5+): only bluetooth_proxy consumes connection
 # slots — the scanner does NOT reserve one; its ADV/SCAN instance is added
 # by codegen ON TOP of max_connections (CONFIG_BT_ACL_CONNECTIONS =
-# max_connections + 1). So max_connections should simply match
-# connection_slots below.
+# max_connections + 1). The esp32_ble default (max_connections: 3) exactly
+# matches connection_slots: 3 below, so no explicit esp32_ble block is
+# needed. Each extra connection costs ~1KB RAM on this RAM-constrained
+# single-core chip — don't over-allocate.
+#
+# Pairing-resilience experiment (issue #33, SMP auth fail reason=82):
+# pin the SMP auth request explicitly instead of relying on the Bluedroid
+# default. Uncomment if the wedge recurs:
+# esp32_ble:
+#   auth_req_mode: bond
 # ---------------------------------------------------------------
-esp32_ble:
-  max_connections: 4     # = bluetooth_proxy.connection_slots below
-  # Bluedroid env tables in heap/PSRAM instead of static DRAM arrays —
-  # frees ~40KB internal RAM (2026.5.0+; requires the psram component).
-  use_psram: true
-  # Pairing-resilience experiment (issue #33, SMP auth fail reason=82):
-  # pin the SMP auth request explicitly instead of relying on the
-  # Bluedroid default. Uncomment if the wedge recurs:
-  # auth_req_mode: bond
-
 esp32_ble_tracker:
   scan_parameters:
+    # Use ESPHome defaults (interval=320ms, window=30ms).
+    # Aggressive scanning provides no benefit on WiFi proxies
+    # while increasing CPU usage on single-core chips.
     active: true        # Active scan for full device names
 
 bluetooth_proxy:
@@ -257,19 +242,25 @@ bluetooth_proxy:
   #    mistaken for a bond problem. Recovery: clear_cache() from the
   #    integration's repair flow, or the Factory reset button below.
   cache_services: true
-  connection_slots: 4    # S3 dual-core + 8MB PSRAM handles 4 slots reliably
+  connection_slots: 3    # 3 is safe for C6 RAM; max recommended 5
 
 # ---------------------------------------------------------------
-# Status LED — GPIO21 (active LOW on XIAO ESP32-S3)
+# Status LED — optional. DevKitC-1 boards have a WS2812 RGB LED on
+# GPIO8, which is a strapping pin; the addressable LED cannot act as an
+# ESPHome status_led, so it's exposed as a plain light instead.
+# Uncomment if you want a visual indicator; harmless to leave disabled.
 # ---------------------------------------------------------------
-light:
-  - platform: status_led
-    name: "Status LED"
-    id: board_status_led
-    pin:
-      number: GPIO21
-      inverted: true
-    internal: true         # Don't expose to HA, just for visual status
+# light:
+#   - platform: esp32_rmt_led_strip
+#     id: board_rgb_led
+#     name: "RGB LED"
+#     internal: true
+#     pin:
+#       number: GPIO8
+#       ignore_strapping_warning: true
+#     num_leds: 1
+#     chipset: WS2812
+#     rgb_order: GRB
 
 # ---------------------------------------------------------------
 # Diagnostics — monitor proxy health in HA
@@ -284,10 +275,12 @@ globals:
     restore_value: no
     initial_value: '-1'
 
-# Heap / loop-time / reset-reason instrumentation: rising loop_time or
-# falling free heap under WiFi+BLE load precedes the status=133 drop
-# class; reset_reason tells brownout vs task-watchdog vs panic after an
-# unexplained reboot.
+# Heap / loop-time / reset-reason instrumentation. On the single-core C6
+# rising loop_time + falling free heap under simultaneous WiFi+BLE load is
+# the leading indicator of the status=133 drop class; reset_reason tells
+# brownout vs task-watchdog vs panic after an unexplained reboot.
+# Keep update_interval >= 30s here: the heap-integrity walk behind
+# block/fragmentation is O(heap).
 debug:
   update_interval: 60s
 
@@ -303,9 +296,10 @@ sensor:
     entity_category: diagnostic
 
   # Live signal strength of the machine as seen from the proxy — the #1
-  # diagnostic for reconnect failures and placement. NOTE: freezes at the
-  # last-seen value while a GATT connection is up (the machine stops
-  # advertising during active sessions).
+  # diagnostic for reconnect failures and placement (clone boards often
+  # have poorly matched PCB antennas — watch this value). NOTE: freezes
+  # at the last-seen value while a GATT connection is up (the machine
+  # stops advertising during active sessions).
   - platform: ble_rssi
     service_uuid: ${melitta_service_uuid}
     name: "Melitta RSSI"
@@ -335,8 +329,6 @@ sensor:
       name: "Heap Fragmentation"
     loop_time:
       name: "Loop Time"
-    psram:
-      name: "PSRAM Free"
 
 binary_sensor:
   # "Advertising seen" — distinguishes 'machine off / out of range' from
@@ -429,6 +421,19 @@ button:
 # ---------------------------------------------------------------
 # Optional extras — disabled by default
 # ---------------------------------------------------------------
+# Standalone web UI (sensors + buttons at http://<proxy-ip>) for when HA
+# or the API link is down. WARNING for this single-core chip: with active
+# BLE + WiFi the extra ~20-40KB heap and per-request CPU can itself
+# provoke the contention it is meant to debug.
+# Requires `web_server_password` in secrets.yaml.
+# web_server:
+#   port: 80
+#   version: 3
+#   auth:
+#     type: digest
+#     username: admin
+#     password: !secret web_server_password
+
 # Nightly maintenance restart at 04:00 — clears slow heap fragmentation
 # and any half-wedged BLE controller state before the morning coffee
 # window. Opt-in because a restart drops any live GATT link (at 04:00 the

@@ -5,7 +5,8 @@
 #
 # Hardware: Seeed Studio XIAO ESP32-C6
 #   - RISC-V single-core @ 160MHz
-#   - BLE 5.0 + WiFi 6 (802.11ax) 2.4GHz
+#   - BLE 5.0 + WiFi 6 (802.11ax) 2.4GHz — 11ax is compiled in and
+#     negotiated automatically by ESP-IDF; no sdkconfig tweaks needed
 #   - Onboard antenna + U.FL connector for external antenna
 #   - User LED on GPIO15
 #
@@ -20,29 +21,47 @@
 substitutions:
   name: "ble-proxy-melitta"
   friendly_name: "BLE Proxy Melitta"
+  # The machine advertises this service UUID (same matcher as the
+  # integration's manifest.json) — used by the RSSI/presence sensors below.
+  melitta_service_uuid: "0000ad00-b35c-11e4-9813-0002a5d5c51b"
 
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
   name_add_mac_suffix: false
-  # Require 2026.5.0+. Two reasons:
-  #  - 2025.8 introduced the top-level `api.actions:` schema used by
-  #    clear_ble_bonds / disconnect_ble_peer below.
-  #  - 2026.5 holds ESP_COEX_PREFER_BT for the full lifetime of a BLE
-  #    connection (PR #16036), fixing status=0x85/133 GATT failures under
-  #    heavy WiFi load — the connection-reliability class of the pairing
-  #    wedge this proxy fights. Combined with the ~12µs event handling from
-  #    2025.11 (wake_loop_threadsafe) and the 2026.4 BLE-handler
-  #    devirtualization, this makes the proxy competitive with a local
-  #    adapter. Pinning it here guarantees a reflash actually carries the fix.
+  # Require 2026.7.0+. Cumulative BLE-proxy fixes this floor guarantees:
+  #  - 2025.8: top-level `api.actions:` schema used by the recovery
+  #    actions below.
+  #  - 2026.5: ESP_COEX_PREFER_BT held for the full lifetime of a BLE
+  #    connection (PR #16036) — fixes status=0x85/133 GATT failures under
+  #    heavy WiFi load, the connection-reliability class of the pairing
+  #    wedge this proxy fights.
+  #  - 2026.5.1: slot leak fixed (PR #16588) — a dropped ESP-IDF CLOSE_EVT
+  #    no longer burns a connection slot until reboot. With only 3 slots
+  #    here, one leaked slot materially degrades the proxy, and the
+  #    reconnect churn of a pairing wedge is exactly the workload that
+  #    triggered it.
+  #  - 2026.7.0: stale advertisement subscriber is taken over instead of
+  #    rejecting the new one (PR #17423) — cures "proxy connected but no
+  #    advertisements" after an HA restart within the ~150s keepalive
+  #    window, which previously looked like a pairing wedge.
   # Tradeoff: while a long-lived BLE connection is up, this ESP may show
   # slightly lower WiFi throughput — negligible for a dedicated proxy.
-  min_version: 2026.5.0
-  # Toggle antenna RF switch pins on boot (FM8625H on XIAO C6)
+  # NOTE on 2026.7.x builds: ESP32 compiles with the native ESP-IDF
+  # toolchain by default now — the first build re-downloads the toolchain
+  # and does a full rebuild. Prefer USB-reachable conditions for the first
+  # reflash. The pip/pipx CLI needs Python 3.12+.
+  min_version: 2026.7.0
+  # Power up the FM8625H RF switch and select the antenna on boot.
   on_boot:
     priority: 600
     then:
+      # rf_switch_enable output is inverted (GPIO3 is ACTIVE-LOW): turning
+      # it ON drives the pin LOW, which powers the RF switch. Seeed's
+      # reference sequence waits ~100ms for the FM8625H to power up before
+      # selecting the antenna.
       - output.turn_on: rf_switch_enable
+      - delay: 100ms
       # LOW = onboard antenna, HIGH = external U.FL antenna
       # Change to turn_on if using external antenna
       - output.turn_off: rf_antenna_select
@@ -52,6 +71,16 @@ esp32:
   variant: esp32c6
   framework:
     type: esp-idf
+    # Deliberately NO `version:` pin — ESPHome's recommended ESP-IDF
+    # (5.5.4+) is what we want. NEVER pin 5.5.2: it shipped a BT-controller
+    # regression (espressif/esp-idf#18217) where BLE scanning silently dies
+    # after hours/days with an HCI 0x200c timeout.
+
+# Safe-mode boot counter in RTC memory instead of NVS — spares a flash
+# write on every boot (2026.7.0+). Tradeoff: the counter doesn't survive a
+# full power loss, so a power-cycle resets the escalation — fine for a proxy.
+safe_mode:
+  storage: rtc
 
 # ---------------------------------------------------------------
 # Network
@@ -60,7 +89,11 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   power_save_mode: NONE          # Max performance for BLE proxy
-  # enable_btm: true             # Uncomment for 802.11k/v roaming
+  # 802.11k/v roaming — uncomment in multi-AP / mesh homes: a proxy stuck
+  # on a distant AP after a topology change produces latency spikes that
+  # turn into GATT status=133 under the coex regime. No benefit on a
+  # single AP, and rare AP firmwares misbehave with BTM.
+  # enable_btm: true
   # enable_rrm: true
 
   # Fallback AP in case WiFi fails (for recovery)
@@ -70,18 +103,36 @@ wifi:
 
 captive_portal:
 
+# WiFi reprovisioning over the USB-C port (improv-wifi.com / ESPHome Web) —
+# complements the fallback AP without rebuilding firmware. Works over the
+# USB_SERIAL_JTAG logger below. Deliberately NOT esp32_improv: that would
+# pull a GATT server + advertising onto the BLE controller shared with the
+# proxy — worst on this single-core chip.
+improv_serial:
+
 # ---------------------------------------------------------------
 # Home Assistant API + OTA
 # ---------------------------------------------------------------
 api:
   encryption:
     key: !secret api_encryption_key
+  # Built-in watchdog: self-reboot if no HA client connects for this long.
+  # This is the ESPHome default made explicit — do NOT add a custom
+  # interval/script watchdog on top, it would duplicate this.
+  reboot_timeout: 15min
+  on_client_disconnected:
+    - lambda: 'id(api_disconnect_count) += 1;'
   # Manual recovery action — call from HA Developer Tools or from
   # automations when pairing gets wedged. Clears the ESP32's BLE bond
   # table (esp_ble_remove_bond_device for every stored peer) so the
   # next `pair=True` from a Bluetooth-proxy client triggers a fresh
   # SMP exchange instead of presenting a stale LTK. See
   # https://github.com/dzerik/melitta-barista-ha/issues/10
+  #
+  # NOTE: this clear-ALL action has no built-in equivalent, so it stays.
+  # Per-peer operations (unpair / disconnect / clear GATT cache) ARE
+  # available natively via the proxy API — the integration can call
+  # BleakClient.unpair() / clear_cache() on a live ESPHome-backed client.
   #
   # In HA: Developer Tools → Services →
   #   esphome.${name}_clear_ble_bonds → Call service
@@ -99,6 +150,9 @@ api:
               esp_ble_remove_bond_device(dev_list[i].bd_addr);
             }
             ESP_LOGW("ble_bonds", "Removed %d bonded device(s)", dev_num);
+        - event.trigger:
+            id: bond_change
+            event_type: bonds_cleared
 
     # Surgical disconnect of a specific peer when bluetooth_proxy gets
     # stuck in `state: ESTABLISHED` after an `auth fail reason=82` (SMP
@@ -107,11 +161,13 @@ api:
     # the GAP layer to drop it so the next request actually opens a
     # new SMP exchange.
     #
-    # NOTE: the 2026.5 coex fix sharply reduces the *connection-reliability*
-    # wedge (status=133 drops under WiFi load), so this action and the
-    # repair flow should fire far less often. It does NOT address the
-    # stale-bond SMP rejection (reason=82) itself — clear_ble_bonds above
-    # remains the tool for that. Keep both as fallbacks.
+    # NOTE: the 2026.5 coex fix + the 2026.5.1 slot-leak fix sharply reduce
+    # the *connection-reliability* wedge, so this action should fire far
+    # less often. It does NOT address the stale-bond SMP rejection
+    # (reason=82) itself — clear_ble_bonds above remains the tool for that.
+    # Unlike the native API DISCONNECT (which goes through the proxy's
+    # tracked connection object), this raw GAP disconnect also works on
+    # links the proxy no longer tracks. Keep both as fallbacks.
     #
     # In HA: Developer Tools → Services →
     #   esphome.${name}_disconnect_ble_peer
@@ -133,6 +189,16 @@ api:
             } else {
               ESP_LOGE("ble_disconnect", "Invalid MAC: %s", peer_mac.c_str());
             }
+
+    # Middle-tier recovery between disconnect_ble_peer (surgical) and
+    # Restart/Factory reset (nuclear): tear down the whole BLE stack and
+    # reinitialize it WITHOUT rebooting the ESP and WITHOUT touching NVS
+    # bonds. Clears wedged GAP/GATT controller state; WiFi/API stay up.
+    - action: restart_ble
+      then:
+        - ble.disable:
+        - delay: 2s
+        - ble.enable:
 
 ota:
   - platform: esphome
@@ -156,18 +222,21 @@ logger:
 # (1100ms/1100ms) cause CPU contention between WiFi and BLE.
 # Use defaults and on-demand scanning for stable operation.
 # See: https://esphome.io/components/bluetooth_proxy/
+#
+# Slot accounting (2026.5+): only bluetooth_proxy consumes connection
+# slots — the scanner does NOT reserve one; its ADV/SCAN instance is added
+# by codegen ON TOP of max_connections (CONFIG_BT_ACL_CONNECTIONS =
+# max_connections + 1). The esp32_ble default (max_connections: 3) exactly
+# matches connection_slots: 3 below, so no explicit esp32_ble block is
+# needed. Each extra connection costs ~1KB RAM on this RAM-constrained
+# single-core chip — don't over-allocate.
+#
+# Pairing-resilience experiment (issue #33, SMP auth fail reason=82):
+# pin the SMP auth request explicitly instead of relying on the Bluedroid
+# default. Uncomment if the wedge recurs:
+# esp32_ble:
+#   auth_req_mode: bond
 # ---------------------------------------------------------------
-# Raise the BLE controller's per-link slot pool. The default is 3,
-# which leaves only 2 free for proxy connection slots after the
-# tracker / scanner reserves one. bluetooth_proxy + esp32_ble_tracker
-# together register 4 components on the parent esp32_ble bus, so the
-# compiler warns:
-#   "BLE components require 4 connection slot(s) but only 3 configured"
-# Bumping max_connections to 4 silences the warning and matches the
-# `connection_slots: 3` below (one slot reserved for the scanner).
-esp32_ble:
-  max_connections: 4
-
 esp32_ble_tracker:
   scan_parameters:
     # Use ESPHome defaults (interval=320ms, window=30ms).
@@ -177,20 +246,35 @@ esp32_ble_tracker:
 
 bluetooth_proxy:
   active: true           # REQUIRED for GATT connections (Melitta needs this)
-  cache_services: true   # Cache BLE service discovery — faster reconnects
+  # Cache BLE service discovery in NVS — faster reconnects. Gotchas:
+  #  - flipping this to false does NOT purge an already-written cache
+  #    (only a full flash erase / Factory reset does; a false+reflash
+  #    cycle also cleans it on connect);
+  #  - after a machine firmware update a stale cache yields wrong
+  #    attribute handles / status=133 on reconnect — symptoms easily
+  #    mistaken for a bond problem. Recovery: clear_cache() from the
+  #    integration's repair flow, or the Factory reset button below.
+  cache_services: true
   connection_slots: 3    # 3 is safe for C6 RAM; max recommended 5
 
 # ---------------------------------------------------------------
 # Antenna control — FM8625H RF switch on XIAO ESP32-C6
+# Board pin aliases (since ESPHome 2025.12): RF_SWITCH_EN=GPIO3,
+# RF_ANT_SELECT=GPIO14. (Don't use the board's LED alias — it maps to
+# GPIO8, contradicting Seeed's documented GPIO15 user LED.)
 # ---------------------------------------------------------------
 output:
   - platform: gpio
     id: rf_switch_enable
-    pin: GPIO3              # RF_SWITCH_EN — enables the RF switch IC
+    pin:
+      number: RF_SWITCH_EN    # GPIO3 — enables the RF switch IC
+      # ACTIVE-LOW per Seeed reference code: LOW powers the FM8625H.
+      # Inverted so that output.turn_on == "switch powered".
+      inverted: true
 
   - platform: gpio
     id: rf_antenna_select
-    pin: GPIO14             # RF_ANT_SELECT — LOW=onboard, HIGH=external
+    pin: RF_ANT_SELECT        # GPIO14 — LOW=onboard, HIGH=external
 
 switch:
   - platform: template
@@ -217,8 +301,27 @@ light:
     internal: true         # Don't expose to HA, just for visual status
 
 # ---------------------------------------------------------------
-# Diagnostic sensors — monitor proxy health in HA
+# Diagnostics — monitor proxy health in HA
 # ---------------------------------------------------------------
+globals:
+  - id: api_disconnect_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: last_bond_count
+    type: int
+    restore_value: no
+    initial_value: '-1'
+
+# Heap / loop-time / reset-reason instrumentation. On the single-core C6
+# rising loop_time + falling free heap under simultaneous WiFi+BLE load is
+# the leading indicator of the status=133 drop class; reset_reason tells
+# brownout vs task-watchdog vs panic after an unexplained reboot.
+# Keep update_interval >= 30s here: the heap-integrity walk behind
+# block/fragmentation is O(heap).
+debug:
+  update_interval: 60s
+
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal"
@@ -228,6 +331,53 @@ sensor:
   - platform: uptime
     name: "Uptime"
     update_interval: 300s
+    entity_category: diagnostic
+
+  # Live signal strength of the machine as seen from the proxy — the #1
+  # diagnostic for reconnect failures, placement, and A/B-testing the
+  # onboard vs external antenna. NOTE: freezes at the last-seen value
+  # while a GATT connection is up (the machine stops advertising during
+  # active sessions).
+  - platform: ble_rssi
+    service_uuid: ${melitta_service_uuid}
+    name: "Melitta RSSI"
+    entity_category: diagnostic
+
+  # Die temperature — a proxy near a coffee machine (heat source, often
+  # in an enclosure) can run hot; >80°C degrades RF sensitivity and
+  # WiFi/BLE coex stability. Correlate thermal events with drops in HA.
+  - platform: internal_temperature
+    name: "Chip Temperature"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  # How many times the HA API link dropped since boot — after a flaky
+  # night this is the first number to look at.
+  - platform: template
+    name: "API Disconnects"
+    lambda: 'return id(api_disconnect_count);'
+    update_interval: 60s
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+  - platform: debug
+    free:
+      name: "Heap Free"
+    fragmentation:
+      name: "Heap Fragmentation"
+    loop_time:
+      name: "Loop Time"
+
+binary_sensor:
+  # "Advertising seen" — distinguishes 'machine off / out of range' from
+  # 'machine advertises but HA cannot connect', the two failure modes
+  # users otherwise cannot tell apart. NOT "machine reachable": drops to
+  # off while the proxy holds a GATT connection (no adverts) and when the
+  # machine is connected to the phone app.
+  - platform: ble_presence
+    service_uuid: ${melitta_service_uuid}
+    name: "Melitta Advertising"
+    timeout: 90s
     entity_category: diagnostic
 
 text_sensor:
@@ -241,20 +391,44 @@ text_sensor:
 
   # Live read of the on-chip BLE bond table — useful to confirm
   # clear_ble_bonds actually emptied NVS, or to see whether the
-  # next pair=True actually stored anything.
+  # next pair=True actually stored anything. Also fires the
+  # "BLE Bond Change" event below when the count changes.
   - platform: template
     name: "BLE bonds"
     id: ble_bonds_count
     entity_category: diagnostic
     update_interval: 30s
     lambda: |-
+      int n = esp_ble_get_bond_device_num();
+      if (id(last_bond_count) >= 0 && n != id(last_bond_count)) {
+        id(bond_change).trigger(
+          n > id(last_bond_count) ? "bond_added" : "bond_removed");
+      }
+      id(last_bond_count) = n;
       char buf[8];
-      snprintf(buf, sizeof(buf), "%d", esp_ble_get_bond_device_num());
+      snprintf(buf, sizeof(buf), "%d", n);
       return std::string(buf);
+
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+
+# Logbook/automation hook for the exact moment a bond appeared or
+# vanished — the central forensic question in every pairing-wedge report.
+event:
+  - platform: template
+    name: "BLE Bond Change"
+    id: bond_change
+    entity_category: diagnostic
+    event_types:
+      - bond_added
+      - bond_removed
+      - bonds_cleared
 
 button:
   - platform: restart
     name: "Restart"
+    id: restart_button
     entity_category: diagnostic
 
   # Reboot the proxy into safe mode — disables all components except
@@ -273,6 +447,41 @@ button:
   # the proxy refuses to bond no matter what). After pressing, the
   # device reboots clean — Melitta integration → Repair will then
   # see a virgin ESP and run a fresh SMP exchange on the next pair.
+  #
+  # Hardening note: 2026.7.0+ offers opt-in NVS encryption (protects the
+  # BLE bond table / LTK at rest) — NOT enabled here because it requires
+  # burning an eFuse HMAC key, which is permanent and complicates
+  # factory-reset/reflash workflows. Only for security-sensitive setups.
   - platform: factory_reset
     name: "Factory reset"
     entity_category: diagnostic
+
+# ---------------------------------------------------------------
+# Optional extras — disabled by default
+# ---------------------------------------------------------------
+# Standalone web UI (sensors + buttons at http://<proxy-ip>) for when HA
+# or the API link is down. WARNING for this single-core chip: with active
+# BLE + WiFi the extra ~20-40KB heap and per-request CPU can itself
+# provoke the contention it is meant to debug. Prefer the S3 for this.
+# Requires `web_server_password` in secrets.yaml.
+# web_server:
+#   port: 80
+#   version: 3
+#   auth:
+#     type: digest
+#     username: admin
+#     password: !secret web_server_password
+
+# Nightly maintenance restart at 04:00 — clears slow heap fragmentation
+# and any half-wedged BLE controller state before the morning coffee
+# window. Opt-in because a restart drops any live GATT link (at 04:00 the
+# machine is normally off, so usually harmless).
+# time:
+#   - platform: sntp
+#     id: sntp_time
+#     on_time:
+#       - hours: 4
+#         minutes: 0
+#         seconds: 0
+#         then:
+#           - button.press: restart_button
