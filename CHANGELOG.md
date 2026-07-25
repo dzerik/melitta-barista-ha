@@ -2,6 +2,23 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.86.0] — 2026-07-25
+
+### Fixed
+
+- **Recovery machinery was unreachable in the proxy-wedge state** (#35). A wedged ESP32-C6 proxy (stale pending create-connection in the BLE controller: `status=133` + HCI 0x2043 `Cmd Disallowed` loop) starves all advertisements, and every recovery path required exactly what the wedge removes — a cached BLEDevice or a live scanner sighting. Four structural fixes:
+  - `_try_unpair` now clears the bond **connection-less** through the proxy API (`bluetooth_device_unpair`, handled firmware-side without an open link) and only falls back to connect-then-unpair.
+  - The initial-connect loop (`_async_connect_and_poll`) now counts failed attempts and escalates to the pairing-wedged repair — previously only the post-disconnect reconnect loop did, so a machine that never connected after setup silently retried forever.
+  - The proxy-entry lookup falls back to the only Bluetooth-proxy ESPHome entry when no scanner has seen the peer, so repair / force-repair / unpair keep working during the wedge (with multiple proxies it still refuses to guess).
+  - The presence gate (issue #12) no longer wipes the accrued failure counter while the device looks absent, and a **starved-scanner override** (no detections from any device for 3+ minutes on a connectable scanner) lets the loops keep attempting — absence can't be trusted when the scanner itself has gone silent.
+- **Connect ladder short-circuits without a BLEDevice.** One typed `NoBleDeviceError` aborts the pair=False → pair=True → unpair → pair=True chain (one quiet log line instead of four identical tracebacks per cycle) and, once an advertisement arrives, up to 12 proxy CONNECT requests per cycle no longer hammer a wedged controller.
+- **Force re-pair now restarts the proxy's BLE stack.** When the proxy YAML ships the new `restart_ble` action (see below), the hard-repair flow calls it between bond wiping and the entry reload — the only remedy short of a reboot for the C6 controller wedge; bonds survive, only live links drop.
+
+### Added
+
+- **ESPHome config for generic ESP32-C6 devkits** (`esphome/ble-proxy-c6-devkit.yaml`): Espressif ESP32-C6-DevKitC-1 and clones (WROOM-1-N4 module). Correct `flash_size: 4MB` (the board definition wrongly claims 8MB), no XIAO RF-switch stanzas, optional WS2812 status LED, and a recovery cheat-sheet for the C6 `status=133` loop in the header.
+- **Proxy YAML modernization** (XIAO C6, XIAO S3, devkit): `min_version: 2026.7.0` (slot-leak fix PR #16588, stale-subscriber takeover PR #17423), new `restart_ble` api.action (BLE stack restart without reboot, bonds preserved), Melitta-specific `ble_rssi` + `ble_presence` diagnostics, `internal_temperature`, `debug` heap/loop-time/reset-reason sensors, API-disconnect counter, bond-change event entity, `improv_serial`, `safe_mode: storage: rtc`. XIAO C6: fixed inverted FM8625H RF-switch enable polarity (external-antenna switch was inert). XIAO S3: `flash_size: 8MB` (half the flash was unused), `esp32_ble: use_psram` (~40 KB internal RAM freed), built-in `web_server` v3 with digest auth.
+
 ## [0.85.1] — 2026-07-19
 
 ### Fixed

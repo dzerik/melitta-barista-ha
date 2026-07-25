@@ -72,6 +72,7 @@ from .const import (
     DEFAULT_AUTO_SYNC_DRIFT_MINUTES,
     DEFAULT_AUTO_SYNC_DAILY_TIME,
     SERVICE_SYNC_CLOCK,
+    SCANNER_STARVED_AFTER_SECONDS,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -429,6 +430,11 @@ def _find_proxy_entry_for_address(
         _LOGGER.debug("Bluetooth API not available for scanner lookup", exc_info=True)
         return None
 
+    esphome_entries = hass.config_entries.async_entries("esphome")
+    if not esphome_entries:
+        _LOGGER.debug("find_proxy_entry: no esphome ConfigEntries at all")
+        return None
+
     if not scanner_devices:
         _LOGGER.debug(
             "find_proxy_entry: no scanners report address %s — "
@@ -436,12 +442,11 @@ def _find_proxy_entry_for_address(
             "seen the device yet",
             address,
         )
-        return None
-
-    esphome_entries = hass.config_entries.async_entries("esphome")
-    if not esphome_entries:
-        _LOGGER.debug("find_proxy_entry: no esphome ConfigEntries at all")
-        return None
+        # Issue #35: in the proxy-wedge state the scanner is starved, so a
+        # live sighting is exactly what we DON'T have — yet reloading /
+        # unpairing through the proxy is precisely the needed recovery.
+        # When there is a single unambiguous Bluetooth-proxy entry, use it.
+        return _fallback_single_proxy_entry(esphome_entries, address)
 
     def _norm(s: str | None) -> str:
         return (s or "").lower().replace(":", "").replace("-", "")
@@ -492,7 +497,91 @@ def _find_proxy_entry_for_address(
             "ESPHome entry keys (tried %d entries)",
             scanner.source, len(candidates),
         )
+    # A scanner saw the device but no ESPHome entry matched — most likely a
+    # local adapter setup; deliberately NO proxy fallback here, or we would
+    # reload an unrelated proxy on local-adapter installations.
     return None
+
+
+def _entry_is_bt_proxy(entry: ConfigEntry) -> bool:
+    """True when a loaded ESPHome entry advertises Bluetooth-proxy capability."""
+    runtime = getattr(entry, "runtime_data", None)
+    device_info = getattr(runtime, "device_info", None) if runtime else None
+    if device_info is None:
+        return False
+    if getattr(device_info, "bluetooth_proxy_feature_flags", 0):
+        return True
+    return bool(getattr(device_info, "legacy_bluetooth_proxy_version", 0))
+
+
+def _fallback_single_proxy_entry(
+    esphome_entries: list[ConfigEntry], address: str,
+) -> ConfigEntry | None:
+    """Pick the only Bluetooth-proxy ESPHome entry when no scanner saw the peer.
+
+    Recovery paths (repair, force-repair, connection-less unpair) previously
+    required a live scanner sighting to locate the proxy — impossible in the
+    issue-#35 wedge where the proxy forwards no advertisements at all. With
+    exactly one proxy entry there is no ambiguity; with several we refuse to
+    guess (reloading the wrong proxy would disrupt unrelated devices).
+    """
+    proxies = [e for e in esphome_entries if _entry_is_bt_proxy(e)]
+    if len(proxies) == 1:
+        _LOGGER.debug(
+            "find_proxy_entry: no live sighting for %s — falling back to "
+            "the only Bluetooth-proxy ESPHome entry %s",
+            address, proxies[0].entry_id,
+        )
+        return proxies[0]
+    if len(proxies) > 1:
+        _LOGGER.debug(
+            "find_proxy_entry: %d Bluetooth-proxy entries and no sighting "
+            "for %s — ambiguous, not guessing",
+            len(proxies), address,
+        )
+    return None
+
+
+async def _async_proxy_unpair(hass: HomeAssistant, address: str) -> bool:
+    """Connection-less bond wipe for ``address`` via the ESPHome proxy API.
+
+    Sends ``bluetooth_device_unpair`` on the proxy entry's aioesphomeapi
+    client; the proxy firmware handles UNPAIR without an open BLE link
+    (``esp_ble_remove_bond_device``), so this works even when no BLEDevice
+    is cached — the state where the connect-then-unpair fallback in
+    ``MelittaBleClient._try_unpair`` is a guaranteed no-op (issue #35).
+
+    Returns True when the proxy confirmed the unpair; False when there is
+    no usable proxy entry, the API call failed, or the proxy reported
+    failure — the caller then falls back to connect-then-unpair.
+    """
+    proxy_entry = _find_proxy_entry_for_address(hass, address)
+    if proxy_entry is None:
+        _LOGGER.debug("proxy_unpair: no ESPHome proxy entry for %s", address)
+        return False
+    api = getattr(getattr(proxy_entry, "runtime_data", None), "client", None)
+    if api is None or not hasattr(api, "bluetooth_device_unpair"):
+        _LOGGER.debug(
+            "proxy_unpair: proxy entry %s has no usable API client",
+            proxy_entry.entry_id,
+        )
+        return False
+    try:
+        response = await api.bluetooth_device_unpair(
+            int(address.replace(":", ""), 16),
+        )
+    except Exception:  # noqa: BLE001 — any API error means "fall back"
+        _LOGGER.debug(
+            "proxy_unpair: bluetooth_device_unpair failed for %s",
+            address, exc_info=True,
+        )
+        return False
+    success = bool(getattr(response, "success", True))
+    _LOGGER.info(
+        "proxy_unpair: connection-less unpair of %s via proxy API — %s",
+        address, "ok" if success else "proxy reported failure",
+    )
+    return success
 
 
 async def _async_force_repair(
@@ -529,6 +618,7 @@ async def _async_force_repair(
     result: dict[str, Any] = {
         "bond_cleared": False,
         "peer_disconnected": False,
+        "ble_restarted": False,
         "proxy_reloaded": False,
         "service_name": None,
         "service_missing": False,
@@ -621,6 +711,35 @@ async def _async_force_repair(
                 _LOGGER.exception(
                     "force_repair: esphome.%s call raised", disconnect_service,
                 )
+
+        # Step 2c — restart the proxy's BLE stack (ble.disable → ble.enable).
+        # On the ESP32-C6 this is the only remedy short of a reboot for the
+        # stale-pending-create-connection controller wedge (status=133 +
+        # HCI 0x2043 "Cmd Disallowed" loop, issue #35): it clears controller
+        # state that neither bond wiping nor a peer disconnect can touch.
+        # Bonds in NVS survive; only live links drop.
+        restart_service = f"{prefix}_restart_ble"
+        if hass.services.has_service("esphome", restart_service):
+            _LOGGER.warning(
+                "force_repair: calling esphome.%s to restart the BLE stack "
+                "on %s",
+                restart_service, device_name,
+            )
+            try:
+                await hass.services.async_call(
+                    "esphome", restart_service, {}, blocking=True,
+                )
+                result["ble_restarted"] = True
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception(
+                    "force_repair: esphome.%s call raised", restart_service,
+                )
+        else:
+            _LOGGER.debug(
+                "force_repair: esphome.%s not registered (older proxy YAML "
+                "without the restart_ble action) — skipping BLE restart",
+                restart_service,
+            )
 
     # Step 3 — reload the proxy entry. Even if bond clearing wasn't done,
     # this evicts the cached BLEDevice and gives the next pair attempt a
@@ -944,6 +1063,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client.set_presence_callback(_is_present)
     entry.async_on_unload(lambda: client.set_presence_callback(None))
 
+    # Connection-less bond wipe (issue #35): lets _try_unpair clear a stale
+    # bond through the proxy API even when no BLEDevice is cached — the
+    # exact state a wedged proxy produces.
+    async def _proxy_unpair() -> bool:
+        return await _async_proxy_unpair(hass, address)
+
+    client.set_unpair_callback(_proxy_unpair)
+    entry.async_on_unload(lambda: client.set_unpair_callback(None))
+
+    # Scanner-health override for the presence gate (issue #35): "absent"
+    # cannot be trusted when a connectable scanner has detected NOTHING for
+    # minutes — a wedged proxy stops forwarding every advertisement, which
+    # is indistinguishable from "machine off" by presence alone.
+    def _is_scanner_starved() -> bool:
+        try:
+            scanners = bluetooth.async_current_scanners(hass)
+        except Exception:  # noqa: BLE001 — never let a health check break reconnect
+            return False
+        for scanner in scanners:
+            if not getattr(scanner, "connectable", False):
+                continue
+            try:
+                quiet_for = scanner.time_since_last_detection()
+            except Exception:  # noqa: BLE001 — scanner may not implement it
+                continue
+            if quiet_for > SCANNER_STARVED_AFTER_SECONDS:
+                return True
+        return False
+
+    client.set_scanner_starved_callback(_is_scanner_starved)
+    entry.async_on_unload(lambda: client.set_scanner_starved_callback(None))
+
     # Track disconnects for repair issue (connection instability warning)
     disconnect_times: list[float] = []
     max_disconnects_per_hour = 5
@@ -1064,6 +1215,14 @@ async def _async_connect_and_poll(
 
     Retries with exponential backoff if initial connection fails.
     Can be woken up early by BLE advertisement via client._reconnect_event.
+
+    Failed attempts count toward the pairing-wedge repair threshold via
+    ``client._note_connect_failure`` — before issue #35 only the post-
+    disconnect ``_reconnect_loop`` counted, so a machine that never
+    connected after setup looped here forever without ever escalating.
+    The same presence gate as the reconnect loop applies (issue #12
+    parity): no attempts while the machine is genuinely off, but a
+    starved scanner overrides the gate.
     """
     delay = reconnect_delay
 
@@ -1071,16 +1230,21 @@ async def _async_connect_and_poll(
     await asyncio.sleep(initial_delay)
 
     while True:
+        attempted = False
+        connect_ok = False
         try:
-            _LOGGER.debug("Background connect starting for %s", client.address)
-            if await client.connect():
-                _LOGGER.info("Connected to %s, starting polling", client.address)
-                client.start_polling(interval=poll_interval)
-                return
-            _LOGGER.warning(
-                "Connection to %s failed, retrying in %.0fs",
-                client.address, delay,
-            )
+            if client._should_attempt_connect():  # noqa: SLF001
+                attempted = True
+                _LOGGER.debug("Background connect starting for %s", client.address)
+                connect_ok = await client.connect()
+                if connect_ok:
+                    _LOGGER.info("Connected to %s, starting polling", client.address)
+                    client.start_polling(interval=poll_interval)
+                    return
+                _LOGGER.warning(
+                    "Connection to %s failed, retrying in %.0fs",
+                    client.address, delay,
+                )
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.debug(
                 "Connection error for %s, retrying in %.0fs",
@@ -1091,6 +1255,8 @@ async def _async_connect_and_poll(
                 "Unexpected error connecting to %s, retrying in %.0fs",
                 client.address, delay,
             )
+        if attempted and not connect_ok:
+            client._note_connect_failure()  # noqa: SLF001
         # Wait for backoff delay, but wake up early on BLE advertisement
         client._reconnect_event.clear()
         try:

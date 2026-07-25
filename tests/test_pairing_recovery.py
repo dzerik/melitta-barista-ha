@@ -281,7 +281,14 @@ class TestPresenceGating:
         # ... and the repair never fired.
         assert callback_calls == []
 
-    async def test_absent_device_resets_existing_wedge_counter(self):
+    async def test_absent_device_keeps_existing_wedge_counter(self):
+        """Issue #35: going absent must NOT wipe accrued failures.
+
+        In the proxy-wedge state the machine looks absent precisely because
+        the proxy's scanner is starved — resetting here structurally excluded
+        the wedge from auto-repair. The counter now only resets on a
+        successful connect.
+        """
         client = MelittaBleClient(
             "AA:BB:CC:DD:EE:FF",
             reconnect_delay=0.01,
@@ -305,9 +312,8 @@ class TestPresenceGating:
 
         await asyncio.wait_for(client._reconnect_loop(), timeout=1.0)
 
-        # Going absent clears the wedge counter — a wedge must be re-established
-        # from a present, reachable device.
-        assert client._consecutive_connect_failures == 0
+        # Counter survives the absence — it resets only on connect success.
+        assert client._consecutive_connect_failures == 3
 
     async def test_present_device_still_wedges(self):
         """A still-advertising device that won't connect remains a wedge."""
