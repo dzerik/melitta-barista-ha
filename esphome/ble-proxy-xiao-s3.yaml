@@ -50,11 +50,13 @@ esphome:
 esp32:
   board: seeed_xiao_esp32s3
   variant: esp32s3
-  # ESPHome defaults to 4MB regardless of board; the XIAO S3 has 8MB.
-  # Declaring it doubles the app/OTA partitions and NVS headroom.
-  # NOTE: a partition-table change requires ONE serial reflash — OTA onto
-  # a different partition layout is unsafe.
-  flash_size: 8MB
+  # The XIAO S3 physically has 8MB flash, but flash_size is deliberately
+  # NOT declared: ESPHome's default (4MB) matches the partition layout of
+  # every unit flashed from earlier revisions of this config, and changing
+  # the partition table over OTA is unsafe. If you are flashing a fresh
+  # board over USB (or don't mind ONE serial reflash), uncomment to double
+  # the app/OTA partitions and NVS headroom:
+  # flash_size: 8MB
   framework:
     type: esp-idf
     # Deliberately NO `version:` pin — ESPHome's recommended ESP-IDF
