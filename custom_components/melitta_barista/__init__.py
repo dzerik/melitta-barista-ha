@@ -568,13 +568,24 @@ async def _async_proxy_unpair(hass: HomeAssistant, address: str) -> bool:
         return False
     try:
         response = await api.bluetooth_device_unpair(
-            int(address.replace(":", ""), 16),
+            int(address.replace(":", ""), 16), timeout=10.0,
         )
-    except Exception:  # noqa: BLE001 — any API error means "fall back"
-        _LOGGER.debug(
-            "proxy_unpair: bluetooth_device_unpair failed for %s",
-            address, exc_info=True,
-        )
+    except Exception as err:  # noqa: BLE001 — any API error means "fall back"
+        if isinstance(err, TimeoutError) or "Timeout" in type(err).__name__:
+            # Older proxy firmwares process the UNPAIR request but never
+            # send a response — the bond may already be gone even though we
+            # report failure here. Loud on purpose: this is exactly how the
+            # 0.86.0 nightly bond-wipe regression stayed invisible.
+            _LOGGER.warning(
+                "proxy_unpair: no response from proxy for %s — the bond may "
+                "still have been cleared (older ESPHome firmware?)",
+                address,
+            )
+        else:
+            _LOGGER.debug(
+                "proxy_unpair: bluetooth_device_unpair failed for %s",
+                address, exc_info=True,
+            )
         return False
     success = bool(getattr(response, "success", True))
     _LOGGER.info(
