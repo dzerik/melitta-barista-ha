@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.86.2] — 2026-07-27
+
+### Fixed
+
+- **XIAO S3 proxy config: removed `flash_size: 8MB` — it made OTA updates unsafe for already-deployed units.** All existing XIAO S3 proxies were flashed with the default 4MB partition table; declaring 8MB changes the partition layout, and flashing a different layout over OTA is unsafe. The config now builds with the default 4MB layout (OTA-compatible with every deployed unit); `flash_size: 8MB` remains as a commented-out option for fresh boards flashed over USB.
+
 ## [0.86.1] — 2026-07-27
 
 ### Fixed
