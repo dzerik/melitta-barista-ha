@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.86.1] — 2026-07-27
+
+### Fixed
+
+- **CRITICAL: connection-less unpair could wipe the proxy-side bond while the machine was powered off** (0.86.0 regression). The connect ladder escalates to the unpair rung on *any* double failure — including plain unreachability (machine in nightly power-off). In 0.86.0 that rung became connection-less, so it silently cleared the ESP's bond table while the machine slept and kept its LTK; by morning every pairing attempt was rejected with SMP `auth fail reason=82`, and the integration could not recover without a manual Bluetooth reset on the machine. The unpair rung (both paths) is now gated on **bond-class evidence**: a BLE link actually opened during the current connect cycle, or the device is advertising right now. On pure unreachability the ladder stops after pair=True and waits for advertisements. Additionally, a proxy UNPAIR request that times out is now logged as a warning noting the bond may still have been cleared (older firmwares process the request without responding), and the request timeout is capped at 10 s.
+
 ## [0.86.0] — 2026-07-25
 
 ### Fixed

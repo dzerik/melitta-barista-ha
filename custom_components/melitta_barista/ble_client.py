@@ -174,6 +174,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # wedged proxy looks like from HA. See issue #35.
         self._scanner_starved_callback: Callable[[], bool] | None = None
         self._connected = False
+        # True once any BLE-level link was established during the CURRENT
+        # connect cycle (reset at the top of _connect_impl). Used as the
+        # bond-vs-unreachability discriminator: a link that opens and then
+        # fails auth/handshake points at a bond problem; no link at all
+        # points at a powered-off / out-of-range machine, where clearing
+        # bonds is destructive (0.86.0 regression — see _suspect_stale_bond).
+        self._ble_link_seen: bool = False
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
         self._brew_lock = asyncio.Lock()
@@ -768,6 +775,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return False
 
         _LOGGER.debug("BLE connected to %s (pair=%s)", self._address, pair)
+        # Evidence for _suspect_stale_bond: the radio path works, so any
+        # failure from here on is auth/handshake-class, not unreachability.
+        self._ble_link_seen = True
 
         try:
             await self._start_notify(self._client)
@@ -782,6 +792,30 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return False
 
         return True
+
+    def _suspect_stale_bond(self) -> bool:
+        """True when this cycle's failures look bond-related, not unreachability.
+
+        Gate for the destructive unpair rung (0.86.1). Evidence accepted:
+        - a BLE link actually opened during this connect cycle (the radio
+          path works, so the failure is auth/handshake-class), or
+        - the device is advertising right now per the presence callback.
+
+        Without either signal the machine is most likely powered off, and
+        clearing the proxy-side bond would orphan the LTK the machine still
+        holds — producing a permanent SMP rejection (auth fail reason=82)
+        when it wakes up. When in doubt, do NOT unpair: a skipped unpair
+        costs one extra reconnect cycle, a wrong unpair costs a manual
+        re-pairing session at the machine.
+        """
+        if self._ble_link_seen:
+            return True
+        if self._presence_callback is not None:
+            try:
+                return bool(self._presence_callback())
+            except Exception:  # noqa: BLE001 — on doubt, don't destroy bonds
+                return False
+        return False
 
     async def _safe_disconnect(self) -> None:
         """Disconnect current client, suppressing errors."""
@@ -867,9 +901,16 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         The whole ladder short-circuits on NoBleDeviceError (issue #35):
         without a cached BLEDevice every rung fails identically, so we log
         one line and wait for the next advertisement instead.
+
+        Rung 3 (unpair) additionally requires bond-class evidence — see
+        _suspect_stale_bond. On plain unreachability (machine powered off)
+        clearing the proxy bond would orphan the machine-side LTK and turn
+        a transient outage into a permanent `auth fail reason=82` mismatch.
         """
         if self._connected and self._client and self._client.is_connected:
             return True
+
+        self._ble_link_seen = False
 
         # Cancel any pending reconnect task to avoid interference with retry logic
         # (but skip if WE are the reconnect task — otherwise we cancel ourselves)
@@ -906,6 +947,18 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                     "Retrying connection to %s with pairing", self._address,
                 )
                 if not await self._try_connect_and_handshake(pair=True):
+                    if not self._suspect_stale_bond():
+                        # Unreachability, not a bond problem: no BLE link
+                        # opened this cycle and the device is not advertising
+                        # (likely powered off). Clearing bonds now would be
+                        # destructive — bail out and wait for advertisements.
+                        _LOGGER.info(
+                            "Skipping bond-clear for %s: no BLE link this "
+                            "cycle and device not advertising — treating as "
+                            "powered off / out of range",
+                            self._address,
+                        )
+                        return False
                     # Attempt 3: unpair stale bond, then pair fresh
                     await self._try_unpair()
                     # Same settle delay between unpair-flush and the final

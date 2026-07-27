@@ -270,6 +270,84 @@ class TestConnectAndPollEscalation:
         connect.assert_not_awaited()
 
 
+# ── 0.86.1 regression fix: unpair only on bond-class evidence ──────────
+
+
+class TestUnpairGate:
+    """Bond-clearing must never fire on unreachability failures.
+
+    0.86.0 regression: the connection-less unpair made ladder rung 3
+    destructive while the machine was powered off — the proxy-side bond got
+    wiped while the machine kept its LTK, producing a permanent SMP
+    `auth fail reason=82` mismatch by morning. Unpair now requires evidence
+    of a bond-class failure: a BLE link was actually established during
+    this connect cycle, or the device is currently advertising.
+    """
+
+    async def test_unpair_skipped_when_no_link_and_absent(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        handshake = AsyncMock(return_value=False)
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+        assert result is False
+        unpair.assert_not_awaited()
+        # Ladder stops after pair=False + pair=True — no post-unpair rung.
+        assert handshake.await_count == 2
+
+    async def test_unpair_skipped_without_presence_info_and_no_link(self):
+        """No presence callback (standalone) + no link seen → still skip."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        handshake = AsyncMock(return_value=False)
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+        assert result is False
+        unpair.assert_not_awaited()
+
+    async def test_unpair_runs_when_device_advertising(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: True)
+        handshake = AsyncMock(return_value=False)
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+        assert result is False
+        unpair.assert_awaited_once()
+        assert handshake.await_count == 3
+
+    async def test_unpair_runs_when_ble_link_was_seen(self):
+        """A link that opened then failed = bond-class failure → unpair OK."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        # No presence callback: the link-seen flag alone must allow unpair.
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            client._ble_link_seen = True
+            return False
+
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", new=fake_handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+        assert result is False
+        unpair.assert_awaited_once()
+
+    async def test_link_seen_flag_resets_each_cycle(self):
+        """A stale flag from a previous cycle must not authorize unpair."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client._ble_link_seen = True  # leftover from an earlier cycle
+        handshake = AsyncMock(return_value=False)
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            await client._connect_impl()
+        unpair.assert_not_awaited()
+
+
 # ── Fix 3: proxy entry lookup fallback without a live sighting ─────────
 
 
@@ -333,7 +411,9 @@ class TestProxyUnpairHelper:
         ):
             ok = await _async_proxy_unpair(hass, "D6:36:48:EB:40:08")
         assert ok is True
-        api.bluetooth_device_unpair.assert_awaited_once_with(0xD63648EB4008)
+        api.bluetooth_device_unpair.assert_awaited_once_with(
+            0xD63648EB4008, timeout=10.0,
+        )
 
     async def test_unpair_returns_false_without_proxy(self):
         hass = MagicMock()
