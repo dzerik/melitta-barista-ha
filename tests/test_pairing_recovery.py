@@ -55,12 +55,13 @@ class TestPairSettleDelay:
     async def test_sleep_happens_between_pair_false_fail_and_pair_true(self):
         """When pair=False fails, settle delay precedes the pair=True attempt."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF", pair_settle_delay=0.05)
-        # Device advertising → the unpair rung stays reachable (0.86.1 gate).
-        client.set_presence_callback(lambda: True)
         order: list[str] = []
 
         async def fake_handshake(pair: bool = False) -> bool:
             order.append(f"connect_pair={pair}")
+            # Link opened but handshake failed → the unpair rung stays
+            # reachable (0.86.3 gate: link evidence only, presence is racy).
+            client._ble_link_seen = True
             return False  # both attempts fail so loop goes through unpair path
 
         async def fake_sleep(t):

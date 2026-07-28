@@ -308,17 +308,23 @@ class TestUnpairGate:
         assert result is False
         unpair.assert_not_awaited()
 
-    async def test_unpair_runs_when_device_advertising(self):
+    async def test_presence_alone_does_not_authorize_unpair(self):
+        """0.86.2 regression: habluetooth keeps async_address_present True
+        for ~195s after the machine powers off, and the first reconnect
+        cycle (2-2.5 min of pair timeouts) always lands inside that window.
+        Stale presence authorized the unpair rung and wiped the proxy bond
+        again. Presence must NOT authorize unpair — only a BLE link that
+        actually opened during this cycle may."""
         client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
-        client.set_presence_callback(lambda: True)
-        handshake = AsyncMock(return_value=False)
+        client.set_presence_callback(lambda: True)  # stale-True window
+        handshake = AsyncMock(return_value=False)   # no link ever opened
         unpair = AsyncMock()
         with patch.object(client, "_try_connect_and_handshake", handshake), \
                 patch.object(client, "_try_unpair", unpair):
             result = await client._connect_impl()
         assert result is False
-        unpair.assert_awaited_once()
-        assert handshake.await_count == 3
+        unpair.assert_not_awaited()
+        assert handshake.await_count == 2
 
     async def test_unpair_runs_when_ble_link_was_seen(self):
         """A link that opened then failed = bond-class failure → unpair OK."""

@@ -572,13 +572,16 @@ async def _async_proxy_unpair(hass: HomeAssistant, address: str) -> bool:
         )
     except Exception as err:  # noqa: BLE001 — any API error means "fall back"
         if isinstance(err, TimeoutError) or "Timeout" in type(err).__name__:
-            # Older proxy firmwares process the UNPAIR request but never
-            # send a response — the bond may already be gone even though we
-            # report failure here. Loud on purpose: this is exactly how the
-            # 0.86.0 nightly bond-wipe regression stayed invisible.
+            # The proxy never answers UNPAIR for a peer that is not
+            # currently connected (aioesphomeapi waits for a connection
+            # state change that will never come) — confirmed on 2026.5.3
+            # AND 2026.7.2. The request itself IS processed: the bond is
+            # gone despite this "timeout". Loud on purpose: this is exactly
+            # how the 0.86.0/0.86.2 bond-wipe regressions stayed invisible.
             _LOGGER.warning(
-                "proxy_unpair: no response from proxy for %s — the bond may "
-                "still have been cleared (older ESPHome firmware?)",
+                "proxy_unpair: request sent but no response for %s — the "
+                "proxy has most likely removed the bond anyway (responses "
+                "are only delivered for connected peers)",
                 address,
             )
         else:
