@@ -796,26 +796,23 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     def _suspect_stale_bond(self) -> bool:
         """True when this cycle's failures look bond-related, not unreachability.
 
-        Gate for the destructive unpair rung (0.86.1). Evidence accepted:
-        - a BLE link actually opened during this connect cycle (the radio
-          path works, so the failure is auth/handshake-class), or
-        - the device is advertising right now per the presence callback.
+        Gate for the destructive unpair rung. The ONLY accepted evidence is
+        a BLE link that actually opened during this connect cycle: the radio
+        path demonstrably works, so the failure is auth/handshake-class.
 
-        Without either signal the machine is most likely powered off, and
-        clearing the proxy-side bond would orphan the LTK the machine still
-        holds — producing a permanent SMP rejection (auth fail reason=82)
-        when it wakes up. When in doubt, do NOT unpair: a skipped unpair
-        costs one extra reconnect cycle, a wrong unpair costs a manual
-        re-pairing session at the machine.
+        Presence is deliberately NOT consulted (0.86.2 regression):
+        habluetooth keeps async_address_present True for ~195s after the
+        machine powers off, and the first reconnect cycle (2-2.5 min of
+        pair timeouts) always lands inside that stale window — presence
+        authorized a bond wipe against a sleeping machine two nights in a
+        row. Without a link this cycle the machine is treated as powered
+        off; clearing the proxy-side bond then would orphan the LTK the
+        machine still holds — a permanent SMP rejection (auth fail
+        reason=82) when it wakes. When in doubt, do NOT unpair: a skipped
+        unpair costs one extra reconnect cycle, a wrong unpair costs a
+        manual re-pairing session at the machine.
         """
-        if self._ble_link_seen:
-            return True
-        if self._presence_callback is not None:
-            try:
-                return bool(self._presence_callback())
-            except Exception:  # noqa: BLE001 — on doubt, don't destroy bonds
-                return False
-        return False
+        return self._ble_link_seen
 
     async def _safe_disconnect(self) -> None:
         """Disconnect current client, suppressing errors."""

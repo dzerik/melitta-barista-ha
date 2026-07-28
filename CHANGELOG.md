@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.86.3] — 2026-07-28
+
+### Fixed
+
+- **CRITICAL: the unpair gate could still wipe the proxy bond in the ~3 minutes after the machine powers off** (0.86.1 gate was incomplete; second bond-wipe regression). The gate accepted "device is advertising" (presence) as bond-wedge evidence, but habluetooth keeps `async_address_present` True for ~195 s after the last advertisement — and the first reconnect cycle after power-off (2–2.5 min of pair timeouts) always lands inside that stale window. Presence is no longer consulted: the unpair rung now requires the ONE reliable signal — a BLE link that actually opened during the current connect cycle. Also corrected the proxy-unpair timeout log: the proxy never answers UNPAIR for a non-connected peer (confirmed on ESPHome 2026.5.3 and 2026.7.2), but it does process the request — the log no longer suggests the bond survived.
+
 ## [0.86.2] — 2026-07-27
 
 ### Fixed
