@@ -286,7 +286,9 @@ async def test_step_manual_valid_address_colon_format(
         result["flow_id"],
         user_input={CONF_ADDRESS: "aa:bb:cc:dd:ee:ff", CONF_NAME: "My Machine"},
     )
-    assert result2["step_id"] == "pair"
+    # Manual names never match a brand regex → the flow now asks
+    # for the brand first (issue #10) before reaching "pair".
+    assert result2["step_id"] == "brand"
     assert result2["type"] is FlowResultType.FORM
 
 
@@ -313,7 +315,9 @@ async def test_step_manual_valid_address_dash_format(
         result["flow_id"],
         user_input={CONF_ADDRESS: "aa-bb-cc-dd-ee-ff"},
     )
-    assert result2["step_id"] == "pair"
+    # Manual names never match a brand regex → the flow now asks
+    # for the brand first (issue #10) before reaching "pair".
+    assert result2["step_id"] == "brand"
 
 
 async def test_step_manual_valid_address_no_separators(
@@ -339,7 +343,9 @@ async def test_step_manual_valid_address_no_separators(
         result["flow_id"],
         user_input={CONF_ADDRESS: "aabbccddeeff"},
     )
-    assert result2["step_id"] == "pair"
+    # Manual names never match a brand regex → the flow now asks
+    # for the brand first (issue #10) before reaching "pair".
+    assert result2["step_id"] == "brand"
 
 
 async def test_step_manual_invalid_address_too_short(
@@ -455,7 +461,9 @@ async def test_step_manual_default_name(
         result["flow_id"],
         user_input={CONF_ADDRESS: "11:22:33:44:55:66"},
     )
-    assert result2["step_id"] == "pair"
+    # Manual names never match a brand regex → the flow now asks
+    # for the brand first (issue #10) before reaching "pair".
+    assert result2["step_id"] == "brand"
 
 
 # ---------------------------------------------------------------------------

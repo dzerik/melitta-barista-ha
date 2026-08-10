@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.87.0] — 2026-08-10
+
+### Added
+
+- **Brand picker in the config flow** (#10). When the machine's brand cannot be inferred from the Bluetooth advertisement (no recognizable device name — e.g. an adapter stuck in passive scan), the flow now asks Melitta or Nivona instead of silently defaulting to Melitta. A Nivona created with the Melitta protocol could never connect and looked like a pairing failure. The step auto-skips whenever detection succeeds, so known-brand devices see no change; the manual-add path now always confirms the brand. Translated into all 29 languages.
+- **Diagnostics: entry identity + duplicate visibility.** Diagnostics now export `entry_id`, a partially-masked `unique_id`, and a `domain_entries` section listing every config entry of the integration — a duplicate-entry situation (two entries fighting over one machine, as seen in the field) is now visible in a single diagnostics download.
+
+### Fixed
+
+- **Duplicate config entries for the same machine** (#10). Uniqueness was only checked when a flow step was entered, but the pairing form can sit open indefinitely — an entry created in the meantime did not block a second one. Uniqueness is now re-verified at entry-creation time.
+- **Doubled brand in entry titles** ("Nivona Nivona NICR 79x"): family model names already carry the brand prefix; title composition no longer prepends it twice. Melitta titles are unchanged.
+- **Dead Language entity on Nivona** (#10). No Nivona family implements the generic language register over BLE (verified on a live NICR 790: reads never answer, writes are ignored). The Language number entity is no longer created for Nivona machines, and a stale registry entry is cleaned up on setup; Melitta machines keep it. Introduced via a new per-family `unsupported_generic_setting_ids` capability.
+
 ## [0.86.3] — 2026-07-28
 
 ### Fixed

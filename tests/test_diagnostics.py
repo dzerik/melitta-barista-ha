@@ -53,6 +53,7 @@ def _make_entry(
     name: str = MOCK_NAME,
     options: dict | None = None,
     runtime_data=None,
+    unique_id: str | None = None,
 ) -> MockConfigEntry:
     """Create a MockConfigEntry with runtime_data."""
     entry = MockConfigEntry(
@@ -60,6 +61,7 @@ def _make_entry(
         data={CONF_ADDRESS: address, CONF_NAME: name},
         options=options or {},
         version=1,
+        unique_id=unique_id,
     )
     entry.runtime_data = runtime_data
     return entry
@@ -79,7 +81,8 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
     result = await async_get_config_entry_diagnostics(hass, entry)
 
     assert set(result.keys()) == {
-        "entry", "device", "status", "counters", "profiles", "options", "ble_trace",
+        "entry", "device", "status", "counters", "profiles", "options",
+        "ble_trace", "domain_entries",
     }
 
     # Entry section
@@ -288,3 +291,62 @@ async def test_diagnostics_empty_options(hass: HomeAssistant) -> None:
     result = await async_get_config_entry_diagnostics(hass, entry)
 
     assert result["options"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Issue #10: entry identity + duplicate visibility
+# ---------------------------------------------------------------------------
+
+
+async def test_diagnostics_entry_id_and_unique_id(hass: HomeAssistant) -> None:
+    """entry_id is exported unredacted; unique_id is masked like the address."""
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client, unique_id="aabbccddeeff")
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert result["entry"]["entry_id"] == entry.entry_id
+    uid = result["entry"]["unique_id"]
+    assert uid.startswith("aabb") and uid.endswith("ff")
+    assert "ccddee" not in uid
+
+
+async def test_diagnostics_unique_id_none_passthrough(hass: HomeAssistant) -> None:
+    """unique_id=None is a diagnostic signal of its own — not 'redacted'."""
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client, unique_id=None)
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["entry"]["unique_id"] is None
+
+
+async def test_diagnostics_unique_id_nonstandard_redacted(hass: HomeAssistant) -> None:
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client, unique_id="short")
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["entry"]["unique_id"] == "redacted"
+
+
+async def test_diagnostics_domain_entries_lists_duplicates(hass: HomeAssistant) -> None:
+    """Two entries for the domain are both visible with masked unique_ids —
+    the field case (issue #10) was two entries fighting over one machine."""
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client, unique_id="aabbccddeeff")
+    entry.add_to_hass(hass)
+    twin = _make_entry(unique_id=None)
+    twin.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    section = result["domain_entries"]
+    assert section["count"] == 2
+    listed = {e["entry_id"] for e in section["entries"]}
+    assert listed == {entry.entry_id, twin.entry_id}
+    current_flags = [e["is_current"] for e in section["entries"]]
+    assert current_flags.count(True) == 1
+    for e in section["entries"]:
+        assert "ccddee" not in (e["unique_id"] or "")

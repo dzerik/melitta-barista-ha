@@ -20,6 +20,13 @@
         "title": "Gerät bestätigen",
         "description": "Kaffeemaschine gefunden:\n\n- **Marke:** {brand}\n- **Modell:** {model}\n- **Werbung:** {name}\n- **MAC:** {address}\n\nMöchten Sie sie einrichten?"
       },
+      "brand": {
+        "title": "Marke auswählen",
+        "description": "Die Marke der Maschine konnte nicht aus ihrer Bluetooth-Ankündigung ermittelt werden.\n\n- **Ankündigung:** {name}\n- **MAC:** {address}\n\nWählen Sie die Marke Ihrer Kaffeemaschine. Das Bluetooth-Protokoll unterscheidet sich je nach Marke — eine falsche Auswahl verhindert die Verbindung.",
+        "data": {
+          "brand": "Marke"
+        }
+      },
       "pair": {
         "title": "Verbinden mit {brand} {model}",
         "description": "Aktivieren Sie den Bluetooth-Pairing-Modus an Ihrer Kaffeemaschine (siehe Einstellungsmenü) und drücken Sie anschließend „Senden“.\n\n- **Marke:** {brand}\n- **Modell:** {model}\n- **Werbung:** {name}\n- **MAC:** {address}"

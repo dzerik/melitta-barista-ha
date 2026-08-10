@@ -251,6 +251,14 @@ class MachineCapabilities:
     settings: tuple[SettingDescriptor, ...] = ()
     stats: tuple[StatDescriptor, ...] = ()
 
+    # Generic Eugster HR setting IDs (const.MachineSettingId namespace,
+    # consumed by number.py SETTING_DEFINITIONS) that this family's
+    # firmware does NOT implement — reads NACK/time out and writes are
+    # ignored, so entity factories must not register them (issue #10:
+    # LANGUAGE dead on a live NICR 790). Sibling mechanism to the Nivona
+    # 100+-namespace `_MODEL_SETTINGS_EXCLUDE` in brands/nivona/_prefixes.py.
+    unsupported_generic_setting_ids: frozenset[int] = frozenset()
+
     # ----------------------------------------------------------------- #
     # Feature flags (introduced v0.79.0 — see PR-31).
     #

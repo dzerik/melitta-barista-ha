@@ -20,6 +20,13 @@
         "title": "Eszköz megerősítése",
         "description": "Kávéfőző megtalálva:\n\n- **Márka:** {brand}\n- **Modell:** {model}\n- **Hirdetés:** {name}\n- **MAC:** {address}\n\nSzeretné beállítani?"
       },
+      "brand": {
+        "title": "Márka kiválasztása",
+        "description": "A gép márkáját nem sikerült megállapítani a Bluetooth-hirdetéséből.\n\n- **Hirdetés:** {name}\n- **MAC:** {address}\n\nVálassza ki kávégépe márkáját. A Bluetooth-protokoll márkánként eltér — a rossz választás megakadályozza a gép csatlakozását.",
+        "data": {
+          "brand": "Márka"
+        }
+      },
       "pair": {
         "title": "Párosítás {brand} {model}",
         "description": "Engedélyezze a Bluetooth párosítási módot a kávéfőzőn (lásd a beállítások menüt), majd nyomja meg a Küldés gombot.\n\n- **Márka:** {brand}\n- **Modell:** {model}\n- **Hirdetés:** {name}\n- **MAC:** {address}"

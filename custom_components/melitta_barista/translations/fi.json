@@ -20,6 +20,13 @@
         "title": "Vahvista laite",
         "description": "Kahvikone löytyi:\n\n- **Merkki:** {brand}\n- **Malli:** {model}\n- **Mainos:** {name}\n- **MAC:** {address}\n\nHaluatko määrittää sen?"
       },
+      "brand": {
+        "title": "Valitse merkki",
+        "description": "Koneen merkkiä ei voitu määrittää sen Bluetooth-mainoksesta.\n\n- **Mainos:** {name}\n- **MAC:** {address}\n\nValitse kahvikoneesi merkki. Bluetooth-protokolla vaihtelee merkeittäin — väärä valinta estää koneen yhdistämisen.",
+        "data": {
+          "brand": "Merkki"
+        }
+      },
       "pair": {
         "title": "Pariliitä kohteeseen {brand} {model}",
         "description": "Ota Bluetooth-pariliitostila käyttöön kahvikoneessa (katso asetusvalikko) ja paina Lähetä.\n\n- **Merkki:** {brand}\n- **Malli:** {model}\n- **Mainos:** {name}\n- **MAC:** {address}"

@@ -20,6 +20,13 @@
         "title": "Confirmare dispozitiv",
         "description": "Espressor găsit:\n\n- **Marcă:** {brand}\n- **Model:** {model}\n- **Anunț:** {name}\n- **MAC:** {address}\n\nDoriți să-l configurați?"
       },
+      "brand": {
+        "title": "Selectarea mărcii",
+        "description": "Marca aparatului nu a putut fi determinată din anunțul său Bluetooth.\n\n- **Anunț:** {name}\n- **MAC:** {address}\n\nSelectați marca espressorului dumneavoastră. Protocolul Bluetooth diferă în funcție de marcă — o alegere greșită va împiedica conectarea aparatului.",
+        "data": {
+          "brand": "Marcă"
+        }
+      },
       "pair": {
         "title": "Împerechere cu {brand} {model}",
         "description": "Activați modul de împerechere Bluetooth pe espressor (consultați meniul de setări), apoi apăsați Trimite.\n\n- **Marcă:** {brand}\n- **Model:** {model}\n- **Anunț:** {name}\n- **MAC:** {address}"

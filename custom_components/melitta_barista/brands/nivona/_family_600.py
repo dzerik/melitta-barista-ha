@@ -86,7 +86,15 @@ MYCOFFEE_LAYOUT = RecipeFieldLayout(
 )
 
 
+
+# Generic Eugster HR setting IDs no Nivona family implements over BLE.
+# 15 = MachineSettingId.LANGUAGE — verified dead on a live NICR 790
+# (issue #10): reads never answer, writes are silently ignored. Shared by
+# every Nivona family literal; Melitta keeps the field at its default.
+UNSUPPORTED_GENERIC_SETTINGS: frozenset[int] = frozenset({15})
+
 CAPABILITIES = MachineCapabilities(
+    unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="600",
     model_name="Nivona NICR 6xx",
     supports_recipe_writes=False,

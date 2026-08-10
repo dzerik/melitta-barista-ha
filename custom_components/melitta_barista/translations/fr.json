@@ -20,6 +20,13 @@
         "title": "Confirmer l'appareil",
         "description": "Machine à café détectée:\n\n- **Marque:** {brand}\n- **Modèle:** {model}\n- **Annonce:** {name}\n- **MAC:** {address}\n\nVoulez-vous la configurer ?"
       },
+      "brand": {
+        "title": "Sélection de la marque",
+        "description": "La marque de la machine n'a pas pu être déterminée à partir de son annonce Bluetooth.\n\n- **Annonce :** {name}\n- **MAC :** {address}\n\nSélectionnez la marque de votre machine à café. Le protocole Bluetooth diffère selon la marque — un mauvais choix empêchera la machine de se connecter.",
+        "data": {
+          "brand": "Marque"
+        }
+      },
       "pair": {
         "title": "Appairer avec {brand} {model}",
         "description": "Activez le mode d'appairage Bluetooth sur votre machine à café (consultez le menu réglages), puis appuyez sur Valider.\n\n- **Marque:** {brand}\n- **Modèle:** {model}\n- **Annonce:** {name}\n- **MAC:** {address}"

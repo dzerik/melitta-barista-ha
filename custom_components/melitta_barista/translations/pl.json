@@ -20,6 +20,13 @@
         "title": "Potwierdź urządzenie",
         "description": "Znaleziono ekspres do kawy:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Rozgłoszenie:** {name}\n- **MAC:** {address}\n\nCzy chcesz go skonfigurować?"
       },
+      "brand": {
+        "title": "Wybór marki",
+        "description": "Nie udało się określić marki urządzenia na podstawie jego rozgłaszania Bluetooth.\n\n- **Rozgłaszanie:** {name}\n- **MAC:** {address}\n\nWybierz markę swojego ekspresu. Protokół Bluetooth różni się w zależności od marki — zły wybór uniemożliwi połączenie z urządzeniem.",
+        "data": {
+          "brand": "Marka"
+        }
+      },
       "pair": {
         "title": "Sparuj z {brand} {model}",
         "description": "Włącz tryb parowania Bluetooth w ekspresie (sprawdź menu ustawień), a następnie naciśnij Wyślij.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Rozgłoszenie:** {name}\n- **MAC:** {address}"

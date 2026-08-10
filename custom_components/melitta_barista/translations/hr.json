@@ -20,6 +20,13 @@
         "title": "Potvrdi uređaj",
         "description": "Pronađen aparat za kavu:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}\n\nŽelite li ga postaviti?"
       },
+      "brand": {
+        "title": "Odabir marke",
+        "description": "Marku aparata nije bilo moguće utvrditi iz njegova Bluetooth oglašavanja.\n\n- **Oglas:** {name}\n- **MAC:** {address}\n\nOdaberite marku svog aparata za kavu. Bluetooth protokol razlikuje se po marki — pogrešan odabir spriječit će povezivanje aparata.",
+        "data": {
+          "brand": "Marka"
+        }
+      },
       "pair": {
         "title": "Upari s {brand} {model}",
         "description": "Omogućite Bluetooth način uparivanja na aparatu za kavu (pogledajte izbornik postavki), zatim pritisnite Pošalji.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}"

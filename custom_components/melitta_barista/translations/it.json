@@ -20,6 +20,13 @@
         "title": "Conferma dispositivo",
         "description": "Macchina da caffè trovata:\n\n- **Marca:** {brand}\n- **Modello:** {model}\n- **Annuncio:** {name}\n- **MAC:** {address}\n\nVuoi configurarla?"
       },
+      "brand": {
+        "title": "Selezione marca",
+        "description": "Non è stato possibile determinare la marca della macchina dal suo annuncio Bluetooth.\n\n- **Annuncio:** {name}\n- **MAC:** {address}\n\nSeleziona la marca della tua macchina da caffè. Il protocollo Bluetooth differisce per marca — una scelta errata impedirà la connessione della macchina.",
+        "data": {
+          "brand": "Marca"
+        }
+      },
       "pair": {
         "title": "Associa a {brand} {model}",
         "description": "Attiva la modalità di abbinamento Bluetooth sulla tua macchina da caffè (consulta il menu impostazioni), poi premi Invia.\n\n- **Marca:** {brand}\n- **Modello:** {model}\n- **Annuncio:** {name}\n- **MAC:** {address}"

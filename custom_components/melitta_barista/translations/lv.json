@@ -20,6 +20,13 @@
         "title": "Apstiprināt ierīci",
         "description": "Atrasts kafijas automāts:\n\n- **Zīmols:** {brand}\n- **Modelis:** {model}\n- **Paziņojums:** {name}\n- **MAC:** {address}\n\nVai vēlaties to iestatīt?"
       },
+      "brand": {
+        "title": "Zīmola izvēle",
+        "description": "Ierīces zīmolu neizdevās noteikt no tās Bluetooth sludinājuma.\n\n- **Sludinājums:** {name}\n- **MAC:** {address}\n\nIzvēlieties sava kafijas automāta zīmolu. Bluetooth protokols atšķiras pēc zīmola — nepareiza izvēle neļaus automātam pieslēgties.",
+        "data": {
+          "brand": "Zīmols"
+        }
+      },
       "pair": {
         "title": "Sapārot ar {brand} {model}",
         "description": "Ieslēdziet Bluetooth pāra savienojuma režīmu kafijas automātā (skatiet iestatījumu izvēlni) un nospiediet Iesniegt.\n\n- **Zīmols:** {brand}\n- **Modelis:** {model}\n- **Paziņojums:** {name}\n- **MAC:** {address}"

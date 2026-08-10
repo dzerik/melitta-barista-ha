@@ -20,6 +20,13 @@
         "title": "Potrdi napravo",
         "description": "Najden aparat za kavo:\n\n- **Znamka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}\n\nAli ga želite nastaviti?"
       },
+      "brand": {
+        "title": "Izbira znamke",
+        "description": "Znamke aparata ni bilo mogoče določiti iz njegovega oglaševanja Bluetooth.\n\n- **Oglas:** {name}\n- **MAC:** {address}\n\nIzberite znamko svojega kavnega aparata. Protokol Bluetooth se razlikuje glede na znamko — napačna izbira bo aparatu preprečila povezavo.",
+        "data": {
+          "brand": "Znamka"
+        }
+      },
       "pair": {
         "title": "Seznanite z {brand} {model}",
         "description": "Omogočite način seznanjanja Bluetooth na aparatu za kavo (glejte meni nastavitev) in pritisnite Pošlji.\n\n- **Znamka:** {brand}\n- **Model:** {model}\n- **Oglas:** {name}\n- **MAC:** {address}"

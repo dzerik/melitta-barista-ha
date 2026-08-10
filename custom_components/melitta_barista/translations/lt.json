@@ -20,6 +20,13 @@
         "title": "Patvirtinti įrenginį",
         "description": "Rastas kavos aparatas:\n\n- **Prekės ženklas:** {brand}\n- **Modelis:** {model}\n- **Skelbimas:** {name}\n- **MAC:** {address}\n\nAr norite jį konfigūruoti?"
       },
+      "brand": {
+        "title": "Prekės ženklo pasirinkimas",
+        "description": "Aparato prekės ženklo nepavyko nustatyti iš jo „Bluetooth“ skelbimo.\n\n- **Skelbimas:** {name}\n- **MAC:** {address}\n\nPasirinkite savo kavos aparato prekės ženklą. „Bluetooth“ protokolas skiriasi pagal prekės ženklą — neteisingas pasirinkimas neleis aparatui prisijungti.",
+        "data": {
+          "brand": "Prekės ženklas"
+        }
+      },
       "pair": {
         "title": "Susieti su {brand} {model}",
         "description": "Įjunkite Bluetooth susiejimo režimą kavos aparate (žr. nustatymų meniu) ir paspauskite Pateikti.\n\n- **Prekės ženklas:** {brand}\n- **Modelis:** {model}\n- **Skelbimas:** {name}\n- **MAC:** {address}"

@@ -12,6 +12,8 @@ recipe-counter labels — 700 has "Creme" (id 201) and a Cappuccino slot;
 
 from __future__ import annotations
 
+from ._family_600 import UNSUPPORTED_GENERIC_SETTINGS
+
 from ..base import (
     MachineCapabilities,
     RecipeDescriptor,
@@ -135,6 +137,7 @@ MYCOFFEE_LAYOUT_79X = RecipeFieldLayout(
 
 
 CAPABILITIES_700 = MachineCapabilities(
+    unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="700",
     model_name="Nivona NICR 7xx",
     supports_recipe_writes=False,
@@ -151,6 +154,7 @@ CAPABILITIES_700 = MachineCapabilities(
 )
 
 CAPABILITIES_79X = MachineCapabilities(
+    unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="79x",
     model_name="Nivona NICR 79x",
     supports_recipe_writes=False,
