@@ -8,6 +8,7 @@ from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -85,15 +86,52 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up number entities for the configured coffee machine."""
+    """Set up number entities for the configured coffee machine.
+
+    Generic Eugster settings are filtered through the family's
+    ``unsupported_generic_setting_ids`` capability (issue #10: the LANGUAGE
+    register is not implemented by any Nivona family — the entity was
+    permanently dead on a live NICR 790). Stale registry entries for
+    excluded settings are removed so they don't linger as unavailable.
+    """
     client: CoffeeMachineClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
-    # Settings (HR/HW) — generic Eugster, every brand supports them.
+    # Capability resolution shared by the exclusion filter and the
+    # brew-override block below: prefer live capabilities, fall back to
+    # scanner-cached family detection when the platform sets up before
+    # the first connect.
+    caps_resolved = client.capabilities or resolve_caps_from_scanner(
+        hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+    )
+    excluded_ids: frozenset[int] = (
+        caps_resolved.unsupported_generic_setting_ids
+        if caps_resolved is not None else frozenset()
+    )
+
+    # Settings (HR/HW) — generic Eugster, minus family-declared holes.
     entities: list = [
         MelittaSettingNumber(client, entry, name, defn)
         for defn in SETTING_DEFINITIONS
+        if int(defn["id"]) not in excluded_ids
     ]
+
+    # Drop stale registry entries for settings this family can't serve —
+    # otherwise an entity created before the exclusion (or before caps
+    # were resolvable) survives forever as unavailable.
+    if excluded_ids:
+        ent_reg = er.async_get(hass)
+        for setting_id in excluded_ids:
+            stale = ent_reg.async_get_entity_id(
+                "number", DOMAIN, f"{client.address}_setting_{setting_id}",
+            )
+            if stale:
+                _LOGGER.debug(
+                    "Removing stale number entity %s (setting %d unsupported "
+                    "by family %s)",
+                    stale, setting_id, caps_resolved.family_key,
+                )
+                ent_reg.async_remove(stale)
     # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
     # hours/minutes and any future options-less setting descriptor).
     # Options-bearing descriptors become selects in select.py; here we
@@ -115,9 +153,7 @@ async def async_setup_entry(
     # temp-recipe overrides (currently every Nivona family; Melitta uses
     # its own HC/HJ write path). Falls back to scanner-cached caps when
     # `client.capabilities` is None at platform-setup time.
-    caps_for_overrides = client.capabilities or resolve_caps_from_scanner(
-        hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
-    )
+    caps_for_overrides = caps_resolved
     if (
         caps_for_overrides is not None
         and caps_for_overrides.supports_brew_overrides

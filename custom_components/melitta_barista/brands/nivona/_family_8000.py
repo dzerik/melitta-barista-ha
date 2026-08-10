@@ -30,6 +30,7 @@ from ._options import (
     _OFF_ON_OPTIONS,
     _TEMP_ON_OFF,
 )
+from ._family_600 import UNSUPPORTED_GENERIC_SETTINGS
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES_8000: tuple[RecipeDescriptor, ...] = (
@@ -121,6 +122,7 @@ MYCOFFEE_LAYOUT_8000 = RecipeFieldLayout(
 
 
 CAPABILITIES_8000 = MachineCapabilities(
+    unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="8000",
     model_name="Nivona NIVO 8xxx",
     supports_recipe_writes=False,

@@ -20,6 +20,13 @@
         "title": "Apparaat bevestigen",
         "description": "Koffiemachine gevonden:\n\n- **Merk:** {brand}\n- **Model:** {model}\n- **Advertentie:** {name}\n- **MAC:** {address}\n\nWilt u deze instellen?"
       },
+      "brand": {
+        "title": "Merk selecteren",
+        "description": "Het merk van de machine kon niet worden bepaald uit de Bluetooth-advertentie.\n\n- **Advertentie:** {name}\n- **MAC:** {address}\n\nSelecteer het merk van uw koffiemachine. Het Bluetooth-protocol verschilt per merk — een verkeerde keuze verhindert dat de machine verbinding maakt.",
+        "data": {
+          "brand": "Merk"
+        }
+      },
       "pair": {
         "title": "Koppelen met {brand} {model}",
         "description": "Schakel de Bluetooth-koppelmodus in op uw koffiemachine (zie instellingenmenu) en druk op Verzenden.\n\n- **Merk:** {brand}\n- **Model:** {model}\n- **Advertentie:** {name}\n- **MAC:** {address}"

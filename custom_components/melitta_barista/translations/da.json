@@ -20,6 +20,13 @@
         "title": "Bekræft enhed",
         "description": "Kaffemaskine fundet:\n\n- **Mærke:** {brand}\n- **Model:** {model}\n- **Annoncering:** {name}\n- **MAC:** {address}\n\nVil du konfigurere den?"
       },
+      "brand": {
+        "title": "Vælg mærke",
+        "description": "Maskinens mærke kunne ikke bestemmes ud fra dens Bluetooth-annoncering.\n\n- **Annoncering:** {name}\n- **MAC:** {address}\n\nVælg din kaffemaskines mærke. Bluetooth-protokollen afhænger af mærket — et forkert valg forhindrer maskinen i at oprette forbindelse.",
+        "data": {
+          "brand": "Mærke"
+        }
+      },
       "pair": {
         "title": "Par med {brand} {model}",
         "description": "Aktivér Bluetooth-parringstilstand på kaffemaskinen (se indstillingsmenuen), og tryk derefter på Send.\n\n- **Mærke:** {brand}\n- **Model:** {model}\n- **Annoncering:** {name}\n- **MAC:** {address}"

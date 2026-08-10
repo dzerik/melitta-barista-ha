@@ -20,6 +20,13 @@
         "title": "Potvrdit zařízení",
         "description": "Nalezený kávovar:\n\n- **Značka:** {brand}\n- **Model:** {model}\n- **Inzerce:** {name}\n- **MAC:** {address}\n\nChcete jej nastavit?"
       },
+      "brand": {
+        "title": "Výběr značky",
+        "description": "Značku kávovaru se nepodařilo určit z jeho Bluetooth inzerce.\n\n- **Inzerce:** {name}\n- **MAC:** {address}\n\nVyberte značku svého kávovaru. Bluetooth protokol se liší podle značky — špatná volba zabrání připojení kávovaru.",
+        "data": {
+          "brand": "Značka"
+        }
+      },
       "pair": {
         "title": "Spárovat s {brand} {model}",
         "description": "Povolte režim párování Bluetooth na kávovaru (viz nabídka nastavení) a stiskněte Odeslat.\n\n- **Značka:** {brand}\n- **Model:** {model}\n- **Inzerce:** {name}\n- **MAC:** {address}"

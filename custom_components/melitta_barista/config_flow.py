@@ -47,6 +47,7 @@ from .const import (
     DEFAULT_AUTO_SYNC_CLOCK,
     DEFAULT_AUTO_SYNC_DRIFT_MINUTES,
     DEFAULT_AUTO_SYNC_DAILY_TIME,
+    DEFAULT_BRAND,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -97,9 +98,12 @@ def _describe_advertisement(
     """Extract everything we can know about a device before connecting.
 
     Returns a dict with ``brand`` / ``model`` / ``family`` / ``display``
-    keys — all strings (possibly empty). ``display`` is the compact
-    human label used in the discovery picker and form placeholders
-    (e.g. ``"Nivona NICR 8107"`` or ``"Unknown"``).
+    keys — all strings (possibly empty). ``model`` is always brand-stripped
+    (capability ``model_name`` may carry the brand prefix, e.g.
+    ``"Nivona NICR 79x"``) and ``display`` is the canonical
+    ``"Brand Model"`` label used for entry titles, the discovery picker and
+    form placeholders — composing them naively used to yield
+    ``"Nivona Nivona NICR 79x"`` (issue #10).
     """
     from .brands import detect_from_advertisement  # noqa: PLC0415
 
@@ -122,6 +126,8 @@ def _describe_advertisement(
         caps = None
 
     model = caps.model_name if caps is not None else ""
+    if model and model.lower().startswith(profile.brand_name.lower() + " "):
+        model = model[len(profile.brand_name) + 1:]
     display = (
         f"{profile.brand_name} {model}".strip() if model
         else profile.brand_name
@@ -149,6 +155,10 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered_devices: dict[str, str] = {}
         self._address: str | None = None
         self._name: str | None = None
+        # Brand chosen by the user in async_step_brand when the
+        # advertisement carried no recognizable name (issue #10 —
+        # a Nivona used to be silently created as brand=melitta).
+        self._brand_slug: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -171,7 +181,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
             self._address = address
             self._name = name
-            return await self.async_step_pair()
+            return await self.async_step_brand()
 
         # Scan for devices
         await self._async_discover_devices()
@@ -277,7 +287,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
 
                 self._address = address
                 self._name = name
-                return await self.async_step_pair()
+                return await self.async_step_brand()
 
         return self.async_show_form(
             step_id="manual",
@@ -308,7 +318,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Confirm bluetooth discovery."""
         if user_input is not None:
-            return await self.async_step_pair()
+            return await self.async_step_brand()
 
         desc = _describe_advertisement(self._name)
         return self.async_show_form(
@@ -317,6 +327,43 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                 "name": self._name or _FALLBACK_NAME,
                 "brand": desc["brand"] or _FALLBACK_NAME,
                 "model": desc["model"] or "—",
+                "address": self._address or "",
+            },
+        )
+
+    async def async_step_brand(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the brand when it cannot be inferred from the advertisement.
+
+        Melitta and Nivona machines share the same BLE module and service
+        UUID; only the advertised name tells them apart. When the
+        advertisement carries no recognizable name, guessing is fatal — a
+        Nivona driven with the Melitta protocol can never connect (issue
+        #10). Auto-skips (no extra step shown) whenever detection succeeds,
+        so known-brand devices see no UX change.
+        """
+        from .brands import all_profiles, detect_from_advertisement  # noqa: PLC0415
+
+        if user_input is not None:
+            self._brand_slug = user_input[CONF_BRAND]
+            return await self.async_step_pair()
+
+        profile = detect_from_advertisement(self._name)
+        if profile is not None:
+            self._brand_slug = profile.brand_slug
+            return await self.async_step_pair()
+
+        options = {
+            slug: prof.brand_name for slug, prof in all_profiles().items()
+        }
+        return self.async_show_form(
+            step_id="brand",
+            data_schema=vol.Schema({
+                vol.Required(CONF_BRAND, default=DEFAULT_BRAND): vol.In(options),
+            }),
+            description_placeholders={
+                "name": self._name or _FALLBACK_NAME,
                 "address": self._address or "",
             },
         )
@@ -332,19 +379,42 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
             pair_result = await self._async_try_pair()
 
             if pair_result == "ok":
-                from .brands import detect_from_advertisement  # noqa: PLC0415
-                from .const import CONF_BRAND, DEFAULT_BRAND  # noqa: PLC0415
+                from .brands import (  # noqa: PLC0415
+                    detect_from_advertisement,
+                    get_profile,
+                )
 
                 profile = detect_from_advertisement(self._name)
-                brand_slug = profile.brand_slug if profile else DEFAULT_BRAND
+                brand_slug = self._brand_slug or (
+                    profile.brand_slug if profile else DEFAULT_BRAND
+                )
                 # Prefer a human title like "Nivona NICR 8107" over the
-                # raw advertisement local_name "8107000001-----"; fall
-                # back to the suggested neutral label if brand/model
-                # detection failed.
+                # raw advertisement local_name "8107000001-----". When
+                # detection failed but the user picked a brand in
+                # async_step_brand, brand the neutral label accordingly;
+                # a custom user-typed name (manual path) wins over both.
                 desc = _describe_advertisement(self._name)
                 friendly = desc["display"] or _suggested_name(self._name)
                 if not desc["brand"]:
-                    friendly = _suggested_name(self._name)
+                    if self._name and self._name != _FALLBACK_NAME and (
+                        not self._name.startswith("Unknown")
+                    ):
+                        friendly = self._name
+                    else:
+                        try:
+                            brand_name = get_profile(brand_slug).brand_name
+                        except KeyError:
+                            brand_name = ""
+                        friendly = (
+                            f"{brand_name} {_FALLBACK_NAME}".strip()
+                            if brand_name else _suggested_name(self._name)
+                        )
+                # Defense-in-depth (issue #10 duplicate entries): the
+                # uniqueness check at step entry can be arbitrarily stale —
+                # a second flow (discovery card + manual add) passes it
+                # while no entry exists yet, and both then create one.
+                # Re-verify at creation time, when it actually matters.
+                self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=friendly,
                     data={
@@ -357,11 +427,18 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = pair_result
 
         desc = _describe_advertisement(self._name)
+        brand_label = desc["brand"]
+        if not brand_label and self._brand_slug:
+            from .brands import get_profile  # noqa: PLC0415
+            try:
+                brand_label = get_profile(self._brand_slug).brand_name
+            except KeyError:
+                brand_label = ""
         return self.async_show_form(
             step_id="pair",
             description_placeholders={
                 "name": self._name or _FALLBACK_NAME,
-                "brand": desc["brand"] or _FALLBACK_NAME,
+                "brand": brand_label or _FALLBACK_NAME,
                 "model": desc["model"] or "—",
                 "address": self._address or "",
             },

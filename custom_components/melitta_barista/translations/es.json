@@ -20,6 +20,13 @@
         "title": "Confirmar dispositivo",
         "description": "Cafetera encontrada:\n\n- **Marca:** {brand}\n- **Modelo:** {model}\n- **Anuncio:** {name}\n- **MAC:** {address}\n\n¿Quieres configurarla?"
       },
+      "brand": {
+        "title": "Seleccionar marca",
+        "description": "No se pudo determinar la marca de la máquina a partir de su anuncio Bluetooth.\n\n- **Anuncio:** {name}\n- **MAC:** {address}\n\nSeleccione la marca de su cafetera. El protocolo Bluetooth difiere según la marca — una elección incorrecta impedirá que la máquina se conecte.",
+        "data": {
+          "brand": "Marca"
+        }
+      },
       "pair": {
         "title": "Emparejar con {brand} {model}",
         "description": "Activa el modo de emparejamiento Bluetooth en tu cafetera (consulta el menú de ajustes) y pulsa Enviar.\n\n- **Marca:** {brand}\n- **Modelo:** {model}\n- **Anuncio:** {name}\n- **MAC:** {address}"

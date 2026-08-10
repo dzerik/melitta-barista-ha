@@ -26,6 +26,7 @@ from ._options import (
     _TANK_LIGHT_BRIGHTNESS_900_OPTIONS,
     _TANK_LIGHT_COLOR_900_OPTIONS,
 )
+from ._family_600 import UNSUPPORTED_GENERIC_SETTINGS
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES_900: tuple[RecipeDescriptor, ...] = (
@@ -168,6 +169,7 @@ MYCOFFEE_LAYOUT_900_LIGHT = RecipeFieldLayout(
 
 
 CAPABILITIES_900 = MachineCapabilities(
+    unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="900",
     model_name="Nivona NICR 9xx",
     supports_recipe_writes=False,
@@ -186,6 +188,7 @@ CAPABILITIES_900 = MachineCapabilities(
 )
 
 CAPABILITIES_900_LIGHT = MachineCapabilities(
+    unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="900-light",
     model_name="Nivona NICR 9xx Light",
     supports_recipe_writes=False,

@@ -20,6 +20,13 @@
         "title": "Kinnita seade",
         "description": "Leitud kohvimasin:\n\n- **Bränd:** {brand}\n- **Mudel:** {model}\n- **Teadaanne:** {name}\n- **MAC:** {address}\n\nKas soovite selle seadistada?"
       },
+      "brand": {
+        "title": "Kaubamärgi valik",
+        "description": "Masina kaubamärki ei õnnestunud Bluetooth-teadaandest tuvastada.\n\n- **Teadaanne:** {name}\n- **MAC:** {address}\n\nValige oma kohvimasina kaubamärk. Bluetooth-protokoll erineb kaubamärgiti — vale valik takistab masina ühendumist.",
+        "data": {
+          "brand": "Kaubamärk"
+        }
+      },
       "pair": {
         "title": "Paarista {brand} {model}",
         "description": "Lubage kohvimasinal Bluetoothi sidumisrežiim (vaadake sätete menüüd) ja vajutage Saada.\n\n- **Bränd:** {brand}\n- **Mudel:** {model}\n- **Teadaanne:** {name}\n- **MAC:** {address}"

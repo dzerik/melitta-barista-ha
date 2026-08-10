@@ -20,6 +20,13 @@
         "title": "Cihazı onayla",
         "description": "Kahve makinesi bulundu:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Reklam:** {name}\n- **MAC:** {address}\n\nKurmak ister misiniz?"
       },
+      "brand": {
+        "title": "Marka seçimi",
+        "description": "Makinenin markası Bluetooth duyurusundan belirlenemedi.\n\n- **Duyuru:** {name}\n- **MAC:** {address}\n\nKahve makinenizin markasını seçin. Bluetooth protokolü markaya göre farklılık gösterir — yanlış seçim makinenin bağlanmasını engeller.",
+        "data": {
+          "brand": "Marka"
+        }
+      },
       "pair": {
         "title": "Eşleştir {brand} {model}",
         "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsüne bakın) ve Gönder'e basın.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Reklam:** {name}\n- **MAC:** {address}"

@@ -57,6 +57,13 @@
         "title": "Confirm Device",
         "description": "Found coffee machine:\n\n- **Brand:** {brand}\n- **Model:** {model}\n- **Advertisement:** {name}\n- **MAC:** {address}\n\nDo you want to set it up?"
       },
+      "brand": {
+        "title": "Select brand",
+        "description": "The machine's brand could not be determined from its Bluetooth advertisement.\n\n- **Advertisement:** {name}\n- **MAC:** {address}\n\nSelect the brand of your coffee machine. The Bluetooth protocol differs by brand — a wrong choice will prevent the machine from connecting.",
+        "data": {
+          "brand": "Brand"
+        }
+      },
       "pair": {
         "title": "Pair with {brand} {model}",
         "description": "Enable Bluetooth pairing mode on your coffee machine (check machine settings menu), then press Submit to pair.\n\n- **Brand:** {brand}\n- **Model:** {model}\n- **Advertisement:** {name}\n- **MAC:** {address}"
