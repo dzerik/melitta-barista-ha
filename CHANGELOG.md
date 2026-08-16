@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.87.1] — 2026-08-16
+
+### Fixed
+
+- **CI lint job red since v0.86.0.** The workflow installs the latest `ruff`, and ruff 0.16 expanded its default rule set (import sorting, unused-`noqa` detection, …) — 159 findings appeared without a single code change, and the lint job failed on every push since 2026-07-25 (Bandit never ran as a result). The enforced rule set is now frozen in `pyproject.toml` (`[tool.ruff.lint] select`), matching what the codebase is green against; future rule expansions become a deliberate choice instead of an upstream surprise. No integration code changes.
+
 ## [0.87.0] — 2026-08-10
 
 ### Added

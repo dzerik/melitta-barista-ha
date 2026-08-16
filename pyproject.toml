@@ -4,3 +4,14 @@ asyncio_mode = "auto"
 # operation against a stale conn, or a hung asyncio.Event can otherwise
 # wedge CI indefinitely. Override per-test with @pytest.mark.timeout(N).
 timeout = 10
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# Freeze the enforced rule set: ruff 0.16 expanded its defaults (I001,
+# RUF100, ...) and broke the unpinned CI lint job on every push since
+# v0.86.0 while the code itself was unchanged. This is the pre-0.16
+# default set the codebase is green against — expand it deliberately,
+# not by upstream surprise.
+select = ["E4", "E7", "E9", "F"]
