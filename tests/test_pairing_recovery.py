@@ -59,9 +59,9 @@ class TestPairSettleDelay:
 
         async def fake_handshake(pair: bool = False) -> bool:
             order.append(f"connect_pair={pair}")
-            # Link opened but handshake failed → the unpair rung stays
-            # reachable (0.86.3 gate: link evidence only, presence is racy).
-            client._ble_link_seen = True
+            # SMP rejection seen → the unpair rung stays reachable
+            # (0.87.2 gate: classified auth evidence only).
+            client._auth_fail_seen = True
             return False  # both attempts fail so loop goes through unpair path
 
         async def fake_sleep(t):

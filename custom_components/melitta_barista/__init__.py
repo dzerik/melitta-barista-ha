@@ -551,9 +551,12 @@ async def _async_proxy_unpair(hass: HomeAssistant, address: str) -> bool:
     is cached — the state where the connect-then-unpair fallback in
     ``MelittaBleClient._try_unpair`` is a guaranteed no-op (issue #35).
 
-    Returns True when the proxy confirmed the unpair; False when there is
-    no usable proxy entry, the API call failed, or the proxy reported
-    failure — the caller then falls back to connect-then-unpair.
+    Returns True when the bond is gone — either confirmed by the proxy or
+    the known response-less timeout (the firmware processes the request but
+    replies with the wrong message type, so a timeout means "done" in
+    practice; treating it as failure made destructive wipes invisible,
+    0.87.2 audit). Returns False only when the request could not be sent at
+    all — the caller then falls back to connect-then-unpair.
     """
     proxy_entry = _find_proxy_entry_for_address(hass, address)
     if proxy_entry is None:
@@ -572,23 +575,23 @@ async def _async_proxy_unpair(hass: HomeAssistant, address: str) -> bool:
         )
     except Exception as err:  # noqa: BLE001 — any API error means "fall back"
         if isinstance(err, TimeoutError) or "Timeout" in type(err).__name__:
-            # The proxy never answers UNPAIR for a peer that is not
-            # currently connected (aioesphomeapi waits for a connection
-            # state change that will never come) — confirmed on 2026.5.3
-            # AND 2026.7.2. The request itself IS processed: the bond is
-            # gone despite this "timeout". Loud on purpose: this is exactly
-            # how the 0.86.0/0.86.2 bond-wipe regressions stayed invisible.
+            # The proxy NEVER answers UNPAIR (confirmed on 2026.5.3 and
+            # 2026.7.2: the firmware replies with the wrong message type —
+            # a PairingResponse — which aioesphomeapi's UnpairingResponse
+            # filter ignores). The request itself IS processed and the bond
+            # is gone. Treat as done so the caller does not run the
+            # connect-then-unpair fallback on top of an already-wiped bond
+            # (0.87.2 audit: destructive success masqueraded as failure).
             _LOGGER.warning(
-                "proxy_unpair: request sent but no response for %s — the "
-                "proxy has most likely removed the bond anyway (responses "
-                "are only delivered for connected peers)",
+                "proxy_unpair: request sent, no response for %s (known "
+                "proxy firmware quirk) — treating the bond as removed",
                 address,
             )
-        else:
-            _LOGGER.debug(
-                "proxy_unpair: bluetooth_device_unpair failed for %s",
-                address, exc_info=True,
-            )
+            return True
+        _LOGGER.debug(
+            "proxy_unpair: bluetooth_device_unpair failed for %s",
+            address, exc_info=True,
+        )
         return False
     success = bool(getattr(response, "success", True))
     _LOGGER.info(
@@ -1243,43 +1246,47 @@ async def _async_connect_and_poll(
     # Wait for the machine to release any prior BLE connection (e.g. from pairing)
     await asyncio.sleep(initial_delay)
 
-    while True:
-        attempted = False
-        connect_ok = False
-        try:
-            if client._should_attempt_connect():  # noqa: SLF001
-                attempted = True
-                _LOGGER.debug("Background connect starting for %s", client.address)
-                connect_ok = await client.connect()
-                if connect_ok:
-                    _LOGGER.info("Connected to %s, starting polling", client.address)
-                    client.start_polling(interval=poll_interval)
-                    return
-                _LOGGER.warning(
-                    "Connection to %s failed, retrying in %.0fs",
+    # Announce this loop to the client so set_ble_device wakes it instead of
+    # spawning _reconnect_loop alongside — two concurrent ladders double the
+    # failure counting and the destructive rungs (0.87.2 audit).
+    client._external_loop_active = True  # noqa: SLF001
+    try:
+        while True:
+            attempted = False
+            connect_ok = False
+            try:
+                if client._should_attempt_connect():  # noqa: SLF001
+                    attempted = True
+                    _LOGGER.debug("Background connect starting for %s", client.address)
+                    connect_ok = await client.connect()
+                    if connect_ok:
+                        _LOGGER.info("Connected to %s, starting polling", client.address)
+                        client.start_polling(interval=poll_interval)
+                        return
+                    _LOGGER.warning(
+                        "Connection to %s failed, retrying in %.0fs",
+                        client.address, delay,
+                    )
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.debug(
+                    "Connection error for %s, retrying in %.0fs",
+                    client.address, delay, exc_info=True,
+                )
+            except Exception:
+                _LOGGER.exception(
+                    "Unexpected error connecting to %s, retrying in %.0fs",
                     client.address, delay,
                 )
-        except (BleakError, OSError, asyncio.TimeoutError):
-            _LOGGER.debug(
-                "Connection error for %s, retrying in %.0fs",
-                client.address, delay, exc_info=True,
-            )
-        except Exception:
-            _LOGGER.exception(
-                "Unexpected error connecting to %s, retrying in %.0fs",
-                client.address, delay,
-            )
-        if attempted and not connect_ok:
-            client._note_connect_failure()  # noqa: SLF001
-        # Wait for backoff delay, but wake up early on BLE advertisement
-        client._reconnect_event.clear()
-        try:
-            await asyncio.wait_for(client._reconnect_event.wait(), timeout=delay)
-            _LOGGER.debug("Initial connect woken up early (BLE advertisement)")
-            delay = reconnect_delay
-        except asyncio.TimeoutError:
-            pass
-        delay = min(delay * 2, reconnect_max_delay)
+            if attempted and not connect_ok:
+                client._note_connect_failure()  # noqa: SLF001
+            # Serve the backoff; advertisement wake-ups are honored only
+            # outside a failure episode (see MelittaBleClient._wait_backoff).
+            if await client._wait_backoff(delay):  # noqa: SLF001
+                _LOGGER.debug("Initial connect woken up early (BLE advertisement)")
+                delay = reconnect_delay
+            delay = min(delay * 2, reconnect_max_delay)
+    finally:
+        client._external_loop_active = False  # noqa: SLF001
 
 
 SERVICE_BREW_FREESTYLE = "brew_freestyle"
