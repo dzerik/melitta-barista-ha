@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.melitta_barista.ble_client import MelittaBleClient
 from custom_components.melitta_barista.const import DOMAIN
 
 from . import MOCK_ADDRESS, MOCK_CONFIG_DATA
@@ -45,6 +46,14 @@ def _mock_client():
     client.connect = AsyncMock(return_value=True)
     client.disconnect = AsyncMock()
     client.start_polling = MagicMock()
+    # Recovery-layer plumbing the connect loop touches (0.87.2): a REAL
+    # _wait_backoff bound to the mock so wake-up semantics stay testable.
+    client._reconnect_event = asyncio.Event()
+    client._consecutive_connect_failures = 0
+    client._external_loop_active = False
+    client._wait_backoff = (
+        lambda delay: MelittaBleClient._wait_backoff(client, delay)
+    )
     client.profile_names = {0: "My Coffee"}
     client.directkey_recipes = {}
     # Real Melitta profile + capabilities for the capability-driven gating

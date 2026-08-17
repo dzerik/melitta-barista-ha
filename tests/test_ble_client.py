@@ -653,8 +653,10 @@ class TestConnect:
             result = await client._connect_impl()
 
         assert result is False
-        # disconnect called 3 times: pair=False, pair=True, unpair+pair=True
-        assert mock_bleak_client.disconnect.await_count == 3
+        # 0.87.2: a handshake failure is NOT auth-class evidence, so the
+        # ladder stops after pair=False + pair=True — 2 disconnects, and
+        # the destructive unpair rung never runs.
+        assert mock_bleak_client.disconnect.await_count == 2
 
     async def test_connect_handshake_fails_disconnect_raises(self, mock_bleak_client):
         """Disconnect error during handshake failure is swallowed."""

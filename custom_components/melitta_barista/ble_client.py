@@ -68,6 +68,18 @@ class NoBleDeviceError(BleakError):
     """
 
 
+# Connect-failure classes (0.87.2 audit). The SMP rejection the machine
+# sends when its single bond slot doesn't match (auth fail reason=82) IS
+# distinguishable HA-side: the proxy forwards it as
+# BluetoothDevicePairingResponse(error=<reason>), bleak-esphome raises
+# BleakError("Pairing failed due to error: <reason>") and
+# bleak-retry-connector preserves the message and __cause__ chain.
+FAILURE_AUTH = "auth_fail"            # SMP/pairing rejection — bond-class
+FAILURE_TIMEOUT = "timeout"           # nothing answered in time
+FAILURE_LINK = "link_fail"            # connect/link-level failure
+FAILURE_HANDSHAKE = "handshake_fail"  # link OK, HU handshake failed
+
+
 def resolve_caps_from_scanner(
     hass: HomeAssistant,
     address: str,
@@ -181,6 +193,23 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # points at a powered-off / out-of-range machine, where clearing
         # bonds is destructive (0.86.0 regression — see _suspect_stale_bond).
         self._ble_link_seen: bool = False
+        # True once a classified AUTH-class failure (SMP rejection) was seen
+        # during the CURRENT connect cycle — the only evidence that
+        # authorizes the destructive unpair rung (0.87.2 audit; the previous
+        # link-seen gate wiped a valid bond on transient failures).
+        self._auth_fail_seen: bool = False
+        # Class of the most recent connect failure (FAILURE_* constant) —
+        # kept for logging and diagnostics.
+        self._last_failure_class: str | None = None
+        # Latch: the unpair rung already ran during the current disconnected
+        # episode. Reset on a successful handshake. Repeating unpair within
+        # one episode cannot help and re-wipes any freshly created bond.
+        self._unpaired_this_episode: bool = False
+        # True while __init__.py's initial-connect loop
+        # (_async_connect_and_poll) is running — set_ble_device must then
+        # only wake it instead of spawning _reconnect_loop alongside it
+        # (dual-ladder hammering, 0.87.2 audit).
+        self._external_loop_active: bool = False
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
         self._brew_lock = asyncio.Lock()
@@ -476,8 +505,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._reconnect_event.set()
             # Only schedule reconnect if no loop is already running
             # (_async_connect_and_poll or _reconnect_loop already listens
-            # on _reconnect_event, so set() alone wakes them up)
-            if not self._reconnect_task or self._reconnect_task.done():
+            # on _reconnect_event, so set() alone wakes them up). The
+            # initial-connect loop is external (a hass background task) and
+            # invisible via _reconnect_task — its activity flag prevents
+            # spawning a SECOND ladder alongside it (0.87.2 audit).
+            if not self._external_loop_active and (
+                not self._reconnect_task or self._reconnect_task.done()
+            ):
                 self._schedule_reconnect()
 
     def add_status_callback(self, callback: Callable[[MachineStatus], None]) -> None:
@@ -762,9 +796,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # remaining rungs would fail identically without a BLEDevice.
             self._client = None
             raise
-        except (BleakError, OSError, asyncio.TimeoutError):
+        except (BleakError, OSError, asyncio.TimeoutError) as err:
+            self._record_connect_failure(err)
             _LOGGER.debug(
-                "BLE connect failed (pair=%s)", pair, exc_info=True,
+                "BLE connect failed (pair=%s, class=%s)",
+                pair, self._last_failure_class, exc_info=True,
             )
             self._client = None
             return False
@@ -781,38 +817,76 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
         try:
             await self._start_notify(self._client)
-        except (BleakError, OSError, asyncio.TimeoutError):
-            _LOGGER.debug("start_notify failed (pair=%s)", pair, exc_info=True)
+        except (BleakError, OSError, asyncio.TimeoutError) as err:
+            self._record_connect_failure(err)
+            _LOGGER.debug(
+                "start_notify failed (pair=%s, class=%s)",
+                pair, self._last_failure_class, exc_info=True,
+            )
             await self._safe_disconnect()
             return False
 
         if not await self._protocol.perform_handshake(self._write_ble):
+            self._last_failure_class = FAILURE_HANDSHAKE
             _LOGGER.debug("HU handshake failed (pair=%s)", pair)
             await self._safe_disconnect()
             return False
 
         return True
 
+    @staticmethod
+    def _classify_connect_error(err: BaseException) -> str:
+        """Classify a connect-ladder exception into a FAILURE_* class.
+
+        Walks the ``__cause__``/``__context__`` chain because
+        bleak-retry-connector wraps the original bleak-esphome error while
+        preserving both the message and the chain. AUTH takes priority: an
+        SMP rejection anywhere in the chain is bond-class evidence
+        regardless of how it was re-wrapped.
+        """
+        seen: set[int] = set()
+        chain: list[BaseException] = []
+        node: BaseException | None = err
+        while node is not None and id(node) not in seen and len(chain) < 10:
+            seen.add(id(node))
+            chain.append(node)
+            node = node.__cause__ or node.__context__
+        for exc in chain:
+            text = str(exc)
+            if "Pairing failed" in text or "auth fail" in text:
+                return FAILURE_AUTH
+        for exc in chain:
+            if isinstance(exc, TimeoutError):
+                return FAILURE_TIMEOUT
+        return FAILURE_LINK
+
+    def _record_connect_failure(self, err: BaseException) -> None:
+        """Record the classified failure; AUTH-class arms the unpair gate."""
+        cls = self._classify_connect_error(err)
+        self._last_failure_class = cls
+        if cls == FAILURE_AUTH:
+            self._auth_fail_seen = True
+
     def _suspect_stale_bond(self) -> bool:
-        """True when this cycle's failures look bond-related, not unreachability.
+        """True when this cycle produced bond-class (SMP/auth) evidence.
 
         Gate for the destructive unpair rung. The ONLY accepted evidence is
-        a BLE link that actually opened during this connect cycle: the radio
-        path demonstrably works, so the failure is auth/handshake-class.
+        a classified AUTH failure — the machine actively rejecting the
+        SMP/encryption exchange (``Pairing failed due to error: 82`` et al),
+        which the proxy forwards verbatim.
 
-        Presence is deliberately NOT consulted (0.86.2 regression):
-        habluetooth keeps async_address_present True for ~195s after the
-        machine powers off, and the first reconnect cycle (2-2.5 min of
-        pair timeouts) always lands inside that stale window — presence
-        authorized a bond wipe against a sleeping machine two nights in a
-        row. Without a link this cycle the machine is treated as powered
-        off; clearing the proxy-side bond then would orphan the LTK the
-        machine still holds — a permanent SMP rejection (auth fail
-        reason=82) when it wakes. When in doubt, do NOT unpair: a skipped
-        unpair costs one extra reconnect cycle, a wrong unpair costs a
-        manual re-pairing session at the machine.
+        History of this gate (three regressions):
+        - presence-based (0.86.1) — racy, habluetooth keeps a device
+          "present" ~195 s after power-off → wiped a sleeping machine's bond;
+        - link-seen-based (0.86.3) — too broad, a transient notify/handshake
+          failure with the machine ON wiped a valid bond (field case Jay),
+          and too narrow at once: a genuine SMP rejection without our link
+          flag skipped the legitimate unpair.
+        When in doubt, do NOT unpair: a skipped unpair costs one extra
+        reconnect cycle, a wrong unpair costs the user a manual re-pairing
+        session at the machine.
         """
-        return self._ble_link_seen
+        return self._auth_fail_seen
 
     async def _safe_disconnect(self) -> None:
         """Disconnect current client, suppressing errors."""
@@ -842,7 +916,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         handled firmware-side without an open link. That works even in the
         wedge state where no BLEDevice is cached and the connect-then-unpair
         fallback below is a guaranteed no-op.
+
+        Latched to once per disconnected episode via
+        ``_unpaired_this_episode`` (checked by the caller, set here):
+        repeating a wipe cannot improve anything and destroys any bond a
+        parallel re-pair may have just created (0.87.2 audit).
         """
+        self._unpaired_this_episode = True
         if self._unpair_callback is not None:
             try:
                 if await self._unpair_callback():
@@ -908,6 +988,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return True
 
         self._ble_link_seen = False
+        self._auth_fail_seen = False
 
         # Cancel any pending reconnect task to avoid interference with retry logic
         # (but skip if WE are the reconnect task — otherwise we cancel ourselves)
@@ -945,14 +1026,24 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 )
                 if not await self._try_connect_and_handshake(pair=True):
                     if not self._suspect_stale_bond():
-                        # Unreachability, not a bond problem: no BLE link
-                        # opened this cycle and the device is not advertising
-                        # (likely powered off). Clearing bonds now would be
-                        # destructive — bail out and wait for advertisements.
+                        # No SMP/auth rejection seen — the failures are
+                        # transient (timeout / link / handshake), and
+                        # clearing bonds on transients orphans the
+                        # machine-side key (0.87.2 audit, field case Jay).
                         _LOGGER.info(
-                            "Skipping bond-clear for %s: no BLE link this "
-                            "cycle and device not advertising — treating as "
-                            "powered off / out of range",
+                            "Skipping bond-clear for %s: no SMP/auth "
+                            "rejection this cycle (last failure class: %s)",
+                            self._address, self._last_failure_class,
+                        )
+                        return False
+                    if self._unpaired_this_episode:
+                        # One wipe per episode: repeating cannot help and
+                        # would re-wipe any bond a parallel re-pair created.
+                        _LOGGER.info(
+                            "Skipping bond-clear for %s: already cleared "
+                            "once this episode — machine-side reset is "
+                            "required to recover from a persistent SMP "
+                            "rejection",
                             self._address,
                         )
                         return False
@@ -975,6 +1066,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # Connect succeeded — reset the failure counter so the next outage
             # gets a fresh threshold instead of immediately triggering repair.
             self._consecutive_connect_failures = 0
+            # New episode: the unpair rung is available again (see
+            # _unpaired_this_episode).
+            self._unpaired_this_episode = False
             _LOGGER.info("Connected and handshake complete for %s", self._address)
 
             # Read firmware version
@@ -1079,6 +1173,33 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
+    async def _wait_backoff(self, delay: float) -> bool:
+        """Serve a reconnect backoff delay; return True on an honored wake-up.
+
+        The advertisement wake-up (``_reconnect_event``) is honored only
+        OUTSIDE a failure episode — i.e. when ``_consecutive_connect_failures``
+        is zero and the wake means "the device just reappeared, reconnect
+        now". During a failure episode the machine keeps advertising every
+        ~1-2 s, so honoring wake-ups would collapse the exponential backoff
+        into a constant ~5 s hammer against a machine that is rejecting us
+        (0.87.2 audit); the full delay is served instead.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + delay
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return False
+            self._reconnect_event.clear()
+            try:
+                await asyncio.wait_for(
+                    self._reconnect_event.wait(), timeout=remaining,
+                )
+            except asyncio.TimeoutError:
+                return False
+            if self._consecutive_connect_failures == 0:
+                return True
+
     def _should_attempt_connect(self) -> bool:
         """Presence gate shared by both connect loops (issues #12 / #35).
 
@@ -1162,13 +1283,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         delay = self._reconnect_delay
         while self._auto_reconnect and not self.connected:
             _LOGGER.info("Reconnecting to %s in %.0fs...", self._address, delay)
-            self._reconnect_event.clear()
-            try:
-                await asyncio.wait_for(self._reconnect_event.wait(), timeout=delay)
+            if await self._wait_backoff(delay):
                 _LOGGER.debug("Reconnect woken up early (BLE advertisement received)")
                 delay = self._reconnect_delay  # reset backoff
-            except asyncio.TimeoutError:
-                pass
             if not self._auto_reconnect:
                 break
 

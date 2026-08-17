@@ -2,6 +2,18 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.87.2] — 2026-08-17
+
+### Fixed
+
+Recovery-layer hardening after a 30-agent audit of the connect/bond layer (field case: a freshly created bond kept getting destroyed — issue #10):
+
+- **The destructive unpair rung now requires real auth-class evidence.** The machine's SMP rejection (`auth fail reason=82`) is forwarded by the proxy and is string-distinguishable on the HA side (`Pairing failed due to error: …`); the connect ladder now classifies every failure (`auth / timeout / link / handshake`) by walking the exception chain, and clears bonds **only** on a classified SMP rejection. The previous "a link opened this cycle" gate wiped valid bonds on transient failures — and simultaneously missed genuine stale-bond cases where no link ever opened. Both directions fixed.
+- **Unpair is latched to once per disconnected episode** (reset on a successful handshake): repeating a wipe can never help and used to destroy bonds created by a parallel re-pair.
+- **A proxy UNPAIR timeout is now treated as "bond removed".** The proxy firmware processes the request but replies with the wrong message type, so the response *always* times out; treating that as failure hid destructive wipes and triggered a pointless connect-then-unpair fallback on top.
+- **Exponential backoff survives advertisement wake-ups during a failure episode.** A machine that advertises every ~1–2 s used to reset the backoff on every advertisement, collapsing it into a constant ~5 s hammer (each attempt also stops the proxy's scanner); wake-ups are now honored only when the failure counter is zero (i.e. the device genuinely just reappeared).
+- **No more dual connect loops.** An advertisement arriving while the initial-connect loop was running used to spawn the reconnect loop alongside it: doubled failure counting (repair fired at ~half the intended threshold), up to two ladders and two destructive rungs per wake-up. The initial loop now announces itself and advertisements only wake it.
+
 ## [0.87.1] — 2026-08-16
 
 ### Fixed

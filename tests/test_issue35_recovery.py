@@ -326,13 +326,28 @@ class TestUnpairGate:
         unpair.assert_not_awaited()
         assert handshake.await_count == 2
 
-    async def test_unpair_runs_when_ble_link_was_seen(self):
-        """A link that opened then failed = bond-class failure → unpair OK."""
+    async def test_link_alone_no_longer_authorizes_unpair(self):
+        """0.87.2: an opened link is NOT bond evidence — only a classified
+        SMP/auth rejection is (the link-seen gate wiped a valid bond on
+        transient failures, field case Jay)."""
         client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
-        # No presence callback: the link-seen flag alone must allow unpair.
 
         async def fake_handshake(*, pair: bool = False) -> bool:
-            client._ble_link_seen = True
+            client._ble_link_seen = True  # link opened, no auth evidence
+            return False
+
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", new=fake_handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+        assert result is False
+        unpair.assert_not_awaited()
+
+    async def test_auth_evidence_authorizes_unpair(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            client._auth_fail_seen = True  # classified SMP rejection
             return False
 
         unpair = AsyncMock()
