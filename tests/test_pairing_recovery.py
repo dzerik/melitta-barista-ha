@@ -55,6 +55,9 @@ class TestPairSettleDelay:
     async def test_sleep_happens_between_pair_false_fail_and_pair_true(self):
         """When pair=False fails, settle delay precedes the pair=True attempt."""
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF", pair_settle_delay=0.05)
+        # 0.88: keep the unpair rung reachable — pre-seed one auth cycle.
+        from custom_components.melitta_barista.const import FAILURE_AUTH
+        client.bond.on_cycle_failure(FAILURE_AUTH)
         order: list[str] = []
 
         async def fake_handshake(pair: bool = False) -> bool:

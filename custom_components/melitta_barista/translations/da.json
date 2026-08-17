@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kaffemaskinen skal parres igen",
+      "description": "Kaffemaskinen ({address}) afviser Bluetooth-krypteringsudvekslingen — den gemte parring passer ikke længere. Dette kan ikke rettes fra Home Assistant alene.\n\nEngangsgendannelse:\n1. På maskinen: åbn Bluetooth-menuen og slet/nulstil forbindelsen.\n2. Sluk og tænd maskinen.\n3. Åbn maskinens Bluetooth-parringsskærm.\n4. Mens den vises, genindlæs denne integration (Indstillinger → Enheder og tjenester → posten → Genindlæs).\n\nIntegrationen parres automatisk igen, og problemet forsvinder efter den første vellykkede forbindelse."
     }
   },
   "services": {

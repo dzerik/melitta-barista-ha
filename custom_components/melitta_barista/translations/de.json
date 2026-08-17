@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kaffeemaschine muss neu gekoppelt werden",
+      "description": "Die Kaffeemaschine ({address}) lehnt den Bluetooth-Verschlüsselungsaustausch ab — die gespeicherte Kopplung passt nicht mehr. Dies lässt sich nicht allein aus Home Assistant beheben.\n\nEinmalige Wiederherstellung:\n1. An der Maschine: Bluetooth-Menü öffnen und die Verbindung löschen/zurücksetzen.\n2. Maschine aus- und wieder einschalten.\n3. Den Bluetooth-Kopplungsbildschirm der Maschine öffnen.\n4. Solange er angezeigt wird, diese Integration neu laden (Einstellungen → Geräte & Dienste → Eintrag → Neu laden).\n\nDie Integration koppelt sich automatisch neu; dieses Problem verschwindet nach der ersten erfolgreichen Verbindung."
     }
   },
   "services": {

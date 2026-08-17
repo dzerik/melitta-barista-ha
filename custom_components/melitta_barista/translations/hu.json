@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "A kávégépet újra kell párosítani",
+      "description": "A kávégép ({address}) elutasítja a Bluetooth titkosítási cserét — a tárolt párosítás már nem egyezik. Ezt nem lehet csak a Home Assistantból javítani.\n\nEgyszeri helyreállítás:\n1. A gépen: nyissa meg a Bluetooth menüt, és törölje/állítsa vissza a kapcsolatot.\n2. Kapcsolja ki és be a gépet.\n3. Nyissa meg a gép Bluetooth párosítási képernyőjét.\n4. Amíg látható, töltse újra ezt az integrációt (Beállítások → Eszközök és szolgáltatások → bejegyzés → Újratöltés).\n\nAz integráció automatikusan újrapárosít, és a probléma az első sikeres kapcsolat után eltűnik."
     }
   },
   "services": {

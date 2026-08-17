@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kohvimasin vajab uuesti sidumist",
+      "description": "Kohvimasin ({address}) lükkab Bluetoothi krüpteerimisvahetuse tagasi — salvestatud sidumine ei sobi enam. Seda ei saa parandada ainult Home Assistantist.\n\nÜhekordne taastamine:\n1. Masinal: avage Bluetoothi menüü ja kustutage/lähtestage ühendus.\n2. Lülitage masin välja ja sisse.\n3. Avage masina Bluetoothi sidumise ekraan.\n4. Kuni see on kuvatud, laadige see sidumine uuesti (Seaded → Seadmed ja teenused → kirje → Laadi uuesti).\n\nSidumine toimub automaatselt uuesti ja see probleem kaob pärast esimest edukat ühendust."
     }
   },
   "services": {

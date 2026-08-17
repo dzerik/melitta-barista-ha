@@ -527,6 +527,15 @@ DEFAULT_REPAIR_AFTER_FAILURES: int = 5
 # quiet-but-healthy home doesn't trip the override. See issue #35.
 SCANNER_STARVED_AFTER_SECONDS: float = 180.0
 
+# Connect-failure classes produced by the ladder's exception classifier
+# (0.87.2) and consumed by the bond state machine (0.88). The SMP rejection
+# a machine sends when its single bond slot doesn't match surfaces HA-side
+# as "Pairing failed due to error: <reason>" — the only bond-class evidence.
+FAILURE_AUTH = "auth_fail"            # SMP/pairing rejection — bond-class
+FAILURE_TIMEOUT = "timeout"           # nothing answered in time
+FAILURE_LINK = "link_fail"            # connect/link-level failure
+FAILURE_HANDSHAKE = "handshake_fail"  # link OK, HU handshake failed
+
 PROCESS_MAP: dict[str, int] = {"none": 0, "coffee": 1, "milk": 2, "water": 3}
 INTENSITY_MAP: dict[str, int] = {
     "very_mild": 0, "mild": 1, "medium": 2, "strong": 3, "very_strong": 4,

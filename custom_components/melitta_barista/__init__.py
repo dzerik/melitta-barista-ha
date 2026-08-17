@@ -33,6 +33,7 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .ble_client import MelittaBleClient
+from .bond_state import BondState, BondStateMachine
 # Imported at module level on purpose: HA loads this package in the import
 # executor, so the pydantic chain (panel_api → pydantic) is pulled in off
 # the event loop. A first-time lazy import inside async_setup_entry trips
@@ -1038,10 +1039,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _make_capabilities_probe_callback(hass, sommelier_db, client, entry.entry_id)
         )
 
+    # Bond-health state machine (0.88): persisted across restarts, wired to
+    # a repair issue + HA event so a destroyed/mismatched bond is loud and
+    # actionable instead of an invisible reconnect loop.
+    from homeassistant.helpers.storage import Store  # noqa: PLC0415
+
+    bond_store: Store = Store(hass, 1, f"{DOMAIN}_bond_{entry.entry_id}")
+    bond_initial = await bond_store.async_load()
+    bond_issue_id = f"bond_reset_required_{address}"
+
+    @callback
+    def _on_bond_change(machine: BondStateMachine, event: dict) -> None:
+        bond_store.async_delay_save(machine.as_dict, 5.0)
+        if event.get("event") == "bond_destroyed":
+            hass.bus.async_fire(
+                f"{DOMAIN}_bond_destroyed",
+                {
+                    "address": address,
+                    "op": event.get("op"),
+                    "trigger": event.get("trigger"),
+                },
+            )
+        if machine.state in (BondState.MISMATCH, BondState.PAIRING_REQUIRED):
+            ir.async_create_issue(
+                hass, DOMAIN, bond_issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.ERROR,
+                translation_key="bond_reset_required",
+                translation_placeholders={"address": address},
+                learn_more_url=(
+                    "https://github.com/dzerik/melitta-barista-ha/issues/10"
+                ),
+            )
+        elif machine.state is BondState.TRUSTED:
+            ir.async_delete_issue(hass, DOMAIN, bond_issue_id)
+
+    client.bond = BondStateMachine(
+        initial=bond_initial, on_change=_on_bond_change,
+    )
+
     # Wire the recovery callback so the reconnect loop can reload the
     # ESPHome proxy entry after N consecutive failed connect()s. The
     # threshold itself lives on the client (configurable via Options).
     pairing_issue_id = f"pairing_wedged_{address}"
+    proxy_reload_times: list[float] = []
 
     def _trigger_repair() -> None:
         # Surface a Repair card so the user knows we hit the wedge even if
@@ -1057,6 +1098,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "https://github.com/dzerik/melitta-barista-ha/issues/10"
             ),
         )
+        # Auth-class wedges (bond mismatch) cannot be fixed by a proxy
+        # reload — the broken half lives on the machine. Reloading would
+        # only drop every other BLE device on that proxy (0.88 audit).
+        if client.bond.state in (BondState.MISMATCH, BondState.PAIRING_REQUIRED):
+            _LOGGER.warning(
+                "Skipping proxy reload for %s: failure is auth-class "
+                "(bond state %s); re-pair the machine instead — see the "
+                "repair issue",
+                address, client.bond.state.value,
+            )
+            return
+        # Circuit breaker: at most 3 automatic proxy reloads per hour.
+        now = _time_monotonic()
+        proxy_reload_times[:] = [
+            t for t in proxy_reload_times if now - t < 3600
+        ]
+        if len(proxy_reload_times) >= 3:
+            _LOGGER.warning(
+                "Skipping proxy reload for %s: circuit breaker open "
+                "(3 reloads in the last hour) — reloading is not helping",
+                address,
+            )
+            return
+        proxy_reload_times.append(now)
         hass.async_create_task(
             _async_repair_pairing(hass, entry),
             name=f"melitta_barista_repair_trigger_{address}",
@@ -1279,6 +1344,9 @@ async def _async_connect_and_poll(
                 )
             if attempted and not connect_ok:
                 client._note_connect_failure()  # noqa: SLF001
+                if client.bond.state is BondState.PAIRING_REQUIRED:
+                    # Bond destroyed — user action required; retry slowly.
+                    delay = reconnect_max_delay
             # Serve the backoff; advertisement wake-ups are honored only
             # outside a failure episode (see MelittaBleClient._wait_backoff).
             if await client._wait_backoff(delay):  # noqa: SLF001

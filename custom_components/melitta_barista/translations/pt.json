@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "A máquina de café precisa de novo emparelhamento",
+      "description": "A máquina de café ({address}) rejeita a troca de cifragem Bluetooth — o emparelhamento guardado já não corresponde. Isto não pode ser corrigido apenas a partir do Home Assistant.\n\nRecuperação única:\n1. Na máquina: abra o menu Bluetooth e elimine/reponha a ligação.\n2. Desligue e volte a ligar a máquina.\n3. Abra o ecrã de emparelhamento Bluetooth da máquina.\n4. Enquanto estiver visível, recarregue esta integração (Definições → Dispositivos e serviços → a entrada → Recarregar).\n\nA integração emparelhará novamente de forma automática e este problema desaparecerá após a primeira ligação bem-sucedida."
     }
   },
   "services": {

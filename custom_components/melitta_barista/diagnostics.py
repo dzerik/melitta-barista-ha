@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .bond_state import BondStateMachine
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import DOMAIN
 
@@ -66,6 +67,23 @@ async def async_get_config_entry_diagnostics(
 
     domain_entries = hass.config_entries.async_entries(DOMAIN)
 
+    # Recovery-layer state (0.88): the bond-op audit trail whose absence
+    # made the earlier bond-wipe regressions take days to reconstruct.
+    bond = getattr(client, "bond", None)
+    recovery: dict[str, Any] = {
+        "consecutive_connect_failures": getattr(
+            client, "_consecutive_connect_failures", None,
+        ),
+        "last_failure_class": getattr(client, "_last_failure_class", None),
+        "ble_link_seen": getattr(client, "_ble_link_seen", None),
+        "auth_fail_seen": getattr(client, "_auth_fail_seen", None),
+        "unpaired_this_episode": getattr(
+            client, "_unpaired_this_episode", None,
+        ),
+    }
+    if isinstance(bond, BondStateMachine):
+        recovery["bond"] = bond.as_dict()
+
     return {
         "entry": {
             "title": entry.title,
@@ -75,6 +93,7 @@ async def async_get_config_entry_diagnostics(
             "entry_id": entry.entry_id,
             "unique_id": _redact_unique_id(entry.unique_id),
         },
+        "recovery": recovery,
         "domain_entries": {
             "count": len(domain_entries),
             "entries": [

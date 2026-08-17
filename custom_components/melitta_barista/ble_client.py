@@ -40,6 +40,10 @@ from .const import (
     DEFAULT_RECONNECT_DELAY,
     DEFAULT_RECONNECT_MAX_DELAY,
     DEFAULT_REPAIR_AFTER_FAILURES,
+    FAILURE_AUTH,
+    FAILURE_HANDSHAKE,
+    FAILURE_LINK,
+    FAILURE_TIMEOUT,
     FeatureFlags,
     MACHINE_MODEL_NAMES,
     MACHINE_TYPE_SETTING_ID,
@@ -51,6 +55,7 @@ from .const import (
     RecipeId,
     detect_machine_type_from_name,
 )
+from .bond_state import BondState, BondStateMachine
 from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -74,10 +79,9 @@ class NoBleDeviceError(BleakError):
 # BluetoothDevicePairingResponse(error=<reason>), bleak-esphome raises
 # BleakError("Pairing failed due to error: <reason>") and
 # bleak-retry-connector preserves the message and __cause__ chain.
-FAILURE_AUTH = "auth_fail"            # SMP/pairing rejection — bond-class
-FAILURE_TIMEOUT = "timeout"           # nothing answered in time
-FAILURE_LINK = "link_fail"            # connect/link-level failure
-FAILURE_HANDSHAKE = "handshake_fail"  # link OK, HU handshake failed
+# Canonical definitions live in const.py (the bond state machine consumes
+# them too); imported at the top and re-exported from this module for
+# backwards compatibility.
 
 
 def resolve_caps_from_scanner(
@@ -210,6 +214,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # only wake it instead of spawning _reconnect_loop alongside it
         # (dual-ladder hammering, 0.87.2 audit).
         self._external_loop_active: bool = False
+        # Explicit bond-health authority (0.88). __init__.py replaces this
+        # default with a persisted instance wired to repair-issue and
+        # HA-event listeners; standalone/test usage keeps the bare one.
+        self.bond = BondStateMachine()
         self._connect_lock = asyncio.Lock()
         self._write_lock = asyncio.Lock()
         self._brew_lock = asyncio.Lock()
@@ -868,12 +876,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._auth_fail_seen = True
 
     def _suspect_stale_bond(self) -> bool:
-        """True when this cycle produced bond-class (SMP/auth) evidence.
+        """True when bond-mismatch evidence justifies the destructive unpair.
 
-        Gate for the destructive unpair rung. The ONLY accepted evidence is
-        a classified AUTH failure — the machine actively rejecting the
-        SMP/encryption exchange (``Pairing failed due to error: 82`` et al),
-        which the proxy forwards verbatim.
+        Delegates to the BondStateMachine (0.88): destruction requires
+        MISMATCH-grade evidence — at least two distinct connect cycles that
+        ended in a classified SMP/auth rejection (``Pairing failed due to
+        error: 82`` et al), counting the cycle currently in flight.
 
         History of this gate (three regressions):
         - presence-based (0.86.1) — racy, habluetooth keeps a device
@@ -881,12 +889,15 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         - link-seen-based (0.86.3) — too broad, a transient notify/handshake
           failure with the machine ON wiped a valid bond (field case Jay),
           and too narrow at once: a genuine SMP rejection without our link
-          flag skipped the legitimate unpair.
+          flag skipped the legitimate unpair;
+        - single-cycle auth (0.87.2) — correct class, but one cycle of
+          evidence still allowed a single spurious classification to
+          destroy a bond; the state machine demands a repeat.
         When in doubt, do NOT unpair: a skipped unpair costs one extra
         reconnect cycle, a wrong unpair costs the user a manual re-pairing
         session at the machine.
         """
-        return self._auth_fail_seen
+        return self.bond.allow_unpair(current_cycle_auth=self._auth_fail_seen)
 
     async def _safe_disconnect(self) -> None:
         """Disconnect current client, suppressing errors."""
@@ -930,6 +941,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                         "Cleared bond for %s via proxy API (connection-less)",
                         self._address,
                     )
+                    self.bond.on_bond_destroyed(
+                        op="proxy_unpair", trigger="rung3",
+                    )
                     return
                 _LOGGER.debug(
                     "Connection-less unpair unavailable for %s — falling "
@@ -947,6 +961,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             try:
                 await client.unpair()
                 _LOGGER.info("Unpaired %s successfully", self._address)
+                self.bond.on_bond_destroyed(
+                    op="connect_unpair", trigger="rung3",
+                )
             except (BleakError, OSError, NotImplementedError, AttributeError):
                 _LOGGER.warning(
                     "unpair() failed for %s — ESP firmware may not support "
@@ -1069,6 +1086,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # New episode: the unpair rung is available again (see
             # _unpaired_this_episode).
             self._unpaired_this_episode = False
+            # The encrypted handshake proves the bond — back to TRUSTED.
+            self.bond.on_handshake_success()
             _LOGGER.info("Connected and handshake complete for %s", self._address)
 
             # Read firmware version
@@ -1239,7 +1258,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         counted failures, so a machine that never connected after setup could
         loop forever without ever escalating to repair. The counter resets
         only on a successful connect (see ``_connect_impl``).
+
+        Also feeds the bond state machine with the classified outcome of
+        the cycle — only AUTH-class failures move it towards MISMATCH.
         """
+        self.bond.on_cycle_failure(
+            FAILURE_AUTH if self._auth_fail_seen else self._last_failure_class,
+        )
         self._consecutive_connect_failures += 1
         _LOGGER.debug(
             "Connect failure %d/%d",
@@ -1312,6 +1337,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             if not connect_ok:
                 self._note_connect_failure()
             delay = min(delay * 2, self._reconnect_max_delay)
+            if self.bond.state is BondState.PAIRING_REQUIRED:
+                # The bond is destroyed and only user action (machine-side
+                # re-pair) can fix it — no point retrying quickly.
+                delay = self._reconnect_max_delay
 
     async def disconnect(self) -> None:
         self._auto_reconnect = False
