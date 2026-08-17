@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kavos aparatą reikia susieti iš naujo",
+      "description": "Kavos aparatas ({address}) atmeta „Bluetooth“ šifravimo mainus — išsaugotas susiejimas nebeatitinka. To negalima ištaisyti vien iš „Home Assistant“.\n\nVienkartinis atkūrimas:\n1. Aparate: atidarykite „Bluetooth“ meniu ir ištrinkite / atstatykite ryšį.\n2. Išjunkite ir įjunkite aparatą.\n3. Atidarykite aparato „Bluetooth“ susiejimo ekraną.\n4. Kol jis rodomas, iš naujo įkelkite šią integraciją (Nustatymai → Įrenginiai ir paslaugos → įrašas → Įkelti iš naujo).\n\nIntegracija susies iš naujo automatiškai, ir problema išnyks po pirmo sėkmingo ryšio."
     }
   },
   "services": {

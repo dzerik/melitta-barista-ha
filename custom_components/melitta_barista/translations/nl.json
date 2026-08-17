@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Koffiemachine moet opnieuw worden gekoppeld",
+      "description": "De koffiemachine ({address}) weigert de Bluetooth-versleutelingsuitwisseling — de opgeslagen koppeling komt niet meer overeen. Dit kan niet alleen vanuit Home Assistant worden opgelost.\n\nEenmalig herstel:\n1. Op de machine: open het Bluetooth-menu en verwijder/reset de verbinding.\n2. Zet de machine uit en weer aan.\n3. Open het Bluetooth-koppelscherm van de machine.\n4. Terwijl dit zichtbaar is, herlaad deze integratie (Instellingen → Apparaten en diensten → het item → Herladen).\n\nDe integratie koppelt automatisch opnieuw en dit probleem verdwijnt na de eerste geslaagde verbinding."
     }
   },
   "services": {

@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "La machine à café doit être appairée à nouveau",
+      "description": "La machine à café ({address}) rejette l'échange de chiffrement Bluetooth — l'appairage enregistré ne correspond plus. Cela ne peut pas être corrigé depuis Home Assistant seul.\n\nRécupération unique :\n1. Sur la machine : ouvrez le menu Bluetooth et supprimez/réinitialisez la connexion.\n2. Éteignez puis rallumez la machine.\n3. Ouvrez l'écran d'appairage Bluetooth de la machine.\n4. Pendant qu'il est affiché, rechargez cette intégration (Paramètres → Appareils et services → l'entrée → Recharger).\n\nL'intégration se réappairera automatiquement et ce problème disparaîtra après la première connexion réussie."
     }
   },
   "services": {

@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "La macchina da caffè deve essere riassociata",
+      "description": "La macchina da caffè ({address}) rifiuta lo scambio di cifratura Bluetooth — l'associazione salvata non corrisponde più. Non è possibile risolvere solo da Home Assistant.\n\nRipristino una tantum:\n1. Sulla macchina: apri il menu Bluetooth ed elimina/reimposta la connessione.\n2. Spegni e riaccendi la macchina.\n3. Apri la schermata di associazione Bluetooth della macchina.\n4. Mentre è visibile, ricarica questa integrazione (Impostazioni → Dispositivi e servizi → la voce → Ricarica).\n\nL'integrazione si riassocerà automaticamente e il problema scomparirà dopo la prima connessione riuscita."
     }
   },
   "services": {

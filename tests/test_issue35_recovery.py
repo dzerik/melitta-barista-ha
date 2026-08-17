@@ -345,6 +345,9 @@ class TestUnpairGate:
 
     async def test_auth_evidence_authorizes_unpair(self):
         client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        # 0.88: destruction requires a prior auth cycle + the one in flight.
+        from custom_components.melitta_barista.const import FAILURE_AUTH
+        client.bond.on_cycle_failure(FAILURE_AUTH)
 
         async def fake_handshake(*, pair: bool = False) -> bool:
             client._auth_fail_seen = True  # classified SMP rejection

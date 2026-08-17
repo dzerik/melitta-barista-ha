@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Espressorul necesită reîmperechere",
+      "description": "Espressorul ({address}) respinge schimbul de criptare Bluetooth — împerecherea salvată nu mai corespunde. Aceasta nu poate fi remediată doar din Home Assistant.\n\nRecuperare unică:\n1. Pe aparat: deschideți meniul Bluetooth și ștergeți/resetați conexiunea.\n2. Opriți și porniți aparatul.\n3. Deschideți ecranul de împerechere Bluetooth al aparatului.\n4. Cât timp este afișat, reîncărcați această integrare (Setări → Dispozitive și servicii → intrarea → Reîncărcare).\n\nIntegrarea se va reîmperechea automat, iar problema va dispărea după prima conexiune reușită."
     }
   },
   "services": {

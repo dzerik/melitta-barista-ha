@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Кавомашина потребує повторного сполучення",
+      "description": "Кавомашина ({address}) відхиляє Bluetooth-обмін шифруванням — збережене сполучення більше не збігається. Це неможливо виправити лише з Home Assistant.\n\nОдноразове відновлення:\n1. На машині: відкрийте меню Bluetooth і видаліть/скиньте підключення.\n2. Вимкніть і ввімкніть машину.\n3. Відкрийте на машині екран Bluetooth-сполучення.\n4. Поки він показаний, перезавантажте цю інтеграцію (Налаштування → Пристрої та служби → запис → Перезавантажити).\n\nІнтеграція автоматично сполучиться знову, і проблема зникне після першого успішного підключення."
     }
   },
   "services": {

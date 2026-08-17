@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Aparat za kavu treba ponovno uparivanje",
+      "description": "Aparat za kavu ({address}) odbija Bluetooth razmjenu šifriranja — pohranjeno uparivanje više ne odgovara. To se ne može popraviti samo iz Home Assistanta.\n\nJednokratni oporavak:\n1. Na aparatu: otvorite Bluetooth izbornik i izbrišite/resetirajte vezu.\n2. Isključite i uključite aparat.\n3. Otvorite zaslon za Bluetooth uparivanje na aparatu.\n4. Dok je prikazan, ponovno učitajte ovu integraciju (Postavke → Uređaji i usluge → unos → Ponovno učitaj).\n\nIntegracija će se automatski ponovno upariti i problem će nestati nakon prve uspješne veze."
     }
   },
   "services": {

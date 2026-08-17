@@ -2,6 +2,24 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.88.0b1] — 2026-08-17 (beta)
+
+Structural tier of the recovery-layer refactoring — the surgical 0.87.2 fixes formalized into an explicit, persistent state machine. Beta release for field testing.
+
+### Added
+
+- **Bond-health state machine** (`bond_state.py`): `UNKNOWN → TRUSTED → SUSPECT → MISMATCH → PAIRING_REQUIRED`, persisted across HA restarts. Transitions are driven ONLY by classified SMP/auth rejections; timeouts, link drops and handshake failures never degrade a TRUSTED bond. Destroying a bond now requires **two distinct auth-fail cycles** (0.87.2 required one) and lands in `PAIRING_REQUIRED`, where further destruction is blocked and reconnect attempts slow to the maximum backoff.
+- **"Re-pairing required" repair issue + HA event.** When the bond reaches `MISMATCH`/`PAIRING_REQUIRED`, an ERROR-severity repair issue appears with the exact machine-side recovery steps (the only real fix), and a `melitta_barista_bond_destroyed` event fires for automations. The issue clears itself on the first successful connection. Translated into all 29 languages.
+- **Diagnostics `recovery` block**: bond state, classified failure info, and a bounded `bond_ops` audit trail of every transition and destructive operation — the trail whose absence made the earlier bond-wipe regressions take days to reconstruct.
+
+### Changed
+
+- **Auto proxy-reload circuit breaker**: at most 3 automatic reloads per hour, and reloads are skipped entirely when the failure is auth-class (a proxy reload cannot fix a machine-side bond and drops every other BLE device on that proxy).
+
+### Deferred
+
+- Unification of the two connect loops is postponed to the final 0.88.0 — the 0.87.2 dedup flag already removed the concrete harm.
+
 ## [0.87.2] — 2026-08-17
 
 ### Fixed

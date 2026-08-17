@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kahve makinesinin yeniden eşleştirilmesi gerekiyor",
+      "description": "Kahve makinesi ({address}) Bluetooth şifreleme alışverişini reddediyor — kayıtlı eşleştirme artık eşleşmiyor. Bu yalnızca Home Assistant üzerinden düzeltilemez.\n\nTek seferlik kurtarma:\n1. Makinede: Bluetooth menüsünü açın ve bağlantıyı silin/sıfırlayın.\n2. Makineyi kapatıp açın.\n3. Makinenin Bluetooth eşleştirme ekranını açın.\n4. Ekran görünürken bu entegrasyonu yeniden yükleyin (Ayarlar → Cihazlar ve hizmetler → kayıt → Yeniden yükle).\n\nEntegrasyon otomatik olarak yeniden eşleşir ve sorun ilk başarılı bağlantıdan sonra kaybolur."
     }
   },
   "services": {

@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Η καφετιέρα χρειάζεται νέα σύζευξη",
+      "description": "Η καφετιέρα ({address}) απορρίπτει την ανταλλαγή κρυπτογράφησης Bluetooth — η αποθηκευμένη σύζευξη δεν ταιριάζει πλέον. Αυτό δεν διορθώνεται μόνο από το Home Assistant.\n\nΕφάπαξ αποκατάσταση:\n1. Στη μηχανή: ανοίξτε το μενού Bluetooth και διαγράψτε/επαναφέρετε τη σύνδεση.\n2. Απενεργοποιήστε και ενεργοποιήστε τη μηχανή.\n3. Ανοίξτε την οθόνη σύζευξης Bluetooth της μηχανής.\n4. Όσο εμφανίζεται, φορτώστε ξανά αυτήν την ενσωμάτωση (Ρυθμίσεις → Συσκευές & υπηρεσίες → καταχώρηση → Επαναφόρτωση).\n\nΗ ενσωμάτωση θα συζευχθεί ξανά αυτόματα και το πρόβλημα θα εξαφανιστεί μετά την πρώτη επιτυχή σύνδεση."
     }
   },
   "services": {

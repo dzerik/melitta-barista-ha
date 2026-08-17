@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kávovar vyžaduje nové spárování",
+      "description": "Kávovar ({address}) odmítá Bluetooth šifrovací výměnu — uložené párování už neodpovídá. Toto nelze opravit pouze z Home Assistanta.\n\nJednorázová obnova:\n1. Na kávovaru: otevřete Bluetooth menu a smažte/resetujte připojení.\n2. Kávovar vypněte a zapněte.\n3. Otevřete na kávovaru obrazovku Bluetooth párování.\n4. Dokud je zobrazena, znovu načtěte tuto integraci (Nastavení → Zařízení a služby → záznam → Znovu načíst).\n\nIntegrace se automaticky znovu spáruje a tento problém po prvním úspěšném připojení zmizí."
     }
   },
   "services": {

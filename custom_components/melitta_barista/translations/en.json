@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Coffee machine needs re-pairing",
+      "description": "The coffee machine ({address}) is rejecting the Bluetooth encryption exchange — its stored pairing no longer matches. This cannot be fixed from Home Assistant alone.\n\nOne-time recovery:\n1. On the machine: open its Bluetooth menu and delete/reset the connection.\n2. Power the machine off and on.\n3. Open the machine's Bluetooth pairing screen.\n4. While it is showing, reload this integration (Settings → Devices & Services → the entry → Reload).\n\nThe integration will re-pair automatically and this issue will disappear after the first successful connection."
     }
   },
   "services": {

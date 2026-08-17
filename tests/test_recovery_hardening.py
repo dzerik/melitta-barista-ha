@@ -82,6 +82,9 @@ class TestAuthEvidenceGate:
 
     async def test_auth_failure_authorizes_unpair(self):
         client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        # 0.88: MISMATCH-grade evidence = a PRIOR auth cycle plus the one in
+        # flight (single-cycle evidence no longer destroys bonds).
+        client.bond.on_cycle_failure(FAILURE_AUTH)
         establish = AsyncMock(
             side_effect=BleakError("Pairing failed due to error: 82"),
         )
@@ -96,6 +99,7 @@ class TestAuthEvidenceGate:
         """The old gate's false-negative: SMP rejection can happen without
         our link_seen flag; auth evidence alone must suffice."""
         client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.bond.on_cycle_failure(FAILURE_AUTH)  # prior auth cycle
         assert client._ble_link_seen is False
         establish = AsyncMock(
             side_effect=BleakError("Pairing failed due to error: 82"),
@@ -131,6 +135,8 @@ class TestUnpairLatch:
 
     async def test_second_cycle_does_not_unpair_again(self):
         client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.bond.on_cycle_failure(FAILURE_AUTH)
+        client.bond.on_cycle_failure(FAILURE_AUTH)  # MISMATCH
         unpair = AsyncMock(side_effect=lambda: setattr(
             client, "_unpaired_this_episode", True))
         await self._fail_cycle_with_auth(client, unpair)
@@ -215,3 +221,47 @@ class TestLoopDedup:
             await _async_connect_and_poll(client, initial_delay=0)
         assert seen == [True]
         assert client._external_loop_active is False
+
+
+class TestBondMachineIntegration:
+    """The client feeds the BondStateMachine (0.88 wiring)."""
+
+    def test_note_connect_failure_feeds_machine(self):
+        from custom_components.melitta_barista.bond_state import BondState
+
+        client = MelittaBleClient(ADDRESS, repair_after_failures=0)
+        client._auth_fail_seen = True
+        client._note_connect_failure()
+        assert client.bond.state is BondState.SUSPECT
+        client._note_connect_failure()
+        assert client.bond.state is BondState.MISMATCH
+
+    def test_transient_failures_do_not_feed_machine(self):
+        from custom_components.melitta_barista.bond_state import BondState
+
+        client = MelittaBleClient(ADDRESS, repair_after_failures=0)
+        client._auth_fail_seen = False
+        client._last_failure_class = FAILURE_TIMEOUT
+        for _ in range(5):
+            client._note_connect_failure()
+        assert client.bond.state is BondState.UNKNOWN
+
+    async def test_unpair_records_bond_destroyed(self):
+        from custom_components.melitta_barista.bond_state import BondState
+
+        client = MelittaBleClient(ADDRESS)
+        client.set_unpair_callback(AsyncMock(return_value=True))
+        await client._try_unpair()
+        assert client.bond.state is BondState.PAIRING_REQUIRED
+
+    async def test_single_auth_cycle_no_longer_destroys_bond(self):
+        """0.88 tightening over 0.87.2: one auth cycle = SUSPECT, no wipe."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        establish = AsyncMock(
+            side_effect=BleakError("Pairing failed due to error: 82"),
+        )
+        unpair = AsyncMock()
+        with patch.object(client, "_establish_connection", establish), \
+                patch.object(client, "_try_unpair", unpair):
+            await client._connect_impl()
+        unpair.assert_not_awaited()

@@ -82,7 +82,7 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
 
     assert set(result.keys()) == {
         "entry", "device", "status", "counters", "profiles", "options",
-        "ble_trace", "domain_entries",
+        "ble_trace", "domain_entries", "recovery",
     }
 
     # Entry section
@@ -350,3 +350,30 @@ async def test_diagnostics_domain_entries_lists_duplicates(hass: HomeAssistant) 
     assert current_flags.count(True) == 1
     for e in section["entries"]:
         assert "ccddee" not in (e["unique_id"] or "")
+
+
+async def test_diagnostics_recovery_block(hass: HomeAssistant) -> None:
+    """The recovery block exports the bond state machine audit trail."""
+    from custom_components.melitta_barista.bond_state import BondStateMachine
+    from custom_components.melitta_barista.const import FAILURE_AUTH
+
+    client = _make_mock_client()
+    client._consecutive_connect_failures = 3
+    client._last_failure_class = FAILURE_AUTH
+    client._ble_link_seen = True
+    client._auth_fail_seen = True
+    client._unpaired_this_episode = False
+    machine = BondStateMachine()
+    machine.on_cycle_failure(FAILURE_AUTH)
+    client.bond = machine
+    entry = _make_entry(runtime_data=client)
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    rec = result["recovery"]
+    assert rec["consecutive_connect_failures"] == 3
+    assert rec["last_failure_class"] == FAILURE_AUTH
+    assert rec["bond"]["state"] == "suspect"
+    assert rec["bond"]["auth_fail_cycles"] == 1
+    assert rec["bond"]["history"], "bond_ops audit trail must not be empty"

@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Ekspres wymaga ponownego sparowania",
+      "description": "Ekspres ({address}) odrzuca wymianę szyfrowania Bluetooth — zapisane parowanie już nie pasuje. Nie da się tego naprawić wyłącznie z Home Assistant.\n\nJednorazowe odzyskiwanie:\n1. Na ekspresie: otwórz menu Bluetooth i usuń/zresetuj połączenie.\n2. Wyłącz i włącz ekspres.\n3. Otwórz ekran parowania Bluetooth na ekspresie.\n4. Gdy jest widoczny, załaduj ponownie tę integrację (Ustawienia → Urządzenia i usługi → wpis → Załaduj ponownie).\n\nIntegracja sparuje się ponownie automatycznie, a problem zniknie po pierwszym udanym połączeniu."
     }
   },
   "services": {

@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kafijas automāts jāsavieno pārī no jauna",
+      "description": "Kafijas automāts ({address}) noraida Bluetooth šifrēšanas apmaiņu — saglabātā pāra savienošana vairs neatbilst. To nevar izlabot tikai no Home Assistant.\n\nVienreizēja atkopšana:\n1. Automātā: atveriet Bluetooth izvēlni un dzēsiet/atiestatiet savienojumu.\n2. Izslēdziet un ieslēdziet automātu.\n3. Atveriet automāta Bluetooth pāra savienošanas ekrānu.\n4. Kamēr tas ir redzams, pārlādējiet šo integrāciju (Iestatījumi → Ierīces un pakalpojumi → ieraksts → Pārlādēt).\n\nIntegrācija automātiski savienosies pārī no jauna, un problēma pazudīs pēc pirmā veiksmīgā savienojuma."
     }
   },
   "services": {

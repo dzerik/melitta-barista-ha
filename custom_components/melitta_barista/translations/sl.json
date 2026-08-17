@@ -524,6 +524,10 @@
     "clock_entity_migration": {
       "title": "Legacy clock entities removed",
       "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+    },
+    "bond_reset_required": {
+      "title": "Kavni aparat potrebuje ponovno seznanitev",
+      "description": "Kavni aparat ({address}) zavrača Bluetooth izmenjavo šifriranja — shranjena seznanitev se ne ujema več. Tega ni mogoče popraviti samo iz Home Assistanta.\n\nEnkratna obnovitev:\n1. Na aparatu: odprite meni Bluetooth in izbrišite/ponastavite povezavo.\n2. Aparat izklopite in vklopite.\n3. Odprite zaslon za Bluetooth seznanjanje na aparatu.\n4. Medtem ko je prikazan, znova naložite to integracijo (Nastavitve → Naprave in storitve → vnos → Znova naloži).\n\nIntegracija se bo samodejno znova seznanila in težava bo izginila po prvi uspešni povezavi."
     }
   },
   "services": {
