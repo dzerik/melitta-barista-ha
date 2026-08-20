@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.88.0b2] — 2026-08-20 (beta)
+
+### Fixed
+
+- **Reconnect after machine power-on could be delayed by up to 5 minutes** (own dogfood catch). The 0.87.2 anti-hammer rule ignores advertisement wake-ups while the failure counter is non-zero — but the counter survives the night (evening power-off leaves 1–2 timeout cycles), so the morning "machine just reappeared" advertisement was ignored too, and the loop waited out its full backoff. The presence gate now marks absence, and the first wake-up after an absence period is honored regardless of the stale counter. Anti-hammer behavior for a present-but-rejecting machine is unchanged.
+
 ## [0.88.0b1] — 2026-08-17 (beta)
 
 Structural tier of the recovery-layer refactoring — the surgical 0.87.2 fixes formalized into an explicit, persistent state machine. Beta release for field testing.

@@ -214,6 +214,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # only wake it instead of spawning _reconnect_loop alongside it
         # (dual-ladder hammering, 0.87.2 audit).
         self._external_loop_active: bool = False
+        # True after the presence gate skipped an attempt because the device
+        # was absent. The first advertisement wake-up after an absence is
+        # honored even with a non-zero failure counter — the counter belongs
+        # to the previous episode (e.g. evening power-off timeouts), and
+        # ignoring the reappearance delayed the morning reconnect by up to
+        # reconnect_max_delay (0.88.0b2 field case).
+        self._was_absent: bool = False
         # Explicit bond-health authority (0.88). __init__.py replaces this
         # default with a persisted instance wired to repair-issue and
         # HA-event listeners; standalone/test usage keeps the bare one.
@@ -1086,6 +1093,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # New episode: the unpair rung is available again (see
             # _unpaired_this_episode).
             self._unpaired_this_episode = False
+            self._was_absent = False
             # The encrypted handshake proves the bond — back to TRUSTED.
             self.bond.on_handshake_success()
             _LOGGER.info("Connected and handshake complete for %s", self._address)
@@ -1216,7 +1224,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 )
             except asyncio.TimeoutError:
                 return False
-            if self._consecutive_connect_failures == 0:
+            if self._consecutive_connect_failures == 0 or self._was_absent:
+                # Zero failures = normal fast-reconnect; _was_absent = the
+                # device just reappeared after an absence — stale failure
+                # counts from the previous episode must not delay it.
+                self._was_absent = False
                 return True
 
     def _should_attempt_connect(self) -> bool:
@@ -1248,6 +1260,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             "waiting for advertisement instead of connecting",
             self._address,
         )
+        self._was_absent = True
         return False
 
     def _note_connect_failure(self) -> None:

@@ -265,3 +265,52 @@ class TestBondMachineIntegration:
                 patch.object(client, "_try_unpair", unpair):
             await client._connect_impl()
         unpair.assert_not_awaited()
+
+
+class TestReappearanceWake:
+    """0.88.0b2: a wake-up after an ABSENCE period must be honored even with
+    a non-zero failure counter — the counter belongs to a previous episode
+    (evening power-off timeouts), and ignoring the wake delayed the morning
+    reconnect by up to reconnect_max_delay (field case: own machine)."""
+
+    async def test_wake_after_absence_is_honored_despite_failures(self):
+        client = MelittaBleClient(ADDRESS)
+        client._consecutive_connect_failures = 2
+        # The presence gate skipped at least once due to absence.
+        client.set_presence_callback(lambda: False)
+        client.set_scanner_starved_callback(lambda: False)
+        assert client._should_attempt_connect() is False  # sets the flag
+        loop = asyncio.get_running_loop()
+        loop.call_later(0.02, client._reconnect_event.set)
+        t0 = loop.time()
+        woke_early = await client._wait_backoff(5.0)
+        assert woke_early is True
+        assert loop.time() - t0 < 1.0
+
+    async def test_wake_without_absence_still_ignored(self):
+        """Machine present-and-rejecting: anti-hammer behavior unchanged."""
+        client = MelittaBleClient(ADDRESS)
+        client._consecutive_connect_failures = 2
+        assert client._was_absent is False
+
+        async def keep_waking():
+            for _ in range(20):
+                client._reconnect_event.set()
+                await asyncio.sleep(0.01)
+
+        waker = asyncio.create_task(keep_waking())
+        loop = asyncio.get_running_loop()
+        t0 = loop.time()
+        woke_early = await client._wait_backoff(0.3)
+        waker.cancel()
+        assert woke_early is False
+        assert loop.time() - t0 >= 0.25
+
+    async def test_absence_flag_clears_after_honored_wake(self):
+        client = MelittaBleClient(ADDRESS)
+        client._consecutive_connect_failures = 2
+        client._was_absent = True
+        loop = asyncio.get_running_loop()
+        loop.call_later(0.02, client._reconnect_event.set)
+        assert await client._wait_backoff(1.0) is True
+        assert client._was_absent is False
