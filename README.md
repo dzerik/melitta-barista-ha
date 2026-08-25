@@ -152,10 +152,24 @@ starting from scratch, the proxy route trades ~$10 of hardware for
 noticeably more predictable behaviour. See [`HCL.md`](HCL.md) for confirmed
 adapter / board combinations and known quirks.
 
-The repo ships a ready-to-flash ESPHome config at
-[`esphome/ble-proxy-xiao-c6.yaml`](esphome/ble-proxy-xiao-c6.yaml) for the
-**Seeed XIAO ESP32-C6** (the maintainer's reference board). Any ESP32 / S3 /
-C3 / C6 with stock `bluetooth_proxy` works the same way.
+The repo ships three ready-to-flash ESPHome configs:
+
+- [`esphome/ble-proxy-xiao-s3.yaml`](esphome/ble-proxy-xiao-s3.yaml) —
+  **Seeed XIAO ESP32-S3, the maintainer's reference board** (dual-core:
+  Wi-Fi and BLE don't compete for CPU; every release is dogfooded on it);
+- [`esphome/ble-proxy-xiao-c6.yaml`](esphome/ble-proxy-xiao-c6.yaml) —
+  Seeed XIAO ESP32-C6;
+- [`esphome/ble-proxy-c6-devkit.yaml`](esphome/ble-proxy-c6-devkit.yaml) —
+  generic ESP32-C6 DevKitC-1 boards and clones.
+
+**Board choice matters more than it looks**: classic ESP32-WROOM-32 boards
+are *not recommended* as the machine's active proxy — a field-verified case
+showed constant connection-establish failures at under a meter (weak
+antenna + one shared 2.4 GHz radio) that vanished the moment the same spot
+got a XIAO ESP32-S3. See [`HCL.md`](HCL.md) for the full board table, the
+required config knobs (`power_save_mode: NONE` is the most-missed one), and
+the **multi-proxy rule** (these machines bond to exactly one proxy —
+`active: true` on the nearest, `active: false` everywhere else).
 
 ### Running HA in a Docker container? Three host-side prerequisites
 

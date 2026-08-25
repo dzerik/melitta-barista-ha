@@ -25,10 +25,11 @@ topology day-to-day.
 
 | Board | Chipset | Status | Tested by | Notes |
 |---|---|---|---|---|
-| **Seeed XIAO ESP32-C6** | ESP32-C6 (BLE 5.3, Wi-Fi 6) | ✅ primary | dzerik (continuous) | Repo ships [`esphome/ble-proxy-xiao-c6.yaml`](esphome/ble-proxy-xiao-c6.yaml). Recommended starting point. Power via USB-C; place within ~5 m of the machine. |
-| **Generic ESP32-WROOM-32** | ESP32 (BLE 4.2) | 👥 community-confirmed | community via ESPHome docs | Works with the stock `bluetooth_proxy` example. Watch power: cheap clones can brown out under sustained advertising bursts. |
-| **ESP32-S3 DevKitC** | ESP32-S3 (BLE 5.0) | 👥 expected to work | — | Same SDK as XIAO ESP32-C6; same ESPHome config shape. Untested by maintainer but no known protocol caveat. |
-| **M5Stack ATOM Lite** | ESP32-PICO-D4 (BLE 4.2) | 👥 expected to work | — | Inexpensive, integrated power supply; common for fixed-install BLE proxies. |
+| **Seeed XIAO ESP32-S3** | ESP32-S3 (dual-core, BLE 5.0) | ✅ **reference** | dzerik (daily driver) | Repo ships [`esphome/ble-proxy-xiao-s3.yaml`](esphome/ble-proxy-xiao-s3.yaml). The maintainer's live proxy — every release is dogfooded against it. Dual-core: Wi-Fi and BLE don't compete for CPU. Field-verified rescue for a struggling WROOM-32D setup (#10): RSSI improved from −76…−88 to −56…−62 dBm at the same spot. |
+| **Seeed XIAO ESP32-C6** | ESP32-C6 (single-core, BLE 5.3, Wi-Fi 6) | ✅ maintainer-tested | dzerik | [`esphome/ble-proxy-xiao-c6.yaml`](esphome/ble-proxy-xiao-c6.yaml). Solid, but the C6 BLE controller can wedge into a `status=133` / HCI `0x2043 Cmd Disallowed` connect loop after an aborted session ([esphome#17856](https://github.com/esphome/esphome/issues/17856)) — the config ships an `esphome.<proxy>_restart_ble` action that clears it without a reboot. |
+| **ESP32-C6-DevKitC-1 + clones** (QIQIAZI, WeAct, …) | ESP32-C6-WROOM-1 | 👥 field-confirmed (#35) | community | Use [`esphome/ble-proxy-c6-devkit.yaml`](esphome/ble-proxy-c6-devkit.yaml) — correct 4 MB flash declaration, no XIAO-specific RF-switch stanzas. Same C6 controller caveat as above. |
+| **Classic ESP32-WROOM-32 / 32D / 32U boards** | ESP32 (single-core radio path, BLE 4.2) | ⚠️ **not recommended** | field case (#10) | Field-verified failure mode: at **under 1 m** from the machine — RSSI −76…−88 dBm, constant HCI `0x3e` "connection failed to establish" loops, multi-minute pairing timeouts, and the ESP itself dropping off Wi-Fi. One shared 2.4 GHz radio + typically weak PCB antennas. If you must use one: `wifi: power_save_mode: NONE` and a solid 5 V/1 A+ supply are **mandatory** — and may still not be enough; swapping to a XIAO ESP32-S3 resolved the field case immediately. |
+| **M5Stack ATOM Lite** | ESP32-PICO-D4 (BLE 4.2) | ⚠️ same class as WROOM-32 | — | Classic-ESP32 radio; the WROOM-32 caveats apply. Fine as an advertisement-only relay, risky as the machine's active proxy. |
 
 **Why this topology is preferred for triage:**
 
@@ -51,11 +52,29 @@ template is the source of truth:
 
 | Knob | Required by | Why |
 |---|---|---|
+| `wifi: { power_save_mode: NONE }` | every connection | **The most-missed line in bring-your-own configs.** ESPHome's ESP32 default is light sleep, which causes exactly the failure trio seen in the field (#10): HCI `0x3e` connection-establish loops, multi-minute pairing timeouts, and the ESP intermittently dropping off Wi-Fi. |
 | `bluetooth_proxy: { active: true }` | every brew + handshake | Stock ESPHome defaults to passive ad relay only. We need GATT writes (recipe HJ frames, freestyle brew, settings) — these flow through `active: true`. Without it the handshake never even starts. |
-| `esp32_ble: { max_connections: 4 }` + `bluetooth_proxy: { connection_slots: 3 }` | every connection | The default 3-slot pool is too tight once `esp32_ble_tracker` + `bluetooth_proxy` register their components — the compiler warns explicitly. One slot per machine you want to drive concurrently, plus headroom for the scanner. |
-| Custom `api.actions: clear_ble_bonds` | "Hard Repair" / `force_pair_full` repair flow (`__init__.py:_handle_force_repair`) | When the ESP keeps a stale LTK and rejects fresh SMP with `auth fail reason=82`, the integration calls `esphome.<proxy>_clear_ble_bonds` to wipe `esp_ble_get_bond_device_list` from NVS. The action body runs four lines of `esp_ble_remove_bond_device(...)` — there is no stock equivalent. Without this action the Hard Repair path degrades to a clearly-worded error ("Add the `clear_ble_bonds` action to your ESPHome YAML…") and the user must reflash the proxy manually. |
-| Custom `api.actions: disconnect_ble_peer` | same repair flow, when a slot is stuck `ESTABLISHED` | After certain `auth fail reason=82` paths the connection slot holds a half-closed link and the GAP layer ignores fresh connect requests. The integration calls `esphome.<proxy>_disconnect_ble_peer { peer_mac: ... }` to force `esp_ble_gap_disconnect` so the next pair attempt opens a fresh SMP exchange. Without it the slot stays wedged until proxy reboot. |
-| `esphome: { min_version: 2025.8.0 }` | the two `api.actions:` blocks above | The top-level `api.actions:` schema is 2025.8+. Older ESPHome ignores the block silently — pinning the minimum fails the compile early instead. |
+| `bluetooth_proxy: { connection_slots: 3 }` | every connection | Since ESPHome 2026.5 only `bluetooth_proxy` consumes connection slots (the scanner's ADV/SCAN instance is added by codegen on top), so the `esp32_ble` default `max_connections` already matches — no explicit `esp32_ble` block needed. Don't over-allocate on RAM-tight single-core chips. |
+| Custom `api.actions: clear_ble_bonds` | "Hard Repair" / `force_pair_full` repair flow | When the ESP keeps a stale LTK and rejects fresh SMP with `auth fail reason=82`, the integration calls `esphome.<proxy>_clear_ble_bonds` to wipe the NVS bond table — there is no stock equivalent. Without it the Hard Repair path degrades to a clearly-worded error and a manual reflash. |
+| Custom `api.actions: disconnect_ble_peer` | same repair flow, when a slot is stuck `ESTABLISHED` | Forces `esp_ble_gap_disconnect` on a half-closed link the GAP layer no longer tracks, so the next pair attempt opens a fresh SMP exchange. |
+| Custom `api.actions: restart_ble` | C6 controller-wedge recovery; called by Hard Repair when available | `ble.disable → 2 s → ble.enable`: reinitializes the BLE stack **without** rebooting the ESP and **without** touching NVS bonds. The only remedy short of a reboot for the C6 stale-pending-create-connection wedge (`status=133` + HCI `0x2043` loop). |
+| `esphome: { min_version: 2026.7.0 }` | all of the above | Guarantees the `api.actions:` schema (2025.8+), the bluetooth_proxy slot-leak fix (2026.5.1, [esphome#16588](https://github.com/esphome/esphome/pull/16588)) and the stale-subscriber takeover (2026.7.0, [esphome#17423](https://github.com/esphome/esphome/pull/17423) — cures "proxy connected but no advertisements" after an HA restart). |
+
+#### Multiple proxies in the house? Pin the machine to ONE
+
+These machines keep **a single bond slot tied to the identity of the one
+proxy that paired**. Home Assistant routes each connection through whichever
+connectable proxy has the best signal *at that moment* — if that's ever a
+different proxy, the machine rejects the encryption with
+`auth fail reason=82` and the connection drops (field case #10). Rules:
+
+- exactly **one** proxy in the machine's radio range runs
+  `bluetooth_proxy: { active: true }`;
+- every other proxy sets `active: false` — advertisements still flow
+  (presence/sensor integrations keep working), but connections and the bond
+  always go through the machine's own proxy;
+- non-bonding BLE devices (blinds, sensors) are unaffected by this rule —
+  it exists only for bonded peripherals like these coffee machines.
 
 The integration falls back gracefully when an action is missing
 (`hass.services.has_service` check + an explicit error message naming the
