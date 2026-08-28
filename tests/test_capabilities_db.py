@@ -91,6 +91,20 @@ async def test_migration_from_v3_preserves_data():
             await conn.execute(
                 "INSERT INTO coffee_beans(id, brand, product) VALUES('b1', 'Lavazza', 'Crema')"
             )
+            # Tables every real v3 DB has and later migrations ALTER/UPDATE —
+            # the strict migration runner refuses to stamp the version when a
+            # statement fails for a reason other than idempotency.
+            await conn.execute(
+                "CREATE TABLE generated_recipes "
+                "(id TEXT PRIMARY KEY, component1 TEXT, component2 TEXT)"
+            )
+            await conn.execute(
+                "CREATE TABLE favorites "
+                "(id TEXT PRIMARY KEY, component1 TEXT, component2 TEXT)"
+            )
+            await conn.execute(
+                "CREATE TABLE generation_sessions (id TEXT PRIMARY KEY)"
+            )
             await conn.commit()
 
         db = SommelierDB(db_path)

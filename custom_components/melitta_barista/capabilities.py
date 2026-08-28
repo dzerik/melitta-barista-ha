@@ -119,7 +119,12 @@ def derive_capabilities(client: Any) -> LiveCapabilities:
     else:
         aromas = ("standard",)
 
-    processes = tuple(sorted(PROCESS_MAP.keys(), key=lambda k: PROCESS_MAP[k]))
+    # "none" (process id 0) is the wire placeholder for "no component",
+    # not a user-selectable process — advertising it to the LLM invites
+    # placeholder phases that would brew nothing (or worse, get coerced).
+    processes = tuple(
+        sorted((k for k in PROCESS_MAP if k != "none"), key=lambda k: PROCESS_MAP[k])
+    )
     temperatures = tuple(sorted(TEMPERATURE_MAP.keys(), key=lambda k: TEMPERATURE_MAP[k]))
     shots = tuple(sorted(SHOTS_MAP.keys(), key=lambda k: SHOTS_MAP[k]))
 

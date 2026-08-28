@@ -9,6 +9,7 @@ read in-memory client state, and use `async_response` when DB I/O is involved.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections import deque
@@ -23,6 +24,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 
+from .ai_recipes import LLM_TIMEOUT
 from .const import (
     API_VERSION,
     AROMA_MAP,
@@ -31,6 +33,7 @@ from .const import (
     INTENSITY_MAP,
     MACHINE_MODEL_NAMES,
     PROCESS_MAP,
+    PROMPT_MANIPULATIONS,
     RECIPE_NAMES,
     SHOTS_MAP,
     TEMPERATURE_MAP,
@@ -101,7 +104,14 @@ def _send_versioned(connection, msg_id, data, *, schema_version: int = 1) -> Non
 
 
 def _build_status_payload(client) -> dict[str, Any]:
-    """Build the JSON-friendly status snapshot consumed by the Status tab."""
+    """Build the JSON-friendly status snapshot consumed by the Status tab.
+
+    The nested ``status`` dict also feeds the brew wizard's completion
+    polling: ``is_brewing`` (process == PRODUCT) and
+    ``awaiting_confirmation`` (manipulation is a prompt the user must
+    acknowledge). Additions must stay backward-compatible — panel cards
+    pin against schema_version 1 of this payload.
+    """
     if client is None:
         return {"available": False}
 
@@ -155,6 +165,13 @@ def _build_status_payload(client) -> dict[str, Any]:
             ),
             "info_messages": int(status.info_messages),
             "progress": status.progress,
+            # Wizard completion-detection fields (additive, 0.89):
+            # is_brewing tracks the PRODUCT process (brand parse_status
+            # normalizes per-family raw codes into MachineProcess), and
+            # awaiting_confirmation mirrors the awaiting_confirmation
+            # binary sensor so the wizard can surface machine prompts.
+            "is_brewing": bool(status.is_brewing),
+            "awaiting_confirmation": status.manipulation in PROMPT_MANIPULATIONS,
         }
     else:
         payload["status"] = None
@@ -561,16 +578,31 @@ def _record_llm_call(
 
 
 async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
-    """Single round-trip to the conversation agent; returns raw speech text."""
+    """Single round-trip to the conversation agent; returns raw speech text.
+
+    Bounded by ``LLM_TIMEOUT`` so a hung provider (outage, stuck local
+    model) fails the WS request cleanly instead of leaving the panel's
+    Generate button spinning forever. Each retry attempt inside
+    `_structured_call` gets its own timeout window.
+    """
     from homeassistant.components import conversation  # noqa: PLC0415
-    result = await conversation.async_converse(
-        hass,
-        text=prompt,
-        conversation_id=None,
-        context=ctx,
-        language=hass.config.language,
-        agent_id=agent_id,
-    )
+    try:
+        result = await asyncio.wait_for(
+            conversation.async_converse(
+                hass,
+                text=prompt,
+                conversation_id=None,
+                context=ctx,
+                language=hass.config.language,
+                agent_id=agent_id,
+            ),
+            timeout=LLM_TIMEOUT,
+        )
+    except asyncio.TimeoutError as err:
+        raise RuntimeError(
+            f"LLM request timed out after {LLM_TIMEOUT:.0f}s. "
+            "The conversation agent did not respond in time."
+        ) from err
     try:
         return result.response.speech["plain"]["speech"]
     except (AttributeError, KeyError, TypeError):
@@ -1330,6 +1362,10 @@ class GeneratedRecipe(BaseModel):
 
     name: str = Field(min_length=1)
     description: str = ""
+    # "Why this recipe?" — one sentence, in the user's language, linking
+    # the pick to the stated mood/occasion/weather/beans. Rendered by the
+    # panel's collapsible Why? expander on the recipe card.
+    reasoning: str = ""
     blend: Literal[0, 1] = 1
     machine_phases: list[MachinePhase] = Field(min_length=1, max_length=2)
     # `steps` is the new full preparation sequence with dosages —

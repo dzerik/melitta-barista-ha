@@ -96,7 +96,9 @@ def test_derive_for_melitta_barista_ts():
     assert cap.schema_version == 2
     assert cap.family_key == "barista_ts"
     assert cap.model_name == "Melitta Barista TS Smart"
-    assert cap.supported_processes == ("none", "coffee", "milk", "water")
+    # "none" is the wire placeholder for "no component", not a selectable
+    # process — it must never be advertised to the LLM as supported.
+    assert cap.supported_processes == ("coffee", "milk", "water")
     assert cap.supported_intensities == (
         "very_mild", "mild", "medium", "strong", "very_strong",
     )

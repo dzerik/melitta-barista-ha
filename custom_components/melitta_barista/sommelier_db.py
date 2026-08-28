@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -417,7 +418,14 @@ class SommelierDB:
         self._lock = asyncio.Lock()
 
     async def async_setup(self) -> None:
-        """Open DB and create schema, run migrations if needed."""
+        """Open DB and create schema, run migrations if needed.
+
+        Migration statements that fail with an idempotency error (duplicate
+        column / already exists) are skipped silently — re-running a step is
+        safe. Any other migration error is logged with the failing statement
+        and the schema_version stamp is withheld, so the migration is retried
+        on the next start instead of being silently marked as applied.
+        """
         self._db = await aiosqlite.connect(self._db_path)
         self._db.row_factory = aiosqlite.Row
         await self._db.execute("PRAGMA journal_mode=WAL")
@@ -435,6 +443,7 @@ class SommelierDB:
         except Exception:
             pass  # Table doesn't exist yet
 
+        migration_failed = False
         if current_version < 1:
             # Fresh install — create full schema
             await self._db.executescript(SCHEMA_SQL)
@@ -466,12 +475,36 @@ class SommelierDB:
                         continue
                     try:
                         await self._db.execute(stmt)
-                    except Exception:
-                        pass  # Column/table may already exist
-                _LOGGER.info(
-                    "Sommelier DB migrated to v%d (from v%d)",
-                    target_version, current_version,
-                )
+                    except sqlite3.OperationalError as exc:
+                        msg = str(exc).lower()
+                        if "duplicate column" in msg or "already exists" in msg:
+                            continue  # idempotent re-run — column/table present
+                        migration_failed = True
+                        _LOGGER.warning(
+                            "Sommelier DB migration to v%d failed on statement "
+                            "%r: %s — schema_version stamp withheld, will retry "
+                            "on next start",
+                            target_version, stmt, exc,
+                        )
+                    except Exception as exc:  # noqa: BLE001 — keep startup alive
+                        migration_failed = True
+                        _LOGGER.warning(
+                            "Sommelier DB migration to v%d failed on statement "
+                            "%r: %s — schema_version stamp withheld, will retry "
+                            "on next start",
+                            target_version, stmt, exc,
+                        )
+                if migration_failed:
+                    _LOGGER.warning(
+                        "Sommelier DB migration to v%d is INCOMPLETE "
+                        "(from v%d) — will retry on next start",
+                        target_version, current_version,
+                    )
+                else:
+                    _LOGGER.info(
+                        "Sommelier DB migrated to v%d (from v%d)",
+                        target_version, current_version,
+                    )
 
         now = _now()
         # Hopper rows may already exist, and on extremely minimal v3 fixtures
@@ -488,10 +521,18 @@ class SommelierDB:
             )
         except Exception:
             pass
-        await self._db.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', ?)",
-            (str(SCHEMA_VERSION),),
-        )
+        if migration_failed:
+            _LOGGER.warning(
+                "Sommelier DB schema_version stays at v%d after a failed "
+                "migration statement — the migration will be retried on "
+                "next start",
+                current_version,
+            )
+        else:
+            await self._db.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', ?)",
+                (str(SCHEMA_VERSION),),
+            )
         await self._db.commit()
         _LOGGER.info("Sommelier DB initialized (v%d) at %s", SCHEMA_VERSION, self._db_path)
 
@@ -601,11 +642,31 @@ class SommelierDB:
         return await self.async_get_bean(bean_id)
 
     async def async_delete_bean(self, bean_id: str) -> bool:
-        """Delete a coffee bean. Returns True if deleted."""
-        cursor = await self.db.execute(
-            "DELETE FROM coffee_beans WHERE id = ?", (bean_id,)
-        )
-        await self.db.commit()
+        """Delete a coffee bean. Returns True if deleted.
+
+        generation_sessions.hopper1_bean_id/hopper2_bean_id reference
+        coffee_beans without an ON DELETE action, so with PRAGMA
+        foreign_keys=ON a bare DELETE would raise IntegrityError the moment
+        history references the bean. The referencing columns are NULLed
+        first, in the same transaction as the DELETE, so the method never
+        raises for this case and history rows survive (with the bean link
+        detached, matching hoppers.bean_id ON DELETE SET NULL semantics).
+        """
+        async with self._lock:
+            await self.db.execute(
+                "UPDATE generation_sessions SET hopper1_bean_id = NULL "
+                "WHERE hopper1_bean_id = ?",
+                (bean_id,),
+            )
+            await self.db.execute(
+                "UPDATE generation_sessions SET hopper2_bean_id = NULL "
+                "WHERE hopper2_bean_id = ?",
+                (bean_id,),
+            )
+            cursor = await self.db.execute(
+                "DELETE FROM coffee_beans WHERE id = ?", (bean_id,)
+            )
+            await self.db.commit()
         return cursor.rowcount > 0
 
     # ── Hoppers ───────────────────────────────────────────────────────
@@ -820,6 +881,10 @@ class SommelierDB:
                 "id": recipe_id,
                 "name": recipe["name"],
                 "description": recipe["description"],
+                # Why-this-pick rationale (0.89): lives in the reply/live
+                # path; not yet a DB column, so history cards won't show it
+                # until a future migration adds one.
+                "reasoning": recipe.get("reasoning", ""),
                 "blend": recipe["blend"],
                 "component1": legacy_c1_obj,
                 "component2": legacy_c2_obj,
@@ -952,6 +1017,14 @@ class SommelierDB:
             else:
                 cursor = await self.db.execute("DELETE FROM generation_sessions")
             removed = cursor.rowcount or 0
+            # Sweep ratings whose generated recipe no longer exists (the
+            # cascade above removed it). Recipes in kept sessions are still
+            # present, so their ratings survive — keep_favorited semantics
+            # carry over for free. Favorite-type ratings are never touched.
+            await self.db.execute(
+                "DELETE FROM recipe_ratings WHERE target_type = 'generated' "
+                "AND target_id NOT IN (SELECT id FROM generated_recipes)"
+            )
             await self.db.commit()
         return removed
 
@@ -1066,11 +1139,23 @@ class SommelierDB:
         return d
 
     async def async_remove_favorite(self, fav_id: str) -> bool:
-        """Remove a favorite. Returns True if removed."""
-        cursor = await self.db.execute(
-            "DELETE FROM favorites WHERE id = ?", (fav_id,)
-        )
-        await self.db.commit()
+        """Remove a favorite. Returns True if removed.
+
+        Also deletes the favorite's ``recipe_ratings`` row (target_type
+        'favorite') in the same transaction — recipe_ratings has no FK to
+        its targets, so without this the rating would linger as an orphan.
+        A 'generated' rating sharing the same UUID is left untouched.
+        """
+        async with self._lock:
+            cursor = await self.db.execute(
+                "DELETE FROM favorites WHERE id = ?", (fav_id,)
+            )
+            await self.db.execute(
+                "DELETE FROM recipe_ratings "
+                "WHERE target_id = ? AND target_type = 'favorite'",
+                (fav_id,),
+            )
+            await self.db.commit()
         return cursor.rowcount > 0
 
     async def async_update_favorite(self, favorite_id: str, **patch) -> bool:
@@ -1561,10 +1646,23 @@ class SommelierDB:
     async def async_update_profile(
         self, profile_id: str, data: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Update an existing profile."""
+        """Update an existing profile. Returns the updated row, or None.
+
+        ``data`` accepts either flat profile-row keys (name, cup_size,
+        temperature_pref, dietary, caffeine_pref, machine_profile) or a
+        nested ``preferences`` dict carrying those same keys — the shape
+        the profiles/update WS handler sends. Nested preferences are
+        flattened; an explicit flat key wins over its nested duplicate.
+        """
         existing = await self.async_get_profile(profile_id)
         if existing is None:
             return None
+        if "preferences" in data:
+            nested = data.get("preferences") or {}
+            data = {
+                **nested,
+                **{k: v for k, v in data.items() if k != "preferences"},
+            }
         now = _now()
         dietary = json.dumps(data.get("dietary", existing["dietary"]))
         await self.db.execute(
@@ -1587,11 +1685,25 @@ class SommelierDB:
         return await self.async_get_profile(profile_id)
 
     async def async_delete_profile(self, profile_id: str) -> bool:
-        """Delete a profile."""
-        cursor = await self.db.execute(
-            "DELETE FROM sommelier_profiles WHERE id = ?", (profile_id,)
-        )
-        await self.db.commit()
+        """Delete a profile. Returns True if deleted.
+
+        generation_sessions.profile_id references sommelier_profiles without
+        an ON DELETE action, so with PRAGMA foreign_keys=ON a bare DELETE
+        would raise IntegrityError once the profile has generation history.
+        The referencing column is NULLed first, in the same transaction as
+        the DELETE, so the method never raises for this case and history
+        rows survive with the profile link detached.
+        """
+        async with self._lock:
+            await self.db.execute(
+                "UPDATE generation_sessions SET profile_id = NULL "
+                "WHERE profile_id = ?",
+                (profile_id,),
+            )
+            cursor = await self.db.execute(
+                "DELETE FROM sommelier_profiles WHERE id = ?", (profile_id,)
+            )
+            await self.db.commit()
         return cursor.rowcount > 0
 
     async def async_set_active_profile(self, profile_id: str) -> bool:
