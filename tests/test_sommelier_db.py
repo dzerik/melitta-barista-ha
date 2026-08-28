@@ -362,6 +362,29 @@ class TestGenerationSessions:
         assert r["blend"] == 1
         assert r["brewed"] is False
 
+    async def test_create_session_preserves_reasoning(self, db: SommelierDB):
+        """The why-this-pick rationale must survive into the reply dict
+        (0.89: it previously died at the saved_recipes whitelist and the
+        'Why this recipe?' expander stayed dead end-to-end)."""
+        recipe = _sample_recipe()
+        recipe["reasoning"] = "Rainy morning calls for a bold cup."
+        session = await db.async_create_session(
+            mode="surprise_me", preference=None,
+            hopper1_bean_id=None, hopper2_bean_id=None,
+            milk_types=[], llm_agent=None, recipes=[recipe],
+        )
+        assert session["recipes"][0]["reasoning"] == (
+            "Rainy morning calls for a bold cup."
+        )
+
+    async def test_create_session_reasoning_defaults_empty(self, db: SommelierDB):
+        session = await db.async_create_session(
+            mode="surprise_me", preference=None,
+            hopper1_bean_id=None, hopper2_bean_id=None,
+            milk_types=[], llm_agent=None, recipes=[_sample_recipe()],
+        )
+        assert session["recipes"][0]["reasoning"] == ""
+
     async def test_create_session_multiple_recipes(self, db: SommelierDB):
         """Creating a session with multiple recipes stores all."""
         recipes = [

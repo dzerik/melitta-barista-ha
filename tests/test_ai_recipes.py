@@ -635,3 +635,110 @@ class TestAsyncGenerateRecipesTimeout:
                     count=1,
                     llm_agent=None,
                 )
+
+
+# ── Reasoning field (Why this recipe?) ────────────────────────────────
+
+
+class TestReasoningPrompt:
+    """The prompt must ask the LLM to justify each pick."""
+
+    def test_prompt_includes_reasoning_instruction(self):
+        prompt = _build_prompt(_bean(), None, [], "surprise_me", None, 3)
+        assert '"reasoning"' in prompt
+
+    def test_reasoning_instruction_mentions_context_links(self):
+        """The instruction ties the pick to mood/occasion/weather/beans."""
+        prompt = _build_prompt(_bean(), None, [], "surprise_me", None, 3)
+        rules = prompt.split("## Rules")[1]
+        assert "reasoning" in rules
+        for word in ("mood", "occasion", "weather", "bean"):
+            assert word in rules.lower()
+
+    def test_legacy_output_format_block_shows_reasoning(self):
+        """The deprecated text Output Format example carries the field too."""
+        prompt = _build_prompt(_bean(), None, [], "surprise_me", None, 3)
+        output = prompt.split("## Output Format")[1]
+        assert '"reasoning"' in output
+
+
+class TestValidateRecipesReasoning:
+    """_validate_recipes passes `reasoning` through to the recipe dict."""
+
+    def test_reasoning_passed_through(self):
+        raw = _valid_recipe_json(1)
+        raw[0]["reasoning"] = "A bold pick for a rainy morning."
+        result = _validate_recipes(raw)
+        assert result[0]["reasoning"] == "A bold pick for a rainy morning."
+
+    def test_reasoning_defaults_to_empty_string(self):
+        result = _validate_recipes(_valid_recipe_json(1))
+        assert result[0]["reasoning"] == ""
+
+    def test_reasoning_none_becomes_empty_string(self):
+        raw = _valid_recipe_json(1)
+        raw[0]["reasoning"] = None
+        result = _validate_recipes(raw)
+        assert result[0]["reasoning"] == ""
+
+    def test_reasoning_truncated_to_500(self):
+        raw = _valid_recipe_json(1)
+        raw[0]["reasoning"] = "x" * 600
+        result = _validate_recipes(raw)
+        assert len(result[0]["reasoning"]) == 500
+
+
+# ── "none" phases are dropped, not coerced into coffee ────────────────
+
+
+class TestValidateRecipesNonePhases:
+    """A machine phase with process "none" is a placeholder — drop it."""
+
+    def _recipe_with_phases(self, *processes: str) -> list[dict[str, Any]]:
+        raw = _valid_recipe_json(1)
+        raw[0]["machine_phases"] = [
+            {
+                "component": {
+                    "process": p, "intensity": "medium", "aroma": "standard",
+                    "temperature": "normal", "shots": "none", "portion_ml": 100,
+                },
+                "user_action_before": [],
+            }
+            for p in processes
+        ]
+        return raw
+
+    def test_second_phase_none_dropped(self):
+        result = _validate_recipes(self._recipe_with_phases("coffee", "none"))
+        phases = result[0]["machine_phases"]
+        assert len(phases) == 1
+        assert phases[0]["component"]["process"] == "coffee"
+
+    def test_first_phase_none_dropped_not_coerced_to_coffee(self):
+        """A leading "none" phase must NOT become a phantom 40ml espresso."""
+        result = _validate_recipes(self._recipe_with_phases("none", "milk"))
+        phases = result[0]["machine_phases"]
+        assert len(phases) == 1
+        assert phases[0]["component"]["process"] == "milk"
+
+    def test_all_none_phases_fall_back_to_single_default_phase(self):
+        """Degenerate all-none recipe keeps the min-1-phase invariant."""
+        result = _validate_recipes(self._recipe_with_phases("none", "none"))
+        phases = result[0]["machine_phases"]
+        assert len(phases) == 1
+        assert phases[0]["component"]["process"] == "coffee"
+
+    def test_invalid_process_in_second_phase_dropped(self):
+        """Unknown process in phase 2 keeps old comp2 semantics (→ absent)."""
+        result = _validate_recipes(self._recipe_with_phases("coffee", "banana"))
+        phases = result[0]["machine_phases"]
+        assert len(phases) == 1
+        assert phases[0]["component"]["process"] == "coffee"
+
+    def test_invalid_process_in_first_phase_still_coerced_to_coffee(self):
+        """Phase 1 keeps comp1 semantics: unknown (non-"none") → coffee."""
+        result = _validate_recipes(self._recipe_with_phases("banana", "milk"))
+        phases = result[0]["machine_phases"]
+        assert len(phases) == 2
+        assert phases[0]["component"]["process"] == "coffee"
+        assert phases[1]["component"]["process"] == "milk"

@@ -13,7 +13,15 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN, PROCESS_MAP, SHOTS_MAP, INTENSITY_MAP, AROMA_MAP, TEMPERATURE_MAP
+from .const import (
+    AROMA_MAP,
+    DOMAIN,
+    INTENSITY_MAP,
+    PROCESS_MAP,
+    SHOTS_MAP,
+    TEMPERATURE_MAP,
+    Blend,
+)
 from .panel_api import _send_versioned
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -42,15 +50,64 @@ class RecipeWritesUnsupportedError(RuntimeError):
         self.family_key = family_key
 
 
+# Recipes store the LLM's blend semantics (1 = hopper 1, 0 = hopper 2, as
+# defined in the generation prompt). The BLE blend byte uses a different
+# encoding (Blend enum: BLEND_1=1, BLEND_2=2, BARISTA_T=0), so the value
+# must be translated exactly once, at the BLE boundary.
+_LLM_BLEND_TO_BLE: dict[int, int] = {
+    1: int(Blend.BLEND_1),  # LLM hopper 1 → BLE byte 1
+    0: int(Blend.BLEND_2),  # LLM hopper 2 → BLE byte 2
+}
+
+
+def _resolve_enum(mapping: dict[str, int], field: str, value: Any, default: str) -> int:
+    """Map a recipe enum string to its BLE byte; unknown values are errors.
+
+    A missing/None value keeps the historic default (schema allows omission),
+    but a *present* unknown string means the row drifted from the const maps
+    (legacy DB row, hand-edited SQLite, future vocab drift) — silently
+    substituting a default would brew the wrong thing, so raise instead.
+    """
+    if value is None:
+        value = default
+    if value not in mapping:
+        raise ValueError(
+            f"unknown {field} value {value!r}; expected one of {sorted(mapping)}"
+        )
+    return mapping[value]
+
+
+def _resolve_portion(raw_ml: Any) -> int:
+    """Clamp portion_ml to 0..250 and round to the 5 ml grid; returns the byte.
+
+    Brew-time re-validation: DB rows can bypass generation-time clamps, and
+    an unclamped value would crash struct.pack deep in the protocol layer
+    (or silently floor 42 ml to 40 where generation documents round-half).
+    """
+    try:
+        ml = float(raw_ml if raw_ml is not None else 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"invalid portion_ml value {raw_ml!r}") from exc
+    ml = max(0.0, min(250.0, ml))
+    return int(ml / 5.0 + 0.5)
+
+
 async def _brew_recipe_components(
     client, name: str, blend: int, phases: list[dict]
-) -> None:
-    """Execute a multi-phase brew.
+) -> bool:
+    """Execute a multi-phase brew; returns brew_freestyle's result.
 
     P2a: BLE layer still takes component1/2, so we unpack phases[0]/phases[1].
     `phases` is the list-of-dicts form ({"component": {...}, "user_action_before": [...]}).
     A single-phase brew is encoded by sending a "none"-process component2,
     which the BLE protocol naturally treats as "no second pour".
+
+    `blend` uses the recipe/LLM semantics (1 = hopper 1, 0 = hopper 2) and is
+    translated to the BLE Blend byte here; both phases pour from the SAME
+    hopper. Component fields are re-validated at brew time (see
+    ``_resolve_enum`` / ``_resolve_portion``); a ``ValueError`` means the
+    stored row is unbrewable, and ``False`` means the machine refused to
+    start (busy, disconnected, not ready, or a write failed).
     """
     from .protocol import RecipeComponent as ProtocolRC
 
@@ -59,33 +116,40 @@ async def _brew_recipe_components(
     if len(phases) > 2:
         raise ValueError(f"phases length {len(phases)} > 2; cap to 2 in caller")
 
-    def _to_proto(comp: dict, *, blend_value: int) -> ProtocolRC:
-        return ProtocolRC(
-            process=PROCESS_MAP.get(comp.get("process", "none"), 0),
-            shots=SHOTS_MAP.get(comp.get("shots", "none"), 0),
-            blend=blend_value,
-            intensity=INTENSITY_MAP.get(comp.get("intensity", "medium"), 2),
-            aroma=AROMA_MAP.get(comp.get("aroma", "standard"), 0),
-            temperature=TEMPERATURE_MAP.get(comp.get("temperature", "normal"), 1),
-            portion=int(comp.get("portion_ml", 0)) // 5,
+    ble_blend = _LLM_BLEND_TO_BLE.get(blend)
+    if ble_blend is None:
+        raise ValueError(
+            f"unknown blend value {blend!r}; expected 1 (hopper 1) or 0 (hopper 2)"
         )
 
-    component1 = _to_proto(phases[0].get("component", {}), blend_value=blend)
-    if len(phases) >= 2:
-        component2 = _to_proto(
-            phases[1].get("component", {}),
-            blend_value=0 if blend == 1 else 1,
+    def _to_proto(comp: dict) -> ProtocolRC:
+        return ProtocolRC(
+            process=_resolve_enum(PROCESS_MAP, "process", comp.get("process"), "none"),
+            shots=_resolve_enum(SHOTS_MAP, "shots", comp.get("shots"), "none"),
+            blend=ble_blend,
+            intensity=_resolve_enum(
+                INTENSITY_MAP, "intensity", comp.get("intensity"), "medium"
+            ),
+            aroma=_resolve_enum(AROMA_MAP, "aroma", comp.get("aroma"), "standard"),
+            temperature=_resolve_enum(
+                TEMPERATURE_MAP, "temperature", comp.get("temperature"), "normal"
+            ),
+            portion=_resolve_portion(comp.get("portion_ml")),
         )
+
+    component1 = _to_proto(phases[0].get("component", {}))
+    if len(phases) >= 2:
+        component2 = _to_proto(phases[1].get("component", {}))
     else:
         # Single-phase: synthesize a "none"-process component2 — BLE protocol
-        # treats this as "no second pour".
+        # treats this as "no second pour". Same blend byte as phase 1.
         component2 = ProtocolRC(
-            process=PROCESS_MAP.get("none", 0),
-            shots=SHOTS_MAP.get("none", 0),
-            blend=0 if blend == 1 else 1,
-            intensity=INTENSITY_MAP.get("medium", 2),
-            aroma=AROMA_MAP.get("standard", 0),
-            temperature=TEMPERATURE_MAP.get("normal", 1),
+            process=PROCESS_MAP["none"],
+            shots=SHOTS_MAP["none"],
+            blend=ble_blend,
+            intensity=INTENSITY_MAP["medium"],
+            aroma=AROMA_MAP["standard"],
+            temperature=TEMPERATURE_MAP["normal"],
             portion=0,
         )
 
@@ -100,11 +164,34 @@ async def _brew_recipe_components(
         family_key = getattr(caps, "family_key", "unknown")
         raise RecipeWritesUnsupportedError(family_key)
 
-    await client.brew_freestyle(
+    return await client.brew_freestyle(
         name=name,
         recipe_type=24,
         component1=component1,
         component2=component2,
+    )
+
+
+async def _brew_recipe_phase(
+    client, name: str, blend: int, phases: list[dict], phase_index: int
+) -> bool:
+    """Brew exactly one machine phase of a multi-phase recipe.
+
+    The step-machine wizard drives phases one at a time so the user can
+    perform ``user_action_before`` steps between pours. Delegates to
+    ``_brew_recipe_components`` with a single-element phase list, which
+    already encodes "no second pour" via the synthesized none-process
+    component2 — the translation/validation logic stays single-source.
+    Raises ``ValueError`` for an out-of-range ``phase_index`` (WS callers
+    pre-check the range to report a distinct ``invalid_phase`` error).
+    """
+    if not 0 <= phase_index < len(phases):
+        raise ValueError(
+            f"phase_index {phase_index} out of range; "
+            f"recipe has {len(phases)} machine phase(s)"
+        )
+    return await _brew_recipe_components(
+        client, name=name, blend=blend, phases=[phases[phase_index]]
     )
 
 
@@ -208,6 +295,7 @@ def async_register_websocket_handlers(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_milk_set_available)
     websocket_api.async_register_command(hass, ws_generate)
     websocket_api.async_register_command(hass, ws_brew)
+    websocket_api.async_register_command(hass, ws_brew_phase)
     websocket_api.async_register_command(hass, ws_favorites_list)
     websocket_api.async_register_command(hass, ws_favorites_add)
     websocket_api.async_register_command(hass, ws_favorites_remove)
@@ -412,6 +500,9 @@ async def ws_capabilities_get(hass, connection, msg) -> None:
                         "supported_shots": list(cap.supported_shots),
                         "portion_limits": cap.portion_limits,
                         "forbidden_combinations": list(cap.forbidden_combinations),
+                        # Gating flag for the panel's print-only UX (Nivona
+                        # families set this False).
+                        "supports_recipe_writes": cap.supports_recipe_writes,
                     },
                 })
                 return
@@ -444,6 +535,9 @@ async def ws_capabilities_get(hass, connection, msg) -> None:
             "supported_shots": list(cap.supported_shots),
             "portion_limits": cap.portion_limits,
             "forbidden_combinations": list(cap.forbidden_combinations),
+            # Gating flag for the panel's print-only UX (Nivona families
+            # set this False).
+            "supports_recipe_writes": cap.supports_recipe_writes,
         },
     })
 
@@ -857,7 +951,7 @@ async def ws_brew(
         return
 
     try:
-        await _brew_recipe_components(
+        brewed = await _brew_recipe_components(
             client,
             name=recipe.get("name", "Sommelier"),
             blend=recipe.get("blend", 1),
@@ -871,6 +965,10 @@ async def ws_brew(
             "recipe writes. The recipe is print-only here.",
         )
         return
+    except ValueError as exc:
+        _LOGGER.warning("Recipe %s failed brew-time validation: %s", msg["recipe_id"], exc)
+        connection.send_error(msg["id"], "brew_failed", str(exc))
+        return
     except Exception:
         _LOGGER.exception("Failed to brew recipe")
         connection.send_error(
@@ -878,8 +976,149 @@ async def ws_brew(
         )
         return
 
+    if not brewed:
+        connection.send_error(
+            msg["id"],
+            "brew_failed",
+            "The machine refused to start brewing (busy, not ready, or "
+            "disconnected). Check the machine and try again.",
+        )
+        return
+
     await db.async_mark_recipe_brewed(msg["recipe_id"])
     _send_versioned(connection, msg["id"], {})
+
+
+# ── Brew a single phase (step-machine wizard) ────────────────────────
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/brew_phase",
+        vol.Exclusive("recipe_id", "target"): cv.string,
+        vol.Exclusive("favorite_id", "target"): cv.string,
+        vol.Required("phase_index"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_brew_phase(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Brew a single machine phase of a recipe or favorite.
+
+    Backend of the step-machine wizard: exactly one of ``recipe_id`` /
+    ``favorite_id`` selects the source row, and ``machine_phases[phase_index]``
+    is brewed alone (the BLE call still carries a none-process component2,
+    i.e. "no second pour"). The reply carries ``phase_count`` and the NEXT
+    phase's ``user_action_before`` list so the wizard can show inter-phase
+    manual steps without refetching the recipe. The brewed marker /
+    favorite counter only advances when the LAST phase starts successfully,
+    so a wizard aborted mid-recipe doesn't count as a completed drink.
+    """
+    has_recipe = "recipe_id" in msg
+    has_favorite = "favorite_id" in msg
+    if has_recipe == has_favorite:
+        connection.send_error(
+            msg["id"],
+            "invalid_target",
+            "exactly one of recipe_id or favorite_id is required",
+        )
+        return
+
+    db = await _async_get_db(hass)
+    if has_recipe:
+        row = await db.async_get_recipe(msg["recipe_id"])
+    else:
+        row = await db.async_get_favorite(msg["favorite_id"])
+    if row is None:
+        connection.send_error(
+            msg["id"],
+            "not_found",
+            "Recipe not found" if has_recipe else "Favorite not found",
+        )
+        return
+
+    client = _find_client(hass)
+    if client is None:
+        connection.send_error(msg["id"], "no_device", "No coffee machine available")
+        return
+
+    phases = row.get("machine_phases") or []
+    phase_count = len(phases)
+    phase_index = msg["phase_index"]
+    if not 0 <= phase_index < phase_count:
+        connection.send_error(
+            msg["id"],
+            "invalid_phase",
+            f"phase_index {phase_index} out of range; "
+            f"recipe has {phase_count} machine phase(s)",
+        )
+        return
+
+    try:
+        brewed = await _brew_recipe_phase(
+            client,
+            name=row.get("name", "Sommelier"),
+            blend=row.get("blend", 1),
+            phases=phases,
+            phase_index=phase_index,
+        )
+    except RecipeWritesUnsupportedError as exc:
+        connection.send_error(
+            msg["id"],
+            "recipe_writes_unsupported",
+            f"This machine ({exc.family_key}) does not support custom "
+            "recipe writes. The recipe is print-only here.",
+        )
+        return
+    except ValueError as exc:
+        _LOGGER.warning(
+            "Phase %s of %s failed brew-time validation: %s",
+            phase_index,
+            row.get("id"),
+            exc,
+        )
+        connection.send_error(msg["id"], "brew_failed", str(exc))
+        return
+    except Exception:
+        _LOGGER.exception("Failed to brew phase %s of %s", phase_index, row.get("id"))
+        connection.send_error(
+            msg["id"], "brew_failed", "Brewing failed; see HA logs"
+        )
+        return
+
+    if not brewed:
+        connection.send_error(
+            msg["id"],
+            "brew_failed",
+            "The machine refused to start brewing (busy, not ready, or "
+            "disconnected). Check the machine and try again.",
+        )
+        return
+
+    if phase_index == phase_count - 1:
+        if has_recipe:
+            await db.async_mark_recipe_brewed(msg["recipe_id"])
+        else:
+            await db.async_increment_favorite_brew(msg["favorite_id"])
+
+    next_actions = (
+        phases[phase_index + 1].get("user_action_before") or []
+        if phase_index + 1 < phase_count
+        else []
+    )
+    _send_versioned(
+        connection,
+        msg["id"],
+        {
+            "success": True,
+            "phase_index": phase_index,
+            "phase_count": phase_count,
+            "manual_actions_next": next_actions,
+        },
+    )
 
 
 # ── Favorites ─────────────────────────────────────────────────────────
@@ -925,9 +1164,11 @@ async def ws_favorites_add(
         connection.send_error(msg["id"], "not_found", "Recipe not found")
         return
 
-    # Get current hopper bean for source tracking
+    # Get current hopper bean for source tracking. Recipe blend uses the
+    # LLM semantics (1 = hopper 1, 0 = hopper 2) — same translation as the
+    # BLE boundary in _brew_recipe_components.
     hoppers = await db.async_get_hoppers()
-    hopper_key = f"hopper{recipe['blend'] + 1}"
+    hopper_key = "hopper1" if recipe["blend"] == 1 else "hopper2"
     source_bean = hoppers.get(hopper_key, {}).get("bean")
 
     # Pass through machine_phases so async_add_favorite stores the v5
@@ -1025,7 +1266,7 @@ async def ws_favorites_brew(
         return
 
     try:
-        await _brew_recipe_components(
+        brewed = await _brew_recipe_components(
             client,
             name=fav.get("name", "Sommelier"),
             blend=fav.get("blend", 1),
@@ -1039,10 +1280,25 @@ async def ws_favorites_brew(
             "recipe writes. The recipe is print-only here.",
         )
         return
+    except ValueError as exc:
+        _LOGGER.warning(
+            "Favorite %s failed brew-time validation: %s", msg["favorite_id"], exc
+        )
+        connection.send_error(msg["id"], "brew_failed", str(exc))
+        return
     except Exception:
         _LOGGER.exception("Failed to brew favorite")
         connection.send_error(
             msg["id"], "brew_failed", "Brewing favorite failed; see HA logs"
+        )
+        return
+
+    if not brewed:
+        connection.send_error(
+            msg["id"],
+            "brew_failed",
+            "The machine refused to start brewing (busy, not ready, or "
+            "disconnected). Check the machine and try again.",
         )
         return
 

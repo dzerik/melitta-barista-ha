@@ -2,6 +2,27 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.89.0b1] — 2026-08-29 (beta)
+
+The AI Sommelier release: a 29-agent audit (24 confirmed findings) followed by the fixes and the new brewing wizard. Beta for field testing.
+
+### Fixed
+
+- **Brew results are honest now.** A busy/disconnected/refusing machine no longer yields a "success" reply: `sommelier/brew`, `favorites/brew` (and the new `brew_phase`) propagate the machine's refusal as a `brew_failed` error with a human message, and brewed counters/marks only advance on a real start.
+- **Hopper selection actually works.** The recipe's blend value was written raw into the BLE blend byte whose encoding differs — hopper 2 was unreachable (a "decaf evening" recipe ground caffeinated beans from hopper 1) and the second phase was hard-inverted. Blend is now translated once at the BLE boundary, both phases use the same hopper, and favorites record the correct source bean.
+- **Brew-time re-validation.** Stored/legacy recipe rows are re-validated before touching BLE: portions clamped to 0–250 ml on the 5 ml grid (round-half, not floor), unknown process/intensity/temperature/shots/aroma values raise a descriptive error instead of silently brewing something else.
+- **"Why this recipe?" finally works** — the sommelier now produces a one-sentence rationale linking the pick to your mood/occasion/weather/beans (localized), it survives storage, and the existing UI expander lights up.
+- **Data-layer fixes**: deleting a bean/profile referenced by history no longer fails with a database error (references are detached first); `profiles/update` no longer silently discards preference fields; failed migrations are logged and retried instead of being silently stamped as complete; rating rows are cleaned up with their favorites/history.
+- Nivona machines no longer see an enabled Brew button they can't use (`supports_recipe_writes` is now exposed to the panel); the live LLM call gained a real timeout.
+
+### Added
+
+- **Step-by-step brewing wizard.** The 3-screen shell is now a linear step machine built from the recipe: "Place a 300 ml mug" → confirm → your pre-steps one at a time (explicit Done tap each) → machine phase with **real progress** (the wizard now polls actual machine state — completion detection used to be dead code) → between-phase instructions ("pour the cold milk now") that were previously stored but never shown → machine prompts surfaced inline with a Confirm button → post-steps. Numbered "step N of M", closing mid-brew warns and reopening restores your position. Two-phase drinks brew per-phase via a new `brew_phase` command with a pause for manual actions between phases.
+
+### Known remaining (targeted for 0.89.0 final)
+
+- Brew commands target the first config entry (multi-machine setups); panel UI languages still en+ru of the integration's 29; `reasoning` is not yet persisted into history cards (live generation path only).
+
 ## [0.88.0b2] — 2026-08-20 (beta)
 
 ### Fixed

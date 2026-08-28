@@ -293,7 +293,7 @@ def _build_prompt(
         language_section = (
             f"\n## Language\n"
             f"User locale: {language}. Reply with all human-readable strings "
-            f"(name, description, step.action, step.ingredient, step.notes, "
+            f"(name, description, reasoning, step.action, step.ingredient, step.notes, "
             f"extras.instruction) in this language. Keep enum values "
             f"(roast, intensity, processes, units like \"ml\") in English "
             f"so they validate against the schema."
@@ -390,6 +390,7 @@ def _build_prompt(
 - If milk is available, include at least one milk-based recipe (unless user prefers black)
 - Use 1 machine_phase by default. Add a 2nd machine_phase only when a single-phase brew can't achieve the result — e.g. layered drinks, milk added cold after espresso. NEVER use more than 2 phases.
 - Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile
+- Each recipe MUST include a "reasoning" field: ONE sentence, in the user's language, explaining why THIS pick fits the current context — link it to the stated mood, occasion, weather, time of day, and/or the available beans
 - If two hoppers available, use both across the recipe set
 - blend field: 1 for hopper 1 beans, 0 for hopper 2 beans. If only one hopper, always use that one.
 {output_format_block}"""
@@ -402,6 +403,7 @@ Return ONLY a JSON array, no other text:
   {
     "name": "Latte",
     "description": "Classic milk-forward coffee",
+    "reasoning": "A gentle milk-forward pick for this rainy afternoon that lets your dark-roast beans shine.",
     "blend": 1,
     "machine_phases": [
       {
@@ -474,7 +476,12 @@ def _clamp_portion(value: Any) -> int:
 
 
 def _validate_component(comp: dict[str, Any], is_comp2: bool = False) -> dict[str, Any]:
-    """Validate and normalize a recipe component."""
+    """Validate and normalize a recipe component.
+
+    ``is_comp2=True`` keeps the legacy second-component semantics: an
+    unknown process degrades to "none" (meaning "no phase") rather than
+    to "coffee". Callers validating machine_phases pass ``idx > 0``.
+    """
     process = str(comp.get("process", "coffee")).lower()
     if is_comp2 and process not in VALID_PROCESSES:
         process = "none"
@@ -563,13 +570,21 @@ def _validate_extras(raw_extras: Any) -> dict[str, Any] | None:
 
 
 def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Validate and normalize a list of recipes from LLM."""
+    """Validate and normalize a list of recipes from LLM.
+
+    Clamps portions/enums to machine-accepted values, passes `reasoning`
+    and `steps` through, and drops placeholder "none" machine phases.
+    """
     validated = []
     for raw in raw_recipes:
         if not isinstance(raw, dict):
             continue
         name = str(raw.get("name", "AI Recipe"))[:100]
         description = str(raw.get("description", ""))[:500]
+        # "Why this recipe?" — the LLM's one-sentence justification tying
+        # the pick to mood/occasion/weather/beans (rendered by the panel's
+        # collapsible Why? expander).
+        reasoning = str(raw.get("reasoning") or "")[:500]
 
         blend = raw.get("blend", 1)
         if blend not in (0, 1):
@@ -581,13 +596,31 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
             raw_phases = [{"component": {}}]
         if len(raw_phases) > 2:
             raw_phases = raw_phases[:2]
-        machine_phases = [
-            {
-                "component": _validate_component(p.get("component") or {}),
+        # A phase whose process is "none" is a placeholder ("no phase"),
+        # not a brewable step — drop it instead of coercing it into a
+        # phantom 40ml coffee pour. Phase index > 0 keeps the legacy
+        # second-component semantics (unknown process -> "none" -> drop).
+        machine_phases = []
+        for idx, p in enumerate(raw_phases):
+            if not isinstance(p, dict):
+                continue
+            raw_comp = p.get("component") or {}
+            if str(raw_comp.get("process", "")).lower() == "none":
+                continue
+            component = _validate_component(raw_comp, is_comp2=idx > 0)
+            if component["process"] == "none":
+                continue
+            machine_phases.append({
+                "component": component,
                 "user_action_before": p.get("user_action_before") or [],
-            }
-            for p in raw_phases
-        ]
+            })
+        if not machine_phases:
+            # Degenerate all-"none" recipe: keep the min-1-phase invariant
+            # with a default coffee phase (matches the pre-P2a fallback).
+            machine_phases = [{
+                "component": _validate_component({}),
+                "user_action_before": [],
+            }]
 
         extras = _validate_extras(raw.get("extras"))
 
@@ -618,6 +651,7 @@ def _validate_recipes(raw_recipes: list[dict[str, Any]]) -> list[dict[str, Any]]
         recipe: dict[str, Any] = {
             "name": name,
             "description": description,
+            "reasoning": reasoning,
             "blend": blend,
             "machine_phases": machine_phases,
             "steps": steps,
@@ -658,7 +692,14 @@ async def async_generate_recipes(
     language: str | None = None,
     moods: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Generate freestyle recipes using HA conversation agent."""
+    """Generate freestyle recipes using HA conversation agent.
+
+    .. deprecated::
+        Legacy direct-conversation path, no longer used by the live
+        Sommelier pipeline — `sommelier_api.ws_generate` calls
+        `panel_api._structured_call` instead (schema-validated, with its
+        own LLM_TIMEOUT bound). Kept for backwards compatibility only.
+    """
     prompt = _build_prompt(
         hopper1_bean=hopper1_bean,
         hopper2_bean=hopper2_bean,
