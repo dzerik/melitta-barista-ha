@@ -22,7 +22,7 @@ from .const import (
     TEMPERATURE_MAP,
     Blend,
 )
-from .panel_api import _send_versioned
+from .panel_api import _check_llm_agent, _resolve_agent_id, _send_versioned
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -696,6 +696,15 @@ async def ws_generate(
 ) -> None:
     """Generate AI freestyle recipes."""
     db = await _async_get_db(hass)
+    # Fail fast with an actionable message when no usable LLM agent is
+    # configured (issue #38) — otherwise the call would fall through to
+    # the built-in Assist agent and die with an opaque parse error.
+    agent_id = await _resolve_agent_id(hass, msg)
+    agent_problem = _check_llm_agent(hass, agent_id)
+    if agent_problem is not None:
+        connection.send_error(msg["id"], agent_problem[0], agent_problem[1])
+        return
+
     hoppers = await db.async_get_hoppers()
     milk_types = await db.async_get_milk()
     settings = await db.async_get_settings()
@@ -801,7 +810,6 @@ async def ws_generate(
     # default inside _build_prompt when None.
     try:
         from .panel_api import (  # noqa: PLC0415
-            _resolve_agent_id,
             _resolve_prompt,
             _structured_call,
         )

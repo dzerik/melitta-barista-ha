@@ -549,6 +549,57 @@ async def _resolve_agent_id(hass, msg) -> str | None:
         return None
 
 
+def _check_llm_agent(hass, agent_id):
+    """Pre-flight for LLM-backed generation (issue #38).
+
+    Returns None when the agent looks usable, else a ``(code, message)``
+    pair for ``connection.send_error``. Without this check a missing
+    agent silently fell through to the built-in Assist agent, whose
+    non-JSON reply failed parsing and surfaced as an opaque error.
+
+    Cases:
+    - no agent chosen and no conversation entities besides the built-in
+      Assist -> ``no_llm_agent`` (user needs an LLM integration first);
+    - no agent chosen but LLM agents exist -> ``no_llm_agent_selected``
+      (actionable: names them);
+    - chosen ``conversation.*`` entity no longer exists ->
+      ``llm_agent_missing``;
+    - non-conversation ids (e.g. smartchain.*) can't be verified via the
+      state machine and are trusted.
+    """
+    assist_ids = {"conversation.home_assistant"}
+    if agent_id and agent_id not in ("homeassistant",):
+        if agent_id.startswith("conversation."):
+            if hass.states.get(agent_id) is None:
+                return (
+                    "llm_agent_missing",
+                    f"The selected AI agent '{agent_id}' no longer exists "
+                    "(its integration was removed or renamed). Pick another "
+                    "agent in the panel Settings tab.",
+                )
+        return None
+    llm_agents = [
+        s for s in hass.states.async_all("conversation")
+        if s.entity_id not in assist_ids
+    ]
+    if not llm_agents:
+        return (
+            "no_llm_agent",
+            "The AI Sommelier needs a conversation/LLM integration "
+            "(e.g. OpenAI Conversation, Google Generative AI, Ollama). "
+            "None is installed in this Home Assistant — add one, then "
+            "select it in the panel Settings tab.",
+        )
+    names = ", ".join(
+        (s.attributes.get("friendly_name") or s.entity_id) for s in llm_agents[:5]
+    )
+    return (
+        "no_llm_agent_selected",
+        f"No AI agent is selected. Available agents: {names}. "
+        "Pick one in the panel Settings tab (Settings -> AI agent).",
+    )
+
+
 def _llm_call_buffer(hass) -> deque:
     """Lazy-init the per-process LLM call ring buffer. Capped at 20 entries."""
     domain_data = hass.data.setdefault(DOMAIN, {})

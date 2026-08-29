@@ -190,6 +190,7 @@ async def test_ws_generate_passes_caps_from_db_cache_to_build_prompt():
         "id": 1,
         "type": "melitta_barista/sommelier/generate",
         "mode": "surprise_me",
+        "agent_id": "smartchain.test",  # pre-flight (issue #38): trusted id
         "count": 3,
     }
 
