@@ -24,6 +24,7 @@ class MelittaSettings extends LitElement {
       entryId: { type: String },
       lang: { type: String },
       _agents: { type: Array },
+      _timeoutS: { type: String },
       _selectedAgent: { type: String },
       _prompts: { type: Array },
       _drafts: { type: Object },
@@ -38,6 +39,7 @@ class MelittaSettings extends LitElement {
   constructor() {
     super();
     this._agents = [];
+    this._timeoutS = "";
     this._selectedAgent = "";
     this._prompts = [];
     this._drafts = {};
@@ -88,11 +90,32 @@ class MelittaSettings extends LitElement {
       ]);
       this._agents = a.agents || [];
       this._selectedAgent = (s.settings || {}).llm_agent_id || "";
+      this._timeoutS = (s.settings || {}).llm_timeout_s || "60";
       this._prompts = p.prompts || [];
       const drafts = {};
       for (const item of this._prompts) drafts[item.slot] = item.template;
       this._drafts = drafts;
       this._error = "";
+    } catch (e) {
+      this._error = e.message || String(e);
+    }
+  }
+
+  async _saveTimeout(value) {
+    this._info = "";
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 10 || n > 600) {
+      this._error = this._t("settings.llm_timeout_invalid");
+      return;
+    }
+    try {
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/settings/set",
+        key: "llm_timeout_s",
+        value: String(n),
+      });
+      this._error = "";
+      this._info = this._t("settings.saved");
     } catch (e) {
       this._error = e.message || String(e);
     }
@@ -165,6 +188,12 @@ class MelittaSettings extends LitElement {
             </option>
           `)}
         </select>
+
+        <h3>${this._t("settings.llm_timeout")}</h3>
+        <p class="help">${this._t("settings.llm_timeout_help")}</p>
+        <input type="number" min="10" max="600" step="10"
+          .value=${this._timeoutS || "60"}
+          @change=${(e) => { this._timeoutS = e.target.value; this._saveTimeout(e.target.value); }} />
 
         <h3>${this._t("settings.prompts")}</h3>
 

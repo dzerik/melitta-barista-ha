@@ -216,7 +216,7 @@ VALID_EXTRAS_CATEGORIES = ["syrups", "toppings", "liqueurs"]
 # on every startup; if it were overwritten with garbage from a WS caller,
 # future migrations would either skip or re-run incorrectly. The allowlist
 # below is therefore not a UX gate — it is a hard schema guarantee.
-VALID_SETTING_KEYS = ["llm_agent_id"]
+VALID_SETTING_KEYS = ["llm_agent_id", "llm_timeout_s"]
 
 # User-writable keys for the `user_preferences` table. There is no current
 # WS caller, but the endpoint exists; restrict it the same way to prevent

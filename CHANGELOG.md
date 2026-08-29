@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.89.0b3] — 2026-08-29 (beta)
+
+### Added
+
+- **Configurable LLM timeout** (#38, local-model case). A local LLM can answer short prompts in seconds yet spend minutes *prefilling* the Sommelier's large prompt — the fixed 60 s ceiling made generation impossible on such setups while bean autofill (short prompt) worked fine. New panel setting **Settings → LLM timeout (seconds)** (10–600, default 60) applies to all Sommelier LLM calls; the timeout error message reports the actual configured value.
+
 ## [0.89.0b2] — 2026-08-29 (beta)
 
 ### Added

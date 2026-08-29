@@ -628,7 +628,26 @@ def _record_llm_call(
     })
 
 
-async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
+def _resolve_llm_timeout(settings: dict) -> float:
+    """Effective LLM timeout in seconds (issue #38, local-model prefill).
+
+    A local model can spend minutes prefilling the Sommelier's large
+    prompt while answering short prompts in seconds — a fixed 60 s made
+    generation impossible on such setups. Reads ``llm_timeout_s`` from
+    the settings table, clamped to 10..600; malformed/absent values fall
+    back to ``LLM_TIMEOUT``.
+    """
+    raw = (settings or {}).get("llm_timeout_s")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return LLM_TIMEOUT
+    return max(10.0, min(600.0, value))
+
+
+async def _llm_call_text(
+    hass, prompt: str, agent_id: str | None, ctx, *, timeout: float | None = None,
+) -> str:
     """Single round-trip to the conversation agent; returns raw speech text.
 
     Bounded by ``LLM_TIMEOUT`` so a hung provider (outage, stuck local
@@ -637,6 +656,8 @@ async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
     `_structured_call` gets its own timeout window.
     """
     from homeassistant.components import conversation  # noqa: PLC0415
+    if timeout is None:
+        timeout = LLM_TIMEOUT
     try:
         result = await asyncio.wait_for(
             conversation.async_converse(
@@ -647,11 +668,11 @@ async def _llm_call_text(hass, prompt: str, agent_id: str | None, ctx) -> str:
                 language=hass.config.language,
                 agent_id=agent_id,
             ),
-            timeout=LLM_TIMEOUT,
+            timeout=timeout,
         )
     except asyncio.TimeoutError as err:
         raise RuntimeError(
-            f"LLM request timed out after {LLM_TIMEOUT:.0f}s. "
+            f"LLM request timed out after {timeout:.0f}s. "
             "The conversation agent did not respond in time."
         ) from err
     try:
@@ -677,6 +698,11 @@ async def _structured_call(
     errors as feedback if it fails.
     """
     smartchain = _try_smartchain_structured()
+    try:
+        _settings_db = await _async_get_db(hass)
+        llm_timeout = _resolve_llm_timeout(await _settings_db.async_get_settings())
+    except Exception:  # noqa: BLE001 — settings unavailable, use default
+        llm_timeout = LLM_TIMEOUT
     model = RESPONSE_MODELS.get(slot)
     template = await _resolve_prompt(hass, slot)
 
@@ -739,7 +765,7 @@ async def _structured_call(
                 f"Errors: {_json.dumps(last_errors, ensure_ascii=False)}\n"
                 "Re-emit a corrected JSON object matching the schema above."
             )
-        raw = await _llm_call_text(hass, prompt, agent_id, ctx)
+        raw = await _llm_call_text(hass, prompt, agent_id, ctx, timeout=llm_timeout)
         data = _parse_llm_json(raw)
         if data is None:
             last_errors = [{"loc": "<root>", "msg": "Response was not valid JSON"}]
