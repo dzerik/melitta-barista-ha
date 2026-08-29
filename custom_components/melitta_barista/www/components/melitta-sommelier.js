@@ -399,7 +399,10 @@ class MelittaSommelier extends LitElement {
       // the DevTools console for deeper debugging.
       const code = e?.code || "error";
       const msg = e?.message || String(e);
-      this._error = `[${code}] ${msg}`;
+      const agentCodes = ["no_llm_agent", "no_llm_agent_selected", "llm_agent_missing"];
+      this._error = agentCodes.includes(code)
+        ? `${this._t("sommelier.err." + code)} ${msg}`
+        : `[${code}] ${msg}`;
       // eslint-disable-next-line no-console
       console.error("[melitta-panel] generate failed:", e, "payload:", payload);
     } finally {

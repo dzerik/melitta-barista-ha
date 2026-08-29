@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.89.0b2] — 2026-08-29 (beta)
+
+### Added
+
+- **Explicit LLM-agent pre-flight for the Sommelier** (#38). Recipe generation now checks the AI agent BEFORE calling anything and answers with a precise, actionable error instead of an opaque failure: no conversation/LLM integration installed at all ("install one, then select it in Settings"), agents exist but none selected (names the available ones), or the previously selected agent no longer exists. Previously a missing agent silently fell through to the built-in Assist agent, whose reply failed parsing — the field report saw `error [object Object]`. The panel maps the new error codes to localized messages (en/ru) pointing at the Settings tab.
+
 ## [0.89.0b1] — 2026-08-29 (beta)
 
 The AI Sommelier release: a 29-agent audit (24 confirmed findings) followed by the fixes and the new brewing wizard. Beta for field testing.
