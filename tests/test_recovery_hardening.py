@@ -81,7 +81,10 @@ class TestAuthEvidenceGate:
         unpair.assert_not_awaited()           # ...but no auth evidence
 
     async def test_auth_failure_authorizes_unpair(self):
-        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client = MelittaBleClient(
+            ADDRESS, pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         # 0.88: MISMATCH-grade evidence = a PRIOR auth cycle plus the one in
         # flight (single-cycle evidence no longer destroys bonds).
         client.bond.on_cycle_failure(FAILURE_AUTH)
@@ -98,7 +101,10 @@ class TestAuthEvidenceGate:
     async def test_auth_failure_without_link_still_authorizes_unpair(self):
         """The old gate's false-negative: SMP rejection can happen without
         our link_seen flag; auth evidence alone must suffice."""
-        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client = MelittaBleClient(
+            ADDRESS, pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         client.bond.on_cycle_failure(FAILURE_AUTH)  # prior auth cycle
         assert client._ble_link_seen is False
         establish = AsyncMock(
@@ -134,7 +140,10 @@ class TestUnpairLatch:
             await client._connect_impl()
 
     async def test_second_cycle_does_not_unpair_again(self):
-        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client = MelittaBleClient(
+            ADDRESS, pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         client.bond.on_cycle_failure(FAILURE_AUTH)
         client.bond.on_cycle_failure(FAILURE_AUTH)  # MISMATCH
         unpair = AsyncMock(side_effect=lambda: setattr(
@@ -229,12 +238,23 @@ class TestBondMachineIntegration:
     def test_note_connect_failure_feeds_machine(self):
         from custom_components.melitta_barista.bond_state import BondState
 
-        client = MelittaBleClient(ADDRESS, repair_after_failures=0)
+        client = MelittaBleClient(
+            ADDRESS, repair_after_failures=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         client._auth_fail_seen = True
         client._note_connect_failure()
         assert client.bond.state is BondState.SUSPECT
         client._note_connect_failure()
         assert client.bond.state is BondState.MISMATCH
+
+    def test_auth_failure_on_unproven_source_does_not_poison_bond_state(self):
+        from custom_components.melitta_barista.bond_state import BondState
+
+        client = MelittaBleClient(ADDRESS, repair_after_failures=0)
+        client._auth_fail_seen = True
+        client._note_connect_failure()
+        assert client.bond.state is BondState.UNKNOWN
 
     def test_transient_failures_do_not_feed_machine(self):
         from custom_components.melitta_barista.bond_state import BondState
@@ -256,7 +276,10 @@ class TestBondMachineIntegration:
 
     async def test_single_auth_cycle_no_longer_destroys_bond(self):
         """0.88 tightening over 0.87.2: one auth cycle = SUSPECT, no wipe."""
-        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client = MelittaBleClient(
+            ADDRESS, pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         establish = AsyncMock(
             side_effect=BleakError("Pairing failed due to error: 82"),
         )

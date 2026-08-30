@@ -210,6 +210,83 @@ class TestWaitForDevice:
 
 
 # ---------------------------------------------------------------------------
+# Existing local bond source discovery
+# ---------------------------------------------------------------------------
+
+
+class TestPairedAdapterSource:
+    """Bootstrap source affinity from BlueZ's persisted Device1 bond."""
+
+    @pytest.mark.asyncio
+    async def test_returns_adapter_address_for_paired_device(self) -> None:
+        mod = _import_ble_agent()
+        bus = MagicMock()
+        bus.connect = AsyncMock(return_value=bus)
+        bus.disconnect = MagicMock()
+        bus.introspect = AsyncMock(return_value=MagicMock())
+
+        manager = MagicMock()
+        manager.call_get_managed_objects = AsyncMock(return_value={
+            "/org/bluez/hci0": {
+                "org.bluez.Adapter1": {
+                    "Address": MagicMock(value="11:22:33:44:55:66"),
+                },
+            },
+            "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                "org.bluez.Device1": {
+                    "Address": MagicMock(value="AA:BB:CC:DD:EE:FF"),
+                    "Paired": MagicMock(value=True),
+                },
+            },
+        })
+        proxy = MagicMock()
+        proxy.get_interface.return_value = manager
+        bus.get_proxy_object.return_value = proxy
+
+        with patch.object(mod, "MessageBus", return_value=bus):
+            result = await mod.async_get_paired_adapter_source(
+                "AA:BB:CC:DD:EE:FF",
+            )
+
+        assert result == "11:22:33:44:55:66"
+        bus.disconnect.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_matching_device_is_not_paired(self) -> None:
+        mod = _import_ble_agent()
+        bus = MagicMock()
+        bus.connect = AsyncMock(return_value=bus)
+        bus.disconnect = MagicMock()
+        bus.introspect = AsyncMock(return_value=MagicMock())
+
+        manager = MagicMock()
+        manager.call_get_managed_objects = AsyncMock(return_value={
+            "/org/bluez/hci0": {
+                "org.bluez.Adapter1": {
+                    "Address": MagicMock(value="11:22:33:44:55:66"),
+                },
+            },
+            "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                "org.bluez.Device1": {
+                    "Address": MagicMock(value="AA:BB:CC:DD:EE:FF"),
+                    "Paired": MagicMock(value=False),
+                },
+            },
+        })
+        proxy = MagicMock()
+        proxy.get_interface.return_value = manager
+        bus.get_proxy_object.return_value = proxy
+
+        with patch.object(mod, "MessageBus", return_value=bus):
+            result = await mod.async_get_paired_adapter_source(
+                "AA:BB:CC:DD:EE:FF",
+            )
+
+        assert result is None
+        bus.disconnect.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # async_pair_device
 # ---------------------------------------------------------------------------
 

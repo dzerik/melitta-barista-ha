@@ -44,6 +44,11 @@ def _make_mock_client(
         return_value=profile_names if profile_names is not None else {0: "My Coffee", 1: "Guest"}
     )
     type(client).active_profile = PropertyMock(return_value=active_profile)
+    type(client).ble_source_affinity = PropertyMock(return_value=None)
+    type(client).ble_device_source = PropertyMock(return_value=None)
+    type(client).last_connected_source = PropertyMock(return_value=None)
+    type(client).source_migration_pending = PropertyMock(return_value=False)
+    type(client).seen_ble_sources = PropertyMock(return_value={})
     return client
 
 
@@ -82,7 +87,7 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
 
     assert set(result.keys()) == {
         "entry", "device", "status", "counters", "profiles", "options",
-        "ble_trace", "domain_entries", "recovery",
+        "ble_trace", "domain_entries", "recovery", "bluetooth_affinity",
     }
 
     # Entry section
@@ -112,6 +117,35 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
     assert "frame_log_decoded" in result["ble_trace"]
     assert isinstance(result["ble_trace"]["recent_frames_raw"], list)
     assert isinstance(result["ble_trace"]["frame_log_decoded"], list)
+
+
+async def test_diagnostics_bluetooth_affinity_redacts_mac_sources(
+    hass: HomeAssistant,
+) -> None:
+    """Affinity diagnostics expose routing state without full adapter MACs."""
+    client = _make_mock_client()
+    type(client).ble_source_affinity = PropertyMock(return_value="11:22:33:44:55:66")
+    type(client).ble_device_source = PropertyMock(return_value="11:22:33:44:55:66")
+    type(client).last_connected_source = PropertyMock(return_value="11:22:33:44:55:66")
+    type(client).source_migration_pending = PropertyMock(return_value=True)
+    type(client).seen_ble_sources = PropertyMock(return_value={
+        "11:22:33:44:55:66": 123.0,
+        "proxy-kitchen": 456.0,
+    })
+    entry = _make_entry(runtime_data=client)
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    affinity = result["bluetooth_affinity"]
+
+    assert affinity["affinity_source"] == "11:22:**:**:**:**:66"
+    assert affinity["current_device_source"] == "11:22:**:**:**:**:66"
+    assert affinity["last_connected_source"] == "11:22:**:**:**:**:66"
+    assert affinity["migration_pending"] is True
+    assert affinity["seen_sources"] == {
+        "11:22:**:**:**:**:66": 123.0,
+        "proxy-kitchen": 456.0,
+    }
 
 
 async def test_diagnostics_address_redacted(hass: HomeAssistant) -> None:

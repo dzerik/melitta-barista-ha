@@ -3,7 +3,7 @@
 Architecture follows the switchbot/led_ble pattern:
 - Store and update BLEDevice reference from HA bluetooth advertisements
 - Use BleakClientWithServiceCache + establish_connection() for reliable connections
-- ble_device_callback provides fresh device reference on each retry
+- Freeze the selected BLEDevice/source for each complete connect/pair ladder
 - Force StartNotify to avoid bleak 2.0 AcquireNotify issues
 """
 
@@ -73,6 +73,72 @@ class NoBleDeviceError(BleakError):
     """
 
 
+def _norm_ble_source(source: str | None) -> str:
+    """Normalize scanner source identifiers for stable comparisons."""
+    return (source or "").lower().replace(":", "").replace("-", "")
+
+
+def _source_pinned_ha_client_class(source: str):
+    """Return a HA Bleak client class restricted to one scanner source.
+
+    ``HaBleakClientWrapper`` deliberately ignores the BLEDevice passed to its
+    constructor when choosing a backend: on every ``connect()`` it asks
+    habluetooth for *all* scanners that can reach the address and chooses the
+    best-scoring path. That is exactly what normal HA Bluetooth clients want,
+    but it is unsafe for Melitta's single bonded-central model.
+
+    This small subclass keeps HA's normal connector/slot accounting while
+    narrowing backend selection to the source that owns the bond.  It uses a
+    protected habluetooth hook because there is currently no public
+    source-affinity argument on ``HaBleakClientWrapper``.
+    """
+    from habluetooth import HaBleakClientWrapper  # noqa: PLC0415
+
+    target = _norm_ble_source(source)
+
+    class _SourcePinnedHaBleakClient(HaBleakClientWrapper):
+        """HaBleakClientWrapper that may connect through one scanner only."""
+
+        def _async_get_best_available_backend_and_device(self, manager):
+            # HaBleakClientWrapper stores only the peer address (not the
+            # BLEDevice that was passed to __init__), then normally considers
+            # every registered scanner for that address. Read the same private
+            # address field so we can perform the identical backend allocation
+            # step, but only for the bonded scanner source.
+            address = self._HaBleakClientWrapper__address  # noqa: SLF001
+            scanner_devices = manager.async_scanner_devices_by_address(
+                address, True,
+            )
+            matching = [
+                item
+                for item in scanner_devices
+                if _norm_ble_source(getattr(item.scanner, "source", None)) == target
+            ]
+            matching.sort(key=lambda item: item.advertisement.rssi, reverse=True)
+
+            for item in matching:
+                backend = self._async_get_backend_for_ble_device(  # noqa: SLF001
+                    manager, item.scanner, item.ble_device,
+                )
+                if backend is not None:
+                    _LOGGER.debug(
+                        "Pinned Bluetooth backend for %s to %s (%s)",
+                        address, source, getattr(item.scanner, "name", source),
+                    )
+                    return backend
+
+            if matching:
+                raise BleakError(
+                    f"Pinned Bluetooth source {source} has no available "
+                    f"connection slot for {address}"
+                )
+            raise BleakError(
+                f"Pinned Bluetooth source {source} cannot currently reach {address}"
+            )
+
+    return _SourcePinnedHaBleakClient
+
+
 # Connect-failure classes (0.87.2 audit). The SMP rejection the machine
 # sends when its single bond slot doesn't match (auth fail reason=82) IS
 # distinguishable HA-side: the proxy forwards it as
@@ -118,8 +184,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
     """BLE client managing connection and communication with the machine.
 
     Follows the HA BLE integration pattern (switchbot/led_ble):
-    - BLEDevice reference is updated from advertisement callbacks
-    - Connection uses establish_connection() with ble_device_callback
+    - BLE advertisements track all visible scanner sources
+    - Bond-aware source affinity prevents authenticated connections from roaming
+    - Each connect/pair ladder freezes one BLEDevice and scanner source
     - Persistent connection with notification subscription for HX status
     """
 
@@ -129,6 +196,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         device_name: str | None = None,
         ble_device: BLEDevice | None = None,
         *,
+        ble_device_source: str | None = None,
+        ble_source_affinity: str | None = None,
+        source_migration_pending: bool = False,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         ble_connect_timeout: float = DEFAULT_BLE_CONNECT_TIMEOUT,
         frame_timeout: int = DEFAULT_FRAME_TIMEOUT,
@@ -145,6 +215,22 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._address = address
         self._device_name = device_name
         self._ble_device: BLEDevice | None = ble_device
+        self._ble_device_source: str | None = ble_device_source
+        # Bond-aware adapter affinity. Once a connection succeeds, the
+        # integration persists the scanner source that actually owns the bond
+        # and feeds it back here on subsequent setups. Advertisements from
+        # other scanners remain useful for presence/diagnostics but may not
+        # replace the BLEDevice used for authenticated connections.
+        self._ble_source_affinity: str | None = ble_source_affinity
+        self._source_migration_pending = bool(source_migration_pending)
+        self._last_connected_source: str | None = None
+        self._seen_sources: dict[str, float] = {}
+        if ble_device_source:
+            self._seen_sources[ble_device_source] = time.time()
+        self._source_learned_callback: Callable[[str], Any] | None = None
+        self._source_available_callback: Callable[[str], bool] | None = None
+        self._connect_cycle_device: BLEDevice | None = None
+        self._connect_cycle_source: str | None = None
         self._client: BleakClient | None = None
         if brand is None:
             from .brands import get_profile  # noqa: PLC0415
@@ -351,6 +437,70 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         if not value:
             self._last_auto_confirmed = Manipulation.NONE
 
+    @property
+    def ble_source_affinity(self) -> str | None:
+        """Scanner source that is allowed to own authenticated connections."""
+        return self._ble_source_affinity
+
+    @property
+    def source_migration_pending(self) -> bool:
+        """Whether the configured source differs from the proven bond owner."""
+        return self._source_migration_pending
+
+    @property
+    def ble_device_source(self) -> str | None:
+        """Scanner source associated with the currently cached BLEDevice."""
+        return self._ble_device_source
+
+    @property
+    def last_connected_source(self) -> str | None:
+        """Scanner source that completed the most recent handshake."""
+        return self._last_connected_source
+
+    @property
+    def seen_ble_sources(self) -> dict[str, float]:
+        """Return a copy of scanner sources that recently saw the machine."""
+        return dict(self._seen_sources)
+
+    def set_ble_source_affinity(self, source: str | None) -> None:
+        """Restrict future authenticated connections to ``source``.
+
+        ``None`` means the source is not known yet. In that bootstrap state a
+        connect cycle freezes whichever BLEDevice/source it starts with; the
+        first successful encrypted handshake then becomes the affinity source.
+        """
+        if _norm_ble_source(source) == _norm_ble_source(self._ble_source_affinity):
+            self._ble_source_affinity = source
+            return
+        old_source = self._ble_source_affinity
+        self._ble_source_affinity = source
+        _LOGGER.info(
+            "BLE source affinity for %s changed from %s to %s",
+            self._address, old_source or "unbound", source or "unbound",
+        )
+        if (
+            source is not None
+            and _norm_ble_source(self._ble_device_source) != _norm_ble_source(source)
+        ):
+            # Never carry a BLEDevice from another central across an affinity
+            # change: its backend details identify that central/proxy.
+            self._ble_device = None
+            self._ble_device_source = None
+            self._connect_cycle_device = None
+            self._connect_cycle_source = None
+
+    def set_source_learned_callback(
+        self, callback: Callable[[str], Any] | None,
+    ) -> None:
+        """Install callback used to persist a successfully proven source."""
+        self._source_learned_callback = callback
+
+    def set_source_available_callback(
+        self, callback: Callable[[str], bool] | None,
+    ) -> None:
+        """Install callback that reports whether an affinity scanner exists."""
+        self._source_available_callback = callback
+
     def set_repair_callback(self, callback: Callable[[], Any] | None) -> None:
         """Install the recovery routine the reconnect loop calls on wedge.
 
@@ -504,18 +654,59 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         except ValueError:
             pass
 
-    def set_ble_device(self, ble_device: BLEDevice) -> None:
-        """Update BLEDevice reference from advertisement callback.
+    def set_ble_device(
+        self, ble_device: BLEDevice, *, source: str | None = None,
+    ) -> bool:
+        """Update the connectable BLEDevice from an advertisement.
 
-        Called by __init__.py when HA sees a new advertisement from the device.
-        This keeps the BLEDevice fresh for establish_connection() retries.
-        If disconnected, triggers immediate reconnect attempt.
+        When source affinity is active, advertisements from other scanners are
+        deliberately *observed but not adopted*. A ``BLEDevice`` contains
+        backend/proxy-specific connection details, so replacing it with one
+        from another scanner would silently move a bonded peer to a different
+        BLE central and provoke an SMP authentication failure.
+
+        Returns ``True`` when the device was accepted for future connections.
         """
+        if source is None:
+            details = getattr(ble_device, "details", None)
+            if isinstance(details, dict):
+                raw_source = details.get("source")
+                if raw_source:
+                    source = str(raw_source)
+        if source:
+            self._seen_sources[source] = time.time()
+
+        affinity = self._ble_source_affinity
+        if (
+            affinity is not None
+            and _norm_ble_source(source) != _norm_ble_source(affinity)
+        ):
+            _LOGGER.debug(
+                "Ignoring BLEDevice update for %s from source %s; "
+                "bond affinity is %s",
+                self._address, source or "unknown", affinity,
+            )
+            # HA suppresses duplicate Bluetooth callbacks and may surface an
+            # advertisement from the best-scoring scanner rather than the bond
+            # owner. A foreign-source advertisement is still useful as a wake
+            # signal: the reconnect loop will query the owner-specific scanner
+            # cache through its presence callback before attempting a connect.
+            if not self._connected and self._auto_reconnect:
+                self._reconnect_event.set()
+                if (
+                    not self._external_loop_active
+                    and (not self._reconnect_task or self._reconnect_task.done())
+                ):
+                    self._schedule_reconnect()
+            return False
+
         self._ble_device = ble_device
+        self._ble_device_source = source
         if not self._connected and self._auto_reconnect:
             _LOGGER.info(
-                "BLE advertisement from %s while disconnected, triggering reconnect",
-                self._address,
+                "BLE advertisement from %s via %s while disconnected, "
+                "triggering reconnect",
+                self._address, source or "unknown source",
             )
             self._reconnect_event.set()
             # Only schedule reconnect if no loop is already running
@@ -528,6 +719,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 not self._reconnect_task or self._reconnect_task.done()
             ):
                 self._schedule_reconnect()
+        return True
 
     def add_status_callback(self, callback: Callable[[MachineStatus], None]) -> None:
         self._status_callbacks.append(callback)
@@ -706,7 +898,14 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             )
             return await self._raw_connect(pair=pair)
 
-        if self._ble_device is None:
+        # Freeze the device/source for the whole connect ladder. The old
+        # ble_device_callback returned ``self._ble_device`` dynamically, which
+        # allowed advertisements from a stronger proxy to move a retry to a
+        # different BLE central mid-pairing. Bonded devices must never roam
+        # between centrals inside one authentication attempt.
+        ble_device = self._connect_cycle_device or self._ble_device
+        source = self._connect_cycle_source or self._ble_device_source
+        if ble_device is None:
             # establish_connection() requires a real BLEDevice. Without one,
             # raise — the reconnect loop will wait for an advertisement
             # (set_ble_device sets _reconnect_event) instead of burning a
@@ -718,18 +917,30 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             )
 
         _LOGGER.debug(
-            "Using establish_connection for %s (pair=%s, ble_device=%s)",
-            self._address,
-            pair,
-            self._ble_device,
+            "Using establish_connection for %s (pair=%s, source=%s, "
+            "ble_device=%s)",
+            self._address, pair, source or "unknown", ble_device,
         )
+        client_class = BleakClientWithServiceCache
+        if source:
+            try:
+                client_class = _source_pinned_ha_client_class(source)
+            except ImportError:
+                # Standalone/tests without habluetooth keep the old path. HA
+                # always has habluetooth, so production source affinity is
+                # enforced by the pinned wrapper above.
+                _LOGGER.debug(
+                    "habluetooth unavailable; cannot enforce source pin %s for %s",
+                    source, self._address,
+                )
+
         return await establish_connection(
-            BleakClientWithServiceCache,
-            self._ble_device,
+            client_class,
+            ble_device,
             self._device_name or self._address,
             disconnected_callback=self._on_disconnect,
             use_services_cache=True,
-            ble_device_callback=lambda: self._ble_device,
+            ble_device_callback=lambda: ble_device,
             max_attempts=3,
             pair=pair,
         )
@@ -741,8 +952,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         so this path is never taken from HA. Kept so the client class works in
         unit tests and CLI scripts without bleak_retry_connector installed.
         """
+        ble_device = self._connect_cycle_device or self._ble_device
         client = BleakClient(
-            self._ble_device or self._address,
+            ble_device or self._address,
             disconnected_callback=self._on_disconnect,
             timeout=self._ble_connect_timeout,
             pair=pair,
@@ -794,7 +1006,17 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         local BlueZ adapter and ESPHome BLE proxy).
         """
         async with self._connect_lock:
-            return await self._connect_impl()
+            # Freeze one central for the complete ladder (pair=False ->
+            # pair=True -> optional unpair -> pair=True). Advertisements may
+            # continue arriving while it runs, but they cannot move an SMP
+            # exchange to a different adapter/proxy mid-cycle.
+            self._connect_cycle_device = self._ble_device
+            self._connect_cycle_source = self._ble_device_source
+            try:
+                return await self._connect_impl()
+            finally:
+                self._connect_cycle_device = None
+                self._connect_cycle_source = None
 
     async def _try_connect_and_handshake(self, *, pair: bool) -> bool:
         """Try to establish BLE connection and perform HU handshake.
@@ -813,10 +1035,24 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             raise
         except (BleakError, OSError, asyncio.TimeoutError) as err:
             self._record_connect_failure(err)
-            _LOGGER.debug(
-                "BLE connect failed (pair=%s, class=%s)",
-                pair, self._last_failure_class, exc_info=True,
-            )
+            if pair:
+                _LOGGER.warning(
+                    "BLE pairing/connect failed for %s via %s "
+                    "(class=%s, %s: %s)",
+                    self._address,
+                    self._connect_cycle_source
+                    or self._ble_device_source
+                    or self._ble_source_affinity
+                    or "automatic",
+                    self._last_failure_class,
+                    type(err).__name__,
+                    err,
+                )
+            else:
+                _LOGGER.debug(
+                    "BLE connect failed (pair=%s, class=%s)",
+                    pair, self._last_failure_class, exc_info=True,
+                )
             self._client = None
             return False
 
@@ -904,6 +1140,21 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         reconnect cycle, a wrong unpair costs the user a manual re-pairing
         session at the machine.
         """
+        if self._source_migration_pending:
+            _LOGGER.info(
+                "Skipping bond-clear for %s: BLE source migration is pending",
+                self._address,
+            )
+            return False
+        if self._ble_source_affinity is None:
+            # Until a successful handshake proves which central owns the bond,
+            # an auth rejection may simply mean HA happened to try a different
+            # proxy. Destructive unpair is forbidden in this bootstrap state.
+            _LOGGER.info(
+                "Skipping bond-clear for %s: BLE bond source is not proven yet",
+                self._address,
+            )
+            return False
         return self.bond.allow_unpair(current_cycle_auth=self._auth_fail_seen)
 
     async def _safe_disconnect(self) -> None:
@@ -916,29 +1167,16 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             except (BleakError, OSError):
                 pass
 
-    async def _try_unpair(self) -> None:
-        """Clear stale bond on ESP32/BlueZ by connecting without pair and calling unpair.
+    async def _try_unpair(self) -> bool:
+        """Try to clear the stale bond and return whether removal is proven.
 
-        This is needed when pair=True fails because the proxy holds a stale bond
-        that the peripheral rejects (error 82 / BluetoothConnectionDroppedError).
+        A destructive bond wipe must fail closed. In particular, a timed-out
+        ESPHome ``bluetooth_device_unpair`` request is not evidence that the
+        proxy actually removed its NVS bond. Only an explicit proxy success or
+        a successful ``client.unpair()`` marks the bond as destroyed.
 
-        On the ESPHome proxy path, `client.unpair()` only works if the ESP
-        firmware was built with the unpair feature flag — older firmwares
-        raise `BluetoothConnectionDroppedError` and the bond stays in NVS
-        forever. If that happens, the user needs to clear the bond table
-        on the ESP itself (see esphome/ble-proxy-xiao-c6.yaml — the
-        `clear_ble_bonds` API action wired to `esp_ble_remove_bond_device`).
-
-        Preferred path (issue #35): the connection-less unpair callback
-        installed by __init__.py, which sends the proxy API UNPAIR request
-        handled firmware-side without an open link. That works even in the
-        wedge state where no BLEDevice is cached and the connect-then-unpair
-        fallback below is a guaranteed no-op.
-
-        Latched to once per disconnected episode via
-        ``_unpaired_this_episode`` (checked by the caller, set here):
-        repeating a wipe cannot improve anything and destroys any bond a
-        parallel re-pair may have just created (0.87.2 audit).
+        ``_unpaired_this_episode`` still latches after one destructive attempt
+        so a flaky proxy cannot be hammered with repeated bond-removal requests.
         """
         self._unpaired_this_episode = True
         if self._unpair_callback is not None:
@@ -951,10 +1189,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                     self.bond.on_bond_destroyed(
                         op="proxy_unpair", trigger="rung3",
                     )
-                    return
-                _LOGGER.debug(
-                    "Connection-less unpair unavailable for %s — falling "
-                    "back to connect-then-unpair",
+                    return True
+                _LOGGER.warning(
+                    "Could not confirm connection-less bond removal for %s; "
+                    "trying connect-then-unpair once",
                     self._address,
                 )
             except Exception:  # noqa: BLE001 — best-effort, fall back below
@@ -971,25 +1209,31 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 self.bond.on_bond_destroyed(
                     op="connect_unpair", trigger="rung3",
                 )
-            except (BleakError, OSError, NotImplementedError, AttributeError):
+                return True
+            except (BleakError, OSError, NotImplementedError, AttributeError) as err:
                 _LOGGER.warning(
-                    "unpair() failed for %s — ESP firmware may not support "
-                    "it. If pairing stays wedged, call the "
-                    "`esphome.<proxy_name>_clear_ble_bonds` service "
-                    "(requires the action shown in our sample "
-                    "esphome/ble-proxy-xiao-c6.yaml) to forget the bond "
-                    "on the ESP NVS, then call "
-                    "`melitta_barista.repair_connection`.",
+                    "unpair() failed for %s (%s: %s); bond removal is not "
+                    "confirmed",
                     self._address,
+                    type(err).__name__,
+                    err,
                 )
                 _LOGGER.debug("unpair() exception", exc_info=True)
+                return False
             finally:
                 try:
                     await client.disconnect()
                 except (BleakError, OSError):
                     pass
-        except (BleakError, OSError, asyncio.TimeoutError):
-            _LOGGER.debug("Could not connect for unpair", exc_info=True)
+        except (BleakError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.warning(
+                "Could not connect to %s for fallback unpair (%s: %s); "
+                "bond removal is not confirmed",
+                self._address,
+                type(err).__name__,
+                err,
+            )
+            return False
 
     async def _connect_impl(self) -> bool:
         """Internal connect implementation (must be called under _connect_lock).
@@ -1023,14 +1267,26 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
         try:
             _LOGGER.info(
-                "Connecting to %s machine at %s",
-                self._brand.brand_name, self._address,
+                "Connecting to %s machine at %s via BLE source %s",
+                self._brand.brand_name,
+                self._address,
+                self._connect_cycle_source
+                or self._ble_device_source
+                or self._ble_source_affinity
+                or "automatic",
             )
 
             # Attempt 1: without pairing (reuse existing bond)
             if await self._try_connect_and_handshake(pair=False):
                 self._paired = True
             else:
+                # On ESPHome/BlueZ, pair=True is also the normal way to
+                # re-establish encryption with an already-bonded peer.  It does
+                # NOT by itself delete or replace the bond.  Therefore a proven
+                # bond owner must still be allowed to run the pair=True rung
+                # after pair=False fails.  Source affinity makes this safe: the
+                # attempt cannot roam to another central, and the destructive
+                # unpair rung below remains gated by repeated AUTH evidence.
                 # Settle delay: let the ESP proxy / BlueZ release the previous
                 # connection slot before we initiate a fresh pair=True. Without
                 # this gap we routinely hit a 60 s
@@ -1046,43 +1302,111 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
                 # Attempt 2: with pairing (create new bond)
                 _LOGGER.info(
-                    "Retrying connection to %s with pairing", self._address,
+                    "Retrying connection to %s with pairing/authentication "
+                    "on BLE source %s",
+                    self._address,
+                    self._connect_cycle_source
+                    or self._ble_device_source
+                    or self._ble_source_affinity
+                    or "automatic",
                 )
                 if not await self._try_connect_and_handshake(pair=True):
-                    if not self._suspect_stale_bond():
-                        # No SMP/auth rejection seen — the failures are
-                        # transient (timeout / link / handshake), and
-                        # clearing bonds on transients orphans the
-                        # machine-side key (0.87.2 audit, field case Jay).
+                    if self._source_migration_pending:
+                        # A manually selected replacement central is allowed to
+                        # forget *its own* stale local bond before pairing. This
+                        # does not touch the previous bond owner because the
+                        # unpair callback is source-affine. It is important when
+                        # migrating back to a proxy/adapter that was used in the
+                        # past and still has an obsolete LTK.
+                        if not self._auth_fail_seen:
+                            _LOGGER.info(
+                                "Bluetooth source migration for %s failed "
+                                "without SMP/auth rejection; keeping the "
+                                "target bond intact and waiting to retry",
+                                self._address,
+                            )
+                            return False
+                        if self._unpaired_this_episode:
+                            _LOGGER.info(
+                                "Bluetooth source migration for %s already "
+                                "cleared the target bond once this episode; "
+                                "waiting for pairing mode",
+                                self._address,
+                            )
+                            return False
                         _LOGGER.info(
-                            "Skipping bond-clear for %s: no SMP/auth "
-                            "rejection this cycle (last failure class: %s)",
-                            self._address, self._last_failure_class,
-                        )
-                        return False
-                    if self._unpaired_this_episode:
-                        # One wipe per episode: repeating cannot help and
-                        # would re-wipe any bond a parallel re-pair created.
-                        _LOGGER.info(
-                            "Skipping bond-clear for %s: already cleared "
-                            "once this episode — machine-side reset is "
-                            "required to recover from a persistent SMP "
-                            "rejection",
+                            "Clearing stale bond on migration target %s for %s",
+                            self._connect_cycle_source
+                            or self._ble_device_source
+                            or "unknown source",
                             self._address,
                         )
-                        return False
-                    # Attempt 3: unpair stale bond, then pair fresh
-                    await self._try_unpair()
-                    # Same settle delay between unpair-flush and the final
-                    # pair=True attempt, for the same reason as above.
-                    if self._pair_settle_delay > 0:
-                        await asyncio.sleep(self._pair_settle_delay)
-                    _LOGGER.info(
-                        "Retrying connection to %s after unpair", self._address,
-                    )
-                    if not await self._try_connect_and_handshake(pair=True):
-                        _LOGGER.error("Connection failed for %s", self._address)
-                        return False
+                        if not await self._try_unpair():
+                            _LOGGER.warning(
+                                "Bluetooth source migration for %s cannot "
+                                "continue: stale bond removal on target %s "
+                                "was not confirmed",
+                                self._address,
+                                self._connect_cycle_source
+                                or self._ble_device_source
+                                or "unknown source",
+                            )
+                            return False
+                        if self._pair_settle_delay > 0:
+                            await asyncio.sleep(self._pair_settle_delay)
+                        _LOGGER.info(
+                            "Retrying Bluetooth source migration for %s after "
+                            "confirmed target unpair",
+                            self._address,
+                        )
+                        if not await self._try_connect_and_handshake(pair=True):
+                            _LOGGER.error(
+                                "Bluetooth source migration failed for %s",
+                                self._address,
+                            )
+                            return False
+                    else:
+                        if not self._suspect_stale_bond():
+                            # No SMP/auth rejection seen — the failures are
+                            # transient (timeout / link / handshake), and
+                            # clearing bonds on transients orphans the
+                            # machine-side key (0.87.2 audit, field case Jay).
+                            _LOGGER.info(
+                                "Skipping bond-clear for %s: no SMP/auth "
+                                "rejection this cycle (last failure class: %s)",
+                                self._address, self._last_failure_class,
+                            )
+                            return False
+                        if self._unpaired_this_episode:
+                            # One wipe per episode: repeating cannot help and
+                            # would re-wipe any bond a parallel re-pair created.
+                            _LOGGER.info(
+                                "Skipping bond-clear for %s: already cleared "
+                                "once this episode — machine-side reset is "
+                                "required to recover from a persistent SMP "
+                                "rejection",
+                                self._address,
+                            )
+                            return False
+                        # Attempt 3: unpair stale bond, then pair fresh —
+                        # only when bond removal was positively confirmed.
+                        if not await self._try_unpair():
+                            _LOGGER.warning(
+                                "Cannot retry pairing for %s: stale bond "
+                                "removal was not confirmed",
+                                self._address,
+                            )
+                            return False
+                        # Same settle delay between unpair-flush and the final
+                        # pair=True attempt, for the same reason as above.
+                        if self._pair_settle_delay > 0:
+                            await asyncio.sleep(self._pair_settle_delay)
+                        _LOGGER.info(
+                            "Retrying connection to %s after unpair", self._address,
+                        )
+                        if not await self._try_connect_and_handshake(pair=True):
+                            _LOGGER.error("Connection failed for %s", self._address)
+                            return False
                 self._paired = True
 
             self._connected = True
@@ -1096,7 +1420,32 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._was_absent = False
             # The encrypted handshake proves the bond — back to TRUSTED.
             self.bond.on_handshake_success()
-            _LOGGER.info("Connected and handshake complete for %s", self._address)
+
+            # The source that completed this frozen connect cycle is now
+            # cryptographically proven to be usable for this bond. In automatic
+            # mode the first success becomes the affinity source; in manual
+            # mode the callback still persists the successful source so a
+            # later switch back to Automatic keeps the migrated bond owner.
+            connected_source = self._connect_cycle_source or self._ble_device_source
+            if connected_source:
+                self._last_connected_source = connected_source
+                self._source_migration_pending = False
+                if self._ble_source_affinity is None:
+                    self.set_ble_source_affinity(connected_source)
+                if self._source_learned_callback is not None:
+                    try:
+                        learned = self._source_learned_callback(connected_source)
+                        if asyncio.iscoroutine(learned):
+                            asyncio.create_task(learned)
+                    except Exception:
+                        _LOGGER.exception(
+                            "BLE source persistence callback failed for %s",
+                            self._address,
+                        )
+            _LOGGER.info(
+                "Connected and handshake complete for %s via %s",
+                self._address, connected_source or "unknown source",
+            )
 
             # Read firmware version
             self._firmware = await self._protocol.read_version(self._write_ble)
@@ -1243,6 +1592,20 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         auto-repair. In that case we attempt anyway — the attempt fails fast
         locally and counts toward the repair threshold.
         """
+        affinity = self._ble_source_affinity
+        if (
+            affinity is not None
+            and self._source_available_callback is not None
+            and not self._source_available_callback(affinity)
+        ):
+            _LOGGER.info(
+                "Bonded BLE source %s for %s is unavailable; waiting instead "
+                "of roaming to another adapter",
+                affinity, self._address,
+            )
+            self._was_absent = True
+            return False
+
         if self._presence_callback is None or self._presence_callback():
             return True
         if (
@@ -1275,9 +1638,18 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         Also feeds the bond state machine with the classified outcome of
         the cycle — only AUTH-class failures move it towards MISMATCH.
         """
-        self.bond.on_cycle_failure(
-            FAILURE_AUTH if self._auth_fail_seen else self._last_failure_class,
+        failure_class = (
+            FAILURE_AUTH if self._auth_fail_seen else self._last_failure_class
         )
+        if failure_class == FAILURE_AUTH and (
+            self._ble_source_affinity is None or self._source_migration_pending
+        ):
+            # An unbound install may be probing the wrong HA scanner. Do not
+            # poison persisted bond health until a successful source has been
+            # learned; wrong-central auth failure is not evidence that the
+            # machine-side bond is stale.
+            failure_class = FAILURE_LINK
+        self.bond.on_cycle_failure(failure_class)
         self._consecutive_connect_failures += 1
         _LOGGER.debug(
             "Connect failure %d/%d",

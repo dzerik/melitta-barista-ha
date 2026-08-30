@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from bleak.backends.device import BLEDevice
@@ -11,12 +11,15 @@ from bleak.exc import BleakDBusError, BleakError
 
 from custom_components.melitta_barista.ble_client import (
     MelittaBleClient,
+    _source_pinned_ha_client_class,
     discover_melitta_devices,
     MELITTA_SERVICE_UUID,
 )
 from custom_components.melitta_barista.const import (
     CHAR_NOTIFY,
     CHAR_WRITE,
+    FAILURE_LINK,
+    FAILURE_TIMEOUT,
     DirectKeyCategory,
     MachineProcess,
     MachineType,
@@ -115,6 +118,212 @@ class TestClientBLEDevice:
             client.set_ble_device(device)
         assert client._reconnect_event.is_set()
         mock_sched.assert_called_once()
+
+    def test_source_affinity_ignores_other_scanner_device(self):
+        """A stronger scanner may be observed but cannot replace the bond owner."""
+        owner = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        other = BLEDevice("AA:BB:CC:DD:EE:FF", "other", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=owner,
+            ble_device_source="11:22:33:44:55:66",
+            ble_source_affinity="11:22:33:44:55:66",
+        )
+
+        with patch.object(client, "_schedule_reconnect") as mock_sched:
+            accepted = client.set_ble_device(
+                other, source="AA:BB:CC:DD:EE:00",
+            )
+
+        assert accepted is False
+        assert client._ble_device is owner
+        assert client.ble_device_source == "11:22:33:44:55:66"
+        assert "AA:BB:CC:DD:EE:00" in client.seen_ble_sources
+        assert client._reconnect_event.is_set()
+        mock_sched.assert_called_once()
+
+    def test_source_affinity_accepts_matching_scanner(self):
+        """Advertisements from the bond owner refresh the connectable device."""
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_source_affinity="11:22:33:44:55:66",
+        )
+
+        with patch.object(client, "_schedule_reconnect") as mock_sched:
+            accepted = client.set_ble_device(
+                device, source="11-22-33-44-55-66",
+            )
+
+        assert accepted is True
+        assert client._ble_device is device
+        assert client.ble_device_source == "11-22-33-44-55-66"
+        assert client._reconnect_event.is_set()
+        mock_sched.assert_called_once()
+
+    async def test_connect_cycle_freezes_device_and_source(self):
+        """Advertisements cannot move a pairing ladder to another central."""
+        owner = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        other = BLEDevice("AA:BB:CC:DD:EE:FF", "other", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=owner,
+            ble_device_source="11:22:33:44:55:66",
+        )
+
+        async def fake_connect_impl():
+            assert client._connect_cycle_device is owner
+            assert client._connect_cycle_source == "11:22:33:44:55:66"
+            client.set_ble_device(other, source="AA:BB:CC:DD:EE:00")
+            assert client._connect_cycle_device is owner
+            assert client._connect_cycle_source == "11:22:33:44:55:66"
+            return True
+
+        with patch.object(client, "_connect_impl", side_effect=fake_connect_impl):
+            assert await client.connect() is True
+
+        assert client._connect_cycle_device is None
+        assert client._connect_cycle_source is None
+
+    def test_unavailable_affinity_blocks_connection_attempt(self):
+        """A missing bond owner is waited for instead of roaming."""
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_source_affinity="11:22:33:44:55:66",
+        )
+        available = MagicMock(return_value=False)
+        client.set_source_available_callback(available)
+        client.set_presence_callback(lambda: True)
+
+        assert client._should_attempt_connect() is False
+        available.assert_called_once_with("11:22:33:44:55:66")
+
+    def test_unproven_source_never_allows_destructive_unpair(self):
+        """Auth failure on an arbitrary scanner cannot destroy an unknown bond."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        client._auth_fail_seen = True
+        client.bond.allow_unpair = MagicMock(return_value=True)
+
+        assert client._suspect_stale_bond() is False
+        client.bond.allow_unpair.assert_not_called()
+
+    def test_pending_migration_never_allows_destructive_unpair(self):
+        """During deliberate migration the old/new bond must not be auto-cleared."""
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_source_affinity="11:22:33:44:55:66",
+            source_migration_pending=True,
+        )
+        client._auth_fail_seen = True
+        client.bond.allow_unpair = MagicMock(return_value=True)
+
+        assert client._suspect_stale_bond() is False
+        client.bond.allow_unpair.assert_not_called()
+
+    def test_pinned_ha_client_filters_out_other_connection_paths(self):
+        """HA backend selection cannot roam away from the bonded source."""
+        from types import SimpleNamespace
+
+        pinned_source = "11:22:33:44:55:66"
+        cls = _source_pinned_ha_client_class(pinned_source)
+        client = object.__new__(cls)
+        client._HaBleakClientWrapper__address = "AA:BB:CC:DD:EE:FF"
+
+        owner_device = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        other_device = BLEDevice("AA:BB:CC:DD:EE:FF", "other", {})
+        owner_scanner = MagicMock(source="11-22-33-44-55-66", name="owner")
+        other_scanner = MagicMock(source="AA:BB:CC:DD:EE:00", name="other")
+        owner_item = SimpleNamespace(
+            scanner=owner_scanner,
+            ble_device=owner_device,
+            advertisement=SimpleNamespace(rssi=-95),
+        )
+        other_item = SimpleNamespace(
+            scanner=other_scanner,
+            ble_device=other_device,
+            advertisement=SimpleNamespace(rssi=-40),
+        )
+        manager = MagicMock()
+        manager.async_scanner_devices_by_address.return_value = [
+            other_item, owner_item,
+        ]
+        backend = object()
+
+        with patch.object(
+            cls, "_async_get_backend_for_ble_device", return_value=backend,
+        ) as allocate:
+            selected = client._async_get_best_available_backend_and_device(manager)
+
+        assert selected is backend
+        allocate.assert_called_once_with(manager, owner_scanner, owner_device)
+
+    async def test_pinned_transient_failure_reuses_bond_with_pair_true(self):
+        """A proven source may use pair=True to re-authenticate its existing bond."""
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=device,
+            ble_device_source="11:22:33:44:55:66",
+            ble_source_affinity="11:22:33:44:55:66",
+            pair_settle_delay=0,
+        )
+        client._last_failure_class = FAILURE_TIMEOUT
+
+        async def reconnect_existing_bond(*, pair: bool):
+            if not pair:
+                client._last_failure_class = FAILURE_TIMEOUT
+                client._auth_fail_seen = False
+                return False
+            return True
+
+        mock_protocol = MagicMock()
+        mock_protocol.read_version = AsyncMock(return_value=None)
+        mock_protocol.read_features = AsyncMock(return_value=None)
+        mock_protocol.read_numerical = AsyncMock(return_value=None)
+        mock_protocol.set_family = MagicMock()
+        client._protocol = mock_protocol
+
+        with patch.object(
+            client, "_try_connect_and_handshake", side_effect=reconnect_existing_bond,
+        ) as attempt, patch.object(
+            client, "_try_unpair", new=AsyncMock(),
+        ) as unpair, patch.object(
+            client, "_read_dis_service", new=AsyncMock(),
+        ), patch.object(
+            client, "_resolve_capabilities", return_value=None,
+        ), patch.object(
+            client, "_load_post_connect_data", new=AsyncMock(),
+        ):
+            assert await client.connect() is True
+
+        assert attempt.await_args_list == [call(pair=False), call(pair=True)]
+        unpair.assert_not_awaited()
+
+    async def test_pinned_pair_true_link_failure_never_unpairs(self):
+        """Transient failure on the proven source may retry pairing but cannot wipe bond."""
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=device,
+            ble_device_source="11:22:33:44:55:66",
+            ble_source_affinity="11:22:33:44:55:66",
+            pair_settle_delay=0,
+        )
+
+        async def fail_without_auth(*, pair: bool):
+            client._last_failure_class = FAILURE_LINK
+            client._auth_fail_seen = False
+            return False
+
+        with patch.object(
+            client, "_try_connect_and_handshake", side_effect=fail_without_auth,
+        ) as attempt, patch.object(
+            client, "_try_unpair", new=AsyncMock(),
+        ) as unpair:
+            assert await client.connect() is False
+
+        assert attempt.await_args_list == [call(pair=False), call(pair=True)]
+        unpair.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

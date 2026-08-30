@@ -344,7 +344,10 @@ class TestUnpairGate:
         unpair.assert_not_awaited()
 
     async def test_auth_evidence_authorizes_unpair(self):
-        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client = MelittaBleClient(
+            ADDRESS, pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         # 0.88: destruction requires a prior auth cycle + the one in flight.
         from custom_components.melitta_barista.const import FAILURE_AUTH
         client.bond.on_cycle_failure(FAILURE_AUTH)
@@ -399,6 +402,25 @@ class TestProxyEntryFallback:
         ):
             assert _find_proxy_entry_for_address(hass, ADDRESS) is proxy
 
+    def test_explicit_source_selects_matching_proxy_without_live_sighting(self):
+        """Affinity targets its owning proxy even while that scanner is starved."""
+        owner = _mock_proxy_entry()
+        owner.unique_id = "11:22:33:44:55:66"
+        other = _mock_proxy_entry()
+        other.unique_id = "AA:BB:CC:DD:EE:00"
+        hass = self._hass_with_entries([other, owner])
+
+        with patch(
+            "custom_components.melitta_barista.bluetooth.async_scanner_devices_by_address",
+            return_value=[],
+        ):
+            assert (
+                _find_proxy_entry_for_address(
+                    hass, ADDRESS, "11:22:33:44:55:66",
+                )
+                is owner
+            )
+
     def test_fallback_ambiguous_multiple_proxies(self):
         hass = self._hass_with_entries([_mock_proxy_entry(), _mock_proxy_entry()])
         with patch(
@@ -444,6 +466,32 @@ class TestProxyUnpairHelper:
         with patch(
             "custom_components.melitta_barista._find_proxy_entry_for_address",
             return_value=None,
+        ):
+            assert await _async_proxy_unpair(hass, ADDRESS) is False
+
+
+    async def test_unpair_timeout_is_not_treated_as_success(self):
+        proxy = _mock_proxy_entry()
+        proxy.runtime_data.client.bluetooth_device_unpair = AsyncMock(
+            side_effect=TimeoutError("no response"),
+        )
+        hass = MagicMock()
+        with patch(
+            "custom_components.melitta_barista._find_proxy_entry_for_address",
+            return_value=proxy,
+        ):
+            assert await _async_proxy_unpair(hass, ADDRESS) is False
+
+
+    async def test_unpair_timeout_is_not_treated_as_success(self):
+        proxy = _mock_proxy_entry()
+        proxy.runtime_data.client.bluetooth_device_unpair = AsyncMock(
+            side_effect=TimeoutError("no response"),
+        )
+        hass = MagicMock()
+        with patch(
+            "custom_components.melitta_barista._find_proxy_entry_for_address",
+            return_value=proxy,
         ):
             assert await _async_proxy_unpair(hass, ADDRESS) is False
 

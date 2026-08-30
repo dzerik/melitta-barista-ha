@@ -490,6 +490,9 @@ CONF_PAIR_TIMEOUT = "pair_timeout"
 CONF_RECIPE_RETRIES = "recipe_retries"
 CONF_INITIAL_CONNECT_DELAY = "initial_connect_delay"
 CONF_AUTO_CONFIRM_PROMPTS = "auto_confirm_prompts"
+CONF_BLUETOOTH_SOURCE = "bluetooth_source"
+BLUETOOTH_SOURCE_AUTO = "auto"
+DEFAULT_BLUETOOTH_SOURCE = BLUETOOTH_SOURCE_AUTO
 DEFAULT_AUTO_CONFIRM_PROMPTS = False
 
 # Brand selection (multi-brand support, added in 0.40.0).
@@ -526,6 +529,10 @@ DEFAULT_REPAIR_AFTER_FAILURES: int = 5
 # habluetooth's own scanner watchdog barks at 90 s; we use double that so a
 # quiet-but-healthy home doesn't trip the override. See issue #35.
 SCANNER_STARVED_AFTER_SECONDS: float = 180.0
+# Avoid alarming on brief adapter/proxy reloads. A source-loss repair issue is
+# raised only when the machine is visible through another scanner while its
+# proven bond owner stays unavailable for this long.
+SOURCE_AFFINITY_LOSS_GRACE_SECONDS: float = 300.0
 
 # Connect-failure classes produced by the ladder's exception classifier
 # (0.87.2) and consumed by the bond state machine (0.88). The SMP rejection

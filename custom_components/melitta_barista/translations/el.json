@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Επαναρύθμιση καφετιέρας",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Διεύθυνση Bluetooth",
+          "name": "Όνομα"
         }
       }
     },
@@ -59,8 +59,9 @@
         "menu_options": {
           "basic": "Βασικές ρυθμίσεις",
           "advanced": "Προχωρημένες ρυθμίσεις",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "repair": "Επιδιόρθωση σύνδεσης (ήπια)",
+          "full_pair": "Εξαναγκασμένη νέα σύζευξη (πλήρης)",
+          "bluetooth_source": "Προσαρμογέας Bluetooth"
         }
       },
       "basic": {
@@ -72,7 +73,7 @@
           "reconnect_max_delay": "Μέγιστη καθυστέρηση επανασύνδεσης (δευτερόλεπτα)",
           "max_consecutive_errors": "Σφάλματα ανίχνευσης πριν την αποσύνδεση",
           "frame_timeout": "Χρονικό όριο πλαισίου BLE (δευτερόλεπτα)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Αυτόματη επιβεβαίωση απλών προτροπών"
         },
         "data_description": {
           "poll_interval": "Πόσο συχνά γίνεται ανίχνευση κατάστασης της μηχανής (προεπιλογή: 5s)",
@@ -80,7 +81,7 @@
           "reconnect_max_delay": "Μέγιστη καθυστέρηση μεταξύ αποπειρών επανασύνδεσης (προεπιλογή: 300s)",
           "max_consecutive_errors": "Αριθμός διαδοχικών σφαλμάτων ανίχνευσης πριν την αναγκαστική αποσύνδεση (προεπιλογή: 3)",
           "frame_timeout": "Χρονικό όριο αποστολής/λήψης πλαισίου BLE (προεπιλογή: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Αυτόματη επιβεβαίωση απλών προτροπών (μετακίνηση φλιτζανιού, ξέπλυμα). Οι προτροπές υλικού (γέμισμα νερού, άδειασμα δίσκων) εξακολουθούν να απαιτούν χειροκίνητη επιβεβαίωση."
         }
       },
       "advanced": {
@@ -91,38 +92,51 @@
           "pair_timeout": "Χρονικό όριο σύζευξης (δευτερόλεπτα)",
           "recipe_retries": "Επαναλήψεις ανάγνωσης/εγγραφής συνταγής",
           "initial_connect_delay": "Αρχική καθυστέρηση σύνδεσης (δευτερόλεπτα)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Αυτόματος συγχρονισμός ρολογιού μηχανής",
+          "auto_sync_drift_minutes": "Όριο απόκλισης αυτόματου συγχρονισμού (λεπτά)",
+          "auto_sync_daily_time": "Καθημερινή ώρα αυτόματου συγχρονισμού (ΩΩ:ΛΛ)"
         },
         "data_description": {
           "ble_connect_timeout": "Χρονικό όριο για τη δημιουργία σύνδεσης BLE (προεπιλογή: 15s)",
           "pair_timeout": "Χρονικό όριο σύζευξης BLE κατά τη ρύθμιση (προεπιλογή: 30s)",
           "recipe_retries": "Αριθμός επαναλήψεων για εργασίες ανάγνωσης/εγγραφής συνταγής (προεπιλογή: 3)",
           "initial_connect_delay": "Αναμονή πριν την πρώτη απόπειρα σύνδεσης μετά τη ρύθμιση (προεπιλογή: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Αυτόματη αποστολή της τοπικής ώρας του Home Assistant στη μηχανή κατά την επανασύνδεση και μία φορά την ημέρα (προεπιλογή: ενεργό).",
+          "auto_sync_drift_minutes": "Παράλειψη εγγραφής όταν η μετρημένη απόκλιση είναι μικρότερη από αυτόν τον αριθμό λεπτών (προεπιλογή: 2).",
+          "auto_sync_daily_time": "Καθημερινή ώρα αναγκαστικού συγχρονισμού σε 24ωρη μορφή ΩΩ:ΛΛ (προεπιλογή: 03:17)."
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Επιδιόρθωση σύζευξης BLE",
+        "description": "Ήπια ανάκτηση: επαναφορτώνει το ESPHome BLE proxy που κατέχει τον σαρωτή αυτής της μηχανής, ώστε η επόμενη προσπάθεια σύζευξης να ξεκινήσει με καθαρή προσωρινή μνήμη. Χρησιμοποιήστε πρώτα αυτή την επιλογή. Αν η παρασκευή εξακολουθεί να αποτυγχάνει, δοκιμάστε την Εξαναγκασμένη νέα σύζευξη (πλήρης) — αυτή διαγράφει επίσης το κλειδί σύζευξης στο ESP και απαιτεί να θέσετε τη μηχανή σε λειτουργία σύζευξης."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Εξαναγκασμένη πλήρης νέα σύζευξη",
+        "description": "Πλήρης ανάκτηση: διαγράφει τον πίνακα συζεύξεων στο ESPHome BLE proxy, αποσυνδέει την κολλημένη θέση σύνδεσης και επαναφορτώνει την καταχώρηση του proxy, αναγκάζοντας νέα ανταλλαγή SMP.\n\nΠΡΙΝ πατήσετε Υποβολή: θέστε τη μηχανή σε λειτουργία σύζευξης από το μενού της (Μενού → Bluetooth → Σύζευξη νέας συσκευής / App-Verbindung — η ακριβής διαδρομή εξαρτάται από το firmware). Χωρίς λειτουργία σύζευξης, η μηχανή θα απορρίψει το νέο αίτημα SMP με `auth fail reason=82`.\n\nΑπαιτούνται οι ενέργειες `clear_ble_bonds` και `disconnect_ble_peer` στο YAML του ESPHome proxy σας (δείτε το esphome/ble-proxy-xiao-c6.yaml στο αποθετήριο της ενσωμάτωσης)."
+      },
+      "bluetooth_source": {
+        "title": "Προσαρμογέας Bluetooth",
+        "description": "Επιλέξτε ποιος κεντρικός προσαρμογέας Bluetooth επιτρέπεται να συνδέεται με αυτή τη συζευγμένη καφετιέρα.\n\n**Τρέχουσα πηγή σύζευξης:** {bonded_source}\n\nΗ Αυτόματη επιλογή θυμάται τον προσαρμογέα/proxy που ολοκλήρωσε τελευταίος επιτυχώς την κρυπτογραφημένη χειραψία και συνεχίζει να τον χρησιμοποιεί. Η επιλογή διαφορετικού προσαρμογέα αποτελεί σκόπιμη μετεγκατάσταση: θέστε την καφετιέρα σε λειτουργία σύζευξης πριν αποθηκεύσετε τον νέο προσαρμογέα.",
+        "data": {
+          "bluetooth_source": "Προσαρμογέας σύνδεσης"
+        },
+        "data_description": {
+          "bluetooth_source": "Συνιστάται η Αυτόματη επιλογή. Αποτρέπει το Home Assistant από το να μεταφέρει αυτή τη συζευγμένη συσκευή μεταξύ του τοπικού προσαρμογέα Bluetooth και των ESPHome proxy."
+        }
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "Το ESPHome BLE proxy επαναφορτώνεται τώρα — η ενσωμάτωση θα επανασυνδεθεί μέσα σε περίπου ένα λεπτό. Αν στη συνέχεια δείτε `auth fail reason=82` στα αρχεία καταγραφής ESP, η σύζευξη έχει κολλήσει και στις δύο πλευρές: δοκιμάστε την Εξαναγκασμένη νέα σύζευξη (πλήρης) και θέστε τη μηχανή σε λειτουργία σύζευξης (Μενού → Bluetooth → Σύζευξη νέας συσκευής), ώστε να δεχτεί νέα ανταλλαγή SMP.",
+      "repair_local_reconnect": "Δεν βρέθηκε ESPHome proxy για αυτή τη μηχανή — γίνεται επανασύνδεση μέσω του τοπικού προσαρμογέα Bluetooth. Η μηχανή θα πρέπει να επανασυνδεθεί με την επόμενη διαφήμιση BLE.",
+      "repair_failed": "Η διαδικασία ανάκτησης προκάλεσε μη αναμενόμενο σφάλμα — δείτε τα αρχεία καταγραφής του Home Assistant για λεπτομέρειες και εξετάστε το ενδεχόμενο να τα κοινοποιήσετε στο issue #10.",
+      "full_pair_done": "Ο πίνακας συζεύξεων στο ESP proxy διαγράφηκε και η καταχώρηση του proxy επαναφορτώθηκε. ΣΗΜΑΝΤΙΚΟ: θέστε τώρα τη μηχανή σε λειτουργία σύζευξης (Μενού → Bluetooth → Σύζευξη νέας συσκευής / App-Verbindung — η ακριβής διαδρομή εξαρτάται από το firmware) μέσα σε 1 λεπτό. Η ενσωμάτωση θα εκτελέσει νέα ανταλλαγή SMP και θα δημιουργήσει νέα σύζευξη. Οι επόμενες επανασυνδέσεις δεν θα χρειάζονται ξανά λειτουργία σύζευξης.",
+      "full_pair_partial": "Η καταχώρηση του ESPHome proxy επαναφορτώθηκε, αλλά η διαγραφή της σύζευξης απέτυχε — δείτε τα αρχεία καταγραφής του Home Assistant. Δοκιμάστε ξανά ή κοινοποιήστε τα αρχεία καταγραφής στο issue #10.",
+      "full_pair_no_action": "Η υπηρεσία ESPHome `esphome.{service}` δεν είναι καταχωρημένη, επομένως δεν είναι δυνατή η διαγραφή του πίνακα συζεύξεων. Προσθέστε την ενέργεια `clear_ble_bonds` στο YAML του ESPHome (υπάρχει πρότυπο στο esphome/ble-proxy-xiao-c6.yaml του αποθετηρίου), κάντε flash το proxy και δοκιμάστε ξανά. Η καταχώρηση του proxy επαναφορτώθηκε πάντως, ώστε να καθαριστεί η προσωρινή μνήμη του Home Assistant — στο μεταξύ δοκιμάστε την ήπια Επιδιόρθωση σύνδεσης.",
+      "full_pair_local_only": "Δεν βρέθηκε ESPHome proxy για αυτή τη μηχανή — χρησιμοποιείται τοπικός προσαρμογέας Bluetooth. Η πλήρης νέα σύζευξη δεν εφαρμόζεται εδώ· θα γίνει τοπική αποσύνδεση και επανασύνδεση.",
+      "full_pair_failed": "Η εξαναγκασμένη νέα σύζευξη προκάλεσε μη αναμενόμενο σφάλμα — δείτε τα αρχεία καταγραφής του Home Assistant και κοινοποιήστε τα στο issue #10."
+    },
+    "error": {
+      "invalid_time": "Εισαγάγετε έγκυρη ώρα σε μορφή ΩΩ:ΛΛ (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,6 +542,14 @@
     "bond_reset_required": {
       "title": "Η καφετιέρα χρειάζεται νέα σύζευξη",
       "description": "Η καφετιέρα ({address}) απορρίπτει την ανταλλαγή κρυπτογράφησης Bluetooth — η αποθηκευμένη σύζευξη δεν ταιριάζει πλέον. Αυτό δεν διορθώνεται μόνο από το Home Assistant.\n\nΕφάπαξ αποκατάσταση:\n1. Στη μηχανή: ανοίξτε το μενού Bluetooth και διαγράψτε/επαναφέρετε τη σύνδεση.\n2. Απενεργοποιήστε και ενεργοποιήστε τη μηχανή.\n3. Ανοίξτε την οθόνη σύζευξης Bluetooth της μηχανής.\n4. Όσο εμφανίζεται, φορτώστε ξανά αυτήν την ενσωμάτωση (Ρυθμίσεις → Συσκευές & υπηρεσίες → καταχώρηση → Επαναφόρτωση).\n\nΗ ενσωμάτωση θα συζευχθεί ξανά αυτόματα και το πρόβλημα θα εξαφανιστεί μετά την πρώτη επιτυχή σύνδεση."
+    },
+    "ble_source_unavailable": {
+      "title": "Ο συζευγμένος προσαρμογέας Bluetooth δεν είναι διαθέσιμος",
+      "description": "Η καφετιέρα ({address}) είναι ορατή μέσω άλλων προσαρμογέων Bluetooth, αλλά ο προσαρμογέας που κατέχει τη σύζευξή της ({source}) δεν είναι διαθέσιμος. Η ενσωμάτωση περιμένει αντί να μεταβεί σε άλλο κεντρικό Bluetooth, επειδή αυτό θα προκαλούσε αποτυχία ελέγχου ταυτότητας.\n\nΑν ο προσαρμογέας απλώς επανεκκινείται, δεν απαιτείται ενέργεια. Αν αφαιρέθηκε ή αντικαταστάθηκε, ανοίξτε Ρυθμίσεις → Συσκευές και υπηρεσίες → Melitta → Ρύθμιση → Προσαρμογέας Bluetooth, θέστε τη μηχανή σε λειτουργία σύζευξης και επιλέξτε νέο προσαρμογέα για τη μετεγκατάσταση της σύζευξης."
+    },
+    "ble_source_migration_pending": {
+      "title": "Εκκρεμεί μετεγκατάσταση προσαρμογέα Bluetooth",
+      "description": "Η καφετιέρα ({address}) μεταφέρεται στον προσαρμογέα Bluetooth {source}. Θέστε τη μηχανή σε λειτουργία σύζευξης και κρατήστε την ενεργοποιημένη. Η ενσωμάτωση θα πραγματοποιήσει σύζευξη μόνο μέσω αυτού του προσαρμογέα και θα τον ορίσει ως νέο κάτοχο της σύζευξης αφού ολοκληρωθεί επιτυχώς η κρυπτογραφημένη χειραψία. Τα άλλα Bluetooth proxy παραμένουν ενεργά, αλλά δεν επιτρέπεται να αναλάβουν αυτή τη σύνδεση."
     }
   },
   "services": {

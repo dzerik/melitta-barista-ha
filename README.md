@@ -168,8 +168,10 @@ showed constant connection-establish failures at under a meter (weak
 antenna + one shared 2.4 GHz radio) that vanished the moment the same spot
 got a XIAO ESP32-S3. See [`HCL.md`](HCL.md) for the full board table, the
 required config knobs (`power_save_mode: NONE` is the most-missed one), and
-the **multi-proxy rule** (these machines bond to exactly one proxy —
-`active: true` on the nearest, `active: false` everywhere else).
+the **multi-proxy bond-affinity behavior**. The machine still bonds to one
+Bluetooth central, but the integration remembers that HA scanner source, so
+other `active: true` proxies can stay enabled without taking over the bonded
+connection.
 
 ### Running HA in a Docker container? Three host-side prerequisites
 
@@ -777,3 +779,25 @@ Contributions are welcome. Please open an issue or submit a pull request on [Git
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+
+## Bluetooth
+
+### Bonded devices and multiple Bluetooth proxies
+
+Melitta/Nivona machines use a bond that belongs to the Bluetooth central that
+performed the pairing. In Home Assistant installations with several local
+adapters or ESPHome Bluetooth proxies, allowing an authenticated connection to
+roam to a different central can therefore cause pairing/authentication failures.
+
+The integration remembers the Bluetooth source that successfully completed the
+encrypted machine handshake and keeps future authenticated reconnects on that
+source. Other Bluetooth proxies can remain active.
+
+A reconnect may legitimately use pair=True even when a valid bond already
+exists. The important requirement is that this authentication happens through
+the same bond-owning Bluetooth central.
+
+Changing the configured Bluetooth adapter performs an explicit migration. The
+new source is persisted only after it successfully completes the encrypted
+machine handshake.

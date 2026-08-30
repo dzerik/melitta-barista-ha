@@ -21,6 +21,9 @@ from custom_components.melitta_barista.const import (
     CONF_PAIR_TIMEOUT,
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
+    CONF_AUTO_SYNC_DAILY_TIME,
+    CONF_BLUETOOTH_SOURCE,
+    BLUETOOTH_SOURCE_AUTO,
 )
 
 from . import MOCK_ADDRESS, MOCK_NAME
@@ -917,7 +920,77 @@ async def test_options_flow_init_shows_menu(hass: HomeAssistant) -> None:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
     assert "basic" in result["menu_options"]
+    assert "bluetooth_source" in result["menu_options"]
     assert "advanced" in result["menu_options"]
+
+
+async def test_options_flow_bluetooth_source_lists_scanners(
+    hass: HomeAssistant,
+) -> None:
+    """Bluetooth source options include Automatic and every seeing scanner."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    local = MagicMock()
+    local.scanner.source = "11:22:33:44:55:66"
+    local.scanner.name = "homeserver"
+    proxy = MagicMock()
+    proxy.scanner.source = "AA:BB:CC:DD:EE:00"
+    proxy.scanner.name = "nspanel-kitchen"
+
+    with patch(
+        "custom_components.melitta_barista.config_flow.ha_bluetooth.async_scanner_devices_by_address",
+        return_value=[local, proxy],
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        form = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": "bluetooth_source"},
+        )
+
+    assert form["type"] is FlowResultType.FORM
+    assert form["step_id"] == "bluetooth_source"
+    saved = await hass.config_entries.options.async_configure(
+        form["flow_id"],
+        user_input={CONF_BLUETOOTH_SOURCE: BLUETOOTH_SOURCE_AUTO},
+    )
+    assert saved["type"] is FlowResultType.CREATE_ENTRY
+    assert saved["data"][CONF_BLUETOOTH_SOURCE] == BLUETOOTH_SOURCE_AUTO
+
+
+async def test_options_flow_bluetooth_source_submit_preserves_other_options(
+    hass: HomeAssistant,
+) -> None:
+    """Choosing a source records a migration target without rewriting proxies."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+        options={CONF_POLL_INTERVAL: 9.0},
+    )
+    entry.add_to_hass(hass)
+
+    source = "11:22:33:44:55:66"
+    scanner_device = MagicMock()
+    scanner_device.scanner.source = source
+    scanner_device.scanner.name = "homeserver"
+
+    with patch(
+        "custom_components.melitta_barista.config_flow.ha_bluetooth.async_scanner_devices_by_address",
+        return_value=[scanner_device],
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        form = await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={"next_step_id": "bluetooth_source"},
+        )
+        saved = await hass.config_entries.options.async_configure(
+            form["flow_id"], user_input={CONF_BLUETOOTH_SOURCE: source},
+        )
+
+    assert saved["type"] is FlowResultType.CREATE_ENTRY
+    assert saved["data"][CONF_BLUETOOTH_SOURCE] == source
+    assert saved["data"][CONF_POLL_INTERVAL] == 9.0
 
 
 async def test_options_flow_basic_defaults(hass: HomeAssistant) -> None:
@@ -991,6 +1064,7 @@ async def test_options_flow_advanced_submit(hass: HomeAssistant) -> None:
             CONF_PAIR_TIMEOUT: 45.0,
             CONF_RECIPE_RETRIES: 5,
             CONF_INITIAL_CONNECT_DELAY: 5.0,
+            CONF_AUTO_SYNC_DAILY_TIME: "9:5",
         },
     )
     assert result3["type"] is FlowResultType.CREATE_ENTRY
@@ -998,6 +1072,57 @@ async def test_options_flow_advanced_submit(hass: HomeAssistant) -> None:
     assert result3["data"][CONF_PAIR_TIMEOUT] == 45.0
     assert result3["data"][CONF_RECIPE_RETRIES] == 5
     assert result3["data"][CONF_INITIAL_CONNECT_DELAY] == 5.0
+    assert result3["data"][CONF_AUTO_SYNC_DAILY_TIME] == "09:05"
+
+
+async def test_options_flow_advanced_schema_is_frontend_serializable(
+    hass: HomeAssistant,
+) -> None:
+    """Advanced form must not expose a custom Python validator to the UI."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    advanced = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "advanced"},
+    )
+
+    assert advanced["type"] is FlowResultType.FORM
+    validator = next(
+        value
+        for key, value in advanced["data_schema"].schema.items()
+        if getattr(key, "schema", None) == CONF_AUTO_SYNC_DAILY_TIME
+    )
+    assert validator is str
+
+
+async def test_options_flow_advanced_invalid_daily_time_returns_field_error(
+    hass: HomeAssistant,
+) -> None:
+    """Invalid HH:MM input is rejected without breaking the form."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ADDRESS: MOCK_ADDRESS, CONF_NAME: MOCK_NAME},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    advanced = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={"next_step_id": "advanced"},
+    )
+    invalid = await hass.config_entries.options.async_configure(
+        advanced["flow_id"],
+        user_input={CONF_AUTO_SYNC_DAILY_TIME: "25:99"},
+    )
+
+    assert invalid["type"] is FlowResultType.FORM
+    assert invalid["step_id"] == "advanced"
+    assert invalid["errors"] == {CONF_AUTO_SYNC_DAILY_TIME: "invalid_time"}
 
 
 # ---------------------------------------------------------------------------

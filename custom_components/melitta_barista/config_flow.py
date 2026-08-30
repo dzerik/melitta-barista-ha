@@ -6,6 +6,7 @@ from typing import Any
 import voluptuous as vol
 from bleak import BleakScanner
 from bleak.exc import BleakError
+from homeassistant.components import bluetooth as ha_bluetooth
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
@@ -29,6 +30,9 @@ from .const import (
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
     CONF_AUTO_CONFIRM_PROMPTS,
+    CONF_BLUETOOTH_SOURCE,
+    BLUETOOTH_SOURCE_AUTO,
+    DEFAULT_BLUETOOTH_SOURCE,
     CONF_BRAND,
     CONF_FAMILY_OVERRIDE,
     CONF_AUTO_SYNC_CLOCK,
@@ -554,7 +558,65 @@ class MelittaOptionsFlow(OptionsFlow):
         """Show options menu."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=["basic", "advanced", "repair", "full_pair"],
+            menu_options=[
+                "basic", "bluetooth_source", "advanced", "repair", "full_pair",
+            ],
+        )
+
+    async def async_step_bluetooth_source(
+        self, user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Configure bond-aware Bluetooth adapter affinity.
+
+        Automatic mode remembers the scanner source that last completed an
+        encrypted handshake. Selecting a different explicit source is a
+        deliberate bond migration: the user should put the coffee machine in
+        pairing mode so that source can create a fresh bond.
+        """
+        if user_input is not None:
+            new_options = {**self._config_entry.options, **user_input}
+            return self.async_create_entry(title="", data=new_options)
+
+        address = self._config_entry.data.get(CONF_ADDRESS, "")
+        choices: dict[str, str] = {
+            BLUETOOTH_SOURCE_AUTO: "Automatic — remember bonded adapter",
+        }
+        try:
+            scanner_devices = ha_bluetooth.async_scanner_devices_by_address(
+                self.hass, address, connectable=True,
+            )
+        except Exception:  # noqa: BLE001 — options must remain usable mid-reload
+            scanner_devices = []
+
+        for scanner_device in scanner_devices:
+            scanner = scanner_device.scanner
+            source = getattr(scanner, "source", None)
+            if not source:
+                continue
+            name = getattr(scanner, "name", None) or getattr(scanner, "adapter", None)
+            choices[str(source)] = (
+                f"{name} ({source})" if name and str(name) != str(source) else str(source)
+            )
+
+        current = self._config_entry.options.get(
+            CONF_BLUETOOTH_SOURCE, DEFAULT_BLUETOOTH_SOURCE,
+        )
+        if current != BLUETOOTH_SOURCE_AUTO and current not in choices:
+            choices[current] = f"{current} — currently unavailable"
+
+        client = getattr(self._config_entry, "runtime_data", None)
+        bonded_source = getattr(client, "last_connected_source", None) or getattr(
+            client, "ble_source_affinity", None,
+        )
+
+        return self.async_show_form(
+            step_id="bluetooth_source",
+            data_schema=vol.Schema({
+                vol.Required(CONF_BLUETOOTH_SOURCE, default=current): vol.In(choices),
+            }),
+            description_placeholders={
+                "bonded_source": bonded_source or "not learned yet",
+            },
         )
 
     async def async_step_full_pair(
@@ -698,46 +760,73 @@ class MelittaOptionsFlow(OptionsFlow):
     async def async_step_advanced(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle advanced options."""
-        if user_input is not None:
-            new_options = {**self._config_entry.options, **user_input}
-            return self.async_create_entry(title="", data=new_options)
+        """Handle advanced options.
 
+        Keep custom validation out of the voluptuous schema returned to the
+        frontend. Home Assistant serializes that schema before rendering the
+        form, and arbitrary callables such as ``_validate_hhmm`` are not
+        frontend-serializable. Validate/normalise the HH:MM field explicitly
+        on submit instead.
+        """
         options = self._config_entry.options
+        errors: dict[str, str] = {}
+        form_values = dict(options)
+
+        if user_input is not None:
+            normalized_input = dict(user_input)
+            form_values.update(user_input)
+
+            if CONF_AUTO_SYNC_DAILY_TIME in normalized_input:
+                try:
+                    normalized_input[CONF_AUTO_SYNC_DAILY_TIME] = _validate_hhmm(
+                        normalized_input[CONF_AUTO_SYNC_DAILY_TIME]
+                    )
+                except vol.Invalid:
+                    errors[CONF_AUTO_SYNC_DAILY_TIME] = "invalid_time"
+
+            if not errors:
+                new_options = {**options, **normalized_input}
+                return self.async_create_entry(title="", data=new_options)
+
         return self.async_show_form(
             step_id="advanced",
             data_schema=vol.Schema({
                 vol.Optional(
                     CONF_BLE_CONNECT_TIMEOUT,
-                    default=options.get(CONF_BLE_CONNECT_TIMEOUT, DEFAULT_BLE_CONNECT_TIMEOUT),
+                    default=form_values.get(
+                        CONF_BLE_CONNECT_TIMEOUT, DEFAULT_BLE_CONNECT_TIMEOUT,
+                    ),
                 ): vol.All(vol.Coerce(float), vol.Range(min=5.0, max=60.0)),
                 vol.Optional(
                     CONF_PAIR_TIMEOUT,
-                    default=options.get(CONF_PAIR_TIMEOUT, DEFAULT_PAIR_TIMEOUT),
+                    default=form_values.get(CONF_PAIR_TIMEOUT, DEFAULT_PAIR_TIMEOUT),
                 ): vol.All(vol.Coerce(float), vol.Range(min=10.0, max=120.0)),
                 vol.Optional(
                     CONF_RECIPE_RETRIES,
-                    default=options.get(CONF_RECIPE_RETRIES, DEFAULT_RECIPE_RETRIES),
+                    default=form_values.get(CONF_RECIPE_RETRIES, DEFAULT_RECIPE_RETRIES),
                 ): vol.All(int, vol.Range(min=1, max=10)),
                 vol.Optional(
                     CONF_INITIAL_CONNECT_DELAY,
-                    default=options.get(CONF_INITIAL_CONNECT_DELAY, DEFAULT_INITIAL_CONNECT_DELAY),
+                    default=form_values.get(
+                        CONF_INITIAL_CONNECT_DELAY, DEFAULT_INITIAL_CONNECT_DELAY,
+                    ),
                 ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=30.0)),
                 vol.Optional(
                     CONF_AUTO_SYNC_CLOCK,
-                    default=options.get(CONF_AUTO_SYNC_CLOCK, DEFAULT_AUTO_SYNC_CLOCK),
+                    default=form_values.get(CONF_AUTO_SYNC_CLOCK, DEFAULT_AUTO_SYNC_CLOCK),
                 ): bool,
                 vol.Optional(
                     CONF_AUTO_SYNC_DRIFT_MINUTES,
-                    default=options.get(
+                    default=form_values.get(
                         CONF_AUTO_SYNC_DRIFT_MINUTES, DEFAULT_AUTO_SYNC_DRIFT_MINUTES,
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
                 vol.Optional(
                     CONF_AUTO_SYNC_DAILY_TIME,
-                    default=options.get(
+                    default=form_values.get(
                         CONF_AUTO_SYNC_DAILY_TIME, DEFAULT_AUTO_SYNC_DAILY_TIME,
                     ),
-                ): vol.All(str, _validate_hhmm),
+                ): str,
             }),
+            errors=errors,
         )

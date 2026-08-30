@@ -41,6 +41,13 @@ def _mock_client():
     client.freestyle_temperature2 = "normal"
     client.freestyle_shots2 = "none"
     client.set_ble_device = MagicMock()
+    client.ble_source_affinity = None
+    client.ble_device_source = None
+    client.last_connected_source = None
+    client.source_migration_pending = False
+    client.seen_ble_sources = {}
+    client.set_source_learned_callback = MagicMock()
+    client.set_source_available_callback = MagicMock()
     client.add_status_callback = MagicMock()
     client.add_connection_callback = MagicMock()
     client.connect = AsyncMock(return_value=True)
