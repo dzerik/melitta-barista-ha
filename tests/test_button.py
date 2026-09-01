@@ -799,3 +799,75 @@ async def test_mycoffee_brew_button_press_invokes_brew_mycoffee_slot(
         "button", "press", {"entity_id": slot3_eid}, blocking=True,
     )
     client.brew_mycoffee_slot.assert_awaited_with(2)
+
+def test_switch_off_available_when_connected_but_not_ready(
+    mock_entry,
+) -> None:
+    """Power-off stays available while connected outside the ready state."""
+    from unittest.mock import MagicMock
+
+    from custom_components.melitta_barista.button import MelittaMaintenanceButton
+    from custom_components.melitta_barista.const import MachineProcess
+
+    client = _mock_client(status=MagicMock(is_ready=False))
+    client.connected = True
+
+    entity = MelittaMaintenanceButton(
+        client,
+        mock_entry,
+        "Mock Machine",
+        key="switch_off",
+        label="Switch Off",
+        icon="mdi:power",
+        process=MachineProcess.SWITCH_OFF,
+    )
+
+    assert entity.available is True
+
+
+def test_switch_off_unavailable_when_disconnected(
+    mock_entry,
+) -> None:
+    """Power-off is unavailable without a live BLE connection."""
+    from custom_components.melitta_barista.button import MelittaMaintenanceButton
+    from custom_components.melitta_barista.const import MachineProcess
+
+    client = _mock_client()
+    client.connected = False
+
+    entity = MelittaMaintenanceButton(
+        client,
+        mock_entry,
+        "Mock Machine",
+        key="switch_off",
+        label="Switch Off",
+        icon="mdi:power",
+        process=MachineProcess.SWITCH_OFF,
+    )
+
+    assert entity.available is False
+
+
+def test_other_maintenance_still_requires_ready_state(
+    mock_entry,
+) -> None:
+    """Cleaning operations keep the existing ready-state requirement."""
+    from unittest.mock import MagicMock
+
+    from custom_components.melitta_barista.button import MelittaMaintenanceButton
+    from custom_components.melitta_barista.const import MachineProcess
+
+    client = _mock_client(status=MagicMock(is_ready=False))
+    client.connected = True
+
+    entity = MelittaMaintenanceButton(
+        client,
+        mock_entry,
+        "Mock Machine",
+        key="easy_clean",
+        label="Easy Clean",
+        icon="mdi:coffee-maker-clean",
+        process=MachineProcess.EASY_CLEAN,
+    )
+
+    assert entity.available is False
