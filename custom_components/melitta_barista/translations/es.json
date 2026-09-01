@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "La cafetera necesita emparejarse de nuevo",
       "description": "La cafetera ({address}) rechaza el intercambio de cifrado Bluetooth — el emparejamiento guardado ya no coincide. Esto no puede arreglarse solo desde Home Assistant.\n\nRecuperación única:\n1. En la máquina: abra el menú Bluetooth y elimine/restablezca la conexión.\n2. Apague y encienda la máquina.\n3. Abra la pantalla de emparejamiento Bluetooth de la máquina.\n4. Mientras se muestra, recargue esta integración (Ajustes → Dispositivos y servicios → la entrada → Recargar).\n\nLa integración se emparejará de nuevo automáticamente y este problema desaparecerá tras la primera conexión correcta."
+    },
+    "ble_source_unavailable": {
+      "title": "El adaptador Bluetooth emparejado no está disponible",
+      "description": "La cafetera ({address}) es visible mediante otros adaptadores Bluetooth, pero el adaptador propietario del emparejamiento ({source}) no está disponible. La integración espera en lugar de cambiar a otro central Bluetooth, ya que eso provocaría un error de autenticación.\n\nSi el adaptador solo se está reiniciando, no es necesario hacer nada. Si se eliminó o sustituyó, abre Ajustes → Dispositivos y servicios → Melitta → Configurar → Adaptador Bluetooth, pon la cafetera en modo de emparejamiento y selecciona un adaptador de reemplazo."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migración del adaptador Bluetooth pendiente",
+      "description": "La cafetera ({address}) se está trasladando al adaptador Bluetooth {source}. Pon la cafetera en modo de emparejamiento y mantenla encendida. La integración se emparejará únicamente mediante ese adaptador y lo marcará como nuevo propietario del vínculo tras completar correctamente el intercambio cifrado. Los demás proxies Bluetooth seguirán activos, pero no podrán tomar esta conexión."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automático — recordar el adaptador Bluetooth emparejado"
+      }
     }
   }
 }

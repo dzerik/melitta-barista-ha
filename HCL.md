@@ -60,38 +60,21 @@ template is the source of truth:
 | Custom `api.actions: restart_ble` | C6 controller-wedge recovery; called by Hard Repair when available | `ble.disable → 2 s → ble.enable`: reinitializes the BLE stack **without** rebooting the ESP and **without** touching NVS bonds. The only remedy short of a reboot for the C6 stale-pending-create-connection wedge (`status=133` + HCI `0x2043` loop). |
 | `esphome: { min_version: 2026.7.0 }` | all of the above | Guarantees the `api.actions:` schema (2025.8+), the bluetooth_proxy slot-leak fix (2026.5.1, [esphome#16588](https://github.com/esphome/esphome/pull/16588)) and the stale-subscriber takeover (2026.7.0, [esphome#17423](https://github.com/esphome/esphome/pull/17423) — cures "proxy connected but no advertisements" after an HA restart). |
 
-#### Multiple proxies in the house? Bond affinity keeps them active
+#### Multiple proxies in the house? Pin the machine to ONE
 
-These machines keep **a single bond slot tied to the identity of the Bluetooth
-central that paired**. Home Assistant normally routes a connection through the
-connectable adapter/proxy with the best score at that moment. For a bonded
-coffee machine that roaming is unsafe: another central does not own the LTK and
-can be rejected with `auth fail reason=82` (field case #10).
+These machines keep **a single bond slot tied to the identity of the one
+proxy that paired**. Home Assistant routes each connection through whichever
+connectable proxy has the best signal *at that moment* — if that's ever a
+different proxy, the machine rejects the encryption with
+`auth fail reason=82` and the connection drops (field case #10). Rules:
 
-The integration therefore uses **bond-aware Bluetooth source affinity**:
-
-- all ESPHome proxies may keep `bluetooth_proxy: { active: true }`; they still
-  scan and connect normally for other integrations;
-- after a successful coffee-machine connection, the integration remembers the
-  exact HA scanner source that owns the bond and only adopts the `BLEDevice`
-  reported by that source for future authenticated connections;
-- advertisements from other scanners remain visible for diagnostics and for
-  detecting that the machine is alive, but they cannot silently move an SMP
-  retry to a different central;
-- upgraded installs with an existing local BlueZ bond bootstrap the source from
-  BlueZ's persisted `Device1.Paired` state. Existing proxy-owned bonds are
-  learned on the first successful connection, or can be pinned explicitly via
-  **Configure → Bluetooth adapter**;
-- if the bonded source disappears temporarily, the integration waits for it
-  instead of roaming. If the machine remains visible through another scanner
-  for the grace period, a Repairs issue explains how to migrate deliberately;
-- migration is transactional: selecting a replacement source does not overwrite
-  the stored bond owner until that source connects successfully. Choosing
-  **Automatic** again before success rolls back to the previous owner.
-
-The machine still has only one usable bond owner at a time. Moving it to a new
-adapter/proxy therefore requires putting the machine in pairing mode once, but
-**does not require disabling or reflashing any other Bluetooth proxy**.
+- exactly **one** proxy in the machine's radio range runs
+  `bluetooth_proxy: { active: true }`;
+- every other proxy sets `active: false` — advertisements still flow
+  (presence/sensor integrations keep working), but connections and the bond
+  always go through the machine's own proxy;
+- non-bonding BLE devices (blinds, sensors) are unaffected by this rule —
+  it exists only for bonded peripherals like these coffee machines.
 
 The integration falls back gracefully when an action is missing
 (`hass.services.has_service` check + an explicit error message naming the

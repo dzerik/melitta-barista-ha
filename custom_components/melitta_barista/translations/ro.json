@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Espressorul necesită reîmperechere",
       "description": "Espressorul ({address}) respinge schimbul de criptare Bluetooth — împerecherea salvată nu mai corespunde. Aceasta nu poate fi remediată doar din Home Assistant.\n\nRecuperare unică:\n1. Pe aparat: deschideți meniul Bluetooth și ștergeți/resetați conexiunea.\n2. Opriți și porniți aparatul.\n3. Deschideți ecranul de împerechere Bluetooth al aparatului.\n4. Cât timp este afișat, reîncărcați această integrare (Setări → Dispozitive și servicii → intrarea → Reîncărcare).\n\nIntegrarea se va reîmperechea automat, iar problema va dispărea după prima conexiune reușită."
+    },
+    "ble_source_unavailable": {
+      "title": "Adaptorul Bluetooth asociat nu este disponibil",
+      "description": "Espressorul ({address}) este vizibil prin alte adaptoare Bluetooth, dar adaptorul care deține asocierea ({source}) nu este disponibil. Integrarea așteaptă în loc să treacă la un alt dispozitiv central Bluetooth, deoarece acest lucru ar provoca o eroare de autentificare.\n\nDacă adaptorul doar repornește, nu este necesară nicio acțiune. Dacă a fost eliminat sau înlocuit, deschide Setări → Dispozitive și servicii → Melitta → Configurează → Adaptor Bluetooth, pune espressorul în modul de asociere și selectează un adaptor de înlocuire."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migrarea adaptorului Bluetooth este în așteptare",
+      "description": "Espressorul ({address}) este mutat pe adaptorul Bluetooth {source}. Pune espressorul în modul de asociere și menține-l pornit. Integrarea se va asocia numai prin acest adaptor și îl va marca drept noul proprietar al asocierii după o negociere criptată reușită. Celelalte proxy-uri Bluetooth rămân active, dar nu pot prelua această conexiune."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automat — reține adaptorul Bluetooth asociat"
+      }
     }
   }
 }

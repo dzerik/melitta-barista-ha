@@ -32,7 +32,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from .ble_client import MelittaBleClient
+from .ble_client import MelittaBleClient, UnpairOutcome
 from .bond_state import BondState, BondStateMachine
 # Imported at module level on purpose: HA loads this package in the import
 # executor, so the pydantic chain (panel_api → pydantic) is pulled in off
@@ -621,56 +621,62 @@ def _fallback_single_proxy_entry(
 
 async def _async_proxy_unpair(
     hass: HomeAssistant, address: str, source: str | None = None,
-) -> bool:
-    """Connection-less bond wipe for ``address`` via the ESPHome proxy API.
+) -> UnpairOutcome:
+    """Request a connection-less bond wipe through an ESPHome proxy.
 
-    Sends ``bluetooth_device_unpair`` on the proxy entry's aioesphomeapi
-    client; the proxy firmware handles UNPAIR without an open BLE link
-    (``esp_ble_remove_bond_device``), so this works even when no BLEDevice
-    is cached — the state where the connect-then-unpair fallback in
-    ``MelittaBleClient._try_unpair`` is a guaranteed no-op (issue #35).
-
-    Returns True only when the proxy explicitly confirms that the bond was
-    removed. A timeout is *not* proof of success: current ESPHome firmware is
-    expected to answer UNPAIR with BluetoothDeviceUnpairingResponse, and there
-    are known proxy/API failure modes where the request times out without a
-    usable confirmation. Destructive recovery must therefore fail closed.
+    ESPHome 2026.5/2026.7 field behavior is unusual but stable: the firmware
+    executes UNPAIR, then replies with a message type aioesphomeapi does not
+    accept, so the API call times out. That timeout means *request sent, result
+    unconfirmed* and must not trigger another destructive fallback.
     """
     proxy_entry = _find_proxy_entry_for_address(hass, address, source)
     if proxy_entry is None:
         _LOGGER.debug("proxy_unpair: no ESPHome proxy entry for %s", address)
-        return False
+        return UnpairOutcome.NOT_SENT
     api = getattr(getattr(proxy_entry, "runtime_data", None), "client", None)
     if api is None or not hasattr(api, "bluetooth_device_unpair"):
         _LOGGER.debug(
             "proxy_unpair: proxy entry %s has no usable API client",
             proxy_entry.entry_id,
         )
-        return False
+        return UnpairOutcome.NOT_SENT
     try:
         response = await api.bluetooth_device_unpair(
             int(address.replace(":", ""), 16), timeout=10.0,
         )
-    except Exception as err:  # noqa: BLE001 — any API error means "fall back"
+    except Exception as err:  # noqa: BLE001 — request may already have executed
         if isinstance(err, TimeoutError) or "Timeout" in type(err).__name__:
-            _LOGGER.warning(
-                "proxy_unpair: timed out waiting for confirmation for %s; "
-                "bond removal is NOT confirmed and will not be treated as "
-                "successful",
+            _LOGGER.info(
+                "proxy_unpair: %s timed out after UNPAIR was sent; this is the "
+                "known ESPHome response mismatch, so bond removal is recorded "
+                "as attempted-unconfirmed and no second unpair will be sent",
                 address,
             )
-            return False
-        _LOGGER.debug(
-            "proxy_unpair: bluetooth_device_unpair failed for %s",
-            address, exc_info=True,
-        )
-        return False
+        else:
+            _LOGGER.warning(
+                "proxy_unpair: request for %s raised %s after dispatch; "
+                "treating it as attempted-unconfirmed to avoid a second "
+                "destructive request",
+                address,
+                type(err).__name__,
+            )
+            _LOGGER.debug("proxy_unpair exception", exc_info=True)
+        return UnpairOutcome.ATTEMPTED_UNCONFIRMED
+
     success = bool(getattr(response, "success", True))
-    _LOGGER.info(
-        "proxy_unpair: connection-less unpair of %s via proxy API — %s",
-        address, "ok" if success else "proxy reported failure",
+    if success:
+        _LOGGER.info(
+            "proxy_unpair: connection-less unpair of %s via proxy API — ok",
+            address,
+        )
+        return UnpairOutcome.CONFIRMED
+
+    _LOGGER.warning(
+        "proxy_unpair: proxy returned a non-success response for %s after the "
+        "destructive request was sent; treating as attempted-unconfirmed",
+        address,
     )
-    return success
+    return UnpairOutcome.ATTEMPTED_UNCONFIRMED
 
 
 async def _async_force_repair(
@@ -1068,32 +1074,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         and _norm_ble_source(configured_source) != _norm_ble_source(stored_source)
     )
 
-    # Upgrade bootstrap: if this entry predates source affinity, prefer a local
-    # BlueZ adapter that already has a persisted bond instead of guessing from
-    # whichever proxy currently has the strongest RSSI. Proxy-owned bonds are
-    # learned on the first successful encrypted handshake.
+    # Upgrade bootstrap: an existing BlueZ ``Paired`` record is only a hint.
+    # BlueZ keeps that flag indefinitely, so persisting it as the bond owner
+    # before a Melitta encrypted handshake can pin an upgraded install to a
+    # stale local adapter. The hint is tried for the first cycle only and is
+    # promoted to real affinity exclusively by _on_source_learned after a
+    # successful handshake. AUTH failure drops it back to Automatic.
+    source_hint: str | None = None
     if source_affinity is None and configured_source == BLUETOOTH_SOURCE_AUTO:
         try:
             from .ble_agent import async_get_paired_adapter_source  # noqa: PLC0415
 
-            local_bond_source = await async_get_paired_adapter_source(address)
+            source_hint = await asyncio.wait_for(
+                async_get_paired_adapter_source(address), timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            _LOGGER.warning(
+                "Timed out after 10s while checking BlueZ bond source for %s; "
+                "continuing in Automatic mode",
+                address,
+            )
+            source_hint = None
         except Exception:  # noqa: BLE001 — D-Bus is optional
-            local_bond_source = None
-        if local_bond_source:
-            source_affinity = local_bond_source
-            source_state["bonded_source"] = local_bond_source
-            await source_store.async_save(dict(source_state))
+            source_hint = None
 
-    # Resolve an initial BLEDevice from the affinity source when known. This is
-    # the key difference from async_ble_device_from_address(), which explicitly
-    # returns the nearest configured adapter and is therefore allowed to roam.
+    # Resolve an initial BLEDevice from proven affinity or the one-shot BlueZ
+    # hint when known. Unlike async_ble_device_from_address(), the hinted path
+    # asks for one specific scanner instead of the nearest available adapter.
     ble_device = None
     ble_device_source: str | None = None
     try:
-        if source_affinity is not None:
-            ble_device = _ble_device_for_source(hass, address, source_affinity)
-            ble_device_source = source_affinity if ble_device is not None else None
-        else:
+        preferred_source = source_affinity or source_hint
+        if preferred_source is not None:
+            ble_device = _ble_device_for_source(hass, address, preferred_source)
+            ble_device_source = preferred_source if ble_device is not None else None
+            if ble_device is None and source_affinity is None:
+                # A stale/unavailable BlueZ record is not an affinity gate. If
+                # its scanner cannot currently provide the device, abandon the
+                # hint immediately and let Automatic choose a visible source.
+                source_hint = None
+        if ble_device is None and source_affinity is None and source_hint is None:
             ble_device = bluetooth.async_ble_device_from_address(
                 hass, address.upper(), connectable=True
             )
@@ -1103,8 +1123,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
             ble_device_source = _source_for_ble_device(hass, address, ble_device)
         _LOGGER.debug(
-            "Initial BLEDevice from cache: %s (source=%s, affinity=%s)",
-            ble_device, ble_device_source, source_affinity,
+            "Initial BLEDevice from cache: %s (source=%s, affinity=%s, hint=%s)",
+            ble_device, ble_device_source, source_affinity, source_hint,
         )
     except (AttributeError, ValueError):
         _LOGGER.debug("Could not get BLEDevice from cache", exc_info=True)
@@ -1115,6 +1135,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ble_device=ble_device,
         ble_device_source=ble_device_source,
         ble_source_affinity=source_affinity,
+        ble_source_hint=source_hint,
         source_migration_pending=source_migration_pending,
         poll_interval=opts.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
         ble_connect_timeout=opts.get(CONF_BLE_CONNECT_TIMEOUT, DEFAULT_BLE_CONNECT_TIMEOUT),
@@ -1296,13 +1317,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 address,
             )
             return
-        if client.ble_source_affinity is None:
-            _LOGGER.warning(
-                "Skipping automatic proxy reload for %s: BLE bond source is "
-                "not proven yet, so choosing a proxy would be unsafe",
-                address,
-            )
-            return
         # Surface a Repair card so the user knows we hit the wedge even if
         # the auto-recovery (proxy reload) succeeds — gives them a chance
         # to flag the issue / share logs.
@@ -1319,11 +1333,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Auth-class wedges (bond mismatch) cannot be fixed by a proxy
         # reload — the broken half lives on the machine. Reloading would
         # only drop every other BLE device on that proxy (0.88 audit).
-        if client.bond.state in (BondState.MISMATCH, BondState.PAIRING_REQUIRED):
+        if (
+            client.ble_source_affinity is not None
+            and client.bond.state in (BondState.MISMATCH, BondState.PAIRING_REQUIRED)
+        ):
             _LOGGER.warning(
-                "Skipping proxy reload for %s: failure is auth-class "
-                "(bond state %s); re-pair the machine instead — see the "
-                "repair issue",
+                "Skipping proxy reload for %s: failure is auth-class on the "
+                "proven bond owner (bond state %s); re-pair the machine "
+                "instead — see the repair issue",
                 address, client.bond.state.value,
             )
             return
@@ -1378,7 +1395,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Connection-less bond wipe (issue #35): lets _try_unpair clear a stale
     # bond through the proxy API even when no BLEDevice is cached — the
     # exact state a wedged proxy produces.
-    async def _proxy_unpair() -> bool:
+    async def _proxy_unpair() -> UnpairOutcome:
         return await _async_proxy_unpair(
             hass, address, client.ble_source_affinity,
         )

@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kahve makinesinin yeniden eşleştirilmesi gerekiyor",
       "description": "Kahve makinesi ({address}) Bluetooth şifreleme alışverişini reddediyor — kayıtlı eşleştirme artık eşleşmiyor. Bu yalnızca Home Assistant üzerinden düzeltilemez.\n\nTek seferlik kurtarma:\n1. Makinede: Bluetooth menüsünü açın ve bağlantıyı silin/sıfırlayın.\n2. Makineyi kapatıp açın.\n3. Makinenin Bluetooth eşleştirme ekranını açın.\n4. Ekran görünürken bu entegrasyonu yeniden yükleyin (Ayarlar → Cihazlar ve hizmetler → kayıt → Yeniden yükle).\n\nEntegrasyon otomatik olarak yeniden eşleşir ve sorun ilk başarılı bağlantıdan sonra kaybolur."
+    },
+    "ble_source_unavailable": {
+      "title": "Eşleştirilmiş Bluetooth adaptörü kullanılamıyor",
+      "description": "Kahve makinesi ({address}) diğer Bluetooth adaptörleri üzerinden görülebiliyor, ancak eşleştirmenin sahibi olan adaptör ({source}) kullanılamıyor. Entegrasyon başka bir Bluetooth merkezine geçmek yerine bekler; çünkü geçiş kimlik doğrulama hatasına yol açar.\n\nAdaptör yalnızca yeniden başlatılıyorsa işlem gerekmez. Kaldırıldıysa veya değiştirildiyse Ayarlar → Cihazlar ve hizmetler → Melitta → Yapılandır → Bluetooth adaptörü yolunu açın, makineyi eşleştirme moduna alın ve yeni bir adaptör seçin."
+    },
+    "ble_source_migration_pending": {
+      "title": "Bluetooth adaptörü geçişi bekliyor",
+      "description": "Kahve makinesi ({address}), Bluetooth adaptörü {source} üzerine taşınıyor. Makineyi eşleştirme moduna alın ve açık tutun. Entegrasyon yalnızca bu adaptör üzerinden eşleşecek ve başarılı şifreli el sıkışmadan sonra onu yeni eşleştirme sahibi olarak işaretleyecek. Diğer Bluetooth proxy’leri etkin kalır ancak bu bağlantıyı devralamaz."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Otomatik — eşleştirilmiş Bluetooth adaptörünü hatırla"
+      }
     }
   }
 }

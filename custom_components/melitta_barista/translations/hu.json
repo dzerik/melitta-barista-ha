@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "A kávégépet újra kell párosítani",
       "description": "A kávégép ({address}) elutasítja a Bluetooth titkosítási cserét — a tárolt párosítás már nem egyezik. Ezt nem lehet csak a Home Assistantból javítani.\n\nEgyszeri helyreállítás:\n1. A gépen: nyissa meg a Bluetooth menüt, és törölje/állítsa vissza a kapcsolatot.\n2. Kapcsolja ki és be a gépet.\n3. Nyissa meg a gép Bluetooth párosítási képernyőjét.\n4. Amíg látható, töltse újra ezt az integrációt (Beállítások → Eszközök és szolgáltatások → bejegyzés → Újratöltés).\n\nAz integráció automatikusan újrapárosít, és a probléma az első sikeres kapcsolat után eltűnik."
+    },
+    "ble_source_unavailable": {
+      "title": "A párosított Bluetooth-adapter nem érhető el",
+      "description": "A kávéfőző ({address}) más Bluetooth-adaptereken keresztül látható, de a párosítást birtokló adapter ({source}) nem érhető el. Az integráció vár, ahelyett hogy másik Bluetooth-központra váltana, mert az hitelesítési hibát okozna.\n\nHa az adapter csak újraindul, nincs teendő. Ha eltávolították vagy lecserélték, nyisd meg a Beállítások → Eszközök és szolgáltatások → Melitta → Konfigurálás → Bluetooth-adapter menüt, tedd a gépet párosítási módba, és válassz másik adaptert."
+    },
+    "ble_source_migration_pending": {
+      "title": "Bluetooth-adapter migrációja függőben",
+      "description": "A kávéfőző ({address}) a(z) {source} Bluetooth-adapterre kerül át. Tedd a gépet párosítási módba, és hagyd bekapcsolva. Az integráció csak ezen az adapteren keresztül párosít, és sikeres titkosított kézfogás után ezt jelöli meg az új párosítás tulajdonosaként. A többi Bluetooth-proxy aktív marad, de nem veheti át ezt a kapcsolatot."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatikus — a párosított Bluetooth-adapter megjegyzése"
+      }
     }
   }
 }

@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kaffemaskinen behöver parkopplas igen",
       "description": "Kaffemaskinen ({address}) avvisar Bluetooth-krypteringsutbytet — den sparade parkopplingen stämmer inte längre. Detta kan inte åtgärdas enbart från Home Assistant.\n\nEngångsåterställning:\n1. På maskinen: öppna Bluetooth-menyn och ta bort/återställ anslutningen.\n2. Stäng av och sätt på maskinen.\n3. Öppna maskinens Bluetooth-parkopplingsskärm.\n4. Medan den visas, ladda om denna integration (Inställningar → Enheter och tjänster → posten → Ladda om).\n\nIntegrationen parkopplas automatiskt igen och problemet försvinner efter den första lyckade anslutningen."
+    },
+    "ble_source_unavailable": {
+      "title": "Den parkopplade Bluetooth-adaptern är inte tillgänglig",
+      "description": "Kaffemaskinen ({address}) syns via andra Bluetooth-adaptrar, men adaptern som äger parkopplingen ({source}) är inte tillgänglig. Integrationen väntar i stället för att byta till en annan Bluetooth-central, eftersom det skulle orsaka ett autentiseringsfel.\n\nOm adaptern bara startar om behövs ingen åtgärd. Om den har tagits bort eller ersatts, öppna Inställningar → Enheter och tjänster → Melitta → Konfigurera → Bluetooth-adapter, sätt maskinen i parkopplingsläge och välj en ersättningsadapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migrering av Bluetooth-adapter väntar",
+      "description": "Kaffemaskinen ({address}) flyttas till Bluetooth-adaptern {source}. Sätt maskinen i parkopplingsläge och låt den vara påslagen. Integrationen parkopplar endast via denna adapter och markerar den som ny ägare av parkopplingen efter en lyckad krypterad handskakning. Andra Bluetooth-proxyer förblir aktiva men får inte ta över anslutningen."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatiskt — kom ihåg den parkopplade Bluetooth-adaptern"
+      }
     }
   }
 }

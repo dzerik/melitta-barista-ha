@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kávovar vyžaduje nové spárování",
       "description": "Kávovar ({address}) odmítá Bluetooth šifrovací výměnu — uložené párování už neodpovídá. Toto nelze opravit pouze z Home Assistanta.\n\nJednorázová obnova:\n1. Na kávovaru: otevřete Bluetooth menu a smažte/resetujte připojení.\n2. Kávovar vypněte a zapněte.\n3. Otevřete na kávovaru obrazovku Bluetooth párování.\n4. Dokud je zobrazena, znovu načtěte tuto integraci (Nastavení → Zařízení a služby → záznam → Znovu načíst).\n\nIntegrace se automaticky znovu spáruje a tento problém po prvním úspěšném připojení zmizí."
+    },
+    "ble_source_unavailable": {
+      "title": "Spárovaný adaptér Bluetooth není dostupný",
+      "description": "Kávovar ({address}) je viditelný přes jiné adaptéry Bluetooth, ale adaptér, který vlastní jeho párování ({source}), není dostupný. Integrace čeká místo přechodu na jiný centrální Bluetooth adaptér, protože by to způsobilo chybu ověření.\n\nPokud se adaptér pouze restartuje, není třeba nic dělat. Pokud byl odstraněn nebo nahrazen, otevřete Nastavení → Zařízení a služby → Melitta → Konfigurovat → Adaptér Bluetooth, přepněte kávovar do režimu párování a vyberte náhradní adaptér."
+    },
+    "ble_source_migration_pending": {
+      "title": "Čeká migrace adaptéru Bluetooth",
+      "description": "Kávovar ({address}) se přesouvá na adaptér Bluetooth {source}. Přepněte kávovar do režimu párování a nechte jej zapnutý. Integrace se spáruje pouze přes tento adaptér a po úspěšném šifrovaném navázání spojení jej označí jako nového vlastníka párování. Ostatní Bluetooth proxy zůstanou aktivní, ale tuto relaci nepřevezmou."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automaticky — pamatovat spárovaný adaptér"
+      }
     }
   }
 }

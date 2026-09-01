@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kohvimasin vajab uuesti sidumist",
       "description": "Kohvimasin ({address}) lükkab Bluetoothi krüpteerimisvahetuse tagasi — salvestatud sidumine ei sobi enam. Seda ei saa parandada ainult Home Assistantist.\n\nÜhekordne taastamine:\n1. Masinal: avage Bluetoothi menüü ja kustutage/lähtestage ühendus.\n2. Lülitage masin välja ja sisse.\n3. Avage masina Bluetoothi sidumise ekraan.\n4. Kuni see on kuvatud, laadige see sidumine uuesti (Seaded → Seadmed ja teenused → kirje → Laadi uuesti).\n\nSidumine toimub automaatselt uuesti ja see probleem kaob pärast esimest edukat ühendust."
+    },
+    "ble_source_unavailable": {
+      "title": "Seotud Bluetooth-adapter pole saadaval",
+      "description": "Kohvimasin ({address}) on nähtav teiste Bluetooth-adapterite kaudu, kuid sidet omav adapter ({source}) pole saadaval. Integratsioon ootab ega liigu teisele Bluetooth-keskseadmele, sest see põhjustaks autentimisvea.\n\nKui adapter ainult taaskäivitub, pole vaja midagi teha. Kui see eemaldati või asendati, ava Seaded → Seadmed ja teenused → Melitta → Seadista → Bluetooth-adapter, pane masin sidumisrežiimi ja vali asendusadapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Bluetooth-adapteri migratsioon on ootel",
+      "description": "Kohvimasin ({address}) viiakse Bluetooth-adapterile {source}. Pane masin sidumisrežiimi ja hoia see sisse lülitatuna. Integratsioon seob ainult selle adapteri kaudu ning märgib selle pärast edukat krüptitud käepigistust uueks sideme omanikuks. Teised Bluetooth-proksid jäävad aktiivseks, kuid ei tohi seda ühendust üle võtta."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automaatne — jäta seotud Bluetooth-adapter meelde"
+      }
     }
   }
 }

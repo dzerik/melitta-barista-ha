@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Koffiemachine moet opnieuw worden gekoppeld",
       "description": "De koffiemachine ({address}) weigert de Bluetooth-versleutelingsuitwisseling — de opgeslagen koppeling komt niet meer overeen. Dit kan niet alleen vanuit Home Assistant worden opgelost.\n\nEenmalig herstel:\n1. Op de machine: open het Bluetooth-menu en verwijder/reset de verbinding.\n2. Zet de machine uit en weer aan.\n3. Open het Bluetooth-koppelscherm van de machine.\n4. Terwijl dit zichtbaar is, herlaad deze integratie (Instellingen → Apparaten en diensten → het item → Herladen).\n\nDe integratie koppelt automatisch opnieuw en dit probleem verdwijnt na de eerste geslaagde verbinding."
+    },
+    "ble_source_unavailable": {
+      "title": "Gekoppelde Bluetooth-adapter niet beschikbaar",
+      "description": "De koffiemachine ({address}) is zichtbaar via andere Bluetooth-adapters, maar de adapter die de koppeling bezit ({source}) is niet beschikbaar. De integratie wacht in plaats van naar een andere Bluetooth-central over te schakelen, omdat dat een authenticatiefout zou veroorzaken.\n\nAls de adapter alleen opnieuw opstart, is geen actie nodig. Als hij is verwijderd of vervangen, open Instellingen → Apparaten en diensten → Melitta → Configureren → Bluetooth-adapter, zet de machine in koppelmodus en selecteer een vervangende adapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migratie van Bluetooth-adapter in afwachting",
+      "description": "De koffiemachine ({address}) wordt verplaatst naar Bluetooth-adapter {source}. Zet de machine in koppelmodus en laat haar ingeschakeld. De integratie koppelt alleen via deze adapter en markeert hem als nieuwe eigenaar van de koppeling na een geslaagde versleutelde handshake. Andere Bluetooth-proxy’s blijven actief, maar mogen deze verbinding niet overnemen."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatisch — gekoppelde Bluetooth-adapter onthouden"
+      }
     }
   }
 }

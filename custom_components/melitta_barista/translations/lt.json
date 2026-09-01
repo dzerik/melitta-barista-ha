@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kavos aparatą reikia susieti iš naujo",
       "description": "Kavos aparatas ({address}) atmeta „Bluetooth“ šifravimo mainus — išsaugotas susiejimas nebeatitinka. To negalima ištaisyti vien iš „Home Assistant“.\n\nVienkartinis atkūrimas:\n1. Aparate: atidarykite „Bluetooth“ meniu ir ištrinkite / atstatykite ryšį.\n2. Išjunkite ir įjunkite aparatą.\n3. Atidarykite aparato „Bluetooth“ susiejimo ekraną.\n4. Kol jis rodomas, iš naujo įkelkite šią integraciją (Nustatymai → Įrenginiai ir paslaugos → įrašas → Įkelti iš naujo).\n\nIntegracija susies iš naujo automatiškai, ir problema išnyks po pirmo sėkmingo ryšio."
+    },
+    "ble_source_unavailable": {
+      "title": "Susietas Bluetooth adapteris nepasiekiamas",
+      "description": "Kavos aparatas ({address}) matomas per kitus Bluetooth adapterius, tačiau susiejimą valdantis adapteris ({source}) nepasiekiamas. Integracija laukia, užuot perėjusi prie kito Bluetooth centrinio įrenginio, nes tai sukeltų autentifikavimo klaidą.\n\nJei adapteris tik persikrauna, nieko daryti nereikia. Jei jis pašalintas ar pakeistas, atidarykite Nustatymai → Įrenginiai ir paslaugos → Melitta → Konfigūruoti → Bluetooth adapteris, įjunkite aparato susiejimo režimą ir pasirinkite kitą adapterį."
+    },
+    "ble_source_migration_pending": {
+      "title": "Laukiama Bluetooth adapterio perkėlimo",
+      "description": "Kavos aparatas ({address}) perkeliamas į Bluetooth adapterį {source}. Įjunkite susiejimo režimą ir palikite aparatą įjungtą. Integracija susies tik per šį adapterį ir po sėkmingo šifruoto ryšio užmezgimo pažymės jį nauju susiejimo savininku. Kiti Bluetooth tarpiniai serveriai liks aktyvūs, bet negalės perimti šio ryšio."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatiškai — įsiminti susietą Bluetooth adapterį"
+      }
     }
   }
 }

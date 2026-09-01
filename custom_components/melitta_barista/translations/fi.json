@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kahvikone on paritettava uudelleen",
       "description": "Kahvikone ({address}) hylkää Bluetooth-salausvaihdon — tallennettu paritus ei enää täsmää. Tätä ei voi korjata pelkästään Home Assistantista.\n\nKertaluonteinen palautus:\n1. Koneella: avaa Bluetooth-valikko ja poista/nollaa yhteys.\n2. Sammuta ja käynnistä kone.\n3. Avaa koneen Bluetooth-paritusnäyttö.\n4. Kun se näkyy, lataa tämä integraatio uudelleen (Asetukset → Laitteet ja palvelut → merkintä → Lataa uudelleen).\n\nIntegraatio parittuu automaattisesti uudelleen ja ongelma poistuu ensimmäisen onnistuneen yhteyden jälkeen."
+    },
+    "ble_source_unavailable": {
+      "title": "Paritettu Bluetooth-sovitin ei ole käytettävissä",
+      "description": "Kahvinkeitin ({address}) näkyy muiden Bluetooth-sovittimien kautta, mutta pariliitoksen omistava sovitin ({source}) ei ole käytettävissä. Integraatio odottaa sen sijaan, että vaihtaisi toiseen Bluetooth-keskukseen, koska vaihto aiheuttaisi todennusvirheen.\n\nJos sovitin vain käynnistyy uudelleen, mitään ei tarvitse tehdä. Jos se on poistettu tai vaihdettu, avaa Asetukset → Laitteet ja palvelut → Melitta → Määritä → Bluetooth-sovitin, aseta laite pariliitostilaan ja valitse korvaava sovitin."
+    },
+    "ble_source_migration_pending": {
+      "title": "Bluetooth-sovittimen siirto odottaa",
+      "description": "Kahvinkeitin ({address}) siirretään Bluetooth-sovittimelle {source}. Aseta laite pariliitostilaan ja pidä se päällä. Integraatio muodostaa pariliitoksen vain tämän sovittimen kautta ja merkitsee sen uuden pariliitoksen omistajaksi onnistuneen salatun kättelyn jälkeen. Muut Bluetooth-välityspalvelimet pysyvät aktiivisina, mutta eivät saa ottaa tätä yhteyttä haltuunsa."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automaattinen — muista paritettu Bluetooth-sovitin"
+      }
     }
   }
 }

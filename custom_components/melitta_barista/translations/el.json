@@ -557,5 +557,12 @@
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
     }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Αυτόματα — απομνημόνευση συζευγμένου προσαρμογέα"
+      }
+    }
   }
 }

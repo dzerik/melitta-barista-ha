@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kávovar vyžaduje nové spárovanie",
       "description": "Kávovar ({address}) odmieta Bluetooth šifrovaciu výmenu — uložené párovanie už nezodpovedá. Toto sa nedá opraviť len z Home Assistanta.\n\nJednorazová obnova:\n1. Na kávovare: otvorte Bluetooth menu a vymažte/resetujte pripojenie.\n2. Kávovar vypnite a zapnite.\n3. Otvorte na kávovare obrazovku Bluetooth párovania.\n4. Kým je zobrazená, znovu načítajte túto integráciu (Nastavenia → Zariadenia a služby → záznam → Znovu načítať).\n\nIntegrácia sa automaticky znovu spáruje a tento problém po prvom úspešnom pripojení zmizne."
+    },
+    "ble_source_unavailable": {
+      "title": "Spárovaný Bluetooth adaptér nie je dostupný",
+      "description": "Kávovar ({address}) je viditeľný cez iné Bluetooth adaptéry, ale adaptér, ktorý vlastní jeho párovanie ({source}), nie je dostupný. Integrácia čaká namiesto prechodu na inú Bluetooth centrálu, pretože by to spôsobilo chybu overenia.\n\nAk sa adaptér iba reštartuje, nie je potrebná žiadna akcia. Ak bol odstránený alebo nahradený, otvorte Nastavenia → Zariadenia a služby → Melitta → Konfigurovať → Bluetooth adaptér, prepnite kávovar do režimu párovania a vyberte náhradný adaptér."
+    },
+    "ble_source_migration_pending": {
+      "title": "Čaká migrácia Bluetooth adaptéra",
+      "description": "Kávovar ({address}) sa presúva na Bluetooth adaptér {source}. Prepnite kávovar do režimu párovania a nechajte ho zapnutý. Integrácia sa spáruje iba cez tento adaptér a po úspešnom šifrovanom nadviazaní spojenia ho označí ako nového vlastníka párovania. Ostatné Bluetooth proxy zostanú aktívne, ale nemôžu prevziať toto spojenie."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automaticky — zapamätať spárovaný Bluetooth adaptér"
+      }
     }
   }
 }

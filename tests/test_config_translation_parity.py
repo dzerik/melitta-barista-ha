@@ -60,3 +60,35 @@ def test_greek_options_flow_has_no_english_fallback_strings() -> None:
         if key in english and value == english[key]
     }
     assert not identical, f"Greek options strings still fall back to English: {sorted(identical)}"
+
+
+@pytest.mark.parametrize(
+    "locale",
+    [p.stem for p in sorted(_TRANSLATIONS_DIR.glob("*.json")) if p.stem != "en"],
+)
+def test_issue_translation_keys_match_english(locale: str) -> None:
+    """Every supported locale must expose every Repair issue translation key."""
+    english = _flatten(_load("en")["issues"])
+    translated = _flatten(_load(locale)["issues"])
+
+    assert translated.keys() == english.keys(), (
+        f"{locale}.json Repair issue translation keys differ from en.json; "
+        f"missing={sorted(english.keys() - translated.keys())}, "
+        f"extra={sorted(translated.keys() - english.keys())}"
+    )
+
+
+@pytest.mark.parametrize(
+    "locale",
+    [p.stem for p in sorted(_TRANSLATIONS_DIR.glob("*.json")) if p.stem != "en"],
+)
+def test_selector_translation_keys_match_english(locale: str) -> None:
+    """Static selector options must be translated in every locale."""
+    english = _flatten(_load("en").get("selector", {}))
+    translated = _flatten(_load(locale).get("selector", {}))
+
+    assert translated.keys() == english.keys(), (
+        f"{locale}.json selector translation keys differ from en.json; "
+        f"missing={sorted(english.keys() - translated.keys())}, "
+        f"extra={sorted(translated.keys() - english.keys())}"
+    )

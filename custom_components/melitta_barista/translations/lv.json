@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kafijas automāts jāsavieno pārī no jauna",
       "description": "Kafijas automāts ({address}) noraida Bluetooth šifrēšanas apmaiņu — saglabātā pāra savienošana vairs neatbilst. To nevar izlabot tikai no Home Assistant.\n\nVienreizēja atkopšana:\n1. Automātā: atveriet Bluetooth izvēlni un dzēsiet/atiestatiet savienojumu.\n2. Izslēdziet un ieslēdziet automātu.\n3. Atveriet automāta Bluetooth pāra savienošanas ekrānu.\n4. Kamēr tas ir redzams, pārlādējiet šo integrāciju (Iestatījumi → Ierīces un pakalpojumi → ieraksts → Pārlādēt).\n\nIntegrācija automātiski savienosies pārī no jauna, un problēma pazudīs pēc pirmā veiksmīgā savienojuma."
+    },
+    "ble_source_unavailable": {
+      "title": "Sapārotais Bluetooth adapteris nav pieejams",
+      "description": "Kafijas automāts ({address}) ir redzams caur citiem Bluetooth adapteriem, taču adapteris, kam pieder savienojums pārī ({source}), nav pieejams. Integrācija gaida, nevis pārslēdzas uz citu Bluetooth centrāli, jo tas izraisītu autentifikācijas kļūdu.\n\nJa adapteris tikai restartējas, nekas nav jādara. Ja tas ir noņemts vai nomainīts, atveriet Iestatījumi → Ierīces un pakalpojumi → Melitta → Konfigurēt → Bluetooth adapteris, ieslēdziet automātam pārošanas režīmu un izvēlieties citu adapteri."
+    },
+    "ble_source_migration_pending": {
+      "title": "Gaida Bluetooth adaptera migrācija",
+      "description": "Kafijas automāts ({address}) tiek pārvietots uz Bluetooth adapteri {source}. Ieslēdziet pārošanas režīmu un atstājiet automātu ieslēgtu. Integrācija pārosies tikai caur šo adapteri un pēc veiksmīgas šifrētas rokasspiediena to atzīmēs kā jauno pārojuma īpašnieku. Citi Bluetooth starpniekserveri paliks aktīvi, bet nevarēs pārņemt šo savienojumu."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automātiski — atcerēties sapāroto Bluetooth adapteri"
+      }
     }
   }
 }

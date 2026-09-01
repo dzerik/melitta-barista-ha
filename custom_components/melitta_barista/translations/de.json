@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kaffeemaschine muss neu gekoppelt werden",
       "description": "Die Kaffeemaschine ({address}) lehnt den Bluetooth-Verschlüsselungsaustausch ab — die gespeicherte Kopplung passt nicht mehr. Dies lässt sich nicht allein aus Home Assistant beheben.\n\nEinmalige Wiederherstellung:\n1. An der Maschine: Bluetooth-Menü öffnen und die Verbindung löschen/zurücksetzen.\n2. Maschine aus- und wieder einschalten.\n3. Den Bluetooth-Kopplungsbildschirm der Maschine öffnen.\n4. Solange er angezeigt wird, diese Integration neu laden (Einstellungen → Geräte & Dienste → Eintrag → Neu laden).\n\nDie Integration koppelt sich automatisch neu; dieses Problem verschwindet nach der ersten erfolgreichen Verbindung."
+    },
+    "ble_source_unavailable": {
+      "title": "Gekoppelter Bluetooth-Adapter nicht verfügbar",
+      "description": "Die Kaffeemaschine ({address}) ist über andere Bluetooth-Adapter sichtbar, aber der Adapter, dem die Kopplung gehört ({source}), ist nicht verfügbar. Die Integration wartet, anstatt zu einer anderen Bluetooth-Zentrale zu wechseln, da dies einen Authentifizierungsfehler verursachen würde.\n\nWenn der Adapter nur neu startet, ist keine Aktion nötig. Wurde er entfernt oder ersetzt, öffne Einstellungen → Geräte & Dienste → Melitta → Konfigurieren → Bluetooth-Adapter, versetze die Maschine in den Kopplungsmodus und wähle einen Ersatzadapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migration des Bluetooth-Adapters ausstehend",
+      "description": "Die Kaffeemaschine ({address}) wird auf den Bluetooth-Adapter {source} migriert. Versetze die Maschine in den Kopplungsmodus und lasse sie eingeschaltet. Die Integration koppelt ausschließlich über diesen Adapter und markiert ihn nach einem erfolgreichen verschlüsselten Handshake als neuen Besitzer der Kopplung. Andere Bluetooth-Proxys bleiben aktiv, dürfen diese Verbindung aber nicht übernehmen."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatisch — gekoppelten Bluetooth-Adapter merken"
+      }
     }
   }
 }

@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kaffemaskinen må pares på nytt",
       "description": "Kaffemaskinen ({address}) avviser Bluetooth-krypteringsutvekslingen — den lagrede paringen stemmer ikke lenger. Dette kan ikke fikses fra Home Assistant alene.\n\nEngangsgjenoppretting:\n1. På maskinen: åpne Bluetooth-menyen og slett/tilbakestill tilkoblingen.\n2. Slå maskinen av og på.\n3. Åpne maskinens Bluetooth-paringsskjerm.\n4. Mens den vises, last inn denne integrasjonen på nytt (Innstillinger → Enheter og tjenester → oppføringen → Last inn på nytt).\n\nIntegrasjonen parer seg automatisk på nytt, og problemet forsvinner etter den første vellykkede tilkoblingen."
+    },
+    "ble_source_unavailable": {
+      "title": "Den parede Bluetooth-adapteren er utilgjengelig",
+      "description": "Kaffemaskinen ({address}) er synlig via andre Bluetooth-adaptere, men adapteren som eier paringen ({source}) er utilgjengelig. Integrasjonen venter i stedet for å bytte til en annen Bluetooth-sentral, fordi det ville føre til en autentiseringsfeil.\n\nHvis adapteren bare starter på nytt, trenger du ikke gjøre noe. Hvis den er fjernet eller erstattet, åpne Innstillinger → Enheter og tjenester → Melitta → Konfigurer → Bluetooth-adapter, sett maskinen i paringsmodus og velg en erstatningsadapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migrering av Bluetooth-adapter venter",
+      "description": "Kaffemaskinen ({address}) flyttes til Bluetooth-adapteren {source}. Sett maskinen i paringsmodus og la den være slått på. Integrasjonen vil bare pare via denne adapteren og merke den som ny eier av paringen etter et vellykket kryptert håndtrykk. Andre Bluetooth-proxyer forblir aktive, men kan ikke overta denne forbindelsen."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatisk — husk den parede Bluetooth-adapteren"
+      }
     }
   }
 }

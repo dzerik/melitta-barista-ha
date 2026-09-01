@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "La machine à café doit être appairée à nouveau",
       "description": "La machine à café ({address}) rejette l'échange de chiffrement Bluetooth — l'appairage enregistré ne correspond plus. Cela ne peut pas être corrigé depuis Home Assistant seul.\n\nRécupération unique :\n1. Sur la machine : ouvrez le menu Bluetooth et supprimez/réinitialisez la connexion.\n2. Éteignez puis rallumez la machine.\n3. Ouvrez l'écran d'appairage Bluetooth de la machine.\n4. Pendant qu'il est affiché, rechargez cette intégration (Paramètres → Appareils et services → l'entrée → Recharger).\n\nL'intégration se réappairera automatiquement et ce problème disparaîtra après la première connexion réussie."
+    },
+    "ble_source_unavailable": {
+      "title": "Adaptateur Bluetooth appairé indisponible",
+      "description": "La machine à café ({address}) est visible via d’autres adaptateurs Bluetooth, mais l’adaptateur qui possède l’appairage ({source}) est indisponible. L’intégration attend au lieu de basculer vers une autre centrale Bluetooth, car cela provoquerait une erreur d’authentification.\n\nSi l’adaptateur redémarre simplement, aucune action n’est nécessaire. S’il a été supprimé ou remplacé, ouvrez Paramètres → Appareils et services → Melitta → Configurer → Adaptateur Bluetooth, placez la machine en mode appairage et sélectionnez un adaptateur de remplacement."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migration de l’adaptateur Bluetooth en attente",
+      "description": "La machine à café ({address}) est en cours de migration vers l’adaptateur Bluetooth {source}. Placez la machine en mode appairage et laissez-la allumée. L’intégration s’appairera uniquement via cet adaptateur et le marquera comme nouveau propriétaire de l’appairage après une négociation chiffrée réussie. Les autres proxys Bluetooth restent actifs mais ne peuvent pas reprendre cette connexion."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatique — mémoriser l’adaptateur Bluetooth appairé"
+      }
     }
   }
 }

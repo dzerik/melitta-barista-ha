@@ -13,6 +13,7 @@ import asyncio
 import logging
 import time
 from collections import deque
+from enum import Enum
 from typing import Any, TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
@@ -61,6 +62,14 @@ from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
 _LOGGER = logging.getLogger("melitta_barista")
 
 
+class UnpairOutcome(str, Enum):
+    """Result of one destructive bond-removal attempt."""
+
+    CONFIRMED = "confirmed"
+    ATTEMPTED_UNCONFIRMED = "attempted_unconfirmed"
+    NOT_SENT = "not_sent"
+
+
 class NoBleDeviceError(BleakError):
     """No BLEDevice is cached for the peer — connecting is impossible.
 
@@ -79,62 +88,91 @@ def _norm_ble_source(source: str | None) -> str:
 
 
 def _source_pinned_ha_client_class(source: str):
-    """Return a HA Bleak client class restricted to one scanner source.
+    """Return a HA service-caching Bleak client pinned to one scanner source.
 
-    ``HaBleakClientWrapper`` deliberately ignores the BLEDevice passed to its
-    constructor when choosing a backend: on every ``connect()`` it asks
-    habluetooth for *all* scanners that can reach the address and chooses the
-    best-scoring path. That is exactly what normal HA Bluetooth clients want,
-    but it is unsafe for Melitta's single bonded-central model.
-
-    This small subclass keeps HA's normal connector/slot accounting while
-    narrowing backend selection to the source that owns the bond.  It uses a
-    protected habluetooth hook because there is currently no public
-    source-affinity argument on ``HaBleakClientWrapper``.
+    habluetooth normally chooses the best scanner backend for an address at
+    connect time. Bonded Melitta devices cannot safely roam between Bluetooth
+    centrals, so the candidate set is narrowed to the central that owns the
+    bond. The hooks are private upstream APIs; if their shape changes, fall
+    back to the normal HA selector and let the mandatory post-connect source
+    verification reject a connection that landed on the wrong central.
     """
-    from habluetooth import HaBleakClientWrapper  # noqa: PLC0415
+    try:
+        from habluetooth.usage import (  # noqa: PLC0415
+            HaBleakClientWithServiceCache,
+        )
+    except ImportError:
+        # Compatibility with habluetooth releases that re-export the class.
+        from habluetooth import HaBleakClientWithServiceCache  # noqa: PLC0415
 
     target = _norm_ble_source(source)
 
-    class _SourcePinnedHaBleakClient(HaBleakClientWrapper):
-        """HaBleakClientWrapper that may connect through one scanner only."""
+    class _SourcePinnedHaBleakClient(HaBleakClientWithServiceCache):
+        """HA service-cache client that may connect through one scanner only."""
 
-        def _async_get_best_available_backend_and_device(self, manager):
-            # HaBleakClientWrapper stores only the peer address (not the
-            # BLEDevice that was passed to __init__), then normally considers
-            # every registered scanner for that address. Read the same private
-            # address field so we can perform the identical backend allocation
-            # step, but only for the bonded scanner source.
-            address = self._HaBleakClientWrapper__address  # noqa: SLF001
-            scanner_devices = manager.async_scanner_devices_by_address(
-                address, True,
-            )
-            matching = [
-                item
-                for item in scanner_devices
-                if _norm_ble_source(getattr(item.scanner, "source", None)) == target
-            ]
-            matching.sort(key=lambda item: item.advertisement.rssi, reverse=True)
-
-            for item in matching:
-                backend = self._async_get_backend_for_ble_device(  # noqa: SLF001
-                    manager, item.scanner, item.ble_device,
+        def _async_get_best_available_backend_and_device(self, *args, **kwargs):
+            try:
+                # Keep the override invocation-compatible if habluetooth adds
+                # parameters to this private hook. 5.9.1 passes ``manager`` as
+                # the first positional argument; if that assumption ever stops
+                # being true, the guarded private path below raises and we
+                # delegate the untouched call to upstream.
+                manager = args[0] if args else kwargs.get("manager")
+                if manager is None:
+                    raise TypeError("habluetooth manager argument is unavailable")
+                address = self._HaBleakClientWrapper__address  # noqa: SLF001
+                scanner_devices = manager.async_scanner_devices_by_address(
+                    address, True,
                 )
-                if backend is not None:
-                    _LOGGER.debug(
-                        "Pinned Bluetooth backend for %s to %s (%s)",
-                        address, source, getattr(item.scanner, "name", source),
+                matching = [
+                    item
+                    for item in scanner_devices
+                    if _norm_ble_source(getattr(item.scanner, "source", None))
+                    == target
+                ]
+                matching.sort(
+                    key=lambda item: item.advertisement.rssi, reverse=True,
+                )
+
+                for item in matching:
+                    backend = self._async_get_backend_for_ble_device(  # noqa: SLF001
+                        manager, item.scanner, item.ble_device,
                     )
-                    return backend
+                    if backend is not None:
+                        _LOGGER.debug(
+                            "Pinned Bluetooth backend for %s to %s (%s)",
+                            address,
+                            source,
+                            getattr(item.scanner, "name", source),
+                        )
+                        return backend
 
-            if matching:
+                if matching:
+                    raise BleakError(
+                        f"Pinned Bluetooth source {source} has no available "
+                        f"connection slot for {address}"
+                    )
                 raise BleakError(
-                    f"Pinned Bluetooth source {source} has no available "
-                    f"connection slot for {address}"
+                    f"Pinned Bluetooth source {source} cannot currently reach "
+                    f"{address}"
                 )
-            raise BleakError(
-                f"Pinned Bluetooth source {source} cannot currently reach {address}"
-            )
+            except (AttributeError, TypeError):
+                _LOGGER.warning(
+                    "habluetooth private backend-selection API changed; "
+                    "falling back to normal HA selection for %s and verifying "
+                    "the connected scanner afterwards",
+                    source,
+                    exc_info=True,
+                )
+                fallback = getattr(
+                    super(), "_async_get_best_available_backend_and_device", None,
+                )
+                if fallback is None:
+                    raise BleakError(
+                        "habluetooth no longer exposes the backend-selection hook "
+                        "required for BLE source affinity"
+                    )
+                return fallback(*args, **kwargs)
 
     return _SourcePinnedHaBleakClient
 
@@ -198,6 +236,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         *,
         ble_device_source: str | None = None,
         ble_source_affinity: str | None = None,
+        ble_source_hint: str | None = None,
         source_migration_pending: bool = False,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
         ble_connect_timeout: float = DEFAULT_BLE_CONNECT_TIMEOUT,
@@ -222,6 +261,13 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # other scanners remain useful for presence/diagnostics but may not
         # replace the BLEDevice used for authenticated connections.
         self._ble_source_affinity: str | None = ble_source_affinity
+        # Upgrade-only BlueZ hint. Unlike affinity, this is not persisted and
+        # is dropped after AUTH evidence so Automatic mode can try another
+        # scanner. Only a successful encrypted handshake promotes a source to
+        # real affinity.
+        self._ble_source_hint: str | None = (
+            ble_source_hint if ble_source_affinity is None else None
+        )
         self._source_migration_pending = bool(source_migration_pending)
         self._last_connected_source: str | None = None
         self._seen_sources: dict[str, float] = {}
@@ -265,9 +311,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._presence_callback: Callable[[], bool] | None = None
         # Callback set by __init__.py; performs a connection-less bond wipe
         # for this peer via the ESPHome proxy API (bluetooth_device_unpair,
-        # handled firmware-side without an open link). Returns truthy on
-        # success. Lets _try_unpair work in the wedge state where no
-        # BLEDevice is cached and connecting is impossible. See issue #35.
+        # handled firmware-side without an open link). It returns an explicit
+        # UnpairOutcome so a known ESPHome response timeout can mean "request
+        # executed, confirmation lost" without triggering a second unpair.
+        # Lets _try_unpair work in the wedge state where no BLEDevice is cached
+        # and connecting is impossible. See issue #35.
         self._unpair_callback: Callable[[], Any] | None = None
         # Callback set by __init__.py; returns True when a connectable
         # scanner looks starved (zero detections of ANY device for minutes).
@@ -443,6 +491,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         return self._ble_source_affinity
 
     @property
+    def ble_source_hint(self) -> str | None:
+        """Temporary, unpersisted BlueZ bond-source hint."""
+        return self._ble_source_hint
+
+    @property
     def source_migration_pending(self) -> bool:
         """Whether the configured source differs from the proven bond owner."""
         return self._source_migration_pending
@@ -474,6 +527,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return
         old_source = self._ble_source_affinity
         self._ble_source_affinity = source
+        if source is not None:
+            self._ble_source_hint = None
         _LOGGER.info(
             "BLE source affinity for %s changed from %s to %s",
             self._address, old_source or "unbound", source or "unbound",
@@ -677,14 +732,15 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._seen_sources[source] = time.time()
 
         affinity = self._ble_source_affinity
+        preferred_source = affinity or self._ble_source_hint
         if (
-            affinity is not None
-            and _norm_ble_source(source) != _norm_ble_source(affinity)
+            preferred_source is not None
+            and _norm_ble_source(source) != _norm_ble_source(preferred_source)
         ):
             _LOGGER.debug(
                 "Ignoring BLEDevice update for %s from source %s; "
                 "bond affinity is %s",
-                self._address, source or "unknown", affinity,
+                self._address, source or "unknown", preferred_source,
             )
             # HA suppresses duplicate Bluetooth callbacks and may surface an
             # advertisement from the best-scoring scanner rather than the bond
@@ -934,7 +990,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                     source, self._address,
                 )
 
-        return await establish_connection(
+        client = await establish_connection(
             client_class,
             ble_device,
             self._device_name or self._address,
@@ -944,6 +1000,33 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             max_attempts=3,
             pair=pair,
         )
+
+        if source:
+            # The private hook above is guarded because habluetooth changes
+            # frequently. If it ever falls back to normal HA backend choice,
+            # enforce the source invariant after the link comes up before any
+            # Melitta authentication/handshake traffic is sent.
+            connected_scanner = getattr(client, "_connected_scanner", None)
+            connected_source = getattr(connected_scanner, "source", None)
+            if (
+                connected_source is None
+                or _norm_ble_source(connected_source) != _norm_ble_source(source)
+            ):
+                try:
+                    await client.disconnect()
+                except (BleakError, OSError):
+                    pass
+                if connected_source is None:
+                    raise BleakError(
+                        "Could not verify the Bluetooth scanner used for "
+                        f"source-pinned connection to {self._address}"
+                    )
+                raise BleakError(
+                    f"Bluetooth connection for {self._address} landed on "
+                    f"{connected_source}, expected pinned source {source}"
+                )
+
+        return client
 
     async def _raw_connect(self, *, pair: bool) -> BleakClient:
         """Last-resort raw BleakClient connect — only for tests/standalone.
@@ -1015,6 +1098,26 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             try:
                 return await self._connect_impl()
             finally:
+                cycle_source = self._connect_cycle_source
+                if (
+                    self._ble_source_affinity is None
+                    and self._ble_source_hint is not None
+                    and self._auth_fail_seen
+                    and _norm_ble_source(cycle_source)
+                    == _norm_ble_source(self._ble_source_hint)
+                ):
+                    _LOGGER.warning(
+                        "BlueZ bond-source hint %s failed authentication for %s; "
+                        "dropping the hint and returning to Automatic discovery",
+                        self._ble_source_hint,
+                        self._address,
+                    )
+                    self._ble_source_hint = None
+                    if _norm_ble_source(self._ble_device_source) == _norm_ble_source(
+                        cycle_source
+                    ):
+                        self._ble_device = None
+                        self._ble_device_source = None
                 self._connect_cycle_device = None
                 self._connect_cycle_source = None
 
@@ -1167,73 +1270,136 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             except (BleakError, OSError):
                 pass
 
-    async def _try_unpair(self) -> bool:
-        """Try to clear the stale bond and return whether removal is proven.
+    async def _try_unpair(self) -> UnpairOutcome:
+        """Attempt one stale-bond removal without ever double-wiping.
 
-        A destructive bond wipe must fail closed. In particular, a timed-out
-        ESPHome ``bluetooth_device_unpair`` request is not evidence that the
-        proxy actually removed its NVS bond. Only an explicit proxy success or
-        a successful ``client.unpair()`` marks the bond as destroyed.
-
-        ``_unpaired_this_episode`` still latches after one destructive attempt
-        so a flaky proxy cannot be hammered with repeated bond-removal requests.
+        ESPHome proxy firmware is known to execute ``UNPAIR`` and then answer
+        with the wrong message type, causing aioesphomeapi to time out. That
+        timeout is therefore an *attempted but unconfirmed* destructive
+        operation, not a reason to send a second unpair. Once a destructive
+        request may have executed we latch the episode, record
+        PAIRING_REQUIRED/audit evidence, and allow only the final non-
+        destructive ``pair=True`` rung.
         """
-        self._unpaired_this_episode = True
+
+        def _record_attempt(outcome: UnpairOutcome, *, op: str) -> UnpairOutcome:
+            self._unpaired_this_episode = True
+            self.bond.on_bond_destroyed(op=op, trigger="rung3")
+            return outcome
+
         if self._unpair_callback is not None:
             try:
-                if await self._unpair_callback():
-                    _LOGGER.info(
-                        "Cleared bond for %s via proxy API (connection-less)",
-                        self._address,
-                    )
-                    self.bond.on_bond_destroyed(
-                        op="proxy_unpair", trigger="rung3",
-                    )
-                    return True
+                outcome = await self._unpair_callback()
+            except Exception:  # noqa: BLE001 — request may already have left HA
                 _LOGGER.warning(
-                    "Could not confirm connection-less bond removal for %s; "
-                    "trying connect-then-unpair once",
+                    "Connection-less unpair callback failed for %s after it "
+                    "may have sent a destructive request; not sending a second "
+                    "unpair",
                     self._address,
-                )
-            except Exception:  # noqa: BLE001 — best-effort, fall back below
-                _LOGGER.debug(
-                    "Connection-less unpair failed for %s", self._address,
                     exc_info=True,
                 )
+                return _record_attempt(
+                    UnpairOutcome.ATTEMPTED_UNCONFIRMED,
+                    op="proxy_unpair_attempted_unconfirmed",
+                )
+
+            # Backwards compatibility for third-party/tests callbacks that
+            # still return bool while the integration migrates to the explicit
+            # three-state contract.
+            if outcome is True:
+                outcome = UnpairOutcome.CONFIRMED
+            elif outcome is False or outcome is None:
+                outcome = UnpairOutcome.NOT_SENT
+            elif not isinstance(outcome, UnpairOutcome):
+                try:
+                    outcome = UnpairOutcome(str(outcome))
+                except ValueError:
+                    outcome = UnpairOutcome.ATTEMPTED_UNCONFIRMED
+
+            if outcome is UnpairOutcome.CONFIRMED:
+                _LOGGER.info(
+                    "Cleared bond for %s via proxy API (connection-less)",
+                    self._address,
+                )
+                return _record_attempt(outcome, op="proxy_unpair")
+
+            if outcome is UnpairOutcome.ATTEMPTED_UNCONFIRMED:
+                _LOGGER.warning(
+                    "Proxy UNPAIR for %s was sent but not confirmed; treating "
+                    "the bond as requiring pairing, sending no further "
+                    "destructive request, and continuing to pair=True",
+                    self._address,
+                )
+                return _record_attempt(
+                    outcome, op="proxy_unpair_attempted_unconfirmed",
+                )
+
+            _LOGGER.debug(
+                "Connection-less unpair for %s was not sent; trying the "
+                "connect-then-unpair fallback once",
+                self._address,
+            )
+
+        # No connection-less request was sent. The legacy fallback is still
+        # useful for a local BlueZ central. A failure before ``unpair()`` is
+        # invoked remains NOT_SENT; once ``unpair()`` has been called, any
+        # lost response is ATTEMPTED_UNCONFIRMED and must not trigger another
+        # destructive operation.
         try:
             _LOGGER.info("Clearing stale bond for %s", self._address)
             client = await self._establish_connection(pair=False)
-            try:
-                await client.unpair()
-                _LOGGER.info("Unpaired %s successfully", self._address)
-                self.bond.on_bond_destroyed(
-                    op="connect_unpair", trigger="rung3",
-                )
-                return True
-            except (BleakError, OSError, NotImplementedError, AttributeError) as err:
-                _LOGGER.warning(
-                    "unpair() failed for %s (%s: %s); bond removal is not "
-                    "confirmed",
-                    self._address,
-                    type(err).__name__,
-                    err,
-                )
-                _LOGGER.debug("unpair() exception", exc_info=True)
-                return False
-            finally:
-                try:
-                    await client.disconnect()
-                except (BleakError, OSError):
-                    pass
         except (BleakError, OSError, asyncio.TimeoutError) as err:
             _LOGGER.warning(
                 "Could not connect to %s for fallback unpair (%s: %s); "
-                "bond removal is not confirmed",
+                "no destructive request was sent",
                 self._address,
                 type(err).__name__,
                 err,
             )
-            return False
+            return UnpairOutcome.NOT_SENT
+
+        try:
+            try:
+                await client.unpair()
+            except NotImplementedError as err:
+                # Backend explicitly says it cannot perform unpairing. No
+                # destructive operation was dispatched, so recovery must not
+                # arm the once-per-episode destruction latch.
+                _LOGGER.warning(
+                    "unpair() is not implemented for %s (%s); no destructive "
+                    "request was sent",
+                    self._address,
+                    err,
+                )
+                return UnpairOutcome.NOT_SENT
+            except (
+                BleakError,
+                OSError,
+                asyncio.TimeoutError,
+                AttributeError,
+            ) as err:
+                _LOGGER.warning(
+                    "unpair() for %s did not return a usable confirmation "
+                    "(%s: %s); the request may have executed, so no second "
+                    "destructive request will be sent",
+                    self._address,
+                    type(err).__name__,
+                    err,
+                )
+                return _record_attempt(
+                    UnpairOutcome.ATTEMPTED_UNCONFIRMED,
+                    op="connect_unpair_attempted_unconfirmed",
+                )
+
+            _LOGGER.info("Unpaired %s successfully", self._address)
+            return _record_attempt(
+                UnpairOutcome.CONFIRMED, op="connect_unpair",
+            )
+        finally:
+            try:
+                await client.disconnect()
+            except (BleakError, OSError):
+                pass
 
     async def _connect_impl(self) -> bool:
         """Internal connect implementation (must be called under _connect_lock).
@@ -1341,11 +1507,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                             or "unknown source",
                             self._address,
                         )
-                        if not await self._try_unpair():
+                        unpair_outcome = await self._try_unpair()
+                        if unpair_outcome is UnpairOutcome.NOT_SENT:
                             _LOGGER.warning(
                                 "Bluetooth source migration for %s cannot "
-                                "continue: stale bond removal on target %s "
-                                "was not confirmed",
+                                "continue: no stale-bond removal request could "
+                                "be sent to target %s",
                                 self._address,
                                 self._connect_cycle_source
                                 or self._ble_device_source
@@ -1356,8 +1523,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                             await asyncio.sleep(self._pair_settle_delay)
                         _LOGGER.info(
                             "Retrying Bluetooth source migration for %s after "
-                            "confirmed target unpair",
-                            self._address,
+                            "target unpair outcome %s",
+                            self._address, unpair_outcome.value,
                         )
                         if not await self._try_connect_and_handshake(pair=True):
                             _LOGGER.error(
@@ -1388,12 +1555,16 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                                 self._address,
                             )
                             return False
-                        # Attempt 3: unpair stale bond, then pair fresh —
-                        # only when bond removal was positively confirmed.
-                        if not await self._try_unpair():
+                        # Attempt 3: unpair stale bond, then pair fresh. A
+                        # known ESPHome timeout means the destructive request
+                        # executed but its response was unusable; that outcome
+                        # still proceeds to the final non-destructive pair=True
+                        # while the episode latch prevents another unpair.
+                        unpair_outcome = await self._try_unpair()
+                        if unpair_outcome is UnpairOutcome.NOT_SENT:
                             _LOGGER.warning(
-                                "Cannot retry pairing for %s: stale bond "
-                                "removal was not confirmed",
+                                "Cannot retry pairing for %s: no stale-bond "
+                                "removal request could be sent",
                                 self._address,
                             )
                             return False
@@ -1402,7 +1573,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                         if self._pair_settle_delay > 0:
                             await asyncio.sleep(self._pair_settle_delay)
                         _LOGGER.info(
-                            "Retrying connection to %s after unpair", self._address,
+                            "Retrying connection to %s after unpair outcome %s",
+                            self._address, unpair_outcome.value,
                         )
                         if not await self._try_connect_and_handshake(pair=True):
                             _LOGGER.error("Connection failed for %s", self._address)
@@ -1641,13 +1813,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         failure_class = (
             FAILURE_AUTH if self._auth_fail_seen else self._last_failure_class
         )
-        if failure_class == FAILURE_AUTH and (
-            self._ble_source_affinity is None or self._source_migration_pending
-        ):
-            # An unbound install may be probing the wrong HA scanner. Do not
-            # poison persisted bond health until a successful source has been
-            # learned; wrong-central auth failure is not evidence that the
-            # machine-side bond is stale.
+        if failure_class == FAILURE_AUTH and self._source_migration_pending:
+            # During an explicit migration, AUTH failure on the replacement
+            # central is expected until the machine is in pairing mode. Do not
+            # classify that as corruption of the previously proven bond.
             failure_class = FAILURE_LINK
         self.bond.on_cycle_failure(failure_class)
         self._consecutive_connect_failures += 1

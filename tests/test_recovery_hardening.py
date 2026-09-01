@@ -21,6 +21,7 @@ import pytest
 from bleak.exc import BleakError
 
 from custom_components.melitta_barista.ble_client import (
+    UnpairOutcome,
     FAILURE_AUTH,
     FAILURE_LINK,
     FAILURE_TIMEOUT,
@@ -146,8 +147,11 @@ class TestUnpairLatch:
         )
         client.bond.on_cycle_failure(FAILURE_AUTH)
         client.bond.on_cycle_failure(FAILURE_AUTH)  # MISMATCH
-        unpair = AsyncMock(side_effect=lambda: setattr(
-            client, "_unpaired_this_episode", True))
+        def _mark_unpaired() -> UnpairOutcome:
+            client._unpaired_this_episode = True
+            return UnpairOutcome.CONFIRMED
+
+        unpair = AsyncMock(side_effect=_mark_unpaired)
         await self._fail_cycle_with_auth(client, unpair)
         await self._fail_cycle_with_auth(client, unpair)
         assert unpair.await_count == 1
@@ -248,13 +252,17 @@ class TestBondMachineIntegration:
         client._note_connect_failure()
         assert client.bond.state is BondState.MISMATCH
 
-    def test_auth_failure_on_unproven_source_does_not_poison_bond_state(self):
+    def test_auth_failure_on_unproven_source_still_reaches_repair_ux(self):
+        """Bootstrap AUTH evidence is counted even though unpair stays forbidden."""
         from custom_components.melitta_barista.bond_state import BondState
 
         client = MelittaBleClient(ADDRESS, repair_after_failures=0)
         client._auth_fail_seen = True
         client._note_connect_failure()
-        assert client.bond.state is BondState.UNKNOWN
+        assert client.bond.state is BondState.SUSPECT
+        client._note_connect_failure()
+        assert client.bond.state is BondState.MISMATCH
+        assert client._suspect_stale_bond() is False
 
     def test_transient_failures_do_not_feed_machine(self):
         from custom_components.melitta_barista.bond_state import BondState

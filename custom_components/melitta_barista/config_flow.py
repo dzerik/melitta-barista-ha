@@ -15,6 +15,12 @@ from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .ble_client import MELITTA_SERVICE_UUID
 from .const import (
@@ -578,9 +584,12 @@ class MelittaOptionsFlow(OptionsFlow):
             return self.async_create_entry(title="", data=new_options)
 
         address = self._config_entry.data.get(CONF_ADDRESS, "")
-        choices: dict[str, str] = {
-            BLUETOOTH_SOURCE_AUTO: "Automatic — remember bonded adapter",
-        }
+        choices: list[SelectOptionDict] = [
+            # ``auto`` is translated client-side through the selector key.
+            # Scanner names/MACs are dynamic and remain literal labels.
+            SelectOptionDict(value=BLUETOOTH_SOURCE_AUTO, label="auto"),
+        ]
+        choice_values = {BLUETOOTH_SOURCE_AUTO}
         try:
             scanner_devices = ha_bluetooth.async_scanner_devices_by_address(
                 self.hass, address, connectable=True,
@@ -594,15 +603,27 @@ class MelittaOptionsFlow(OptionsFlow):
             if not source:
                 continue
             name = getattr(scanner, "name", None) or getattr(scanner, "adapter", None)
-            choices[str(source)] = (
-                f"{name} ({source})" if name and str(name) != str(source) else str(source)
+            source_value = str(source)
+            choices.append(
+                SelectOptionDict(
+                    value=source_value,
+                    label=(
+                        f"{name} ({source_value})"
+                        if name and str(name) != source_value
+                        else source_value
+                    ),
+                )
             )
+            choice_values.add(source_value)
 
         current = self._config_entry.options.get(
             CONF_BLUETOOTH_SOURCE, DEFAULT_BLUETOOTH_SOURCE,
         )
-        if current != BLUETOOTH_SOURCE_AUTO and current not in choices:
-            choices[current] = f"{current} — currently unavailable"
+        if current != BLUETOOTH_SOURCE_AUTO and current not in choice_values:
+            # Keep a saved but currently missing source selectable without
+            # embedding an English status suffix in the backend schema. The
+            # localized Repair issue explains source unavailability.
+            choices.append(SelectOptionDict(value=current, label=current))
 
         client = getattr(self._config_entry, "runtime_data", None)
         bonded_source = getattr(client, "last_connected_source", None) or getattr(
@@ -612,10 +633,20 @@ class MelittaOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="bluetooth_source",
             data_schema=vol.Schema({
-                vol.Required(CONF_BLUETOOTH_SOURCE, default=current): vol.In(choices),
+                vol.Required(
+                    CONF_BLUETOOTH_SOURCE, default=current,
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=choices,
+                        translation_key="bluetooth_source",
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
             }),
             description_placeholders={
-                "bonded_source": bonded_source or "not learned yet",
+                # Em dash is intentionally language-neutral; the surrounding
+                # localized sentence explains that no bonded source is known.
+                "bonded_source": bonded_source or "—",
             },
         )
 

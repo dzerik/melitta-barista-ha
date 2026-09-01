@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kavni aparat potrebuje ponovno seznanitev",
       "description": "Kavni aparat ({address}) zavrača Bluetooth izmenjavo šifriranja — shranjena seznanitev se ne ujema več. Tega ni mogoče popraviti samo iz Home Assistanta.\n\nEnkratna obnovitev:\n1. Na aparatu: odprite meni Bluetooth in izbrišite/ponastavite povezavo.\n2. Aparat izklopite in vklopite.\n3. Odprite zaslon za Bluetooth seznanjanje na aparatu.\n4. Medtem ko je prikazan, znova naložite to integracijo (Nastavitve → Naprave in storitve → vnos → Znova naloži).\n\nIntegracija se bo samodejno znova seznanila in težava bo izginila po prvi uspešni povezavi."
+    },
+    "ble_source_unavailable": {
+      "title": "Seznanjeni Bluetooth-vmesnik ni na voljo",
+      "description": "Kavni aparat ({address}) je viden prek drugih Bluetooth-vmesnikov, vendar vmesnik, ki je lastnik seznanitve ({source}), ni na voljo. Integracija čaka, namesto da bi preklopila na drug osrednji Bluetooth-vmesnik, saj bi to povzročilo napako preverjanja pristnosti.\n\nČe se vmesnik samo znova zaganja, ni potrebno ukrepanje. Če je bil odstranjen ali zamenjan, odprite Nastavitve → Naprave in storitve → Melitta → Konfiguriraj → Bluetooth-vmesnik, preklopite aparat v način seznanjanja in izberite nadomestni vmesnik."
+    },
+    "ble_source_migration_pending": {
+      "title": "Selitev Bluetooth-vmesnika je v čakanju",
+      "description": "Kavni aparat ({address}) se seli na Bluetooth-vmesnik {source}. Preklopite aparat v način seznanjanja in ga pustite vklopljenega. Integracija se bo seznanila samo prek tega vmesnika in ga po uspešnem šifriranem rokovanju označila kot novega lastnika seznanitve. Drugi Bluetooth-posredniki ostanejo aktivni, vendar ne smejo prevzeti te povezave."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Samodejno — zapomni si seznanjeni Bluetooth-vmesnik"
+      }
     }
   }
 }

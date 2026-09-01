@@ -542,12 +542,27 @@
     "bond_reset_required": {
       "title": "Aparat za kafu treba ponovno uparivanje",
       "description": "Aparat za kafu ({address}) odbija Bluetooth razmjenu šifriranja — pohranjeno uparivanje više ne odgovara. Ovo se ne može popraviti samo iz Home Assistanta.\n\nJednokratni oporavak:\n1. Na aparatu: otvorite Bluetooth meni i izbrišite/resetujte vezu.\n2. Isključite i uključite aparat.\n3. Otvorite ekran za Bluetooth uparivanje na aparatu.\n4. Dok je prikazan, ponovo učitajte ovu integraciju (Postavke → Uređaji i usluge → unos → Ponovo učitaj).\n\nIntegracija će se automatski ponovo upariti i ovaj problem će nestati nakon prve uspješne veze."
+    },
+    "ble_source_unavailable": {
+      "title": "Upareni Bluetooth adapter nije dostupan",
+      "description": "Aparat za kafu ({address}) je vidljiv preko drugih Bluetooth adaptera, ali adapter koji posjeduje njegovo uparivanje ({source}) nije dostupan. Integracija čeka umjesto da pređe na drugi Bluetooth centralni uređaj, jer bi to izazvalo grešku autentikacije.\n\nAko se adapter samo ponovo pokreće, nije potrebna radnja. Ako je uklonjen ili zamijenjen, otvorite Postavke → Uređaji i usluge → Melitta → Konfiguriši → Bluetooth adapter, stavite aparat u režim uparivanja i izaberite zamjenski adapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migracija Bluetooth adaptera je na čekanju",
+      "description": "Aparat za kafu ({address}) premješta se na Bluetooth adapter {source}. Stavite aparat u režim uparivanja i ostavite ga uključenim. Integracija će se upariti samo preko tog adaptera i označiti ga kao novog vlasnika veze nakon uspješnog šifrovanog rukovanja. Ostali Bluetooth proxyji ostaju aktivni, ali ne mogu preuzeti ovu vezu."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatski — zapamti upareni Bluetooth adapter"
+      }
     }
   }
 }

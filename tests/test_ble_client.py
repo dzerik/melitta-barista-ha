@@ -9,8 +9,10 @@ import pytest
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakDBusError, BleakError
 
+from custom_components.melitta_barista.bond_state import BondState
 from custom_components.melitta_barista.ble_client import (
     MelittaBleClient,
+    UnpairOutcome,
     _source_pinned_ha_client_class,
     discover_melitta_devices,
     MELITTA_SERVICE_UUID,
@@ -256,6 +258,92 @@ class TestClientBLEDevice:
 
         assert selected is backend
         allocate.assert_called_once_with(manager, owner_scanner, owner_device)
+
+    def test_habluetooth_source_affinity_private_hooks_canary(self):
+        """Pinned habluetooth version still exposes the hooks source affinity uses."""
+        try:
+            from habluetooth.usage import HaBleakClientWithServiceCache
+        except ImportError:
+            from habluetooth import HaBleakClientWithServiceCache
+
+        assert hasattr(
+            HaBleakClientWithServiceCache,
+            "_async_get_best_available_backend_and_device",
+        )
+        assert hasattr(
+            HaBleakClientWithServiceCache,
+            "_async_get_backend_for_ble_device",
+        )
+
+    def test_pinned_client_private_api_failure_falls_back_to_super(self):
+        """A habluetooth internal-shape change uses normal HA selection safely."""
+        try:
+            from habluetooth.usage import HaBleakClientWithServiceCache
+        except ImportError:
+            from habluetooth import HaBleakClientWithServiceCache
+
+        cls = _source_pinned_ha_client_class("11:22:33:44:55:66")
+        client = object.__new__(cls)
+        backend = object()
+        with patch.object(
+            HaBleakClientWithServiceCache,
+            "_async_get_best_available_backend_and_device",
+            return_value=backend,
+        ) as fallback:
+            # No _HaBleakClientWrapper__address: force AttributeError inside
+            # our private-hook path.
+            selected = client._async_get_best_available_backend_and_device(
+                MagicMock()
+            )
+
+        assert selected is backend
+        fallback.assert_called_once()
+
+    async def test_bluez_hint_auth_failure_returns_to_automatic(self):
+        """An unproven BlueZ Paired hint is discarded after AUTH evidence."""
+        source = "11:22:33:44:55:66"
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=device,
+            ble_device_source=source,
+            ble_source_hint=source,
+            pair_settle_delay=0,
+        )
+
+        async def auth_fail():
+            client._auth_fail_seen = True
+            return False
+
+        with patch.object(client, "_connect_impl", side_effect=auth_fail):
+            assert await client.connect() is False
+
+        assert client.ble_source_affinity is None
+        assert client.ble_source_hint is None
+        assert client._ble_device is None
+        assert client.ble_device_source is None
+
+    async def test_bluez_hint_success_promotes_only_after_handshake(self):
+        """A BlueZ hint becomes affinity only when the encrypted ladder succeeds."""
+        source = "11:22:33:44:55:66"
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "owner", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=device,
+            ble_device_source=source,
+            ble_source_hint=source,
+        )
+        assert client.ble_source_affinity is None
+        assert client.ble_source_hint == source
+
+        with patch.object(
+            client, "_connect_impl",
+            side_effect=lambda: client.set_ble_source_affinity(source) or True,
+        ):
+            assert await client.connect() is True
+
+        assert client.ble_source_affinity == source
+        assert client.ble_source_hint is None
 
     async def test_pinned_transient_failure_reuses_bond_with_pair_true(self):
         """A proven source may use pair=True to re-authenticate its existing bond."""
@@ -607,6 +695,38 @@ class TestEstablishConnection:
 
         mock_conn.assert_awaited_once()
         assert result is mock_conn.return_value
+
+    async def test_pinned_establish_rejects_wrong_connected_scanner(self):
+        """Super fallback may connect, but a different central is rejected."""
+        source = "11:22:33:44:55:66"
+        device = BLEDevice("AA:BB:CC:DD:EE:FF", "test", {})
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            ble_device=device,
+            ble_device_source=source,
+            ble_source_affinity=source,
+        )
+        connected = MagicMock()
+        connected._connected_scanner.source = "AA:BB:CC:DD:EE:00"
+        connected.disconnect = AsyncMock()
+        mock_conn = AsyncMock(return_value=connected)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "bleak_retry_connector": MagicMock(
+                    establish_connection=mock_conn,
+                    BleakClientWithServiceCache=MagicMock(),
+                )
+            },
+        ), patch(
+            "custom_components.melitta_barista.ble_client._source_pinned_ha_client_class",
+            return_value=MagicMock(),
+        ):
+            with pytest.raises(BleakError, match="expected pinned source"):
+                await client._establish_connection()
+
+        connected.disconnect.assert_awaited_once()
 
     async def test_establish_import_error_falls_back_to_raw(self):
         """Falls back to raw BleakClient when bleak_retry_connector not installed (lines 231-234)."""
@@ -3150,7 +3270,30 @@ class TestTryUnpairNotSupported:
         mock_bleak.disconnect = AsyncMock()
 
         with patch.object(client, "_establish_connection", new=AsyncMock(return_value=mock_bleak)):
-            await client._try_unpair()
+            outcome = await client._try_unpair()
+        assert outcome is UnpairOutcome.NOT_SENT
+        assert client._unpaired_this_episode is False
+        mock_bleak.disconnect.assert_awaited_once()
+
+    async def test_try_unpair_timeout_after_dispatch_is_attempted_unconfirmed(self):
+        """A lost unpair response latches the destructive attempt exactly once."""
+        client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
+        mock_bleak = MagicMock()
+        mock_bleak.unpair = AsyncMock(side_effect=asyncio.TimeoutError)
+        mock_bleak.disconnect = AsyncMock()
+
+        with patch.object(
+            client, "_establish_connection",
+            new=AsyncMock(return_value=mock_bleak),
+        ):
+            outcome = await client._try_unpair()
+
+        assert outcome is UnpairOutcome.ATTEMPTED_UNCONFIRMED
+        assert client._unpaired_this_episode is True
+        assert client.bond.state is BondState.PAIRING_REQUIRED
+        assert client.bond.bond_ops[-1]["op"] == (
+            "connect_unpair_attempted_unconfirmed"
+        )
         mock_bleak.disconnect.assert_awaited_once()
 
     async def test_try_unpair_connect_fails(self):
@@ -3158,7 +3301,9 @@ class TestTryUnpairNotSupported:
         client = MelittaBleClient("AA:BB:CC:DD:EE:FF")
 
         with patch.object(client, "_establish_connection", new=AsyncMock(side_effect=BleakError("fail"))):
-            await client._try_unpair()  # should not raise
+            outcome = await client._try_unpair()
+        assert outcome is UnpairOutcome.NOT_SENT
+        assert client._unpaired_this_episode is False
 
 
 class TestConnectImplAlreadyConnected:
