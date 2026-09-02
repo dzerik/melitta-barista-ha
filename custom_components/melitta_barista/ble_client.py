@@ -1686,6 +1686,21 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                     _LOGGER.warning("Unknown machine type ID: %d", type_id)
             _LOGGER.debug("Machine type: %s", self._machine_type)
 
+            # Name-based family detection can fail on localized device names
+            # or proxy advertisements without a local_name; for Melitta the
+            # HR machine type is enough to pick the family, and without
+            # capabilities the UI Contract stays contract_not_ready forever.
+            if self._capabilities is None:
+                fallback = self._fallback_capabilities()
+                if fallback is not None:
+                    self._capabilities = fallback
+                    self._protocol.set_family(fallback.family_key)
+                    _LOGGER.info(
+                        "Capabilities resolved via machine-type fallback: "
+                        "%s (family=%s)",
+                        fallback.model_name, fallback.family_key,
+                    )
+
             # Notify connection callbacks (entities become available)
             for cb in self._connection_callbacks:
                 try:
@@ -2004,6 +2019,25 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             if family:
                 return profile.capabilities_for(family)
         return None
+
+    def _fallback_capabilities(self):
+        """Melitta-only capability fallback from the HR machine type.
+
+        Used when name-prefix detection fails (localized device name, proxy
+        advertisement without local_name). BARISTA_T maps to the T family;
+        anything else — including an unanswered HR id=6 — defaults to the
+        TS set, consistent with get_available_recipes(None). Non-Melitta
+        brands return None: their families differ materially and a wrong
+        guess is worse than no capabilities.
+        """
+        if self._brand.brand_slug != "melitta":
+            return None
+        family = (
+            "barista_t"
+            if self._machine_type is MachineType.BARISTA_T
+            else "barista_ts"
+        )
+        return self._brand.capabilities_for(family)
 
     async def poll_status(self) -> MachineStatus | None:
         if not self.connected:

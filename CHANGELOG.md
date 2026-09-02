@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b2] — 2026-09-02 (beta)
+
+### Fixed
+
+- Melitta capability resolution now falls back to the HR machine-type reading when BLE-name family detection fails (localized device names, proxy advertisements without a local_name). Without capabilities the UI Contract stayed `contract_not_ready` forever and the `contract_fingerprint` bridge attribute never appeared. Found during live 0.91.0b1 verification. Nivona is deliberately excluded from the fallback.
+
 ## [0.91.0b1] — 2026-09-02 (beta)
 
 UI Contract v1 — the server-driven contract between the integration and its thin clients (Lovelace card, future PWA), specified in `docs/UI_CONTRACT.md`. The server now describes what a machine can do, what its status means and what a drink is made of as *data* (stable tokens, numeric ranges, procedural icon descriptions), so clients can render machine families they have never heard of. Everything in this release is additive and backwards-compatible: existing sensor display strings and availability gates are frozen, old cards keep working unchanged, and the new surfaces are invisible to them.
