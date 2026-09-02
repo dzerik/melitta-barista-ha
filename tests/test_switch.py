@@ -65,6 +65,12 @@ def _mock_client(machine_type=None):
     client.brand.brand_slug = "melitta"
     client.brand.brand_name = "Melitta"
     client.brand.supported_extensions = frozenset({"HC", "HJ"})
+    # Real capabilities + scalar cache generation: these feed the
+    # connection sensor's contract fingerprint (json-serialized scalars,
+    # UI Contract v1 spec 5.1) - a MagicMock is not serializable.
+    from custom_components.melitta_barista.brands import MelittaProfile  # noqa: PLC0415
+    client.capabilities = MelittaProfile().capabilities_for("barista_ts")
+    client.recipe_cache_generation = 0
     client.directkey_recipes = {}
     client.total_cups = 0
     client.cup_counters = {}

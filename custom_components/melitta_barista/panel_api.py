@@ -39,6 +39,12 @@ from .const import (
     TEMPERATURE_MAP,
     get_directkey_id,
 )
+from .ui_contract import (
+    ContractNotReadyError,
+    build_icon_spec,
+    build_ui_contract,
+    component_to_tokens,
+)
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -186,6 +192,43 @@ def _ws_status(hass: HomeAssistant, connection, msg) -> None:
     _send_versioned(connection, msg["id"], _build_status_payload(client))
 
 
+# ── /ui_contract — UI Contract v1 (docs/UI_CONTRACT.md §2.2) ────────────
+
+
+@callback
+def _ws_ui_contract(hass: HomeAssistant, connection, msg) -> None:
+    """Serve the UI Contract v1 document for one config entry.
+
+    Read-only, not admin-gated (same class as /status): it exposes
+    nothing that isn't already visible through entity states/attributes.
+    Pure in-memory read of `entry.runtime_data` — no DB, no BLE. Errors
+    (all client-retriable per docs/UI_CONTRACT.md §2.3):
+    `entry_not_found` (no such entry), `client_not_ready` (entry has no
+    live client), `contract_not_ready` (client exists but has no
+    MachineCapabilities yet — no successful handshake).
+    """
+    entry = _resolve_entry(hass, msg["entry_id"])
+    if entry is None:
+        connection.send_error(
+            msg["id"], "entry_not_found",
+            f"Unknown entry_id={msg['entry_id']}",
+        )
+        return
+    client = getattr(entry, "runtime_data", None)
+    if client is None:
+        connection.send_error(
+            msg["id"], "client_not_ready",
+            f"Entry {msg['entry_id']} has no live client yet",
+        )
+        return
+    try:
+        contract = build_ui_contract(entry, client)
+    except ContractNotReadyError as exc:
+        connection.send_error(msg["id"], "contract_not_ready", str(exc))
+        return
+    _send_versioned(connection, msg["id"], contract)
+
+
 # ── /diagnostics ────────────────────────────────────────────────────────
 
 
@@ -268,34 +311,50 @@ def _recipe_to_dict(recipe_id: int, recipe, *, label: str | None = None) -> dict
     """Serialise a MachineRecipe for the panel.
 
     `label` is optional context (e.g. DirectKey category name) supplied by the
-    caller — `MachineRecipe` itself doesn't carry a name field.
+    caller — `MachineRecipe` itself doesn't carry a name field. Each entry
+    carries `icon`: the composition-derived IconSpec (UI Contract §2.1 lists
+    WS `recipes/list` as an icon surface), `null` for empty slots.
     """
     name = label or RECIPE_NAMES.get(recipe_id)
     if recipe is None:
-        return {"id": recipe_id, "name": name, "components": [None, None]}
+        return {"id": recipe_id, "name": name, "icon": None,
+                "components": [None, None]}
+    c1 = getattr(recipe, "component1", None)
+    c2 = getattr(recipe, "component2", None)
     return {
         "id": recipe_id,
         "name": name,
         "type": int(getattr(recipe, "recipe_type", 0)),
+        "icon": build_icon_spec([
+            component_to_tokens(c1) if c1 is not None else None,
+            component_to_tokens(c2) if c2 is not None else None,
+        ]),
         "components": [
-            _component_to_dict(getattr(recipe, "component1", None)),
-            _component_to_dict(getattr(recipe, "component2", None)),
+            _component_to_dict(c1),
+            _component_to_dict(c2),
         ],
     }
 
 
 @callback
 def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
-    """Return DirectKey recipes per profile from the live cache.
+    """Return base and DirectKey recipes from the live client caches.
 
-    Base recipes (HR/HS, IDs 200-223) are not pre-cached on the client — they
-    are read on demand. The panel only ships the cached DirectKey view today;
-    a base-recipe loader is wired up in a follow-up commit.
+    Base recipes (IDs 200-223) come from the client-side base-recipe
+    cache (``client.base_recipes``, UI Contract §7.1 Zone I-A0), which
+    the post-connect preload fills; DirectKey recipes come from the
+    per-profile cache.
     """
     client = _resolve_client(hass, msg["entry_id"])
     if client is None:
         connection.send_error(msg["id"], "not_found", "Unknown entry")
         return
+
+    base_dict = getattr(client, "base_recipes", {}) or {}
+    base_recipes = [
+        _recipe_to_dict(recipe_id, base_dict[recipe_id])
+        for recipe_id in sorted(base_dict.keys())
+    ]
 
     profile_names = getattr(client, "_profile_names", {}) or {}
     directkey_dict = getattr(client, "_directkey_recipes", {}) or {}
@@ -323,7 +382,7 @@ def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
         })
 
     _send_versioned(connection, msg["id"], {
-        "base_recipes": [],
+        "base_recipes": base_recipes,
         "directkey": directkey,
     })
 
@@ -1849,6 +1908,11 @@ _DIAG_LLM_CALLS_SCHEMA = vol.Schema({
     vol.Required("type"): "melitta_barista/diagnostics/llm_calls",
 })
 
+_UI_CONTRACT_SCHEMA = vol.Schema({
+    vol.Required("type"): "melitta_barista/ui_contract/get",
+    vol.Required("entry_id"): str,
+})
+
 
 def _wrap_sync_with_schema(handler, schema, *, admin: bool = False):
     """Wrap a sync `(hass, connection, msg)` handler with a vol schema decorator.
@@ -1885,6 +1949,10 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
     )
     async_register_command(
         hass, _wrap_sync_with_schema(_ws_recipes_list, _RECIPES_LIST_SCHEMA)
+    )
+    async_register_command(
+        hass,
+        _wrap_sync_with_schema(_ws_ui_contract, _UI_CONTRACT_SCHEMA, admin=False),
     )
 
     # producers

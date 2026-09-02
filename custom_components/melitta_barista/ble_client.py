@@ -405,6 +405,20 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._directkey_recipes: dict[int, dict[int, MachineRecipe]] = {}
         self._profile_callbacks: list[Callable[[], None]] = []
 
+        # Client-side base-recipe cache (UI Contract §7.1 Zone I-A0):
+        # raw MachineRecipe objects keyed by RecipeId int, filled by
+        # every successful base-recipe read (post-connect preload,
+        # on-demand select reads, post-HD refresh). The generation
+        # counter moves on every (re)fill and is a contract_fingerprint
+        # input for the UI contract builder.
+        self.base_recipes: dict[int, MachineRecipe] = {}
+        self.recipe_cache_generation: int = 0
+        # Keep the cache current on post-HD re-reads: reset_recipe_default
+        # notifies refresh callbacks with the fresh recipe. Registered
+        # before any entity subscriber so consumers always observe an
+        # already-updated cache.
+        self._recipe_refresh_callbacks.append(self._store_refreshed_base_recipe)
+
         # Freestyle recipe state (used by freestyle entities)
         self.freestyle_name: str = "Custom"
         self.freestyle_process1: str = "coffee"

@@ -20,6 +20,7 @@ from .const import (
     CUP_COUNTER_RECIPES,
     DirectKeyCategory,
     PROFILE_NAMES,
+    RECIPE_NAMES,
     TOTAL_CUPS_ID,
     USER_ACTIVITY_IDS,
     USER_NAME_IDS,
@@ -65,9 +66,41 @@ class BleRecipesMixin(_MixinBase):
     # Recipe operations
 
     async def read_recipe(self, recipe_id: int) -> MachineRecipe | None:
+        """Read a recipe by BLE id; base-recipe reads also fill ``base_recipes``.
+
+        Non-base ids (DirectKey per-profile slots, the temp freestyle
+        recipe) pass through untouched — only ids present in
+        ``RECIPE_NAMES`` enter the client-side cache.
+        """
         if not self.connected:
             return None
-        return await self._protocol.read_recipe(self._write_ble, recipe_id)
+        recipe = await self._protocol.read_recipe(self._write_ble, recipe_id)
+        if recipe is not None and recipe_id in RECIPE_NAMES:
+            self.store_base_recipe(recipe_id, recipe)
+        return recipe
+
+    def store_base_recipe(self, recipe_id: int, recipe: MachineRecipe) -> None:
+        """Store a raw base recipe in ``base_recipes`` and bump the generation.
+
+        The cache (UI Contract §7.1 Zone I-A0) keeps raw ``MachineRecipe``/
+        ``RecipeComponent`` objects keyed by plain ``RecipeId`` int so the
+        UI-contract builder and panel API can serve compositions without
+        depending on entity-private state. ``recipe_cache_generation`` is
+        a ``contract_fingerprint`` input — it moves on every (re)fill.
+        """
+        self.base_recipes[int(recipe_id)] = recipe
+        self.recipe_cache_generation += 1
+
+    def _store_refreshed_base_recipe(
+        self, recipe_id: int, recipe: MachineRecipe,
+    ) -> None:
+        """Recipe-refresh subscriber keeping ``base_recipes`` current post-HD.
+
+        Registered first in ``MelittaBleClient.__init__`` so entity
+        subscribers of the same callback list see an up-to-date cache.
+        """
+        if recipe_id in RECIPE_NAMES:
+            self.store_base_recipe(recipe_id, recipe)
 
     # Profile name management
 

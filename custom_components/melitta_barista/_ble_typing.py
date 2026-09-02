@@ -32,6 +32,8 @@ class BleClientProtocol(Protocol):
     _profile_callbacks: list[Callable[[], None]]
     _directkey_recipes: dict[int, dict[int, MachineRecipe]]
     _recipe_refresh_callbacks: list[Callable[[int, MachineRecipe], None]]
+    base_recipes: dict[int, MachineRecipe]
+    recipe_cache_generation: int
     _cups_callbacks: list[Callable[[], None]]
     _cup_counters: dict[str, int]
     _total_cups: int | None
