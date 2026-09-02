@@ -15,7 +15,7 @@ import aiosqlite
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 _VALID_RATING_TARGET_TYPES = frozenset({"generated", "favorite"})
 
@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS generated_recipes (
     session_id  TEXT NOT NULL REFERENCES generation_sessions(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
     description TEXT NOT NULL,
+    reasoning   TEXT,
     blend       INTEGER NOT NULL,
     component1  TEXT NOT NULL,
     component2  TEXT NOT NULL,
@@ -292,6 +293,15 @@ ALTER TABLE favorites ADD COLUMN machine_profile INTEGER;
 ALTER TABLE generation_sessions ADD COLUMN machine_profile INTEGER;
 """
 
+# v9 → v10: persist the LLM's "why this pick" rationale per generated
+# recipe. The 0.89 pipeline carried `reasoning` end-to-end in the live
+# generate reply but never stored it, so history cards could not show the
+# "Why this recipe?" expander after a reload. Existing rows keep NULL
+# (read paths normalize to "" — same default as the live path).
+MIGRATE_V9_TO_V10 = """
+ALTER TABLE generated_recipes ADD COLUMN reasoning TEXT;
+"""
+
 # Four built-in system presets seeded by `async_seed_system_presets` on
 # first setup. Deterministic ids (`sys_*`) keep INSERT OR IGNORE re-runs
 # stable. Each `payload` is a Sommelier "generate" form template; the
@@ -468,6 +478,8 @@ class SommelierDB:
                 migrations.append((8, MIGRATE_V7_TO_V8))
             if current_version < 9:
                 migrations.append((9, MIGRATE_V8_TO_V9))
+            if current_version < 10:
+                migrations.append((10, MIGRATE_V9_TO_V10))
             for target_version, sql in migrations:
                 for stmt in sql.strip().split(";"):
                     stmt = stmt.strip()
@@ -857,15 +869,16 @@ class SommelierDB:
                 legacy_c2_obj = recipe.get("component2", {})
             await self.db.execute(
                 """INSERT INTO generated_recipes
-                   (id, session_id, name, description, blend,
+                   (id, session_id, name, description, reasoning, blend,
                     component1, component2, machine_phases, extras, steps,
                     cup_type, calories, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     recipe_id,
                     session_id,
                     recipe["name"],
                     recipe["description"],
+                    recipe.get("reasoning", ""),
                     recipe["blend"],
                     json.dumps(legacy_c1_obj),
                     json.dumps(legacy_c2_obj),
@@ -881,9 +894,9 @@ class SommelierDB:
                 "id": recipe_id,
                 "name": recipe["name"],
                 "description": recipe["description"],
-                # Why-this-pick rationale (0.89): lives in the reply/live
-                # path; not yet a DB column, so history cards won't show it
-                # until a future migration adds one.
+                # Why-this-pick rationale (0.89). Persisted since v10 so
+                # history cards can render the "Why this recipe?" expander
+                # after a reload, not only in the live generate reply.
                 "reasoning": recipe.get("reasoning", ""),
                 "blend": recipe["blend"],
                 "component1": legacy_c1_obj,
@@ -936,6 +949,9 @@ class SommelierDB:
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
         d["steps"] = json.loads(d["steps"]) if d.get("steps") else []
         d["brewed"] = bool(d["brewed"])
+        # Pre-v10 rows have NULL reasoning — normalize to "" like the
+        # live generate reply does.
+        d["reasoning"] = d.get("reasoning") or ""
         return d
 
     async def async_list_history(
@@ -962,6 +978,10 @@ class SommelierDB:
         already-favorited history entries with a filled star. A scalar
         subquery (not a JOIN) keeps one row per recipe even if several
         favorites reference the same source.
+
+        Each recipe also carries ``reasoning`` (v10 column; "" for rows
+        written before the column existed) so history cards can show the
+        "Why this recipe?" expander.
         """
         if machine_profile_filter is None:
             cursor = await self.db.execute(
@@ -1001,6 +1021,9 @@ class SommelierDB:
                 r["extras"] = json.loads(r["extras"]) if r.get("extras") else None
                 r["steps"] = json.loads(r["steps"]) if r.get("steps") else []
                 r["brewed"] = bool(r["brewed"])
+                # Pre-v10 rows have NULL reasoning — normalize to "" like
+                # the live generate reply does.
+                r["reasoning"] = r.get("reasoning") or ""
                 sess["recipes"].append(r)
             sessions.append(sess)
         return sessions

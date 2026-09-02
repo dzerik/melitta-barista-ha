@@ -704,6 +704,24 @@ def _resolve_llm_timeout(settings: dict) -> float:
     return max(10.0, min(600.0, value))
 
 
+def _resolve_compact_prompt(settings: dict) -> bool:
+    """Effective compact-prompt flag (issue #38 follow-up, local-model prefill).
+
+    The second half of the local-LLM plan: besides a longer timeout, the
+    user can opt into a much shorter Sommelier prompt (same JSON contract,
+    roughly half the tokens) via the ``compact_prompt`` setting. The WS
+    settings API stores string values, so "true"/"1"/"yes"/"on" (any case)
+    count as enabled; anything else — including absence — means the full
+    prompt, which stays the default.
+    """
+    raw = (settings or {}).get("compact_prompt")
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        return raw.strip().lower() in ("true", "1", "yes", "on")
+    return False
+
+
 async def _llm_call_text(
     hass, prompt: str, agent_id: str | None, ctx, *, timeout: float | None = None,
 ) -> str:
@@ -1760,6 +1778,14 @@ async def _ws_prompts_preview(hass, connection, msg):
             )
         except Exception:  # noqa: BLE001
             existing_recipes = None
+        # Honor the compact-prompt setting so the preview shows exactly
+        # what the next /generate call will send. Best-effort: default full.
+        compact = False
+        try:
+            _settings_db = await _async_get_db(hass)
+            compact = _resolve_compact_prompt(await _settings_db.async_get_settings())
+        except Exception:  # noqa: BLE001
+            compact = False
         prebuilt = _build_prompt(
             hopper1_bean=(hoppers.get("hopper1") or {}).get("bean"),
             hopper2_bean=(hoppers.get("hopper2") or {}).get("bean"),
@@ -1772,6 +1798,7 @@ async def _ws_prompts_preview(hass, connection, msg):
             omit_output_format=True,
             caps=caps,
             existing_recipes=existing_recipes,
+            compact=compact,
         )
         schema = _schema_for(slot)
         if schema is not None:

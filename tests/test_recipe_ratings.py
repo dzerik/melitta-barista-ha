@@ -141,12 +141,16 @@ async def test_migration_from_v5_adds_recipe_ratings():
             await conn.execute(
                 "INSERT INTO coffee_beans(id, brand, product) VALUES('b1', 'Lavazza', 'Crema')"
             )
-            # Tables every real v5 DB has and the v8->v9 migration ALTERs —
-            # the strict migration runner refuses to stamp the version when a
-            # statement fails for a reason other than idempotency.
+            # Tables every real v5 DB has and the v8->v9 / v9->v10
+            # migrations ALTER — the strict migration runner refuses to
+            # stamp the version when a statement fails for a reason other
+            # than idempotency.
             await conn.execute("CREATE TABLE favorites (id TEXT PRIMARY KEY)")
             await conn.execute(
                 "CREATE TABLE generation_sessions (id TEXT PRIMARY KEY)"
+            )
+            await conn.execute(
+                "CREATE TABLE generated_recipes (id TEXT PRIMARY KEY)"
             )
             await conn.commit()
 

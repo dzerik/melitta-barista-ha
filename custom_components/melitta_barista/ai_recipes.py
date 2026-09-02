@@ -193,6 +193,7 @@ def _build_prompt(
     moods: list[str] | None = None,
     caps: LiveCapabilities | None = None,
     existing_recipes: list[dict[str, Any]] | None = None,
+    compact: bool = False,
 ) -> str:
     """Build structured prompt for the LLM.
 
@@ -208,6 +209,18 @@ def _build_prompt(
     `_existing_recipe_summaries` (favorites + recent history). When
     non-empty, an "Existing Recipes" section tells the LLM not to repeat
     them — one terse line per entry, capped at `EXISTING_RECIPES_CAP`.
+
+    `compact=True` (settings key `compact_prompt`, issue #38 follow-up)
+    emits a significantly shorter prompt for local LLMs, where prefill
+    time is proportional to prompt length. It preserves everything
+    correctness-critical — bean names/roast plus up to 3 flavor notes,
+    milk and extras inventories, machine capability enums and portion
+    limits, cup volume bounds, dietary constraints, the anti-repeat
+    recipe names (recency dropped) and the schema contract (steps/phase/
+    reasoning fields, enums-stay-English) — while condensing guidance
+    prose (time-of-day advice, weather/mood commentary, phase-tagging
+    explanations, rules) to single lines. The response must satisfy the
+    same JSON schema either way.
     """
     now = datetime.now(timezone.utc)
     hour = now.hour
@@ -225,9 +238,26 @@ def _build_prompt(
         time_desc = f"night ({hour:02d}:00 UTC)"
         time_advice = "Night: very mild or decaf-style. Small portions, warm milk drinks."
 
+    if compact:
+        # One short line: keep only the first sentence of the advice.
+        time_advice = time_advice.split(". ")[0].rstrip(".") + "."
+
     # Bean descriptions
     hopper_section = ""
-    if hopper1_bean:
+    if compact:
+        # Terse one-liners: name + roast + up to 3 flavor notes.
+        for hopper_no, blend, bean in ((1, 1, hopper1_bean), (2, 0, hopper2_bean)):
+            if not bean:
+                continue
+            line = (
+                f"- Hopper {hopper_no} (blend={blend}): "
+                f"{bean['brand']} {bean['product']}, {bean['roast']} roast"
+            )
+            notes = list(bean.get("flavor_notes", []))[:3]
+            if notes:
+                line += f"; notes: {', '.join(notes)}"
+            hopper_section += line + "\n"
+    elif hopper1_bean:
         notes = ", ".join(hopper1_bean.get("flavor_notes", []))
         hopper_section += (
             f"- Hopper 1 (blend=1): {hopper1_bean['brand']} {hopper1_bean['product']}\n"
@@ -242,7 +272,7 @@ def _build_prompt(
             hopper_section += f"\n  Composition: {hopper1_bean['composition']}"
         hopper_section += "\n"
 
-    if hopper2_bean:
+    if not compact and hopper2_bean:
         notes = ", ".join(hopper2_bean.get("flavor_notes", []))
         hopper_section += (
             f"- Hopper 2 (blend=0): {hopper2_bean['brand']} {hopper2_bean['product']}\n"
@@ -277,11 +307,17 @@ def _build_prompt(
     # Cup size / volume constraints
     cup_size = cup_size if cup_size in VALID_CUP_SIZES else "mug"
     vol_min, vol_max = CUP_SIZE_VOLUMES[cup_size]
-    cup_section = (
-        f"## Cup Size\n"
-        f"Cup type: {cup_size} ({vol_min}-{vol_max}ml total volume).\n"
-        f"Total volume (sum of machine_phases portion_ml) must fit within {vol_min}-{vol_max}ml."
-    )
+    if compact:
+        cup_section = (
+            f"Cup: {cup_size} — sum of machine_phases portion_ml must fit "
+            f"{vol_min}-{vol_max}ml."
+        )
+    else:
+        cup_section = (
+            f"## Cup Size\n"
+            f"Cup type: {cup_size} ({vol_min}-{vol_max}ml total volume).\n"
+            f"Total volume (sum of machine_phases portion_ml) must fit within {vol_min}-{vol_max}ml."
+        )
 
     # Extras section
     extras_lines: list[str] = []
@@ -293,19 +329,32 @@ def _build_prompt(
         extras_lines.append("- Ice: available")
     extras_section = ""
     if extras_lines:
-        extras_section = (
-            "\n## Available Extras\n"
-            + "\n".join(extras_lines)
-            + '\n\nInclude relevant extras in the "extras" field of each recipe.'
-        )
+        if compact:
+            extras_section = (
+                "\n## Available Extras\n"
+                + "\n".join(extras_lines)
+                + '\nUse relevant ones in "extras".'
+            )
+        else:
+            extras_section = (
+                "\n## Available Extras\n"
+                + "\n".join(extras_lines)
+                + '\n\nInclude relevant extras in the "extras" field of each recipe.'
+            )
 
     # Temperature preference
     temp_pref_section = ""
     temperature_pref = temperature_pref if temperature_pref in VALID_TEMPERATURE_PREFS else "auto"
     if temperature_pref == "iced":
-        temp_pref_section = "\n## Temperature: iced\nPrefer cold/iced drinks."
+        temp_pref_section = (
+            "\nTemperature: iced \u2014 prefer cold/iced drinks." if compact
+            else "\n## Temperature: iced\nPrefer cold/iced drinks."
+        )
     elif temperature_pref == "hot":
-        temp_pref_section = "\n## Temperature: hot\nPrefer hot drinks only."
+        temp_pref_section = (
+            "\nTemperature: hot \u2014 prefer hot drinks only." if compact
+            else "\n## Temperature: hot\nPrefer hot drinks only."
+        )
 
     # Weather section
     weather_section = ""
@@ -313,36 +362,49 @@ def _build_prompt(
         temp_c = weather.get("temperature")
         condition = weather.get("condition", "")
         if temp_c is not None:
-            weather_section = f"\n## Weather\nCurrent: {temp_c}\u00b0C, {condition}"
-            if isinstance(temp_c, (int, float)):
-                if temp_c <= 10:
-                    weather_section += "\n-> Suggest warming, comforting drinks."
-                elif temp_c >= 25:
-                    weather_section += "\n-> Suggest iced/cold refreshing drinks."
+            if compact:
+                weather_section = f"\nWeather: {temp_c}\u00b0C, {condition}."
+            else:
+                weather_section = f"\n## Weather\nCurrent: {temp_c}\u00b0C, {condition}"
+                if isinstance(temp_c, (int, float)):
+                    if temp_c <= 10:
+                        weather_section += "\n-> Suggest warming, comforting drinks."
+                    elif temp_c >= 25:
+                        weather_section += "\n-> Suggest iced/cold refreshing drinks."
 
     # Mood / Occasion. Multi-mood (`moods` list) wins over single `mood`.
     mood_section = ""
     valid_moods = [m for m in (moods or []) if m in VALID_MOODS]
     if valid_moods:
-        mood_section = (
-            f"\n## Moods: {', '.join(valid_moods)}\n"
-            "Generate recipes that satisfy at least one of these moods; "
-            "spread variety across the moods if more than one is asked for."
-        )
+        if compact:
+            mood_section = f"\nMoods: {', '.join(valid_moods)}."
+        else:
+            mood_section = (
+                f"\n## Moods: {', '.join(valid_moods)}\n"
+                "Generate recipes that satisfy at least one of these moods; "
+                "spread variety across the moods if more than one is asked for."
+            )
     elif mood and mood in VALID_MOODS:
-        mood_section = f"\n## Mood: {mood}"
+        mood_section = f"\nMood: {mood}." if compact else f"\n## Mood: {mood}"
     occasion_section = ""
     if occasion and occasion in VALID_OCCASIONS:
-        occasion_section = f"\n## Occasion: {occasion}"
+        occasion_section = (
+            f"\nOccasion: {occasion}." if compact else f"\n## Occasion: {occasion}"
+        )
 
     # Dietary
     dietary_section = ""
     if dietary:
         valid = [d for d in dietary if d in VALID_DIETARY]
         if valid:
+            # Dietary is a hard constraint — kept verbatim in compact mode,
+            # just without the section header.
             dietary_section = (
-                f"\n## Dietary restrictions: {', '.join(valid)}\n"
-                "-> Respect these constraints: "
+                f"\nDietary restrictions: {', '.join(valid)} — " if compact
+                else (
+                    f"\n## Dietary restrictions: {', '.join(valid)}\n"
+                    "-> Respect these constraints: "
+                )
             )
             hints: list[str] = []
             if "lactose_free" in valid or "vegan" in valid:
@@ -357,29 +419,45 @@ def _build_prompt(
     caffeine_section = ""
     caffeine_pref = caffeine_pref if caffeine_pref in VALID_CAFFEINE_PREFS else "regular"
     if caffeine_pref == "low":
-        caffeine_section = "\n## Caffeine preference: low\n-> Use fewer shots, milder intensity."
+        caffeine_section = (
+            "\nCaffeine: low — fewer shots, milder." if compact
+            else "\n## Caffeine preference: low\n-> Use fewer shots, milder intensity."
+        )
     elif caffeine_pref == "decaf_evening":
         caffeine_section = (
-            "\n## Caffeine preference: decaf_evening\n"
-            "Current time is evening -> suggest decaf/low-caffeine options."
+            "\nCaffeine: decaf_evening — prefer decaf now." if compact
+            else (
+                "\n## Caffeine preference: decaf_evening\n"
+                "Current time is evening -> suggest decaf/low-caffeine options."
+            )
         )
 
     # Servings
     servings_section = ""
     if servings > 1:
-        servings_section = (
-            f"\n## Servings: {servings}"
-            + (f" (for {people_home} people)" if people_home else "")
-            + "\nGenerate diverse recipes with different styles."
-        )
+        if compact:
+            servings_section = (
+                f"\nServings: {servings}"
+                + (f" (for {people_home} people)" if people_home else "")
+                + "."
+            )
+        else:
+            servings_section = (
+                f"\n## Servings: {servings}"
+                + (f" (for {people_home} people)" if people_home else "")
+                + "\nGenerate diverse recipes with different styles."
+            )
 
     # Cups today
     cups_section = ""
     if cups_today is not None and cups_today > 0:
-        cups_section = (
-            f"\n## Coffee today: already had {cups_today} cups\n"
-            "Consider reducing caffeine. Suggest milk-based or decaf."
-        )
+        if compact:
+            cups_section = f"\nCoffee today: {cups_today} cups — go easier on caffeine."
+        else:
+            cups_section = (
+                f"\n## Coffee today: already had {cups_today} cups\n"
+                "Consider reducing caffeine. Suggest milk-based or decaf."
+            )
 
     # Anti-repeat section — field report: without it the LLM happily
     # re-suggests recipes the user already saved. One line per entry,
@@ -407,7 +485,9 @@ def _build_prompt(
             if strength:
                 traits.append(f"strength: {strength}")
             recency = er.get("recency")
-            if recency:
+            if recency and not compact:
+                # Recency phrases are advisory flavor — dropped in
+                # compact mode; the names are what prevent duplicates.
                 traits.append(recency)
             existing_lines.append(f'- "{name}" — {", ".join(traits)}')
         if existing_lines:
@@ -450,35 +530,51 @@ def _build_prompt(
     # validates regardless of locale.
     language_section = ""
     if language:
-        language_section = (
-            f"\n## Language\n"
-            f"User locale: {language}. Reply with all human-readable strings "
-            f"(name, description, reasoning, step.action, step.ingredient, step.notes, "
-            f"extras.instruction) in this language. Keep enum values "
-            f"(roast, intensity, processes, units like \"ml\") in English "
-            f"so they validate against the schema."
-        )
+        if compact:
+            language_section = (
+                f"\nLanguage: {language} for human-readable strings "
+                f"(name, description, reasoning, steps); keep enum values "
+                f"in English so they validate."
+            )
+        else:
+            language_section = (
+                f"\n## Language\n"
+                f"User locale: {language}. Reply with all human-readable strings "
+                f"(name, description, reasoning, step.action, step.ingredient, step.notes, "
+                f"extras.instruction) in this language. Keep enum values "
+                f"(roast, intensity, processes, units like \"ml\") in English "
+                f"so they validate against the schema."
+            )
 
     # Steps section — explicit instruction to fill `steps` with the full
     # preparation sequence and dosages, not just the machine portion.
     # NEW: LLM must tag each step with a phase (pre/during/post).
-    steps_section = (
-        "\n## Preparation steps\n"
-        "Populate `steps` with the COMPLETE preparation sequence the user "
-        "must follow, in execution order. **Tag each step with its phase:**\n"
-        "\n"
-        "- `\"phase\": \"pre\"` — manual preparation BEFORE the machine starts "
-        "(selecting the cup, adding ice, scooping cocoa, measuring sugar).\n"
-        "- `\"phase\": \"during\"` — machine action OR a manual step that runs "
-        "concurrently with the brew (the machine command itself, or "
-        "\"hold the cup at 45°\"). This is the default.\n"
-        "- `\"phase\": \"post\"` — manual finalization AFTER the machine finishes "
-        "(topping with whipped cream, dusting, garnishing, stirring).\n"
-        "\n"
-        "Each step must carry an `amount` + `unit` when there is a quantity "
-        "(\"15\" + \"ml\", \"1\" + \"scoop\"); use null when the action is "
-        "purely instructional (\"Stir for 10 seconds\")."
-    )
+    if compact:
+        steps_section = (
+            "\n## Preparation steps\n"
+            "Fill `steps` with the full preparation sequence in order. Tag "
+            "each step's `phase`: \"pre\" (manual, before machine), "
+            "\"during\" (machine/concurrent; default), \"post\" (manual, "
+            "after). Set `amount` + `unit` for quantities, null otherwise."
+        )
+    else:
+        steps_section = (
+            "\n## Preparation steps\n"
+            "Populate `steps` with the COMPLETE preparation sequence the user "
+            "must follow, in execution order. **Tag each step with its phase:**\n"
+            "\n"
+            "- `\"phase\": \"pre\"` — manual preparation BEFORE the machine starts "
+            "(selecting the cup, adding ice, scooping cocoa, measuring sugar).\n"
+            "- `\"phase\": \"during\"` — machine action OR a manual step that runs "
+            "concurrently with the brew (the machine command itself, or "
+            "\"hold the cup at 45°\"). This is the default.\n"
+            "- `\"phase\": \"post\"` — manual finalization AFTER the machine finishes "
+            "(topping with whipped cream, dusting, garnishing, stirring).\n"
+            "\n"
+            "Each step must carry an `amount` + `unit` when there is a quantity "
+            "(\"15\" + \"ml\", \"1\" + \"scoop\"); use null when the action is "
+            "purely instructional (\"Stir for 10 seconds\")."
+        )
 
     def _fmt_enum(values):
         return ", ".join(f'"{v}"' for v in values)
@@ -497,22 +593,47 @@ def _build_prompt(
             portion_step = max(steps) if steps else 5
         else:
             portion_min, portion_max, portion_step = 0, 250, 5
+        if compact:
+            capabilities_block = (
+                f"## Machine Capabilities (this machine: {caps.model_name})\n"
+                f"Use ONLY the values listed here; anything else fails the brew:\n"
+                f"- process: one of {processes_str}\n"
+                f"- intensity: one of {intensities_str}\n"
+                f"- aroma: one of {aromas_str}\n"
+                f"- temperature: one of {temperatures_str}\n"
+                f"- shots: one of {shots_str}\n"
+                f"- portion_ml: integer from {portion_min} to {portion_max} in steps of {portion_step}\n"
+                f"`blend` selects the bean hopper (see below)."
+            )
+        else:
+            capabilities_block = (
+                f"## Machine Capabilities (this machine: {caps.model_name})\n"
+                f"\n"
+                f"The machine accepts these per-component parameters. "
+                f"Use only the values listed below. Ignore any other values that "
+                f"the response JSON schema may technically permit — they are NOT "
+                f"supported by this machine and selecting them will produce a brew failure.\n"
+                f"\n"
+                f"- process: one of {processes_str}\n"
+                f"- intensity: one of {intensities_str}\n"
+                f"- aroma: one of {aromas_str}\n"
+                f"- temperature: one of {temperatures_str}\n"
+                f"- shots: one of {shots_str}\n"
+                f"- portion_ml: integer from {portion_min} to {portion_max} in steps of {portion_step}\n"
+                f"\n"
+                f"The \"blend\" field selects which bean hopper to use (see below)."
+            )
+    elif compact:
         capabilities_block = (
-            f"## Machine Capabilities (this machine: {caps.model_name})\n"
-            f"\n"
-            f"The machine accepts these per-component parameters. "
-            f"Use only the values listed below. Ignore any other values that "
-            f"the response JSON schema may technically permit — they are NOT "
-            f"supported by this machine and selecting them will produce a brew failure.\n"
-            f"\n"
-            f"- process: one of {processes_str}\n"
-            f"- intensity: one of {intensities_str}\n"
-            f"- aroma: one of {aromas_str}\n"
-            f"- temperature: one of {temperatures_str}\n"
-            f"- shots: one of {shots_str}\n"
-            f"- portion_ml: integer from {portion_min} to {portion_max} in steps of {portion_step}\n"
-            f"\n"
-            f"The \"blend\" field selects which bean hopper to use (see below)."
+            '## Machine Capabilities\n'
+            'Each recipe: 1-2 machine_phases (dispensed sequentially), each with a `component`:\n'
+            '- process: "coffee", "milk", or "water"\n'
+            '- intensity: "very_mild", "mild", "medium", "strong", "very_strong"\n'
+            '- aroma: "standard" or "intense"\n'
+            '- temperature: "cold", "normal", "high"\n'
+            '- shots: "none", "one", "two", "three"\n'
+            '- portion_ml: 5 to 250, step 5\n'
+            '`blend` selects the bean hopper (see below).'
         )
     else:
         capabilities_block = (
@@ -526,6 +647,28 @@ def _build_prompt(
             '- portion_ml: 5 to 250, in steps of 5 (volume in milliliters)\n'
             '\n'
             'The "blend" field selects which bean hopper to use (see below).'
+        )
+
+    if compact:
+        rules_block = (
+            "## Rules\n"
+            "- Realistic portions: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk 80-200ml\n"
+            "- Use 1 machine_phase by default; max 2 (only for layered drinks)\n"
+            "- Each recipe needs a creative name, a 1-2 sentence description, and a one-sentence `reasoning` in the user's language tied to the current context\n"
+            "- If two hoppers available, use both across the set\n"
+            "- blend: 1 = hopper 1, 0 = hopper 2; with one hopper always use it"
+        )
+    else:
+        rules_block = (
+            "## Rules\n"
+            "- Realistic portion sizes: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk portion 80-200ml\n"
+            "- Match bean characteristics to recipe style (light roast -> standard aroma, dark roast -> intense aroma)\n"
+            "- If milk is available, include at least one milk-based recipe (unless user prefers black)\n"
+            "- Use 1 machine_phase by default. Add a 2nd machine_phase only when a single-phase brew can't achieve the result — e.g. layered drinks, milk added cold after espresso. NEVER use more than 2 phases.\n"
+            "- Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile\n"
+            "- Each recipe MUST include a \"reasoning\" field: ONE sentence, in the user's language, explaining why THIS pick fits the current context — link it to the stated mood, occasion, weather, time of day, and/or the available beans\n"
+            "- If two hoppers available, use both across the recipe set\n"
+            "- blend field: 1 for hopper 1 beans, 0 for hopper 2 beans. If only one hopper, always use that one."
         )
 
     return f"""{intro_text}
@@ -544,15 +687,7 @@ def _build_prompt(
 
 {optional_sections}{language_section}{steps_section}
 
-## Rules
-- Realistic portion sizes: espresso 25-40ml, lungo 100-150ml, americano 150-200ml, milk portion 80-200ml
-- Match bean characteristics to recipe style (light roast -> standard aroma, dark roast -> intense aroma)
-- If milk is available, include at least one milk-based recipe (unless user prefers black)
-- Use 1 machine_phase by default. Add a 2nd machine_phase only when a single-phase brew can't achieve the result — e.g. layered drinks, milk added cold after espresso. NEVER use more than 2 phases.
-- Each recipe MUST have a creative name and a 1-2 sentence description explaining the taste profile
-- Each recipe MUST include a "reasoning" field: ONE sentence, in the user's language, explaining why THIS pick fits the current context — link it to the stated mood, occasion, weather, time of day, and/or the available beans
-- If two hoppers available, use both across the recipe set
-- blend field: 1 for hopper 1 beans, 0 for hopper 2 beans. If only one hopper, always use that one.
+{rules_block}
 {output_format_block}"""
 
 

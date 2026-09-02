@@ -1329,10 +1329,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     proxy_reload_times: list[float] = []
 
     def _trigger_repair() -> None:
+        """Escalate a connect-failure threshold crossing to repair UX.
+
+        Raises the ``pairing_wedged`` repair card and (bond state and
+        circuit breaker permitting) reloads the ESPHome proxy entry.
+
+        Power-off suppression (issue #10, svillar): when the failure
+        episode is timeout/link-only AND the device is off the air, the
+        machine was almost certainly just switched off — BOTH the card and
+        the proxy reload are skipped. The reload is skipped deliberately:
+        reloading a proxy because the machine is powered off cannot help
+        and only drops every other BLE device on that proxy. Bond logic is
+        untouched — timeout/link failures never feed bond destruction
+        anyway, and the suppression consumes presence data only for this
+        non-destructive decision (habluetooth presence is a TTL cache and
+        must never gate destructive paths — 0.86.x lessons).
+        """
         if client.source_migration_pending:
             _LOGGER.info(
                 "Skipping automatic pairing repair for %s: a deliberate BLE "
                 "source migration is pending; waiting for pairing mode",
+                address,
+            )
+            return
+        if client.episode_looks_like_power_off():
+            _LOGGER.debug(
+                "Suppressing pairing_wedged repair for %s: failure episode "
+                "is timeout/link-only and the device is off the air — "
+                "evening power-off pattern, not a wedge (issue #10)",
                 address,
             )
             return

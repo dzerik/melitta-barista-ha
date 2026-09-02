@@ -22,7 +22,12 @@ from .const import (
     TEMPERATURE_MAP,
     Blend,
 )
-from .panel_api import _check_llm_agent, _resolve_agent_id, _send_versioned
+from .panel_api import (
+    _check_llm_agent,
+    _resolve_agent_id,
+    _resolve_entry,
+    _send_versioned,
+)
 from .ui_contract import build_icon_spec
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -34,6 +39,38 @@ def _find_client(hass: HomeAssistant):
         if hasattr(entry, "runtime_data") and entry.runtime_data:
             return entry.runtime_data
     return None
+
+
+def _resolve_brew_client(hass: HomeAssistant, msg: dict[str, Any]):
+    """Resolve the target machine client for a brew-class WS command.
+
+    Multi-machine scoping: when the message carries an ``entry_id``, the
+    command targets exactly that config entry (same `_resolve_entry`
+    pattern as panel_api) — an unknown/foreign-domain id yields an
+    ``entry_not_found`` error and a known entry without a live client
+    yields ``no_device``. Without ``entry_id`` the historic first-entry
+    behavior (`_find_client`) is kept for backwards compatibility with
+    single-machine installs and older panels.
+
+    Returns ``(client, None)`` on success or ``(None, (code, message))``
+    for the caller to forward via ``connection.send_error``.
+    """
+    entry_id = msg.get("entry_id")
+    if entry_id is None:
+        client = _find_client(hass)
+        if client is None:
+            return None, ("no_device", "No coffee machine available")
+        return client, None
+    entry = _resolve_entry(hass, entry_id)
+    if entry is None:
+        return None, ("entry_not_found", f"Unknown entry_id={entry_id}")
+    client = getattr(entry, "runtime_data", None)
+    if client is None:
+        return None, (
+            "no_device",
+            f"No coffee machine available for entry_id={entry_id}",
+        )
+    return client, None
 
 
 class RecipeWritesUnsupportedError(RuntimeError):
@@ -313,7 +350,7 @@ VALID_EXTRAS_CATEGORIES = ["syrups", "toppings", "liqueurs"]
 # on every startup; if it were overwritten with garbage from a WS caller,
 # future migrations would either skip or re-run incorrectly. The allowlist
 # below is therefore not a UX gate — it is a hard schema guarantee.
-VALID_SETTING_KEYS = ["llm_agent_id", "llm_timeout_s"]
+VALID_SETTING_KEYS = ["llm_agent_id", "llm_timeout_s", "compact_prompt"]
 
 # User-writable keys for the `user_preferences` table. There is no current
 # WS caller, but the endpoint exists; restrict it the same way to prevent
@@ -907,6 +944,7 @@ async def ws_generate(
     # default inside _build_prompt when None.
     try:
         from .panel_api import (  # noqa: PLC0415
+            _resolve_compact_prompt,
             _resolve_prompt,
             _structured_call,
         )
@@ -915,6 +953,16 @@ async def ws_generate(
     except Exception:  # noqa: BLE001
         intro = None
         from .ai_recipes import _validate_recipes  # noqa: PLC0415
+
+    # Compact-prompt mode (issue #38 follow-up): on local LLMs prefill
+    # dominates, so the user can opt into a much shorter prompt. Any
+    # failure (settings table gone, panel_api import failed above) means
+    # the safe default: the full prompt.
+    compact = False
+    try:
+        compact = _resolve_compact_prompt(settings)
+    except Exception:  # noqa: BLE001
+        compact = False
 
     # Fetch LiveCapabilities so the prompt enumerates only this machine's
     # supported processes/intensities/etc. Cache hit -> use it; cache
@@ -987,6 +1035,7 @@ async def ws_generate(
         omit_output_format=True,
         caps=caps,
         existing_recipes=existing_recipes,
+        compact=compact,
     )
 
     try:
@@ -1050,6 +1099,9 @@ async def ws_generate(
     {
         vol.Required("type"): "melitta_barista/sommelier/brew",
         vol.Required("recipe_id"): cv.string,
+        # Multi-machine scoping: target a specific config entry. Omitted =
+        # legacy first-entry behavior (see _resolve_brew_client).
+        vol.Optional("entry_id"): cv.string,
     }
 )
 @websocket_api.require_admin
@@ -1059,16 +1111,16 @@ async def ws_brew(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Brew a generated recipe via freestyle."""
+    """Brew a generated recipe via freestyle (optionally entry_id-scoped)."""
     db = await _async_get_db(hass)
     recipe = await db.async_get_recipe(msg["recipe_id"])
     if recipe is None:
         connection.send_error(msg["id"], "not_found", "Recipe not found")
         return
 
-    client = _find_client(hass)
-    if client is None:
-        connection.send_error(msg["id"], "no_device", "No coffee machine available")
+    client, err = _resolve_brew_client(hass, msg)
+    if err is not None:
+        connection.send_error(msg["id"], *err)
         return
 
     try:
@@ -1118,6 +1170,9 @@ async def ws_brew(
         vol.Exclusive("recipe_id", "target"): cv.string,
         vol.Exclusive("favorite_id", "target"): cv.string,
         vol.Required("phase_index"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        # Multi-machine scoping: target a specific config entry. Omitted =
+        # legacy first-entry behavior (see _resolve_brew_client).
+        vol.Optional("entry_id"): cv.string,
     }
 )
 @websocket_api.require_admin
@@ -1137,6 +1192,8 @@ async def ws_brew_phase(
     manual steps without refetching the recipe. The brewed marker /
     favorite counter only advances when the LAST phase starts successfully,
     so a wizard aborted mid-recipe doesn't count as a completed drink.
+    An optional ``entry_id`` scopes the brew to a specific machine (see
+    ``_resolve_brew_client``); omitting it keeps the first-entry legacy.
     """
     has_recipe = "recipe_id" in msg
     has_favorite = "favorite_id" in msg
@@ -1161,9 +1218,9 @@ async def ws_brew_phase(
         )
         return
 
-    client = _find_client(hass)
-    if client is None:
-        connection.send_error(msg["id"], "no_device", "No coffee machine available")
+    client, err = _resolve_brew_client(hass, msg)
+    if err is not None:
+        connection.send_error(msg["id"], *err)
         return
 
     phases = row.get("machine_phases") or []
@@ -1385,6 +1442,9 @@ async def ws_favorites_update(hass, connection, msg) -> None:
     {
         vol.Required("type"): "melitta_barista/sommelier/favorites/brew",
         vol.Required("favorite_id"): cv.string,
+        # Multi-machine scoping: target a specific config entry. Omitted =
+        # legacy first-entry behavior (see _resolve_brew_client).
+        vol.Optional("entry_id"): cv.string,
     }
 )
 @websocket_api.require_admin
@@ -1394,16 +1454,16 @@ async def ws_favorites_brew(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Brew a favorite recipe."""
+    """Brew a favorite recipe (optionally entry_id-scoped)."""
     db = await _async_get_db(hass)
     fav = await db.async_get_favorite(msg["favorite_id"])
     if fav is None:
         connection.send_error(msg["id"], "not_found", "Favorite not found")
         return
 
-    client = _find_client(hass)
-    if client is None:
-        connection.send_error(msg["id"], "no_device", "No coffee machine available")
+    client, err = _resolve_brew_client(hass, msg)
+    if err is not None:
+        connection.send_error(msg["id"], *err)
         return
 
     try:

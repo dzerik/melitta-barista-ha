@@ -23,6 +23,7 @@ from bleak.exc import BleakError
 from custom_components.melitta_barista.ble_client import (
     UnpairOutcome,
     FAILURE_AUTH,
+    FAILURE_HANDSHAKE,
     FAILURE_LINK,
     FAILURE_TIMEOUT,
     MelittaBleClient,
@@ -345,3 +346,121 @@ class TestReappearanceWake:
         loop.call_later(0.02, client._reconnect_event.set)
         assert await client._wait_backoff(1.0) is True
         assert client._was_absent is False
+
+
+class TestPowerOffEpisodeSuppression:
+    """Issue #10 (svillar): an evening power-off accrues ~5 timeout failures
+    and crossed the repair threshold, raising a false pairing_wedged card.
+    ``episode_looks_like_power_off`` recognises the pattern — timeout/link-
+    only episode composition AND the device off the air — so the repair
+    trigger can suppress the card. Presence here is used strictly for the
+    NON-destructive suppression decision; bond logic is untouched."""
+
+    async def _fail_cycle(self, client, side_effect):
+        """Drive one real failed connect cycle + the loop's failure count."""
+        establish = AsyncMock(side_effect=side_effect)
+        with patch.object(client, "_establish_connection", establish), \
+                patch.object(client, "_try_unpair", new=AsyncMock()):
+            assert await client._connect_impl() is False
+        client._note_connect_failure()
+
+    async def test_timeout_episode_and_absent_is_power_off(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        client.set_scanner_starved_callback(lambda: False)
+        for _ in range(5):
+            await self._fail_cycle(client, asyncio.TimeoutError())
+        assert client._episode_failure_classes == {FAILURE_TIMEOUT}
+        assert client.episode_looks_like_power_off() is True
+
+    async def test_link_episode_and_absent_is_power_off(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        await self._fail_cycle(client, BleakError("connection dropped"))
+        await self._fail_cycle(client, asyncio.TimeoutError())
+        assert client._episode_failure_classes == {FAILURE_LINK, FAILURE_TIMEOUT}
+        assert client.episode_looks_like_power_off() is True
+
+    async def test_still_advertising_device_is_not_power_off(self):
+        """Present-and-rejecting (a genuine wedge): the card must fire."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: True)
+        for _ in range(5):
+            await self._fail_cycle(client, asyncio.TimeoutError())
+        assert client.episode_looks_like_power_off() is False
+
+    async def test_auth_failure_in_episode_is_not_power_off(self):
+        """Any AUTH evidence in the episode keeps the repair card firing."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        await self._fail_cycle(client, asyncio.TimeoutError())
+        await self._fail_cycle(
+            client, BleakError("Pairing failed due to error: 82"),
+        )
+        assert FAILURE_AUTH in client._episode_failure_classes
+        assert client.episode_looks_like_power_off() is False
+
+    async def test_handshake_failure_in_episode_is_not_power_off(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        bleak_client = MagicMock()
+        bleak_client.is_connected = True
+        with patch.object(client, "_establish_connection",
+                          new=AsyncMock(return_value=bleak_client)), \
+                patch.object(client, "_start_notify", new=AsyncMock()), \
+                patch.object(client, "_safe_disconnect", new=AsyncMock()), \
+                patch.object(client, "_try_unpair", new=AsyncMock()), \
+                patch.object(
+                    client._protocol, "perform_handshake",
+                    new=AsyncMock(return_value=False),
+                ), \
+                patch(
+                    "custom_components.melitta_barista.ble_client."
+                    "MelittaProtocol",
+                    return_value=client._protocol,
+                ):
+            assert await client._connect_impl() is False
+        client._note_connect_failure()
+        assert client._episode_failure_classes == {FAILURE_HANDSHAKE}
+        assert client.episode_looks_like_power_off() is False
+
+    async def test_latched_absence_counts_as_off_the_air(self):
+        """The presence gate's _was_absent latch is valid absence evidence
+        even if the TTL presence cache flips back to 'present'."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: True)  # stale cache says present
+        await self._fail_cycle(client, asyncio.TimeoutError())
+        client._was_absent = True  # gate skipped an attempt at some point
+        assert client.episode_looks_like_power_off() is True
+
+    async def test_starved_scanner_overrides_absence(self):
+        """Issue #35 guard: a wedged proxy looks exactly like 'machine off'
+        (timeouts + silence) — repair must keep firing there."""
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        client.set_scanner_starved_callback(lambda: True)
+        await self._fail_cycle(client, asyncio.TimeoutError())
+        assert client.episode_looks_like_power_off() is False
+
+    async def test_successful_connect_resets_episode_composition(self):
+        client = MelittaBleClient(ADDRESS, pair_settle_delay=0)
+        client.set_presence_callback(lambda: False)
+        await self._fail_cycle(client, asyncio.TimeoutError())
+        assert client.episode_looks_like_power_off() is True
+        with patch.object(client, "_try_connect_and_handshake",
+                          new=AsyncMock(return_value=True)), \
+                patch.object(client, "_read_dis_service", new=AsyncMock()), \
+                patch.object(client, "_protocol") as proto:
+            proto.read_version = AsyncMock(return_value="1.0")
+            proto.read_serial = AsyncMock(return_value=None)
+            proto.read_features = AsyncMock(return_value=None)
+            proto.read_numerical = AsyncMock(return_value=None)
+            proto.set_family = MagicMock()
+            assert await client._connect_impl() is True
+        assert client._episode_failure_classes == set()
+        assert client.episode_looks_like_power_off() is False
+
+    def test_empty_episode_is_not_power_off(self):
+        client = MelittaBleClient(ADDRESS)
+        client.set_presence_callback(lambda: False)
+        assert client.episode_looks_like_power_off() is False

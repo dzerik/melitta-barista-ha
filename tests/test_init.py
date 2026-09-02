@@ -50,6 +50,7 @@ def _mock_client():
     client.last_connected_source = None
     client.source_migration_pending = False
     client.seen_ble_sources = {}
+    client.episode_looks_like_power_off = MagicMock(return_value=False)
     client.set_source_learned_callback = MagicMock()
     client.set_source_available_callback = MagicMock()
     client.add_status_callback = MagicMock()
@@ -292,6 +293,57 @@ async def test_pre_affinity_auth_wedge_still_surfaces_repair_and_reload(
     client.ble_source_affinity = None
     client.source_migration_pending = False
     client.bond._state = BondState.MISMATCH
+    repair_cb = client.set_repair_callback.call_args.args[0]
+
+    with patch(
+        "custom_components.melitta_barista.ir.async_create_issue",
+    ) as create_issue, patch(
+        "custom_components.melitta_barista._async_repair_pairing",
+        new=AsyncMock(),
+    ) as repair:
+        repair_cb()
+        await hass.async_block_till_done()
+
+    assert any(
+        call.kwargs.get("translation_key") == "pairing_wedged"
+        for call in create_issue.call_args_list
+    )
+    repair.assert_awaited_once_with(hass, mock_entry)
+
+
+async def test_power_off_episode_suppresses_card_and_reload(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """Evening power-off pattern (issue #10): no false pairing_wedged card,
+    and no pointless proxy reload while the machine is simply off."""
+    client = await _setup_entry_with_client(hass, mock_entry, _mock_client())
+    client.source_migration_pending = False
+    client.episode_looks_like_power_off = MagicMock(return_value=True)
+    repair_cb = client.set_repair_callback.call_args.args[0]
+
+    with patch(
+        "custom_components.melitta_barista.ir.async_create_issue",
+    ) as create_issue, patch(
+        "custom_components.melitta_barista._async_repair_pairing",
+        new=AsyncMock(),
+    ) as repair:
+        repair_cb()
+        await hass.async_block_till_done()
+
+    assert not any(
+        call.kwargs.get("translation_key") == "pairing_wedged"
+        for call in create_issue.call_args_list
+    )
+    repair.assert_not_awaited()
+
+
+async def test_non_power_off_episode_still_fires_card_and_reload(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """A present-and-rejecting device keeps the pre-fix repair behaviour."""
+    client = await _setup_entry_with_client(hass, mock_entry, _mock_client())
+    client.source_migration_pending = False
+    client.episode_looks_like_power_off = MagicMock(return_value=False)
     repair_cb = client.set_repair_callback.call_args.args[0]
 
     with patch(

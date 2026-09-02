@@ -149,6 +149,12 @@ async def test_legacy_v8_db_gets_machine_profile_via_alter():
                 " created_at TEXT NOT NULL"
                 ")"
             )
+            # Every real v8 DB has this table and the v9->v10 migration
+            # ALTERs it — the strict migration runner withholds the stamp
+            # when a statement fails for a non-idempotency reason.
+            await conn.execute(
+                "CREATE TABLE generated_recipes (id TEXT PRIMARY KEY)"
+            )
             await conn.commit()
 
         db = SommelierDB(db_path)

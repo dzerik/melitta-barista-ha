@@ -25,6 +25,7 @@ class MelittaSettings extends LitElement {
       lang: { type: String },
       _agents: { type: Array },
       _timeoutS: { type: String },
+      _compactPrompt: { type: Boolean },
       _selectedAgent: { type: String },
       _prompts: { type: Array },
       _drafts: { type: Object },
@@ -40,6 +41,7 @@ class MelittaSettings extends LitElement {
     super();
     this._agents = [];
     this._timeoutS = "";
+    this._compactPrompt = false;
     this._selectedAgent = "";
     this._prompts = [];
     this._drafts = {};
@@ -91,6 +93,7 @@ class MelittaSettings extends LitElement {
       this._agents = a.agents || [];
       this._selectedAgent = (s.settings || {}).llm_agent_id || "";
       this._timeoutS = (s.settings || {}).llm_timeout_s || "60";
+      this._compactPrompt = (s.settings || {}).compact_prompt === "true";
       this._prompts = p.prompts || [];
       const drafts = {};
       for (const item of this._prompts) drafts[item.slot] = item.template;
@@ -113,6 +116,22 @@ class MelittaSettings extends LitElement {
         type: "melitta_barista/sommelier/settings/set",
         key: "llm_timeout_s",
         value: String(n),
+      });
+      this._error = "";
+      this._info = this._t("settings.saved");
+    } catch (e) {
+      this._error = e.message || String(e);
+    }
+  }
+
+  async _saveCompactPrompt(enabled) {
+    this._compactPrompt = enabled;
+    this._info = "";
+    try {
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/settings/set",
+        key: "compact_prompt",
+        value: enabled ? "true" : "false",
       });
       this._error = "";
       this._info = this._t("settings.saved");
@@ -194,6 +213,15 @@ class MelittaSettings extends LitElement {
         <input type="number" min="10" max="600" step="10"
           .value=${this._timeoutS || "60"}
           @change=${(e) => { this._timeoutS = e.target.value; this._saveTimeout(e.target.value); }} />
+
+        <h3>${this._t("settings.compact_prompt")}</h3>
+        <p class="help">${this._t("settings.compact_prompt_help")}</p>
+        <label class="toggle">
+          <input type="checkbox"
+            .checked=${this._compactPrompt}
+            @change=${(e) => this._saveCompactPrompt(e.target.checked)} />
+          ${this._t("settings.compact_prompt_label")}
+        </label>
 
         <h3>${this._t("settings.prompts")}</h3>
 
@@ -294,6 +322,20 @@ class MelittaSettings extends LitElement {
         background: var(--primary-background-color);
         color: var(--primary-text-color);
         font-size: 14px;
+      }
+      label.toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+      label.toggle input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--primary-color);
+        cursor: pointer;
       }
       details.prompt {
         margin-top: 8px;

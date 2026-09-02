@@ -29,6 +29,14 @@ _LOCALES_DIR = (
 
 _KEY_LINE = re.compile(r'^\s*"([^"\\]+)":', re.MULTILINE)
 
+# Keys shipped in en.js (+ru.js) ahead of the full 29-locale sweep. The
+# runtime falls back to English for missing keys, so this is UX-safe; a
+# follow-up translation pass must clear this set. A key listed here may
+# still be present in a locale — the allowlist only suppresses the
+# "missing" direction, never the "stale extra" direction. Currently
+# empty: all keys are translated into all 29 locales.
+_PENDING_TRANSLATION_KEYS: set[str] = set()
+
 
 def _extract_keys(path: Path) -> set[str]:
     """Return the set of i18n keys declared in a locale module."""
@@ -75,7 +83,7 @@ def test_locale_has_full_parity_with_en(locale):
     en_keys = _extract_keys(_LOCALES_DIR / "en.js")
     locale_keys = _extract_keys(_LOCALES_DIR / f"{locale}.js")
 
-    missing_in_locale = en_keys - locale_keys
+    missing_in_locale = en_keys - locale_keys - _PENDING_TRANSLATION_KEYS
     extra_in_locale = locale_keys - en_keys
 
     assert not missing_in_locale, (

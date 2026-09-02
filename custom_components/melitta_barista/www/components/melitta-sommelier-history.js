@@ -16,7 +16,8 @@
  * are expandable; recipes within an expanded session show inline rating,
  * a favorite star (☆ calls `melitta_barista/sommelier/favorites/add`;
  * already-favorited entries arrive with `favorite_id` set and render a
- * filled ★) and a Brew button. A "Clear history" footer button calls
+ * filled ★), a "Why this recipe?" expander when the stored `reasoning`
+ * is non-empty (same look as the generate tab) and a Brew button. A "Clear history" footer button calls
  * `melitta_barista/sommelier/history/clear` (with keep_favorited=true) after
  * a <melitta-confirm> prompt.
  */
@@ -234,6 +235,12 @@ class MelittaSommelierHistory extends LitElement {
         </div>
         ${recipe.description ? html`<p class="desc">${recipe.description}</p>` : ""}
         ${recipe.note ? html`<p class="note">${this._t("history.note_label")}: <em>${recipe.note}</em></p>` : ""}
+        ${recipe.reasoning ? html`
+          <details class="reasoning">
+            <summary>${this._t("sommelier.why")}</summary>
+            <p>${recipe.reasoning}</p>
+          </details>
+        ` : ""}
         <div class="actions">
           ${recipe.brewed ? html`<span class="badge muted">${this._t("history.brewed")}</span>` : ""}
           <button class="fav ${recipe.favorite_id ? "faved" : ""}"
@@ -353,6 +360,10 @@ class MelittaSommelierHistory extends LitElement {
         .name-wrap { display: flex; align-items: center; gap: var(--mb-space-sm); min-width: 0; }
         .desc { margin: 0 0 var(--mb-space-xs) 0; color: var(--primary-text-color); }
         .note { margin: 0 0 var(--mb-space-xs) 0; color: var(--secondary-text-color); font-size: var(--mb-font-size-sm); }
+        /* Same look as the generate-tab expander in melitta-sommelier.js. */
+        .reasoning { margin: 0 0 var(--mb-space-xs) 0; }
+        .reasoning summary { font-size: 12px; cursor: pointer; color: var(--secondary-text-color); }
+        .reasoning p { font-size: 12px; margin: 4px 0 0; color: var(--secondary-text-color); }
         .badge {
           font-size: var(--mb-font-size-sm);
           padding: 2px var(--mb-space-sm);

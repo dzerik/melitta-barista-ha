@@ -291,11 +291,15 @@ class MelittaBrewWizard extends LitElement {
           ) || estimatePhaseSeconds(step.component)
         : estimatePhaseSeconds(step.component),
     });
+    // Scope the brew to the machine this panel instance targets — without
+    // entry_id the backend falls back to the FIRST config entry, which is
+    // the wrong machine on multi-machine installs.
+    const scope = this.entryId ? { entry_id: this.entryId } : {};
     try {
       if (step.legacyFull) {
         const call = this.source === "favorite"
-          ? { type: "melitta_barista/sommelier/favorites/brew", favorite_id: this.sourceId || this.recipe.id }
-          : { type: "melitta_barista/sommelier/brew", recipe_id: this.sourceId || this.recipe.id };
+          ? { type: "melitta_barista/sommelier/favorites/brew", favorite_id: this.sourceId || this.recipe.id, ...scope }
+          : { type: "melitta_barista/sommelier/brew", recipe_id: this.sourceId || this.recipe.id, ...scope };
         await this.hass.callWS(call);
       } else {
         const target = this.source === "favorite"
@@ -304,6 +308,7 @@ class MelittaBrewWizard extends LitElement {
         await this.hass.callWS({
           type: "melitta_barista/sommelier/brew_phase",
           ...target,
+          ...scope,
           phase_index: step.phaseIndex,
         });
       }

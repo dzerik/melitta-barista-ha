@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b7] — 2026-09-03 (beta)
+
+### Fixed
+
+- No more false `pairing_wedged` repair card on a plain machine power-off: when every failure in the reconnect episode is timeout/link class AND the machine has left the air, the card and the proxy reload are suppressed (any auth/handshake evidence, or a starved scanner, still fires the full repair path).
+- Sommelier brew commands (`brew`, `favorites/brew`, `brew_phase`) accept an optional `entry_id` — multi-machine installs no longer always brew on the first entry. The panel wizard passes the active entry automatically.
+
+### Added
+
+- Compact prompt mode for local LLMs (Settings toggle): roughly half the prompt tokens while preserving beans, machine constraints and the anti-repeat recipe list; the prompt preview honours the setting.
+- "Why this recipe?" expander on history cards; recipe reasoning is now persisted (DB schema v10 migration, pre-existing rows show no reasoning).
+- The three new settings strings are translated in all 29 locales; full locale parity enforcement is restored.
+
 ## [0.91.0b6] — 2026-09-03 (beta)
 
 ### Added

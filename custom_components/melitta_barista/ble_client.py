@@ -355,6 +355,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # ignoring the reappearance delayed the morning reconnect by up to
         # reconnect_max_delay (0.88.0b2 field case).
         self._was_absent: bool = False
+        # FAILURE_* classes seen during the CURRENT failure episode (reset
+        # on a successful handshake, like _unpaired_this_episode). Lets the
+        # repair trigger tell an evening power-off (timeout/link-only
+        # composition, device off the air) from a genuine wedge and skip
+        # the false-alarm pairing_wedged card (issue #10, svillar).
+        self._episode_failure_classes: set[str] = set()
         # Explicit bond-health authority (0.88). __init__.py replaces this
         # default with a persisted instance wired to repair-issue and
         # HA-event listeners; standalone/test usage keeps the bare one.
@@ -1606,8 +1612,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # gets a fresh threshold instead of immediately triggering repair.
             self._consecutive_connect_failures = 0
             # New episode: the unpair rung is available again (see
-            # _unpaired_this_episode).
+            # _unpaired_this_episode) and the failure-class composition of
+            # the finished episode is discarded.
             self._unpaired_this_episode = False
+            self._episode_failure_classes.clear()
             self._was_absent = False
             # The encrypted handshake proves the bond — back to TRUSTED.
             self.bond.on_handshake_success()
@@ -1832,6 +1840,47 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._was_absent = True
         return False
 
+    def episode_looks_like_power_off(self) -> bool:
+        """True when the current failure episode matches an ordinary power-off.
+
+        Pattern (issue #10, svillar's evening routine): every failure
+        recorded this episode is TIMEOUT- or LINK-class AND the device is
+        off the air — the presence gate latched an absence, or the presence
+        callback reports the address as gone right now. The repair trigger
+        in ``__init__.py`` uses this to suppress the false-alarm
+        ``pairing_wedged`` card (and the proxy reload) for a machine that
+        was simply switched off. Any AUTH- or HANDSHAKE-class failure in
+        the episode, or a device that is still advertising while rejecting
+        us, keeps the repair path firing exactly as before.
+
+        This is a strictly NON-destructive consumer of presence data:
+        habluetooth presence is a TTL cache (~195 s) and must never gate
+        bond destruction (0.86.x regressions) — suppressing a repair card
+        is safe because a wrong suppression only delays the card until the
+        next threshold crossing, once presence expires or the composition
+        changes.
+
+        A starved connectable scanner overrides the absence evidence: a
+        wedged proxy forwards no advertisements from ANY device, which is
+        indistinguishable from "machine off" by presence alone (issue #35)
+        — in that state repair must keep firing, it IS the recovery path.
+        """
+        if not self._episode_failure_classes:
+            return False
+        if not self._episode_failure_classes <= {FAILURE_TIMEOUT, FAILURE_LINK}:
+            return False
+        if (
+            self._scanner_starved_callback is not None
+            and self._scanner_starved_callback()
+        ):
+            return False
+        if self._was_absent:
+            return True
+        return (
+            self._presence_callback is not None
+            and not self._presence_callback()
+        )
+
     def _note_connect_failure(self) -> None:
         """Count a failed connect() and fire the repair callback at threshold.
 
@@ -1852,6 +1901,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             # central is expected until the machine is in pairing mode. Do not
             # classify that as corruption of the previously proven bond.
             failure_class = FAILURE_LINK
+        # Episode composition for the power-off suppression heuristic
+        # (episode_looks_like_power_off). An unclassified failure is recorded
+        # as "unknown" and conservatively blocks suppression.
+        self._episode_failure_classes.add(failure_class or "unknown")
         self.bond.on_cycle_failure(failure_class)
         self._consecutive_connect_failures += 1
         _LOGGER.debug(
