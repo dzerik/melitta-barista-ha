@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b3] — 2026-09-03 (beta)
+
+### Added
+
+- **`brand_theme` contract block (UI Contract §3.10, additive within `contract_version: 1`).** The `ui_contract/get` document now carries a top-level brand badge block — brand slug, wordmark display string (rendered as text), and accent colors (`accent`/`accent_soft`) — so clients can show branded chrome without hardcoding brand knowledge. Data only: the integration never ships or distributes brand logos. `logo_url` is filled solely when the user placed their own file at `<config>/www/melitta_barista/<brand>.png` (served as `/local/melitta_barista/<brand>.png`); the file's existence is checked once at entry setup with executor I/O, cached for the sync contract builder, and participates in `contract_fingerprint`, so adding or removing the file takes effect on the next entry reload.
+- **Panel renders contract icon specs.** The integration panel (sommelier, favorites, history) now draws the procedural drink icons (IconSpec) that recipe payloads have carried since 0.91.0b1, plus the new brand badge; recipes without an icon and servers without `brand_theme` fall back to the previous neutral rendering.
+
 ## [0.91.0b2] — 2026-09-02 (beta)
 
 ### Fixed

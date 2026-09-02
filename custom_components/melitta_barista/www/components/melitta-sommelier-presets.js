@@ -21,6 +21,7 @@ import { sharedStyles } from "../design-tokens.js";
 import { t } from "../i18n/index.js";
 import "./melitta-modal.js";
 import "./melitta-confirm.js";
+import "./ui/melitta-drink-icon.js";
 
 class MelittaSommelierPresets extends LitElement {
   static get properties() {
@@ -160,10 +161,16 @@ class MelittaSommelierPresets extends LitElement {
       `;
     }
     const displayName = this._resolveName(preset);
+    // Presets are constraint templates, not always concrete drinks —
+    // show the drink icon only when the payload actually carries a spec.
+    const iconSpec = preset.icon || preset.payload?.icon || null;
     return html`
       <div class="card">
         <div class="card-head">
-          <h4>${displayName}</h4>
+          <div class="name-wrap">
+            ${iconSpec ? html`<melitta-drink-icon .spec=${iconSpec} size="24"></melitta-drink-icon>` : ""}
+            <h4>${displayName}</h4>
+          </div>
           ${preset.is_system
             ? html`<span class="builtin-badge">${this._t("presets.builtin_badge")}</span>`
             : html`
@@ -227,6 +234,7 @@ class MelittaSommelierPresets extends LitElement {
           margin-bottom: var(--mb-space-sm);
         }
         h4 { margin: 0; font-size: var(--mb-font-size-md); }
+        .name-wrap { display: flex; align-items: center; gap: var(--mb-space-sm); min-width: 0; }
         .desc {
           margin: 0;
           color: var(--secondary-text-color);

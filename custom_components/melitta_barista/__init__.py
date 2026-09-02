@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os.path
 import pathlib
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
@@ -1177,6 +1178,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             address,
             exc_info=True,
         )
+
+    # UI Contract §3.10: user-supplied brand-logo detection. The integration
+    # never ships or distributes brand logos; it only reports whether the
+    # user placed their own file at <config>/www/melitta_barista/<brand>.png
+    # (served by HA as /local/melitta_barista/<brand>.png). Checked once per
+    # entry setup in the executor (never blocking the event loop) and cached
+    # on the client for the sync contract builder — adding or removing the
+    # file takes effect on the next entry reload. Missing dir/file = None.
+    logo_path = hass.config.path(
+        "www", "melitta_barista", f"{brand.brand_slug}.png"
+    )
+    try:
+        logo_exists = await hass.async_add_executor_job(os.path.isfile, logo_path)
+    except OSError:  # defensive: unreadable config dir must never fail setup
+        logo_exists = False
+    client.brand_logo_url = (
+        f"/local/melitta_barista/{brand.brand_slug}.png" if logo_exists else None
+    )
 
     entry.runtime_data = client
 

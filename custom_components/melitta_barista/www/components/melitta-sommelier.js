@@ -22,6 +22,7 @@ import "./melitta-sommelier-favorites.js";
 import "./melitta-sommelier-history.js";
 import "./melitta-sommelier-presets.js";
 import "./ui/melitta-star-rating.js";
+import "./ui/melitta-drink-icon.js";
 
 const MODES = [
   { id: "surprise_me", label_en: "Surprise me", label_ru: "Удиви меня" },
@@ -768,7 +769,10 @@ class MelittaSommelier extends LitElement {
           return html`
           <article class="recipe">
             <header>
-              <h3>${r.name || "Recipe"}</h3>
+              <div class="name-wrap">
+                <melitta-drink-icon .spec=${r.icon || null} size="30"></melitta-drink-icon>
+                <h3>${r.name || "Recipe"}</h3>
+              </div>
               <div class="actions">
                 <button class="fav"
                   ?disabled=${this._favoriting === r.id || fav}
@@ -990,6 +994,7 @@ class MelittaSommelier extends LitElement {
         gap: 8px;
       }
       .recipe h3 { margin: 0; font-size: 15px; }
+      .name-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
       .actions { display: flex; gap: 4px; }
       .desc { margin: 0; color: var(--secondary-text-color); font-size: 13px; }
       .machine-line {

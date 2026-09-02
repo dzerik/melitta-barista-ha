@@ -32,6 +32,7 @@ from custom_components.melitta_barista.ui_contract import (
     CONTRACT_VERSION,
     ICON_SPEC_VERSION,
     ContractNotReadyError,
+    build_brand_theme,
     build_bridge_attributes,
     build_capabilities_block,
     build_icon_spec,
@@ -60,6 +61,7 @@ class FakeClient:
         base_recipes=None,
         recipe_cache_generation=0,
         status=None,
+        brand_logo_url=None,
     ):
         self.brand = brand
         self.capabilities = capabilities
@@ -69,6 +71,7 @@ class FakeClient:
         if base_recipes is not None:
             self.base_recipes = base_recipes
         self.recipe_cache_generation = recipe_cache_generation
+        self.brand_logo_url = brand_logo_url
 
     @property
     def model_name(self):
@@ -675,6 +678,92 @@ def test_category_default_unknown_returns_none():
     assert icon_spec_for_category("") is None
     assert icon_spec_for_category("cappuccino") is None  # not in §4.8 table
     assert icon_spec_for_category("something_else") is None
+
+
+# ---------------------------------------------------------------------------
+# build_brand_theme (§3.10)
+# ---------------------------------------------------------------------------
+
+def test_brand_theme_melitta_normative_values():
+    """§3.10 per-brand table: melitta values byte-exact, logo_url null."""
+    theme = build_brand_theme(make_melitta_client(), None)
+    assert theme == {
+        "brand": "melitta",
+        "wordmark": "MELITTA",
+        "accent": "#c8102e",
+        "accent_soft": "#f6e3e6",
+        "logo_url": None,
+    }
+
+
+def test_brand_theme_nivona_normative_values():
+    """§3.10 per-brand table: nivona values byte-exact, logo_url null."""
+    theme = build_brand_theme(make_nivona_client(), None)
+    assert theme == {
+        "brand": "nivona",
+        "wordmark": "NIVONA",
+        "accent": "#00646b",
+        "accent_soft": "#e0eeef",
+        "logo_url": None,
+    }
+
+
+def test_brand_theme_logo_url_passed_through_verbatim():
+    """§3.10: the cached user-supplied logo URL is emitted exactly."""
+    theme = build_brand_theme(
+        make_melitta_client(), "/local/melitta_barista/melitta.png"
+    )
+    assert theme["logo_url"] == "/local/melitta_barista/melitta.png"
+
+
+def test_brand_theme_unknown_brand_falls_back_to_neutral():
+    """A slug missing from the §3.10 table gets a neutral, data-only badge."""
+    fake_brand = SimpleNamespace(brand_slug="acme", brand_name="Acme")
+    client = SimpleNamespace(brand=fake_brand)
+    theme = build_brand_theme(client, None)
+    assert theme["brand"] == "acme"
+    assert theme["wordmark"] == "ACME"
+    assert theme["logo_url"] is None
+    # Neutral accents are still valid #rrggbb color data, never markup.
+    import re
+    for key in ("accent", "accent_soft"):
+        assert re.fullmatch(r"#[0-9a-f]{6}", theme[key])
+
+
+def test_fingerprint_changes_when_logo_appears():
+    """§5.1: the brand-logo presence flag is a fingerprint input."""
+    without = make_melitta_client()
+    with_logo = make_melitta_client(
+        brand_logo_url="/local/melitta_barista/melitta.png"
+    )
+    assert (
+        compute_contract_fingerprint(without)
+        != compute_contract_fingerprint(with_logo)
+    )
+
+
+def test_brand_theme_in_ws_document_after_machine_block():
+    """§3.3: brand_theme is a top-level block placed after `machine`."""
+    client = make_melitta_client()
+    doc = build_ui_contract(make_entry(), client)
+    assert doc["brand_theme"] == {
+        "brand": "melitta",
+        "wordmark": "MELITTA",
+        "accent": "#c8102e",
+        "accent_soft": "#f6e3e6",
+        "logo_url": None,
+    }
+    keys = list(doc)
+    assert keys.index("brand_theme") == keys.index("machine") + 1
+
+
+def test_brand_theme_in_document_uses_cached_client_logo_url():
+    """§3.10: the builder reads the setup-time cached logo_url (sync, no I/O)."""
+    client = make_nivona_client(
+        brand_logo_url="/local/melitta_barista/nivona.png"
+    )
+    doc = build_ui_contract(make_entry(), client)
+    assert doc["brand_theme"]["logo_url"] == "/local/melitta_barista/nivona.png"
 
 
 # ---------------------------------------------------------------------------

@@ -27,6 +27,7 @@ await Promise.all([
   import(`./components/melitta-sommelier-presets.js${_q}`),
   import(`./components/melitta-brew-wizard.js${_q}`),
   import(`./components/ui/melitta-star-rating.js${_q}`),
+  import(`./components/ui/melitta-drink-icon.js${_q}`),
   import(`./components/melitta-settings.js${_q}`),
   import(`./components/melitta-system.js${_q}`),
 ]);
@@ -48,6 +49,8 @@ class MelittaPanel extends LitElement {
       _entries: { type: Array },
       _activeEntry: { type: String },
       _error: { type: String },
+      _brandTheme: { state: true },
+      _logoFailed: { state: true },
     };
   }
 
@@ -58,6 +61,8 @@ class MelittaPanel extends LitElement {
     this._activeEntry = "";
     this._error = "";
     this._hassReady = false;
+    this._brandTheme = null;
+    this._logoFailed = false;
   }
 
   /** Current language code for translations. */
@@ -84,9 +89,66 @@ class MelittaPanel extends LitElement {
         this._activeEntry = this._entries[0].entry_id;
       }
       this._error = "";
+      this._loadBrandTheme();
     } catch (e) {
       this._error = e.message || String(e);
     }
+  }
+
+  /**
+   * Fetch brand_theme (UI Contract §3.10) for the active entry.
+   *
+   * Best-effort: an older backend without `ui_contract/get` (or a
+   * machine that has not completed a handshake yet) simply means no
+   * badge — never a panel error. Colors and logo_url are validated
+   * before rendering; everything is advisory data, not markup.
+   */
+  async _loadBrandTheme() {
+    this._brandTheme = null;
+    this._logoFailed = false;
+    if (!this._activeEntry || !this.hass) return;
+    try {
+      const contract = await this.hass.callWS({
+        type: "melitta_barista/ui_contract/get",
+        entry_id: this._activeEntry,
+      });
+      const bt = contract && contract.brand_theme;
+      this._brandTheme =
+        bt && typeof bt === "object" && typeof bt.wordmark === "string"
+          ? bt
+          : null;
+    } catch (e) {
+      // Old backend / contract not ready → graceful absence (§3.10).
+      this._brandTheme = null;
+    }
+  }
+
+  /** Strict #rrggbb validation — brand colors are escaped data (§3.10). */
+  _safeColor(value) {
+    return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value)
+      ? value
+      : "";
+  }
+
+  _renderBrandBadge() {
+    const bt = this._brandTheme;
+    if (!bt) return "";
+    const accent = this._safeColor(bt.accent);
+    const soft = this._safeColor(bt.accent_soft);
+    const style = accent && soft ? `background:${soft};color:${accent};` : "";
+    const logoUrl =
+      typeof bt.logo_url === "string" && bt.logo_url.startsWith("/local/")
+        ? bt.logo_url
+        : null;
+    if (logoUrl && !this._logoFailed) {
+      return html`
+        <span class="brand-badge" style=${style}>
+          <img class="brand-logo" src=${logoUrl} alt=${bt.wordmark}
+            @error=${() => { this._logoFailed = true; }}>
+        </span>
+      `;
+    }
+    return html`<span class="brand-badge wordmark" style=${style}>${bt.wordmark}</span>`;
   }
 
   _renderHeader() {
@@ -96,12 +158,13 @@ class MelittaPanel extends LitElement {
           <ha-icon icon="mdi:coffee-maker"></ha-icon>
           <span>${this._t("panel.title")}</span>
           <span class="version" title="Integration version">v${PANEL_VERSION}</span>
+          ${this._renderBrandBadge()}
         </div>
         ${this._entries.length > 1 ? html`
           <select
             class="entry-picker"
             .value=${this._activeEntry}
-            @change=${(e) => { this._activeEntry = e.target.value; }}
+            @change=${(e) => { this._activeEntry = e.target.value; this._loadBrandTheme(); }}
           >
             ${this._entries.map((entry) => html`
               <option value=${entry.entry_id}>${entry.title}</option>
@@ -190,6 +253,24 @@ class MelittaPanel extends LitElement {
         color: var(--secondary-text-color, rgba(255, 255, 255, 0.7));
         font-variant-numeric: tabular-nums;
         margin-left: 4px;
+      }
+      .brand-badge {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        padding: 2px 10px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        background: var(--secondary-background-color);
+        color: var(--secondary-text-color);
+      }
+      .brand-logo {
+        display: block;
+        height: 16px;
+        max-width: 72px;
+        object-fit: contain;
       }
       .entry-picker {
         background: transparent;

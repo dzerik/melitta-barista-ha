@@ -210,6 +210,56 @@ def _normalize_color_hint(value: Any) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# brand_theme (§3.10) — brand badge DATA only, never a logo asset
+# ---------------------------------------------------------------------------
+
+# Per-brand normative badge values (spec §3.10, server-owned — clients MUST
+# NOT hardcode them). Legal constraint: the integration never ships or
+# distributes brand logos; this table is a slug, a wordmark display string
+# rendered as text, and accent colors.
+_BRAND_THEMES: dict[str, dict[str, str]] = {
+    "melitta": {
+        "wordmark": "MELITTA", "accent": "#c8102e", "accent_soft": "#f6e3e6",
+    },
+    "nivona": {
+        "wordmark": "NIVONA", "accent": "#00646b", "accent_soft": "#e0eeef",
+    },
+}
+
+# Defensive non-normative fallback for a brand slug the table predates:
+# neutral grey accents; clients render such badges unbranded anyway (§3.10).
+_NEUTRAL_ACCENT = "#607d8b"
+_NEUTRAL_ACCENT_SOFT = "#eceff1"
+
+
+def build_brand_theme(client: Any, logo_url: str | None) -> dict[str, Any]:
+    """Build the top-level `brand_theme` badge block (§3.10).
+
+    Data only — slug, wordmark text, accent colors — never a logo asset.
+    `logo_url` is the setup-time cached result of the user-supplied-file
+    check (`/local/melitta_barista/<brand>.png` or None), passed through
+    verbatim: this function does no I/O. A slug missing from the normative
+    table gets a neutral fallback (wordmark from the profile's brand name).
+    """
+    brand = client.brand
+    slug = brand.brand_slug
+    theme = _BRAND_THEMES.get(slug)
+    if theme is None:
+        theme = {
+            "wordmark": str(getattr(brand, "brand_name", slug) or slug).upper(),
+            "accent": _NEUTRAL_ACCENT,
+            "accent_soft": _NEUTRAL_ACCENT_SOFT,
+        }
+    return {
+        "brand": slug,
+        "wordmark": theme["wordmark"],
+        "accent": theme["accent"],
+        "accent_soft": theme["accent_soft"],
+        "logo_url": logo_url,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Live status tokens (§3.4 block B)
 # ---------------------------------------------------------------------------
 
@@ -256,9 +306,12 @@ def compute_contract_fingerprint(client: Any) -> str | None:
     """Content revision for this machine's contract: 12 hex chars of sha256.
 
     Computed over (family_key, model_name, machine_type, the capability-
-    relevant profile fields, recipe-cache generation counter) per §5.1.
-    Carries no semantics beyond equality comparison. Returns None while
-    the client has no capabilities (pre-handshake — no contract exists).
+    relevant profile fields, recipe-cache generation counter, brand-logo
+    presence flag) per §5.1. The logo flag is the cached setup-time §3.10
+    file-check result — fixed for the life of the entry runtime, so it can
+    only differ across entry reloads. Carries no semantics beyond equality
+    comparison. Returns None while the client has no capabilities
+    (pre-handshake — no contract exists).
     """
     caps = getattr(client, "capabilities", None)
     if caps is None:
@@ -280,6 +333,7 @@ def compute_contract_fingerprint(client: Any) -> str | None:
         "has_aroma_balance": caps.has_aroma_balance,
         "tolerated_brew_manipulations": list(caps.tolerated_brew_manipulations),
         "recipe_cache_generation": getattr(client, "recipe_cache_generation", 0),
+        "brand_logo": bool(getattr(client, "brand_logo_url", None)),
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
@@ -719,6 +773,9 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
             "machine_type": machine_type.name if machine_type is not None else None,
             "connected": bool(getattr(client, "connected", False)),
         },
+        "brand_theme": build_brand_theme(
+            client, getattr(client, "brand_logo_url", None)
+        ),
         "capabilities": capabilities_block,
         "vocabularies": build_vocabularies(capabilities_block),
         "limits": {

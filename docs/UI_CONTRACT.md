@@ -266,6 +266,8 @@ interface UiContractResponse {
     connected: boolean;
   };
 
+  brand_theme: BrandTheme;        // §3.10 — brand badge DATA (never a logo asset)
+
   capabilities: {
     supports_recipe_writes: boolean;   // MachineCapabilities.supports_recipe_writes
     supports_stats: boolean;
@@ -525,6 +527,13 @@ Client rendering contract:
     "machine_type": "BARISTA_TS",
     "connected": true
   },
+  "brand_theme": {
+    "brand": "melitta",
+    "wordmark": "MELITTA",
+    "accent": "#c8102e",
+    "accent_soft": "#f6e3e6",
+    "logo_url": null
+  },
   "capabilities": {
     "supports_recipe_writes": true,
     "supports_stats": true,
@@ -642,6 +651,13 @@ worked example).
     "machine_type": null,
     "connected": true
   },
+  "brand_theme": {
+    "brand": "nivona",
+    "wordmark": "NIVONA",
+    "accent": "#00646b",
+    "accent_soft": "#e0eeef",
+    "logo_url": "/local/melitta_barista/nivona.png"
+  },
   "capabilities": {
     "supports_recipe_writes": false,
     "supports_stats": true,
@@ -723,7 +739,10 @@ worked example).
 ```
 
 (Note: no `components` blocks — the 700 family does not expose per-recipe
-composition; icons come from category defaults, §4.8.)
+composition; icons come from category defaults, §4.8. `brand_theme.logo_url`
+is shown non-null purely to illustrate the URL form — it is emitted only when
+this user placed `<config>/www/melitta_barista/nivona.png` themselves, §3.10;
+the §3.7 example shows the default `null` case.)
 
 ### 3.9 Sommelier recipes — icon next to the recipe
 
@@ -734,6 +753,59 @@ computed by the same builder from the recipe's `machine_phases` components plus
 set to the additive's display name and `color_hint` when the DB has one
 (normalized to `#RRGGBB` or `null`, §3.6). This is purely additive to the
 existing sommelier schemas.
+
+### 3.10 brand_theme — brand badge data (additive within `contract_version: 1`)
+
+A top-level `brand_theme` block (placed in the §3.3 shape directly after the
+`machine` block) lets clients render a brand badge without hardcoding brand
+knowledge. **Legal constraint (non-negotiable): the integration never ships or
+distributes brand logos — they are trademarks.** `brand_theme` is *data only*:
+a slug, a wordmark display string, and accent colors. Any logo pixels come
+exclusively from a file the **user** placed in their own HA configuration.
+
+```ts
+interface BrandTheme {
+  brand: string;            // BrandProfile.brand_slug; same value as machine.brand
+  wordmark: string;         // display string, e.g. "MELITTA" | "NIVONA" — text,
+                            // rendered as text, never an image
+  accent: string;           // "#rrggbb" — primary brand accent
+  accent_soft: string;      // "#rrggbb" — muted companion usable as a background tint
+  logo_url: string | null;  // "/local/melitta_barista/<brand>.png" iff the
+                            // user-supplied file exists (below); null otherwise
+}
+```
+
+**Per-brand values (normative for v1; server-owned — clients MUST NOT hardcode
+them):**
+
+| brand | wordmark | accent | accent_soft |
+| --- | --- | --- | --- |
+| `melitta` | `MELITTA` | `#c8102e` | `#f6e3e6` |
+| `nivona` | `NIVONA` | `#00646b` | `#e0eeef` |
+
+**Client contrast responsibilities** (same precedent as `color_hint`, §3.6):
+the colors are advisory data. Clients MAY adjust lightness/contrast for the
+active theme (`accent_soft` in particular is a *light*-theme tint and will
+usually need darkening on dark themes), MUST keep text rendered on either
+color legible, and MUST treat all values as escaped color data, never as
+markup. An absent `brand_theme` (older server) or an unknown `brand` slug ⇒
+neutral, unbranded rendering — never an error.
+
+**`logo_url` semantics:**
+
+* `null` unless the user placed their own file at
+  `<config>/www/melitta_barista/<brand>.png` (e.g.
+  `<config>/www/melitta_barista/melitta.png`), which HA serves as
+  `/local/melitta_barista/<brand>.png` — the exact string emitted.
+* File existence is checked **once at entry setup** with async executor I/O
+  (never blocking the event loop in a `@callback`); the boolean result is
+  cached in the entry runtime for the sync contract builder. Adding or
+  removing the file therefore takes effect on the next entry reload.
+* The integration never validates, reads, or redistributes the file's
+  contents; it only reports that the user's own file exists. Clients render
+  the image with the wordmark as fallback (`alt`/error path → wordmark text).
+* Logo presence is a `contract_fingerprint` input (§5.1) — its presence
+  changes rendering.
 
 ---
 
@@ -912,7 +984,11 @@ byte-exact.
 * `contract_fingerprint` — **short opaque string** (e.g. 12 hex chars of a
   sha256), the **content revision** for one machine. Computed over
   `(family_key, model_name, machine_type, capability-relevant profile fields,
-  recipe-cache generation counter)`. It changes on: handshake completion, family
+  recipe-cache generation counter, brand-logo presence flag)`. The logo flag is
+  the cached setup-time result of the §3.10 `logo_url` file check — brand_theme
+  participates in the fingerprint because logo presence changes rendering; the
+  flag is fixed for the life of the entry runtime and can only differ across
+  entry reloads. It changes on: handshake completion, family
   or model re-detection, post-handshake machine-type refinement (HR read),
   options-flow family override, and Melitta base-recipe preload completion.
   Clients cache the contract per `entry_id + contract_fingerprint` and refetch on
@@ -1271,6 +1347,17 @@ at HA start (bridge attrs present, state sensor unavailable), reconnect
 (fingerprint bump observed), and recipe-preload catch-up (second fetch carries
 components).
 
+### 7.4 Follow-ups (post-0.91 amendments)
+
+* **Panel as consumer.** The integration's own panel
+  (`custom_components/melitta_barista/www/`) is a contract consumer like the
+  card and PWA: it renders the per-recipe `icon` IconSpecs already carried by
+  the sommelier recipe/favorites/history payloads (§3.9) — previously received
+  but never rendered — and the §3.10 brand badge (wordmark + accent colors,
+  plus the user-supplied logo image when `logo_url` is non-null, with wordmark
+  text as the fallback). `icon: null` / absent `brand_theme` fall back to the
+  panel's generic drink glyph / neutral unbranded chrome per §5.3.2.
+
 ---
 
 ## Appendix A — Design notes (review resolutions)
@@ -1323,3 +1410,9 @@ anchors it already declared):
 4. **WS `recipes/list` icon surface confirmed** (§2.1): every recipe entry
    (`base_recipes` and DirectKey rows) carries `icon: IconSpec | null` — the
    §7.1 zone plan omitted this surface by mistake; the delivery table wins.
+5. **§3.10 `brand_theme` added** (additive within `contract_version: 1`, no
+   version bump): brand badge data block in the §3.3 shape (after `machine`),
+   per-brand normative colors, user-supplied-file-only `logo_url`, a
+   brand-logo presence flag as a new `contract_fingerprint` input (§5.1), and
+   the §7.4 panel-as-consumer note. Absent block ⇒ neutral rendering; no
+   client-breaking change.

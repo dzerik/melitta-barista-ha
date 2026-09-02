@@ -25,6 +25,7 @@ import { t } from "../i18n/index.js";
 import "./melitta-modal.js";
 import "./melitta-confirm.js";
 import "./ui/melitta-star-rating.js";
+import "./ui/melitta-drink-icon.js";
 
 const PAGE_SIZE = 20;
 
@@ -186,7 +187,10 @@ class MelittaSommelierHistory extends LitElement {
     return html`
       <div class="recipe">
         <div class="recipe-head">
-          <strong>${recipe.name}</strong>
+          <div class="name-wrap">
+            <melitta-drink-icon .spec=${recipe.icon || null} size="22"></melitta-drink-icon>
+            <strong>${recipe.name}</strong>
+          </div>
           <melitta-star-rating
             .value=${recipe.rating || 0}
             @rate=${(e) => this._onRateRecipe(recipe, e.detail.rating)}
@@ -304,6 +308,7 @@ class MelittaSommelierHistory extends LitElement {
           gap: var(--mb-space-sm);
           margin-bottom: var(--mb-space-xs);
         }
+        .name-wrap { display: flex; align-items: center; gap: var(--mb-space-sm); min-width: 0; }
         .desc { margin: 0 0 var(--mb-space-xs) 0; color: var(--primary-text-color); }
         .note { margin: 0 0 var(--mb-space-xs) 0; color: var(--secondary-text-color); font-size: var(--mb-font-size-sm); }
         .badge {

@@ -23,6 +23,7 @@ import { t } from "../i18n/index.js";
 import "./melitta-modal.js";
 import "./melitta-confirm.js";
 import "./ui/melitta-star-rating.js";
+import "./ui/melitta-drink-icon.js";
 
 class MelittaSommelierFavorites extends LitElement {
   static get properties() {
@@ -213,7 +214,10 @@ class MelittaSommelierFavorites extends LitElement {
     return html`
       <div class="card">
         <div class="card-head">
-          <h4>${favorite.name}</h4>
+          <div class="name-wrap">
+            <melitta-drink-icon .spec=${favorite.icon || null} size="24"></melitta-drink-icon>
+            <h4>${favorite.name}</h4>
+          </div>
           <div class="meta">
             <melitta-star-rating
               .value=${favorite.rating || 0}
@@ -275,6 +279,7 @@ class MelittaSommelierFavorites extends LitElement {
           margin-bottom: var(--mb-space-sm);
         }
         h4 { margin: 0; font-size: var(--mb-font-size-md); }
+        .name-wrap { display: flex; align-items: center; gap: var(--mb-space-sm); min-width: 0; }
         .desc { margin: 0 0 var(--mb-space-sm) 0; color: var(--primary-text-color); }
         .note { margin: 0 0 var(--mb-space-sm) 0; color: var(--secondary-text-color); }
         .meta-row { display: flex; gap: var(--mb-space-xs); margin-bottom: var(--mb-space-sm); flex-wrap: wrap; }

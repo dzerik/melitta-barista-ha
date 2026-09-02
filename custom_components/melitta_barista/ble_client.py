@@ -413,6 +413,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # input for the UI contract builder.
         self.base_recipes: dict[int, MachineRecipe] = {}
         self.recipe_cache_generation: int = 0
+        # UI Contract §3.10: cached setup-time result of the user-supplied
+        # brand-logo file check ("/local/melitta_barista/<brand>.png" or
+        # None). Set by async_setup_entry via executor I/O; fixed for the
+        # life of the entry runtime and a contract_fingerprint input.
+        self.brand_logo_url: str | None = None
         # Keep the cache current on post-HD re-reads: reset_recipe_default
         # notifies refresh callbacks with the fresh recipe. Registered
         # before any entity subscriber so consumers always observe an

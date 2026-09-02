@@ -117,6 +117,50 @@ async def test_setup_entry(hass: HomeAssistant, mock_entry: MockConfigEntry) -> 
     assert mock_entry.state is ConfigEntryState.LOADED
 
 
+async def _setup_with_config_dir(hass, mock_entry, config_dir):
+    """Run async_setup_entry with a controlled config dir; return the client."""
+    mock_entry.add_to_hass(hass)
+    hass.config.config_dir = str(config_dir)
+    client = _mock_client()
+    with (
+        patch(
+            "custom_components.melitta_barista.MelittaBleClient",
+            return_value=client,
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_ble_device_from_address",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_register_callback",
+            return_value=lambda: None,
+        ),
+    ):
+        assert await hass.config_entries.async_setup(mock_entry.entry_id)
+        await hass.async_block_till_done()
+    return client
+
+
+async def test_setup_entry_brand_logo_absent_caches_none(
+    hass: HomeAssistant, mock_entry: MockConfigEntry, tmp_path
+) -> None:
+    """UI Contract §3.10: no user file under www/ ⇒ cached logo_url is None."""
+    client = await _setup_with_config_dir(hass, mock_entry, tmp_path)
+    assert client.brand_logo_url is None
+
+
+async def test_setup_entry_brand_logo_present_caches_local_url(
+    hass: HomeAssistant, mock_entry: MockConfigEntry, tmp_path
+) -> None:
+    """UI Contract §3.10: user-placed <config>/www/melitta_barista/<brand>.png
+    is detected once at setup and cached as the /local/... URL."""
+    logo_dir = tmp_path / "www" / "melitta_barista"
+    logo_dir.mkdir(parents=True)
+    (logo_dir / "melitta.png").write_bytes(b"\x89PNG")
+    client = await _setup_with_config_dir(hass, mock_entry, tmp_path)
+    assert client.brand_logo_url == "/local/melitta_barista/melitta.png"
+
+
 async def test_bluez_bootstrap_is_hint_until_encrypted_source_is_learned(
     hass: HomeAssistant, mock_entry: MockConfigEntry,
 ) -> None:
