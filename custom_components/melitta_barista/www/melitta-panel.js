@@ -36,7 +36,7 @@ import { LitElement, html, css } from "./lit-base.js";
 import { t } from "./i18n/index.js";
 
 const TAB_IDS = [
-  "sommelier", "beans", "additives", "producers", "system",
+  "sommelier", "recipes", "beans", "additives", "producers", "system",
 ];
 
 class MelittaPanel extends LitElement {
@@ -50,6 +50,7 @@ class MelittaPanel extends LitElement {
       _activeEntry: { type: String },
       _error: { type: String },
       _brandTheme: { state: true },
+      _contract: { state: true },
       _logoFailed: { state: true },
     };
   }
@@ -62,6 +63,7 @@ class MelittaPanel extends LitElement {
     this._error = "";
     this._hassReady = false;
     this._brandTheme = null;
+    this._contract = null;
     this._logoFailed = false;
   }
 
@@ -96,15 +98,20 @@ class MelittaPanel extends LitElement {
   }
 
   /**
-   * Fetch brand_theme (UI Contract §3.10) for the active entry.
+   * Fetch the UI Contract document (docs/UI_CONTRACT.md §3.3) for the
+   * active entry — one fetch feeds both the brand badge (§3.10) and the
+   * capability/vocabulary consumers (recipes editor gating, form option
+   * lists, portion clamps).
    *
    * Best-effort: an older backend without `ui_contract/get` (or a
    * machine that has not completed a handshake yet) simply means no
-   * badge — never a panel error. Colors and logo_url are validated
-   * before rendering; everything is advisory data, not markup.
+   * badge and fallback vocabularies — never a panel error. Colors and
+   * logo_url are validated before rendering; everything is advisory
+   * data, not markup.
    */
   async _loadBrandTheme() {
     this._brandTheme = null;
+    this._contract = null;
     this._logoFailed = false;
     if (!this._activeEntry || !this.hass) return;
     try {
@@ -112,6 +119,8 @@ class MelittaPanel extends LitElement {
         type: "melitta_barista/ui_contract/get",
         entry_id: this._activeEntry,
       });
+      this._contract =
+        contract && typeof contract === "object" ? contract : null;
       const bt = contract && contract.brand_theme;
       this._brandTheme =
         bt && typeof bt === "object" && typeof bt.wordmark === "string"
@@ -120,7 +129,39 @@ class MelittaPanel extends LitElement {
     } catch (e) {
       // Old backend / contract not ready → graceful absence (§3.10).
       this._brandTheme = null;
+      this._contract = null;
     }
+    this._ensureVisibleTab();
+  }
+
+  /**
+   * Capability gate for the DirectKey recipe editor tab.
+   *
+   * With a loaded contract, `capabilities.supports_recipe_writes` is the
+   * authority (Nivona machines hide the tab). Before the contract is
+   * available (pre-handshake, older backend) fall back to the entry's
+   * brand — DirectKey recipe writes are a Melitta surface.
+   */
+  _supportsRecipeEditor() {
+    const caps = this._contract && this._contract.capabilities;
+    if (caps && typeof caps === "object") {
+      return caps.supports_recipe_writes !== false;
+    }
+    const entry = this._entries.find((e) => e.entry_id === this._activeEntry);
+    return (entry?.brand || "melitta") === "melitta";
+  }
+
+  /** Tab ids visible for the active machine (capability gating). */
+  _visibleTabs() {
+    return TAB_IDS.filter(
+      (id) => id !== "recipes" || this._supportsRecipeEditor(),
+    );
+  }
+
+  /** If gating hid the active tab, fall back to the first visible one. */
+  _ensureVisibleTab() {
+    const visible = this._visibleTabs();
+    if (!visible.includes(this._tab)) this._tab = visible[0];
   }
 
   /** Strict #rrggbb validation — brand colors are escaped data (§3.10). */
@@ -178,7 +219,7 @@ class MelittaPanel extends LitElement {
   _renderTabs() {
     return html`
       <nav>
-        ${TAB_IDS.map((id) => html`
+        ${this._visibleTabs().map((id) => html`
           <button
             class=${this._tab === id ? "active" : ""}
             @click=${() => { this._tab = id; }}
@@ -196,6 +237,8 @@ class MelittaPanel extends LitElement {
     switch (this._tab) {
       case "sommelier":
         return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-sommelier>`;
+      case "recipes":
+        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .contract=${this._contract}></melitta-recipes>`;
       case "beans":
         return html`<melitta-beans .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-beans>`;
       case "additives":

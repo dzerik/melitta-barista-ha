@@ -1667,7 +1667,13 @@ BREW_DIRECTKEY_SCHEMA = vol.Schema({
 
 RESET_RECIPE_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
-    vol.Optional("recipe_id"): vol.All(int, vol.Range(min=200, max=223)),
+    # Base recipes live at 200-223; per-profile DirectKey slots at
+    # 302-388 (DIRECTKEY_OFFSET + profile_id * 10 + category). The HD
+    # reset command accepts both classes; the machine NACKs unknown ids.
+    vol.Optional("recipe_id"): vol.All(
+        int,
+        vol.Any(vol.Range(min=200, max=223), vol.Range(min=302, max=388)),
+    ),
 })
 
 CONFIRM_PROMPT_SCHEMA = vol.Schema({

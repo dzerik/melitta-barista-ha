@@ -396,12 +396,14 @@ reset_recipe:
           domain: button
     recipe_id:
       name: Recipe ID
-      description: Recipe ID (200–223). Defaults to the currently selected recipe.
+      description: >-
+        Recipe ID: 200–223 for base recipes, 302–388 for per-profile
+        DirectKey slots. Defaults to the currently selected recipe.
       required: false
       selector:
         number:
           min: 200
-          max: 223
+          max: 388
           step: 1
 
 confirm_prompt:

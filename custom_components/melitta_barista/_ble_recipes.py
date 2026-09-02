@@ -18,6 +18,8 @@ else:
 from .const import (
     CUP_COUNTER_BASE_ID,
     CUP_COUNTER_RECIPES,
+    DIRECTKEY_OFFSET,
+    DIRECTKEY_PROFILE_MULTIPLIER,
     DirectKeyCategory,
     PROFILE_NAMES,
     RECIPE_NAMES,
@@ -94,13 +96,27 @@ class BleRecipesMixin(_MixinBase):
     def _store_refreshed_base_recipe(
         self, recipe_id: int, recipe: MachineRecipe,
     ) -> None:
-        """Recipe-refresh subscriber keeping ``base_recipes`` current post-HD.
+        """Recipe-refresh subscriber keeping the client caches current post-HD.
 
         Registered first in ``MelittaBleClient.__init__`` so entity
         subscribers of the same callback list see an up-to-date cache.
+        Base ids refresh ``base_recipes``; DirectKey ids (302-388) are
+        routed back into the per-profile ``_directkey_recipes`` cache so
+        the panel editor's reset-to-default flow observes fresh factory
+        values without waiting for a reconnect preload.
         """
         if recipe_id in RECIPE_NAMES:
             self.store_base_recipe(recipe_id, recipe)
+            return
+        offset = recipe_id - DIRECTKEY_OFFSET
+        if offset < 0:
+            return
+        profile_id, cat_value = divmod(offset, DIRECTKEY_PROFILE_MULTIPLIER)
+        if profile_id > 8 or cat_value > max(DirectKeyCategory):
+            return
+        category = DirectKeyCategory(cat_value)
+        self._directkey_recipes.setdefault(profile_id, {})[category] = recipe
+        self._notify_profile_callbacks()
 
     # Profile name management
 

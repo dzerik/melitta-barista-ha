@@ -2,6 +2,16 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b4] — 2026-09-03 (beta)
+
+### Added
+
+- **DirectKey recipe editor in the panel.** New top-level "Recipes" tab (between Sommelier and Beans): pick a machine profile (real profile names, "Profile N" fallback), see its seven DirectKey drink slots as cards with procedural drink icons, and edit any of them in a modal form — component 1 and component 2 (process, intensity, aroma, temperature, shots, portion) with option lists and portion clamps sourced from the UI Contract document (`vocabularies.freestyle` / `limits.portion_ml`, with hardcoded fallbacks matching the service schema). Saving goes through the existing `melitta_barista.save_directkey` service and re-reads the machine cache; each recipe also gets a confirmed reset-to-factory-defaults action via `melitta_barista.reset_recipe`. The tab is hidden entirely for brands without recipe writes (`capabilities.supports_recipe_writes`) and editing is disabled gracefully while the machine is disconnected. The same editor replaces the read-only viewer under System → Machine recipes.
+
+### Changed
+
+- `reset_recipe` now accepts per-profile DirectKey slot ids (302–388) in addition to the base range (200–223), and a post-reset re-read of a DirectKey slot updates the per-profile recipe cache (and its entity subscribers) immediately instead of waiting for the next reconnect preload.
+
 ## [0.91.0b3] — 2026-09-03 (beta)
 
 ### Added
