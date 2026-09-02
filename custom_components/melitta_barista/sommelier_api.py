@@ -23,6 +23,7 @@ from .const import (
     Blend,
 )
 from .panel_api import _check_llm_agent, _resolve_agent_id, _send_versioned
+from .ui_contract import build_icon_spec
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -90,6 +91,102 @@ def _resolve_portion(raw_ml: Any) -> int:
         raise ValueError(f"invalid portion_ml value {raw_ml!r}") from exc
     ml = max(0.0, min(250.0, ml))
     return int(ml / 5.0 + 0.5)
+
+
+# ── UI Contract §3.9: per-recipe IconSpec on sommelier payloads ───────
+
+# Additive slots of a recipe's `extras` dict that carry a display name
+# (the boolean `ice` and free-text `instruction` slots are not additives).
+_ADDITIVE_SLOTS: tuple[str, ...] = ("syrup", "topping", "liqueur")
+
+
+async def _additive_color_hints(db) -> dict[str, str]:
+    """Map lowercased additive names to color hints from the panel DB.
+
+    Reads the `attributes` JSON of the panel additive tables (syrups /
+    toppings) and picks a `color_hint` (or legacy `color`) value when one
+    is stored. Both tables are created lazily by the panel API, so they
+    may not exist yet — that, or an unreadable row, degrades to "no hint"
+    (build_icon_spec normalizes anything invalid to null anyway, §3.6).
+    """
+    hints: dict[str, str] = {}
+    for table in ("syrups", "toppings"):
+        try:
+            # `table` is a hardcoded literal, never user input.
+            cursor = await db.db.execute(
+                f"SELECT name, attributes FROM {table}"  # nosec B608
+            )
+            rows = await cursor.fetchall()
+        except Exception:  # noqa: BLE001 — table missing / DB unavailable
+            continue
+        for row in rows:
+            name, raw_attributes = row[0], row[1]
+            if not name or not raw_attributes:
+                continue
+            try:
+                attributes = json.loads(raw_attributes)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(attributes, dict):
+                continue
+            hint = attributes.get("color_hint") or attributes.get("color")
+            if isinstance(hint, str) and hint:
+                hints[str(name).lower()] = hint
+    return hints
+
+
+def _recipe_additive_slots(
+    recipe: dict[str, Any], color_hints: dict[str, str]
+) -> list[dict[str, Any]]:
+    """Extract §3.9 additive slots (syrup/topping/liqueur) from `extras`.
+
+    Each named slot becomes `{name, ml: None, color_hint}` in slot order;
+    `ml: None` lets build_icon_spec apply the §4.6 default (10 ml). The
+    hint lookup is by lowercased name — extras store lowercased strings,
+    DB rows may be any case.
+    """
+    extras = recipe.get("extras") or {}
+    if not isinstance(extras, dict):
+        return []
+    slots: list[dict[str, Any]] = []
+    for slot in _ADDITIVE_SLOTS:
+        name = extras.get(slot)
+        if isinstance(name, str) and name.strip():
+            slots.append({
+                "name": name,
+                "ml": None,
+                "color_hint": color_hints.get(name.strip().lower()),
+            })
+    return slots
+
+
+def _attach_recipe_icon(
+    recipe: dict[str, Any], color_hints: dict[str, str]
+) -> None:
+    """Attach the §3.9 `icon` IconSpec (or None) to one recipe payload.
+
+    Computed by the same builder as the UI-contract recipe catalog, from
+    the recipe's `machine_phases` components plus its additive slots.
+    Purely additive to the existing sommelier schemas — the icon is
+    derived at read time and never persisted.
+    """
+    phases = recipe.get("machine_phases") or []
+    components = [
+        phase.get("component")
+        for phase in phases[:2]
+        if isinstance(phase, dict)
+    ]
+    recipe["icon"] = build_icon_spec(
+        components, _recipe_additive_slots(recipe, color_hints)
+    )
+
+
+async def _attach_recipe_icons(db, recipes) -> None:
+    """Attach icons to an iterable of recipe payloads (one DB hint lookup)."""
+    color_hints = await _additive_color_hints(db)
+    for recipe in recipes:
+        if isinstance(recipe, dict):
+            _attach_recipe_icon(recipe, color_hints)
 
 
 async def _brew_recipe_components(
@@ -928,6 +1025,8 @@ async def ws_generate(
         weather_context=weather_context,
         machine_profile=msg.get("machine_profile"),
     )
+    # UI Contract §3.9: generate results carry a per-recipe IconSpec.
+    await _attach_recipe_icons(db, session.get("recipes") or [])
     _send_versioned(connection, msg["id"], {"session": session})
 
 
@@ -1143,11 +1242,15 @@ async def ws_favorites_list(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """List favorites, optionally filtered to a machine profile + shared."""
+    """List favorites, optionally filtered to a machine profile + shared.
+
+    Each favorite carries a per-recipe `icon` IconSpec (UI Contract §3.9).
+    """
     db = await _async_get_db(hass)
     favorites = await db.async_list_favorites(
         machine_profile_filter=msg.get("machine_profile_filter"),
     )
+    await _attach_recipe_icons(db, favorites)
     _send_versioned(connection, msg["id"], {"favorites": favorites})
 
 
@@ -1196,6 +1299,8 @@ async def ws_favorites_add(
         "source_bean_id": source_bean["id"] if source_bean else None,
         "machine_profile": msg.get("machine_profile"),
     })
+    # UI Contract §3.9: echo the stored favorite with its IconSpec.
+    await _attach_recipe_icons(db, [fav])
     _send_versioned(connection, msg["id"], {"favorite": fav})
 
 
@@ -1334,13 +1439,22 @@ async def ws_history_list(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """List generation history, optionally filtered to a machine profile + shared."""
+    """List generation history, optionally filtered to a machine profile + shared.
+
+    Every saved recipe in every session carries a per-recipe `icon`
+    IconSpec (UI Contract §3.9).
+    """
     db = await _async_get_db(hass)
     sessions = await db.async_list_history(
         limit=msg["limit"],
         offset=msg["offset"],
         machine_profile_filter=msg.get("machine_profile_filter"),
     )
+    color_hints = await _additive_color_hints(db)
+    for session in sessions:
+        for recipe in session.get("recipes") or []:
+            if isinstance(recipe, dict):
+                _attach_recipe_icon(recipe, color_hints)
     _send_versioned(connection, msg["id"], {"sessions": sessions})
 
 

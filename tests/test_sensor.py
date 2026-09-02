@@ -9,6 +9,9 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.melitta_barista.brands import MelittaProfile, NivonaProfile
+from custom_components.melitta_barista.coffee_platform.domain import (
+    MachineCapabilities,
+)
 from custom_components.melitta_barista.const import DOMAIN, MachineProcess, Manipulation
 from custom_components.melitta_barista.protocol import MachineStatus
 
@@ -38,6 +41,11 @@ def _mock_client(status=None):
     # behaviour (mycoffee_layout returns None, temp_recipe_type_register
     # is None, etc.) without per-method MagicMock setup.
     client.brand = MelittaProfile()
+    # Real capabilities + cache generation: a MagicMock here would leak
+    # into the connection sensor's contract fingerprint, which json-
+    # serializes these fields (UI Contract §5.1).
+    client.capabilities = client.brand.capabilities_for("barista_ts")
+    client.recipe_cache_generation = 0
     return client
 
 
@@ -221,11 +229,10 @@ async def test_mycoffee_amount_sensors_registered_for_nivona_8000(
     """
     client = _mock_client()  # default mock fits — we override below
     client.brand = NivonaProfile()
-    caps = MagicMock()
-    caps.family_key = "8000"
-    caps.my_coffee_slots = 9
-    caps.stats = ()
-    client.capabilities = caps
+    # Real capability bag (scalar fields feed the contract fingerprint).
+    client.capabilities = MachineCapabilities(
+        family_key="8000", model_name="NICR test", my_coffee_slots=9,
+    )
     client.my_coffee_slots = None
     await _setup_integration(hass, mock_entry, client)
 
@@ -257,12 +264,10 @@ async def test_mycoffee_skips_temperature_on_1030_family(
     """
     client = _mock_client()
     client.brand = NivonaProfile()
-    caps = MagicMock()
-    caps.family_key = "1030"
     # 1030 has 18 MyCoffee slots; we only need a few to verify gating.
-    caps.my_coffee_slots = 2
-    caps.stats = ()
-    client.capabilities = caps
+    client.capabilities = MachineCapabilities(
+        family_key="1030", model_name="NICR test", my_coffee_slots=2,
+    )
     client.my_coffee_slots = None
     await _setup_integration(hass, mock_entry, client)
 
@@ -284,11 +289,10 @@ async def test_mycoffee_skips_params_missing_from_layout_600(
     """
     client = _mock_client()
     client.brand = NivonaProfile()
-    caps = MagicMock()
-    caps.family_key = "600"
-    caps.my_coffee_slots = 1  # NICR 660 has 1 MyCoffee slot
-    caps.stats = ()
-    client.capabilities = caps
+    client.capabilities = MachineCapabilities(
+        family_key="600", model_name="NICR test",
+        my_coffee_slots=1,  # NICR 660 has 1 MyCoffee slot
+    )
     client.my_coffee_slots = None
     await _setup_integration(hass, mock_entry, client)
 

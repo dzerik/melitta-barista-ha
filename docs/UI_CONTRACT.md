@@ -149,7 +149,9 @@ The card bridges from the entity world to the WS world without configuration:
      is not in the supported set: contract features stay in legacy fallback for
      the rest of the session (no re-probing).
    * **Transient** — `client_not_ready`, `contract_not_ready`, `entry_not_found`,
-     network/auth errors: the card auto-retries on the next `false→true`
+     network/auth errors, and a malformed payload whose `contract_version` IS
+     supported (structural validation failure — assumed to be a server-side
+     transient, e.g. a partially built document): the card auto-retries on the next `false→true`
      transition of the connection sensor's `connected` attribute (or when
      `contract_fingerprint` first appears/changes) — bounded to one retry per
      transition, no polling.
@@ -227,7 +229,7 @@ undetected machines.
 server-internal and do **not** travel):
 
 * `process`: `none`(0) `coffee`(1) `milk`(2) `water`(3)
-* `intensity`: `very_mild`(0) `mild`(1) `normal`(2) `strong`(3) `very_strong`(4)
+* `intensity`: `very_mild`(0) `mild`(1) `medium`(2) `strong`(3) `very_strong`(4)
 * `aroma`: `standard`(0) `intense`(1)
 * `temperature`: `cold`(0) `normal`(1) `high`(2)
 * `shots`: `none`(0) `one`(1) `two`(2) `three`(3)
@@ -287,7 +289,7 @@ interface UiContractResponse {
     };
     freestyle: {                  // machine-filtered subsets of §3.2
       process: string[];          // always ["none","coffee","milk","water"] in v1
-      intensity: string[];        // 5-level: all; 3-level: ["mild","normal","strong"]
+      intensity: string[];        // 5-level: all; 3-level: ["mild","medium","strong"]
       aroma: string[];            // ["standard","intense"] or ["standard"]
       temperature: string[];
       shots: string[];
@@ -401,6 +403,12 @@ Rules:
   absence is the offline signal, byte-identical to legacy-card semantics. Clients
   MUST NOT infer "no token support" from it (token-mode detection lives on the
   connection sensor, block A).
+* *Server-side clarification:* the token builder
+  (`build_status_tokens(status, connected)`) emits all-null tokens both when
+  `status is None` **and** while disconnected — the "null iff status is None"
+  rule above describes the only state observable on the wire, because the
+  frozen availability gate strips the attributes in the disconnected-with-
+  stale-status case anyway. No client-visible behaviour differs.
 * The card derives everything `computeMachineStatus` needs from these two
   entities: `isConnected` from the bridge `connected`; `isBrewing = is_brewing`;
   `isReady = process_token === "READY" && manipulation_token === "NONE"` (both
@@ -544,7 +552,7 @@ Client rendering contract:
     },
     "freestyle": {
       "process": ["none", "coffee", "milk", "water"],
-      "intensity": ["very_mild", "mild", "normal", "strong", "very_strong"],
+      "intensity": ["very_mild", "mild", "medium", "strong", "very_strong"],
       "aroma": ["standard", "intense"],
       "temperature": ["cold", "normal", "high"],
       "shots": ["none", "one", "two", "three"],
@@ -585,7 +593,7 @@ Client rendering contract:
       "name": "Latte Macchiato",
       "category": "milk_drink",
       "components": {
-        "c1": { "process": "milk", "intensity": "normal", "aroma": "standard",
+        "c1": { "process": "milk", "intensity": "medium", "aroma": "standard",
                 "temperature": "normal", "shots": "none", "portion_ml": 160,
                 "blend": "hopper_1" },
         "c2": { "process": "coffee", "intensity": "strong", "aroma": "standard",
@@ -661,7 +669,7 @@ worked example).
     },
     "freestyle": {
       "process": ["none", "coffee", "milk", "water"],
-      "intensity": ["mild", "normal", "strong"],
+      "intensity": ["mild", "medium", "strong"],
       "aroma": ["standard", "intense"],
       "temperature": ["cold", "normal", "high"],
       "shots": ["none", "one", "two", "three"],
@@ -785,14 +793,14 @@ encoded as per-name heights.
 For each `coffee` component:
 
 ```
-intensity_idx = index in [very_mild, mild, normal, strong, very_strong]  # 0..4
+intensity_idx = index in [very_mild, mild, medium, strong, very_strong]  # 0..4
 shot_count    = index in [none, one, two, three]                          # 0..3
 extra_shots   = max(shot_count - 1, 0)
 darkness      = clamp(0.30 + 0.125 * intensity_idx + 0.10 * extra_shots, 0.30, 1.00)
 ```
 
 Layer: `{role: "coffee", ml: portion_ml, intensity: round(darkness, 2)}`.
-Examples: very_mild/1 shot → 0.30; normal/1 → 0.55; strong/1 → 0.68 (canonical
+Examples: very_mild/1 shot → 0.30; medium/1 → 0.55; strong/1 → 0.68 (canonical
 espresso); very_strong/3 → 1.00. `aroma == "intense"` adds +0.05 before clamping.
 
 **Crema:** set `crema: true` on a coffee layer iff it is the topmost element of the
@@ -853,8 +861,8 @@ using fixed synthetic compositions, then run §4.1–4.7 unchanged:
 | category | synthetic composition |
 | --- | --- |
 | `espresso` | coffee 40 ml, strong, one shot |
-| `coffee` (café crème/lungo class) | coffee 120 ml, normal, one shot |
-| `milk_drink` | c1 coffee 40 ml strong/one + c2 milk 140 ml normal |
+| `coffee` (café crème/lungo class) | coffee 120 ml, medium, one shot |
+| `milk_drink` | c1 coffee 40 ml strong/one + c2 milk 140 ml medium |
 | `water` | water 200 ml, high |
 | `my_coffee` / `""` / unknown | return `None` → client default icon |
 
@@ -865,7 +873,7 @@ using fixed synthetic compositions, then run §4.1–4.7 unchanged:
 * The server does not force fractions to sum to exactly 1.0; the client normalizes
   (§3.6). Tests assert `abs(1.0 - Σfractions) <= 0.02` for every generated spec.
 
-### 4.10 Worked example A — Latte Macchiato (c1 milk 160 normal, c2 coffee 40 strong/one)
+### 4.10 Worked example A — Latte Macchiato (c1 milk 160 medium, c2 coffee 40 strong/one)
 
 1. Both components survive filtering; order: milk bottom, coffee above.
 2. Milk splits: foam_ratio 0.20 (not sole component) → foam round5(32)=30 ml,
@@ -878,7 +886,7 @@ using fixed synthetic compositions, then run §4.1–4.7 unchanged:
 
 Result: exactly the Latte Macchiato icon in §3.7.
 
-### 4.11 Worked example B — Cappuccino (§4.8 milk_drink synthetic: c1 coffee 40 strong/one, c2 milk 140 normal)
+### 4.11 Worked example B — Cappuccino (§4.8 milk_drink synthetic: c1 coffee 40 strong/one, c2 milk 140 medium)
 
 1. Both survive; order: coffee bottom, milk above.
 2. Milk splits: foam_ratio 0.20 (not sole component) → foam round5(28)=30 ml,
@@ -938,9 +946,11 @@ byte-exact.
 5. Server always re-validates every command regardless of what limits/vocabularies
    it advertised (existing `_resolve_enum` / `_resolve_portion` / capability gates
    stay authoritative).
-6. Whenever any input of the fingerprint changes, the server MUST update the
-   `contract_fingerprint` bridge attribute in the same state write that exposes
-   the changed content.
+6. Whenever any input of the fingerprint changes, the server MUST expose the
+   updated `contract_fingerprint` bridge attribute no later than the next
+   connection-sensor state write — in practice within one status-poll cycle
+   (~2 s), which is the effective granularity of the §2.3.4 refetch trigger.
+   (Amended from "in the same state write" — see Appendix A amendment log.)
 
 ### 5.3 Client rules
 
@@ -993,7 +1003,7 @@ parameter catalogs (the `{token,min,max,step}` unification):
   "portion_ml":  { "kind": "range", "per_component": true,
                    "c1": { "min": 5, "max": 250, "step": 5 },
                    "c2": { "min": 0, "max": 250, "step": 5 } },
-  "intensity":   { "kind": "enum", "tokens": ["mild", "normal", "strong"] },
+  "intensity":   { "kind": "enum", "tokens": ["mild", "medium", "strong"] },
   "blend":       { "kind": "enum", "tokens": ["hopper_1", "hopper_2"],
                    "applies_to": ["coffee"] },
   "shots":       { "kind": "enum", "tokens": ["none", "one", "two", "three"],
@@ -1285,3 +1295,31 @@ resolved as follows:
   connection sensor.
 
 No review findings were rejected.
+
+### A.1 Amendment log — 0.91 implementation round
+
+Versioned amendments landed during implementation (contract semantics
+unchanged unless noted; all are corrections of the document to the normative
+anchors it already declared):
+
+1. **Intensity level-2 token is `medium`, not `normal`.** §3.1 anchors value
+   tokens byte-for-byte to the const-map keys, and `INTENSITY_MAP`'s key for
+   wire value 2 is `"medium"` — the only spelling all server write paths
+   (`_resolve_enum`) accept. The draft's `normal` in §3.2, §3.3, the §3.7/§3.8
+   example payloads, §4.3, §4.8, §4.10/§4.11 and the §6.1 sketch contradicted
+   that anchor and is replaced throughout. (`normal` remains the temperature
+   level-1 token — unchanged.) The server-side icon builder defensively
+   accepts `normal` as an input alias for intensity index 2, but never emits
+   it.
+2. **§2.3.5 transient class** gains "a malformed payload whose
+   `contract_version` IS supported" (structural validation failure — assumed
+   server-side transient, e.g. a partially built document). Client-side
+   classification clarification only.
+3. **§5.2.6** relaxed from "in the same state write" to "no later than the
+   next connection-sensor state write (within one status-poll cycle, ~2 s)".
+   Fingerprint inputs (recipe-preload completion, machine-type refinement)
+   change outside entity-write paths; the ~2 s status poll is the propagation
+   channel and is well within the §2.3.4 refetch-trigger needs.
+4. **WS `recipes/list` icon surface confirmed** (§2.1): every recipe entry
+   (`base_recipes` and DirectKey rows) carries `icon: IconSpec | null` — the
+   §7.1 zone plan omitted this surface by mistake; the delivery table wins.

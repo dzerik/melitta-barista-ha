@@ -16,6 +16,7 @@ from .coffee_platform.contract import CoffeeMachineClient
 from .const import FeatureFlags, InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
+from .ui_contract import build_bridge_attributes, build_status_tokens
 
 
 PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
@@ -188,16 +189,25 @@ class MelittaStateSensor(_MelittaSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict:
+        """Legacy attrs plus the UI Contract v1 live token block (§3.4 B).
+
+        `process_id` and `info_messages` keep their exact legacy content
+        (`info_messages` is hereby a frozen token list — no alias key).
+        The additive `*_token` / `is_brewing` / `awaiting_confirmation`
+        keys come from `ui_contract.build_status_tokens`; the entity's
+        availability gate and `native_value` stay frozen (spec §5.2.3),
+        so HA strips these attributes exactly when it did before.
+        """
         status = self._client.status
-        if status is None:
-            return {}
-        attrs = {}
-        if status.process is not None:
-            attrs["process_id"] = status.process.value
-        if status.info_messages:
-            flags = [m.name for m in InfoMessage if status.info_messages & m]
-            if flags:
-                attrs["info_messages"] = flags
+        attrs: dict = {}
+        if status is not None:
+            if status.process is not None:
+                attrs["process_id"] = status.process.value
+            if status.info_messages:
+                flags = [m.name for m in InfoMessage if status.info_messages & m]
+                if flags:
+                    attrs["info_messages"] = flags
+        attrs.update(build_status_tokens(status, self._client.connected))
         return attrs
 
 
@@ -270,7 +280,12 @@ class MelittaActionRequiredSensor(_MelittaSensorBase):
 
 
 class MelittaConnectionSensor(_MelittaSensorBase):
-    """BLE connection state."""
+    """BLE connection state + UI Contract v1 bridge attributes.
+
+    Deliberately has NO ``available`` override (spec §2.1): the sensor is
+    always available, so the bridge block below never flickers with
+    machine state and clients can detect token mode at any time.
+    """
 
     _attr_name = "Connection"
     _attr_icon = "mdi:bluetooth-connect"
@@ -283,6 +298,16 @@ class MelittaConnectionSensor(_MelittaSensorBase):
     @property
     def native_value(self) -> str:
         return "Connected" if self._client.connected else "Disconnected"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Always-present UI Contract bridge block (spec §3.4 block A).
+
+        `entry_id`, `contract_version` and `connected` are always
+        emitted; `contract_fingerprint` is omitted only pre-handshake
+        (no MachineCapabilities yet — matching `contract_not_ready`).
+        """
+        return build_bridge_attributes(self._entry, self._client)
 
     @property
     def icon(self) -> str:

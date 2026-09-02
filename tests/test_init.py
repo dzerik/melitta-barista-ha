@@ -72,6 +72,9 @@ def _mock_client():
     from custom_components.melitta_barista.brands import MelittaProfile  # noqa: PLC0415
     client.brand = MelittaProfile()
     client.capabilities = client.brand.capabilities_for("barista_ts")
+    # Scalar cache generation: feeds the connection sensor's contract
+    # fingerprint (json-serialized, UI Contract §5.1).
+    client.recipe_cache_generation = 0
     client.read_setting = AsyncMock(return_value=None)
     client.write_setting = AsyncMock(return_value=True)
     client.read_recipe = AsyncMock(return_value=None)

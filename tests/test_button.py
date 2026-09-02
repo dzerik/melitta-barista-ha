@@ -54,6 +54,9 @@ def _mock_client(status=None, selected_recipe=None):
     # compare against instead of MagicMock placeholders.
     client.brand = MelittaProfile()
     client.capabilities = client.brand.capabilities_for("barista_ts")
+    # Scalar cache generation: feeds the connection sensor's contract
+    # fingerprint (json-serialized, UI Contract §5.1).
+    client.recipe_cache_generation = 0
     return client
 
 

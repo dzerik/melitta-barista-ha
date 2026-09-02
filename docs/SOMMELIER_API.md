@@ -63,6 +63,7 @@ The following sections group endpoints by their `melitta_barista/<namespace>/...
 - [`prompts/*`](#prompts) — user-editable prompt slots
 - [`llm/agents`](#llm-agents) — list HA conversation agents
 - [`capabilities/*`](#capabilities) — live machine capabilities
+- [`ui_contract/*`](#ui_contract) — UI Contract v1 document (renderer-facing)
 - [`sommelier/beans/*`](#sommelier-beans) — bean catalogue (sommelier)
 - [`sommelier/hoppers/*`](#sommelier-hoppers) — hopper-to-bean mapping
 - [`sommelier/milk/*`](#sommelier-milk) — available milk types
@@ -319,7 +320,27 @@ Defined in `panel_api.py`. All three handlers are admin-only.
 **Response**
 ```json
 {
-  "base_recipes": [],
+  "base_recipes": [
+    {
+      "id": 200,
+      "name": "Espresso",
+      "type": 24,
+      "icon": { "spec_version": 1, "...": "..." },
+      "components": [
+        {
+          "process": "coffee",
+          "process_code": 1,
+          "shots": "one",
+          "intensity": "strong",
+          "aroma": "standard",
+          "temperature": "normal",
+          "blend": 1,
+          "portion_ml": 40
+        },
+        null
+      ]
+    }
+  ],
   "directkey": [
     {
       "profile_id": 0,
@@ -329,6 +350,7 @@ Defined in `panel_api.py`. All three handlers are admin-only.
           "id": 256,
           "name": "Espresso",
           "type": 24,
+          "icon": { "spec_version": 1, "...": "..." },
           "components": [
             {
               "process": "coffee",
@@ -353,8 +375,12 @@ Defined in `panel_api.py`. All three handlers are admin-only.
 - `not_found` — no live client for `entry_id`.
 
 **Notes**
-- `base_recipes` is currently always `[]`. Base recipes (HR/HS, IDs
-  200-223) are not pre-cached; a loader is wired in a follow-up commit.
+- `base_recipes` (HR/HS, IDs 200-223) is served from the client-side
+  base-recipe cache (`client.base_recipes`, UI Contract §7.1 Zone I-A0),
+  filled by the post-connect preload; it is `[]` until the cache fills.
+- Since 0.91.0 every recipe entry carries `icon`: the composition-derived
+  `IconSpec` (`docs/UI_CONTRACT.md` §3.6) or `null` for empty slots —
+  WS `recipes/list` is one of the §2.1 icon delivery surfaces.
 - Each component may be `null` if absent (e.g. single-pour recipe ⇒
   `components[1] == null`).
 
@@ -897,6 +923,67 @@ bundled defaults live in `DEFAULT_PROMPTS`.
   `probed_at: null`). The `schema_version` field is hardcoded `1`.
 - If the cached row deserializes badly (corrupt JSON, future schema),
   the handler logs and falls through to the live-derive path silently.
+
+---
+
+## `ui_contract`
+
+### `melitta_barista/ui_contract/get`
+
+| | |
+|---|---|
+| **Decorators** | sync `@callback` via `_wrap_sync_with_schema(..., admin=False)`; no admin requirement |
+| **Stability** | stable (contract-versioned, see `docs/UI_CONTRACT.md`) |
+| **Introduced** | 0.91.0 |
+
+**Inputs**
+- `entry_id: str` (required) — multi-entry installs must address a
+  specific config entry.
+
+**Response**
+
+The full UI Contract v1 document (normative shape: `docs/UI_CONTRACT.md`
+§3.3), wrapped in the standard `schema_version` envelope. Abbreviated:
+
+```json
+{
+  "schema_version": 1,
+  "contract_version": 1,
+  "contract_fingerprint": "9f3ac1d24b07",
+  "entry_id": "abc123",
+  "generated_at": "2026-09-02T10:15:00Z",
+  "source": "live",
+  "machine": { "brand": "melitta", "machine_type": "BARISTA_TS", "...": "..." },
+  "capabilities": { "supports_freestyle": true, "hopper_count": 2, "...": "..." },
+  "vocabularies": { "status": { "...": "..." }, "freestyle": { "...": "..." } },
+  "limits": { "portion_ml": { "c1": { "min": 5, "max": 250, "step": 5 },
+                              "c2": { "min": 0, "max": 250, "step": 5 } } },
+  "recipes": [ { "recipe_id": 200, "name": "Espresso", "category": "espresso",
+                 "icon": { "spec_version": 1, "...": "..." } } ],
+  "status_attribute_entity": "state",
+  "bridge_attribute_entity": "connection"
+}
+```
+
+**Errors** (all client-retriable, `docs/UI_CONTRACT.md` §2.3 step 5)
+- `entry_not_found` — no such config entry.
+- `client_not_ready` — entry exists but `runtime_data` has no client.
+- `contract_not_ready` — client exists but has no `MachineCapabilities`
+  yet (no successful handshake — fresh install with the machine off, HA
+  restart before reconnect). The server never invents placeholder
+  capability values; clients MUST treat this as transient, never as
+  "server has no contract support".
+
+**Notes**
+- The WS `schema_version` versions the transport envelope; the contract
+  additionally carries its own `contract_version` (compatibility gate)
+  and `contract_fingerprint` (per-machine content revision — clients
+  cache per `entry_id + contract_fingerprint` and refetch when the
+  bridge attribute changes).
+- Read-only, pure in-memory build (no DB, no BLE) — same auth class as
+  `melitta_barista/status`, `recipes/list` and `api/info`.
+- Renderer-facing counterpart of `capabilities/get` (which stays the
+  LLM-facing surface); the two version independently.
 
 ---
 

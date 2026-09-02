@@ -2,6 +2,24 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b1] — 2026-09-02 (beta)
+
+UI Contract v1 — the server-driven contract between the integration and its thin clients (Lovelace card, future PWA), specified in `docs/UI_CONTRACT.md`. The server now describes what a machine can do, what its status means and what a drink is made of as *data* (stable tokens, numeric ranges, procedural icon descriptions), so clients can render machine families they have never heard of. Everything in this release is additive and backwards-compatible: existing sensor display strings and availability gates are frozen, old cards keep working unchanged, and the new surfaces are invisible to them.
+
+### Added
+
+- **`melitta_barista/ui_contract/get` WebSocket command.** Serves the full per-machine contract document: brand/model/family identity, derived capabilities (hopper count, milk system, freestyle support, MyCoffee slots, strength levels, tolerated brew manipulations), token vocabularies (status and machine-filtered freestyle subsets), portion limits, and the machine-appropriate recipe catalog with per-recipe icon specs. Scoped by required `entry_id`; read-only (not admin-gated); errors `entry_not_found` / `client_not_ready` / `contract_not_ready` are all client-retriable.
+- **Bridge attributes on the connection sensor** (always available): `entry_id`, `contract_version`, `contract_fingerprint` and boolean `connected` — clients detect token mode, scope WS calls and refetch the contract on fingerprint change without any configuration.
+- **Live status tokens on the state sensor** (additive attributes): `process_token`, `sub_process_token`, `manipulation_token`, `is_brewing`, `awaiting_confirmation`. Clients branch on frozen enum-name tokens instead of string-matching English display text; the existing `info_messages` attribute is promoted to a frozen token list.
+- **Procedural drink icons (IconSpec).** A deterministic pure builder derives each drink's icon as data — glass shape, fill level, stacked layers with coffee darkness from intensity/shots, milk foam split, water, crema and steam — from recipe composition (or category defaults for machines that do not expose composition). Attached to the recipe select's `recipes` attribute, the contract's recipe catalog, every panel `recipes/list` entry (base and DirectKey), and all Sommelier recipe payloads (generate results, history listings, favorites), where recipe add-ins (syrup/topping/liqueur) become labelled additive layers with optional color hints from the pantry catalogue.
+- **Client-side base-recipe cache.** Raw Melitta recipe compositions are now cached on the BLE client (keyed by recipe id, with a generation counter feeding `contract_fingerprint`), so the contract builder, panel `recipes/list` and entity attributes all read one canonical source instead of entity-private state.
+
+### Changed
+
+- `contract_fingerprint` tracks handshake completion, family/model re-detection, post-handshake machine-type refinement and recipe-preload completion, letting clients cache the contract per machine and refetch exactly when its content changes.
+- Panel `recipes/list` now fills `base_recipes` from the client cache (previously always empty).
+- `docs/UI_CONTRACT.md` amended during implementation (Appendix A.1 amendment log): the intensity level-2 token is `medium` (anchored to the const-map key per §3.1; the draft said `normal`), WS `recipes/list` is confirmed as an icon delivery surface, §5.2.6 fingerprint propagation is relaxed to "within one status-poll cycle", and §2.3.5 gains a client-side transient-classification clarification for malformed-but-version-supported payloads.
+
 ## [0.90.0b1] — 2026-09-01 (beta)
 
 First release with external contributions — both features in this beta were contributed by @Chreece (#39, #42). Thank you!

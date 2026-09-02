@@ -31,6 +31,7 @@ from .const import (
 )
 from .entity import MelittaDeviceMixin
 from .protocol import RecipeComponent
+from .ui_contract import build_icon_spec, component_to_tokens
 
 
 PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
@@ -108,6 +109,28 @@ def _component_attrs(comp: RecipeComponent, prefix: str) -> dict[str, str | int]
 _NAME_TO_RECIPE: dict[str, RecipeId] = {
     name: rid for rid, name in RECIPE_NAMES.items()
 }
+
+
+def _recipe_display_attrs(recipe) -> dict:
+    """Derive the ``recipes``-table entry for a raw MachineRecipe.
+
+    UI Contract v1 (Zone I-C): both components flatten into token-level
+    scalar ``c1_``/``c2_`` keys via ``ui_contract.component_to_tokens``
+    — byte-identical to the legacy output, plus the per-component
+    ``blend`` token, which is omitted for wire byte 0 / unknown bytes
+    (spec §3.2). The structured ``icon`` IconSpec (spec §4) is attached
+    here too; it is safe only because these dicts live inside the
+    recorder-excluded ``recipes`` attribute — the top-level flattening
+    in ``extra_state_attributes`` keeps scalars only.
+    """
+    c1 = component_to_tokens(recipe.component1)
+    c2 = component_to_tokens(recipe.component2)
+    attrs: dict = {}
+    for prefix, tokens in (("c1", c1), ("c2", c2)):
+        for key, value in tokens.items():
+            attrs[f"{prefix}_{key}"] = value
+    attrs["icon"] = build_icon_spec([c1, c2])
+    return attrs
 
 
 async def async_setup_entry(
@@ -218,10 +241,22 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
+        """Selected-recipe scalars flattened top-level + full recipes table.
+
+        Recorder guard (UI Contract §7.1 I-C): only ``recipes`` is
+        recorder-excluded, so the selected recipe's dict is flattened to
+        the top level scalar-only (the ``c1_``/``c2_`` token keys);
+        structured extras like ``icon`` stay exclusively inside
+        ``recipes`` and never reach recorded top-level attributes.
+        """
         attrs: dict = {}
-        # Include details of the selected recipe
+        # Include scalar details of the selected recipe
         if self._selected and self._selected in self._all_recipes:
-            attrs.update(self._all_recipes[self._selected])
+            attrs.update({
+                key: value
+                for key, value in self._all_recipes[self._selected].items()
+                if isinstance(value, (str, int, float, bool))
+            })
         # Expose all preloaded recipes for external consumers (PWA app)
         if self._all_recipes:
             attrs["recipes"] = self._all_recipes
@@ -243,32 +278,39 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
 
     @callback
     def _on_recipe_refresh(self, recipe_id: int, recipe) -> None:
-        """Update cached attributes when a recipe has been re-read (post-HD)."""
+        """Update cached attributes when a recipe has been re-read (post-HD).
+
+        The client cache (``client.base_recipes``) is updated before this
+        callback fires; the entity only derives display attrs from it.
+        """
         name = RECIPE_NAMES.get(recipe_id)
         if name is None:
             return
-        attrs: dict[str, str | int] = {}
-        attrs.update(_component_attrs(recipe.component1, "c1"))
-        attrs.update(_component_attrs(recipe.component2, "c2"))
-        self._all_recipes[name] = attrs
+        cached = self._client.base_recipes.get(int(recipe_id), recipe)
+        self._all_recipes[name] = _recipe_display_attrs(cached)
         self.async_write_ha_state()
 
     async def _preload_recipes(self) -> None:
-        """Read all base recipe details from the machine (always profile 0)."""
+        """Fill the client base-recipe cache and derive display attrs from it.
+
+        Reads always target profile-0 base recipes; the raw MachineRecipe
+        objects land in ``client.base_recipes`` (UI Contract §7.1 Zone
+        I-A0) as a side effect of ``read_recipe``, and this entity only
+        flattens the cached objects into its legacy attribute dicts.
+        """
         _LOGGER.info("Preloading %d base recipes...", len(self._attr_options))
         for option in self._attr_options:
             recipe_id = _NAME_TO_RECIPE.get(option)
             if recipe_id is None:
                 continue
             try:
-                recipe = await self._client.read_recipe(int(recipe_id))
-                if recipe:
-                    attrs: dict[str, str | int] = {}
-                    attrs.update(_component_attrs(recipe.component1, "c1"))
-                    attrs.update(_component_attrs(recipe.component2, "c2"))
-                    self._all_recipes[option] = attrs
+                await self._client.read_recipe(int(recipe_id))
             except (BleakError, OSError, asyncio.TimeoutError):
                 _LOGGER.debug("Failed to preload recipe %s", option)
+        for recipe_id, recipe in self._client.base_recipes.items():
+            name = RECIPE_NAMES.get(recipe_id)
+            if name is not None and name in self._attr_options:
+                self._all_recipes[name] = _recipe_display_attrs(recipe)
         _LOGGER.info("Preloaded %d/%d base recipes", len(self._all_recipes), len(self._attr_options))
         self.async_write_ha_state()
 
@@ -279,14 +321,13 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
         self._client.selected_recipe = recipe_id
         self.async_write_ha_state()
 
-        # If recipe not in cache, read it now (always base recipe)
+        # If recipe not in cache, read it now (always base recipe); the
+        # read fills client.base_recipes, which we derive attrs from.
         if option not in self._all_recipes and recipe_id is not None and self._client.connected:
-            recipe = await self._client.read_recipe(int(recipe_id))
-            if recipe:
-                attrs: dict[str, str | int] = {}
-                attrs.update(_component_attrs(recipe.component1, "c1"))
-                attrs.update(_component_attrs(recipe.component2, "c2"))
-                self._all_recipes[option] = attrs
+            await self._client.read_recipe(int(recipe_id))
+            cached = self._client.base_recipes.get(int(recipe_id))
+            if cached is not None:
+                self._all_recipes[option] = _recipe_display_attrs(cached)
                 self.async_write_ha_state()
 
 
