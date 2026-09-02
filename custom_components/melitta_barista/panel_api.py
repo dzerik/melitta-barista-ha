@@ -1747,6 +1747,19 @@ async def _ws_prompts_preview(hass, connection, msg):
                         caps = derive_capabilities(entry.runtime_data)
                     except ValueError:
                         caps = None
+        # Anti-repeat context, mirroring ws_generate so the preview shows
+        # the full message the next /generate call will produce. The
+        # preview has no machine_profile in its request, so the summaries
+        # are unscoped (all favorites + recent history). Best-effort.
+        existing_recipes = None
+        try:
+            from .ai_recipes import _existing_recipe_summaries  # noqa: PLC0415
+            db = await _async_get_db(hass)
+            existing_recipes = await _existing_recipe_summaries(
+                db, machine_profile=None
+            )
+        except Exception:  # noqa: BLE001
+            existing_recipes = None
         prebuilt = _build_prompt(
             hopper1_bean=(hoppers.get("hopper1") or {}).get("bean"),
             hopper2_bean=(hoppers.get("hopper2") or {}).get("bean"),
@@ -1758,6 +1771,7 @@ async def _ws_prompts_preview(hass, connection, msg):
             intro=intro,
             omit_output_format=True,
             caps=caps,
+            existing_recipes=existing_recipes,
         )
         schema = _schema_for(slot)
         if schema is not None:

@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from custom_components.melitta_barista.ai_recipes import (
+    EXISTING_RECIPES_CAP,
     PORTION_MAX,
     PORTION_MIN,
     _build_prompt,
@@ -168,6 +169,65 @@ class TestBuildPrompt:
         assert "Brazil" not in prompt
         assert "Composition" not in prompt
         assert "Flavor notes" not in prompt
+
+    # ── existing_recipes anti-repeat section ──────────────────────────
+
+    @staticmethod
+    def _summary(name: str, **overrides) -> dict[str, Any]:
+        base: dict[str, Any] = {
+            "name": name,
+            "milk": True,
+            "strength": "medium",
+            "blend": 1,
+            "extras": ["vanilla syrup"],
+            "recency": "3 days ago",
+        }
+        base.update(overrides)
+        return base
+
+    def test_existing_recipes_section_renders_entries(self):
+        """Non-empty existing_recipes yields the anti-repeat section."""
+        prompt = _build_prompt(
+            hopper1_bean=None, hopper2_bean=None,
+            milk_types=[], mode="custom", preference=None, count=1,
+            existing_recipes=[
+                self._summary("Velvet Latte"),
+                self._summary(
+                    "Midnight Espresso",
+                    milk=False, blend=0, strength="strong",
+                    extras=[], recency="today",
+                ),
+            ],
+        )
+        assert "## Existing Recipes" in prompt
+        assert "do NOT repeat them" in prompt
+        assert '"Velvet Latte" — milk, extras: vanilla syrup, hopper 1, strength: medium, 3 days ago' in prompt
+        assert '"Midnight Espresso" — no milk, hopper 2, strength: strong, today' in prompt
+
+    def test_existing_recipes_section_capped_at_12(self):
+        """More than EXISTING_RECIPES_CAP entries are trimmed, oldest last."""
+        entries = [self._summary(f"Recipe {i:02d}") for i in range(20)]
+        prompt = _build_prompt(
+            hopper1_bean=None, hopper2_bean=None,
+            milk_types=[], mode="custom", preference=None, count=1,
+            existing_recipes=entries,
+        )
+        assert EXISTING_RECIPES_CAP == 12
+        for i in range(EXISTING_RECIPES_CAP):
+            assert f"Recipe {i:02d}" in prompt
+        for i in range(EXISTING_RECIPES_CAP, 20):
+            assert f"Recipe {i:02d}" not in prompt
+
+    def test_existing_recipes_section_absent_when_empty(self):
+        """Empty list / None / all-blank names → no anti-repeat section."""
+        for value in (None, [], [self._summary("")]):
+            prompt = _build_prompt(
+                hopper1_bean=None, hopper2_bean=None,
+                milk_types=[], mode="custom", preference=None, count=1,
+                existing_recipes=value,
+            )
+            assert "## Existing Recipes" not in prompt
+            assert "do NOT repeat" not in prompt
 
     @pytest.mark.parametrize("hour,expected_word", [
         (6, "morning"),

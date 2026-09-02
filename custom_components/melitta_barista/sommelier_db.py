@@ -955,6 +955,13 @@ class SommelierDB:
         equals the filter OR is NULL (shared rows always come through). The
         recipe-level LEFT JOIN against recipe_ratings is untouched — the
         filter applies only to the session row.
+
+        Additive enrichment: each recipe row also carries ``favorite_id``
+        (str | None) — the id of the earliest favorite created from that
+        recipe (``favorites.source_recipe_id``), so the panel can render
+        already-favorited history entries with a filled star. A scalar
+        subquery (not a JOIN) keeps one row per recipe even if several
+        favorites reference the same source.
         """
         if machine_profile_filter is None:
             cursor = await self.db.execute(
@@ -974,7 +981,10 @@ class SommelierDB:
             sess = _row_to_dict(sess_row)
             sess["milk_types"] = json.loads(sess["milk_types"]) if sess["milk_types"] else []
             recipe_cursor = await self.db.execute(
-                """SELECT gr.*, rt.rating AS rating, rt.note AS note
+                """SELECT gr.*, rt.rating AS rating, rt.note AS note,
+                          (SELECT f.id FROM favorites f
+                            WHERE f.source_recipe_id = gr.id
+                            ORDER BY f.created_at LIMIT 1) AS favorite_id
                      FROM generated_recipes gr
                      LEFT JOIN recipe_ratings rt
                        ON rt.target_id = gr.id AND rt.target_type = 'generated'
@@ -1116,6 +1126,27 @@ class SommelierDB:
         )
         await self.db.commit()
         return await self.async_get_favorite(fav_id)  # type: ignore[return-value]
+
+    async def async_find_favorite_by_source(
+        self, recipe_id: str
+    ) -> dict[str, Any] | None:
+        """Return the earliest favorite created from a generated recipe.
+
+        Duplicate-add guard for ``favorites/add``: looks up
+        ``favorites.source_recipe_id == recipe_id`` (oldest ``created_at``
+        wins) and returns the fully enriched row via
+        :meth:`async_get_favorite`, or None when the recipe was never
+        favorited.
+        """
+        cursor = await self.db.execute(
+            "SELECT id FROM favorites WHERE source_recipe_id = ? "
+            "ORDER BY created_at LIMIT 1",
+            (recipe_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return await self.async_get_favorite(row["id"])
 
     async def async_get_favorite(self, fav_id: str) -> dict[str, Any] | None:
         """Get a single favorite by ID, enriched with rating + note."""

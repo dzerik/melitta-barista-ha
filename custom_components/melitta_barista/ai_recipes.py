@@ -50,6 +50,122 @@ _DEFAULT_INTRO = (
     "unique coffee recipes for a bean-to-cup smart coffee machine."
 )
 
+# Hard cap on the anti-repeat "Existing Recipes" prompt section. Local
+# LLMs pay for every prompt token during prefill (documented lesson from
+# the configurable-timeout work), so the section stays terse: at most
+# this many one-line entries.
+EXISTING_RECIPES_CAP = 12
+
+
+def _recency_str(created_at: Any, now: datetime | None = None) -> str | None:
+    """Human recency phrase for a stored ISO timestamp.
+
+    Returns "today", "yesterday" or "N days ago" relative to `now`
+    (default: current UTC time); None when the timestamp is missing or
+    unparseable so callers can simply omit the recency fragment.
+    """
+    if not created_at:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(created_at))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    now = now or datetime.now(timezone.utc)
+    days = (now - dt).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "yesterday"
+    return f"{days} days ago"
+
+
+def _summarize_recipe(rec: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
+    """Reduce a stored recipe/favorite row to a compact anti-repeat summary.
+
+    Output keys: `name`, `milk` (bool — any milk machine phase), `strength`
+    (first coffee phase intensity or None), `blend` (raw LLM semantics,
+    1 = hopper 1 / 0 = hopper 2), `extras` (list of short strings like
+    "vanilla syrup", "ice") and `recency` (see `_recency_str`).
+    """
+    phases = rec.get("machine_phases") or []
+    comps = [p.get("component") or {} for p in phases if isinstance(p, dict)]
+    has_milk = any(c.get("process") == "milk" for c in comps)
+    strength = None
+    for c in comps:
+        if c.get("process") == "coffee":
+            strength = c.get("intensity")
+            break
+    extras = rec.get("extras") or {}
+    extra_bits: list[str] = []
+    if isinstance(extras, dict):
+        for kind in ("syrup", "topping", "liqueur"):
+            value = extras.get(kind)
+            if value:
+                extra_bits.append(f"{value} {kind}")
+        if extras.get("ice"):
+            extra_bits.append("ice")
+    return {
+        "name": str(rec.get("name", "")).strip(),
+        "milk": has_milk,
+        "strength": strength,
+        "blend": rec.get("blend"),
+        "extras": extra_bits,
+        "recency": _recency_str(rec.get("created_at"), now=now),
+    }
+
+
+async def _existing_recipe_summaries(
+    db: Any,
+    *,
+    machine_profile: int | None = None,
+    history_sessions: int = 10,
+    max_history_recipes: int = 10,
+) -> list[dict[str, Any]]:
+    """Collect anti-repeat summaries of what the user already has.
+
+    Shared helper for every generation call site: fetches favorites
+    (`db.async_list_favorites`) plus the most recent history recipes
+    (`db.async_list_history`, newest sessions first, flattened and
+    truncated to `max_history_recipes`), both scoped with the same
+    `machine_profile` filter semantics the endpoints use (profile rows +
+    shared NULL rows; None = everything). Entries are deduplicated by
+    case-insensitive name, favorites first, and shaped by
+    `_summarize_recipe`. The prompt-side cap is `EXISTING_RECIPES_CAP`;
+    this helper only bounds the history fetch.
+    """
+    now = datetime.now(timezone.utc)
+    summaries: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def _push(rec: dict[str, Any]) -> None:
+        summary = _summarize_recipe(rec, now=now)
+        key = summary["name"].lower()
+        if not key or key in seen:
+            return
+        seen.add(key)
+        summaries.append(summary)
+
+    for fav in await db.async_list_favorites(machine_profile_filter=machine_profile):
+        _push(fav)
+
+    sessions = await db.async_list_history(
+        limit=history_sessions, machine_profile_filter=machine_profile
+    )
+    recent: list[dict[str, Any]] = []
+    for sess in sessions:
+        for rec in sess.get("recipes") or []:
+            if not isinstance(rec, dict):
+                continue
+            if not rec.get("created_at"):
+                rec = {**rec, "created_at": sess.get("created_at")}
+            recent.append(rec)
+    for rec in recent[:max_history_recipes]:
+        _push(rec)
+
+    return summaries
+
 
 def _build_prompt(
     hopper1_bean: dict[str, Any] | None,
@@ -76,6 +192,7 @@ def _build_prompt(
     language: str | None = None,
     moods: list[str] | None = None,
     caps: LiveCapabilities | None = None,
+    existing_recipes: list[dict[str, Any]] | None = None,
 ) -> str:
     """Build structured prompt for the LLM.
 
@@ -86,6 +203,11 @@ def _build_prompt(
     auto-append a JSON-Schema block via panel_api._structured_call; the
     legacy text Output Format spec is included only for the (deprecated)
     direct-conversation path.
+
+    `existing_recipes` is the anti-repeat context: compact summaries from
+    `_existing_recipe_summaries` (favorites + recent history). When
+    non-empty, an "Existing Recipes" section tells the LLM not to repeat
+    them — one terse line per entry, capped at `EXISTING_RECIPES_CAP`.
     """
     now = datetime.now(timezone.utc)
     hour = now.hour
@@ -259,6 +381,43 @@ def _build_prompt(
             "Consider reducing caffeine. Suggest milk-based or decaf."
         )
 
+    # Anti-repeat section — field report: without it the LLM happily
+    # re-suggests recipes the user already saved. One line per entry,
+    # capped, so local-LLM prefill stays cheap.
+    existing_section = ""
+    if existing_recipes:
+        existing_lines: list[str] = []
+        for er in existing_recipes[:EXISTING_RECIPES_CAP]:
+            name = str(er.get("name", "")).strip()
+            if not name:
+                continue
+            traits: list[str] = []
+            milk = er.get("milk")
+            if isinstance(milk, str) and milk:
+                traits.append(f"{milk} milk")
+            else:
+                traits.append("milk" if milk else "no milk")
+            er_extras = er.get("extras") or []
+            if er_extras:
+                traits.append("extras: " + ", ".join(str(x) for x in er_extras))
+            blend = er.get("blend")
+            if blend in (0, 1):
+                traits.append("hopper 1" if blend == 1 else "hopper 2")
+            strength = er.get("strength")
+            if strength:
+                traits.append(f"strength: {strength}")
+            recency = er.get("recency")
+            if recency:
+                traits.append(recency)
+            existing_lines.append(f'- "{name}" — {", ".join(traits)}')
+        if existing_lines:
+            existing_section = (
+                "\n## Existing Recipes\n"
+                "The user already has these recipes — do NOT repeat them; "
+                "propose something meaningfully different:\n"
+                + "\n".join(existing_lines)
+            )
+
     # Combine optional sections
     optional_sections = "".join(filter(None, [
         cup_section,
@@ -271,6 +430,7 @@ def _build_prompt(
         caffeine_section,
         servings_section,
         cups_section,
+        existing_section,
     ]))
 
     intro_text = (intro or _DEFAULT_INTRO)

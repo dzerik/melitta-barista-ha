@@ -316,6 +316,8 @@ async def _run_favorites_add(blend: int) -> dict:
     hass = MagicMock()
     db = MagicMock()
     db.async_get_recipe = AsyncMock(return_value=_recipe_row(blend=blend))
+    # 0.91.0b5 duplicate guard: not favorited yet -> proceed to insert.
+    db.async_find_favorite_by_source = AsyncMock(return_value=None)
     db.async_get_hoppers = AsyncMock(return_value={
         "hopper1": {"bean": {"id": "bean-h1"}},
         "hopper2": {"bean": {"id": "bean-h2"}},

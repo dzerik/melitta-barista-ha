@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b5] — 2026-09-03 (beta)
+
+### Added
+
+- **Star-to-favorite from history.** Each recipe card in the Generation history modal now carries a favorite star: ☆ adds the recipe to favorites via the existing `sommelier/favorites/add` command (busy state while in flight, success toast, error banner on failure), and already-favorited entries render a filled ★ and stay disabled. To support this, `sommelier/history/list` recipe rows gained an additive `favorite_id` field (id of the earliest favorite created from that recipe, or `null`), and `sommelier/favorites/add` is now idempotent: adding a recipe that is already favorited returns the existing favorite with an additive `duplicate: true` flag instead of inserting a second row.
+- **Anti-repeat context in the sommelier prompt.** The generation prompt now includes an "Existing Recipes" section summarizing the user's favorites plus the most recent history entries for the active machine-profile scope — one terse line per recipe (name, milk/no milk, extras, hopper, strength, recency), capped at 12 entries to keep local-LLM prefill cheap — with an explicit instruction to not repeat them and propose something meaningfully different. Field report: without this the LLM kept suggesting recipes the user already had. The prompt preview (`prompts/preview`, slot `sommelier_intro`) shows the same section.
+
 ## [0.91.0b4] — 2026-09-03 (beta)
 
 ### Added

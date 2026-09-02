@@ -944,6 +944,19 @@ async def ws_generate(
                 except ValueError:
                     caps = None
 
+    # Anti-repeat context — tell the LLM what the user already has
+    # (favorites + recent history for the same machine_profile scope) so
+    # it proposes something meaningfully different. Best-effort: never
+    # block generation on a context-building failure.
+    existing_recipes: list[dict[str, Any]] | None = None
+    try:
+        from .ai_recipes import _existing_recipe_summaries  # noqa: PLC0415
+        existing_recipes = await _existing_recipe_summaries(
+            db, machine_profile=msg.get("machine_profile")
+        )
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Could not build existing-recipe context", exc_info=True)
+
     # Build intro+context (without the legacy ## Output Format text block —
     # the JSON Schema is auto-appended by _structured_call instead).
     prebuilt_prompt = _build_prompt(
@@ -973,6 +986,7 @@ async def ws_generate(
         language=hass.config.language or "en",
         omit_output_format=True,
         caps=caps,
+        existing_recipes=existing_recipes,
     )
 
     try:
@@ -1268,11 +1282,25 @@ async def ws_favorites_add(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Add a generated recipe to favorites. NULL machine_profile = shared."""
+    """Add a generated recipe to favorites. NULL machine_profile = shared.
+
+    Idempotent on duplicates: when the recipe was already favorited
+    (``favorites.source_recipe_id`` match), the existing favorite is
+    returned with an additive ``duplicate: true`` flag instead of
+    inserting a second row.
+    """
     db = await _async_get_db(hass)
     recipe = await db.async_get_recipe(msg["recipe_id"])
     if recipe is None:
         connection.send_error(msg["id"], "not_found", "Recipe not found")
+        return
+
+    existing = await db.async_find_favorite_by_source(msg["recipe_id"])
+    if existing is not None:
+        await _attach_recipe_icons(db, [existing])
+        _send_versioned(
+            connection, msg["id"], {"favorite": existing, "duplicate": True}
+        )
         return
 
     # Get current hopper bean for source tracking. Recipe blend uses the

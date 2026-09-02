@@ -13,8 +13,10 @@
  *     (melitta-sommelier) opens <melitta-brew-wizard> with source="generated".
  *
  * Loads `melitta_barista/sommelier/history/list` on every open. Sessions
- * are expandable; recipes within an expanded session show inline rating +
- * a Brew button. A "Clear history" footer button calls
+ * are expandable; recipes within an expanded session show inline rating,
+ * a favorite star (☆ calls `melitta_barista/sommelier/favorites/add`;
+ * already-favorited entries arrive with `favorite_id` set and render a
+ * filled ★) and a Brew button. A "Clear history" footer button calls
  * `melitta_barista/sommelier/history/clear` (with keep_favorited=true) after
  * a <melitta-confirm> prompt.
  */
@@ -44,6 +46,7 @@ class MelittaSommelierHistory extends LitElement {
       _expandedSessionId: { state: true },
       _error: { state: true },
       _clearing: { state: true },
+      _favoriting: { state: true },
     };
   }
 
@@ -58,9 +61,21 @@ class MelittaSommelierHistory extends LitElement {
     this._expandedSessionId = null;
     this._error = "";
     this._clearing = false;
+    this._favoriting = "";
   }
 
   _t(key, params) { return t(key, this.lang || "en", params); }
+
+  _showToast(message, kind = "info") {
+    try {
+      const toast = document.querySelector("melitta-panel")
+        ?.renderRoot?.querySelector?.("#toast")
+        || document.querySelector("melitta-toast");
+      toast?.show?.(message, kind);
+    } catch {
+      // Toast is best-effort UX — never break the flow if it's not mounted.
+    }
+  }
 
   updated(changed) {
     if (changed.has("open") && this.open) {
@@ -140,6 +155,26 @@ class MelittaSommelierHistory extends LitElement {
     }
   }
 
+  async _onFavorite(recipe) {
+    if (this._favoriting || recipe.favorite_id) return;
+    this._favoriting = recipe.id;
+    try {
+      const result = await this.hass.callWS({
+        type: "melitta_barista/sommelier/favorites/add",
+        recipe_id: recipe.id,
+      });
+      // Backend is idempotent on duplicates (returns the existing
+      // favorite + duplicate: true) — either way the entry is starred now.
+      recipe.favorite_id = (result && result.favorite && result.favorite.id) || "pending";
+      this._showToast(this._t("sommelier.favorited_toast"), "success");
+      this.requestUpdate();
+    } catch (e) {
+      this._error = `${this._t("sommelier.favorite_failed")}: ${e.message || e}`;
+    } finally {
+      this._favoriting = "";
+    }
+  }
+
   async _onClearHistory() {
     let dialog = this.renderRoot.querySelector("melitta-confirm");
     if (!dialog) {
@@ -201,6 +236,13 @@ class MelittaSommelierHistory extends LitElement {
         ${recipe.note ? html`<p class="note">${this._t("history.note_label")}: <em>${recipe.note}</em></p>` : ""}
         <div class="actions">
           ${recipe.brewed ? html`<span class="badge muted">${this._t("history.brewed")}</span>` : ""}
+          <button class="fav ${recipe.favorite_id ? "faved" : ""}"
+                  ?disabled=${this._favoriting === recipe.id || !!recipe.favorite_id}
+                  title=${recipe.favorite_id ? this._t("sommelier.fav_in") : this._t("sommelier.fav_add")}
+                  aria-label=${recipe.favorite_id ? this._t("sommelier.fav_in") : this._t("sommelier.fav_add")}
+                  @click=${() => this._onFavorite(recipe)}>
+            ${recipe.favorite_id ? "★" : "☆"}
+          </button>
           <button class="primary"
                   ?disabled=${!this.canBrew}
                   title=${!this.canBrew ? this._t("brewing.unsupported_tooltip") : ""}
@@ -341,6 +383,13 @@ class MelittaSommelierHistory extends LitElement {
           background: var(--primary-color); border-color: var(--primary-color);
           color: var(--text-primary-color, white);
         }
+        button.fav {
+          color: var(--warning-color, #ffb300);
+          font-size: 16px;
+          line-height: 1;
+          padding: var(--mb-space-sm) var(--mb-space-md);
+        }
+        button.fav.faved:disabled { opacity: 1; }
         button.ghost { color: var(--secondary-text-color); }
         button.ghost.destructive {
           color: var(--error-color);
