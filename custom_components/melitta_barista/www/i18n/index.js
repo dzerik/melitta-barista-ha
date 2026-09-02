@@ -17,8 +17,35 @@
 
 import en from "./locales/en.js";
 import ru from "./locales/ru.js";
+import bg from "./locales/bg.js";
+import bs from "./locales/bs.js";
+import cs from "./locales/cs.js";
+import da from "./locales/da.js";
+import de from "./locales/de.js";
+import el from "./locales/el.js";
+import es from "./locales/es.js";
+import et from "./locales/et.js";
+import fi from "./locales/fi.js";
+import fr from "./locales/fr.js";
+import hr from "./locales/hr.js";
+import hu from "./locales/hu.js";
+import it from "./locales/it.js";
+import lt from "./locales/lt.js";
+import lv from "./locales/lv.js";
+import mk from "./locales/mk.js";
+import nb from "./locales/nb.js";
+import nl from "./locales/nl.js";
+import pl from "./locales/pl.js";
+import pt from "./locales/pt.js";
+import ro from "./locales/ro.js";
+import sk from "./locales/sk.js";
+import sl from "./locales/sl.js";
+import sr from "./locales/sr.js";
+import sv from "./locales/sv.js";
+import tr from "./locales/tr.js";
+import uk from "./locales/uk.js";
 
-const STRINGS = { en, ru };
+const STRINGS = { en, ru, bg, bs, cs, da, de, el, es, et, fi, fr, hr, hu, it, lt, lv, mk, nb, nl, pl, pt, ro, sk, sl, sr, sv, tr, uk };
 
 /**
  * Resolve a translation key.

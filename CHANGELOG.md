@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0b6] — 2026-09-03 (beta)
+
+### Added
+
+- The panel is now fully localized: 27 new locale bundles join en/ru, covering all 29 languages the integration ships for Home Assistant surfaces. Terminology mirrors the existing HA translation files per language, and missing keys still fall back to English transparently.
+
 ## [0.91.0b5] — 2026-09-03 (beta)
 
 ### Added
