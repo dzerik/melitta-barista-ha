@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from bleak.exc import BleakError
@@ -13,7 +13,11 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.melitta_barista.ble_client import MelittaBleClient
-from custom_components.melitta_barista.const import DOMAIN
+from custom_components.melitta_barista.bond_state import BondState
+from custom_components.melitta_barista.const import (
+    DOMAIN,
+    SOURCE_AFFINITY_LOSS_GRACE_SECONDS,
+)
 
 from . import MOCK_ADDRESS, MOCK_CONFIG_DATA
 
@@ -41,6 +45,13 @@ def _mock_client():
     client.freestyle_temperature2 = "normal"
     client.freestyle_shots2 = "none"
     client.set_ble_device = MagicMock()
+    client.ble_source_affinity = None
+    client.ble_device_source = None
+    client.last_connected_source = None
+    client.source_migration_pending = False
+    client.seen_ble_sources = {}
+    client.set_source_learned_callback = MagicMock()
+    client.set_source_available_callback = MagicMock()
     client.add_status_callback = MagicMock()
     client.add_connection_callback = MagicMock()
     client.connect = AsyncMock(return_value=True)
@@ -101,6 +112,213 @@ async def test_setup_entry(hass: HomeAssistant, mock_entry: MockConfigEntry) -> 
         await hass.async_block_till_done()
 
     assert mock_entry.state is ConfigEntryState.LOADED
+
+
+async def test_bluez_bootstrap_is_hint_until_encrypted_source_is_learned(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """BlueZ Paired is a 10s-bounded hint, never persisted before handshake."""
+    source = "11:22:33:44:55:66"
+    device = MagicMock()
+    client = _mock_client()
+    source_store = MagicMock()
+    source_store.async_load = AsyncMock(return_value={})
+    source_store.async_save = AsyncMock()
+    source_store.async_delay_save = MagicMock()
+    bond_store = MagicMock()
+    bond_store.async_load = AsyncMock(return_value=None)
+    bond_store.async_delay_save = MagicMock()
+
+    async def bounded(awaitable, *, timeout):
+        assert timeout == 10.0
+        return await awaitable
+
+    mock_entry.add_to_hass(hass)
+    with (
+        patch(
+            "homeassistant.helpers.storage.Store",
+            side_effect=[source_store, bond_store],
+        ),
+        patch(
+            "custom_components.melitta_barista.MelittaBleClient",
+            return_value=client,
+        ) as ctor,
+        patch(
+            "custom_components.melitta_barista.ble_agent.async_get_paired_adapter_source",
+            new=AsyncMock(return_value=source),
+        ),
+        patch(
+            "custom_components.melitta_barista.asyncio.wait_for",
+            side_effect=bounded,
+        ),
+        patch(
+            "custom_components.melitta_barista._ble_device_for_source",
+            return_value=device,
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_register_callback",
+            return_value=lambda: None,
+        ),
+        patch(
+            "custom_components.melitta_barista.sommelier_api._async_get_db",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        assert await hass.config_entries.async_setup(mock_entry.entry_id)
+        await hass.async_block_till_done()
+
+    kwargs = ctor.call_args.kwargs
+    assert kwargs["ble_source_affinity"] is None
+    assert kwargs["ble_source_hint"] == source
+    assert kwargs["ble_device_source"] == source
+    source_store.async_save.assert_not_awaited()
+
+    learned = client.set_source_learned_callback.call_args.args[0]
+    learned(source)
+    source_store.async_delay_save.assert_called_once()
+    save_factory = source_store.async_delay_save.call_args.args[0]
+    assert save_factory()["bonded_source"] == source
+
+
+async def test_bluez_bootstrap_timeout_continues_in_automatic_mode(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """A wedged bluetoothd probe cannot stall config-entry setup."""
+    client = _mock_client()
+    source_store = MagicMock()
+    source_store.async_load = AsyncMock(return_value={})
+    source_store.async_delay_save = MagicMock()
+    bond_store = MagicMock()
+    bond_store.async_load = AsyncMock(return_value=None)
+    bond_store.async_delay_save = MagicMock()
+
+    async def time_out(awaitable, *, timeout):
+        assert timeout == 10.0
+        awaitable.close()
+        raise asyncio.TimeoutError
+
+    mock_entry.add_to_hass(hass)
+    with (
+        patch(
+            "homeassistant.helpers.storage.Store",
+            side_effect=[source_store, bond_store],
+        ),
+        patch(
+            "custom_components.melitta_barista.MelittaBleClient",
+            return_value=client,
+        ) as ctor,
+        patch(
+            "custom_components.melitta_barista.ble_agent.async_get_paired_adapter_source",
+            new=AsyncMock(return_value="11:22:33:44:55:66"),
+        ),
+        patch(
+            "custom_components.melitta_barista.asyncio.wait_for",
+            side_effect=time_out,
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_ble_device_from_address",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.melitta_barista.bluetooth.async_register_callback",
+            return_value=lambda: None,
+        ),
+        patch(
+            "custom_components.melitta_barista.sommelier_api._async_get_db",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        assert await hass.config_entries.async_setup(mock_entry.entry_id)
+        await hass.async_block_till_done()
+
+    kwargs = ctor.call_args.kwargs
+    assert kwargs["ble_source_affinity"] is None
+    assert kwargs["ble_source_hint"] is None
+    assert kwargs["ble_device_source"] is None
+
+
+async def test_pre_affinity_auth_wedge_still_surfaces_repair_and_reload(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """Unknown source blocks unpair, not user-facing recovery or safe reload."""
+    client = await _setup_entry_with_client(hass, mock_entry, _mock_client())
+    client.ble_source_affinity = None
+    client.source_migration_pending = False
+    client.bond._state = BondState.MISMATCH
+    repair_cb = client.set_repair_callback.call_args.args[0]
+
+    with patch(
+        "custom_components.melitta_barista.ir.async_create_issue",
+    ) as create_issue, patch(
+        "custom_components.melitta_barista._async_repair_pairing",
+        new=AsyncMock(),
+    ) as repair:
+        repair_cb()
+        await hass.async_block_till_done()
+
+    assert any(
+        call.kwargs.get("translation_key") == "pairing_wedged"
+        for call in create_issue.call_args_list
+    )
+    repair.assert_awaited_once_with(hass, mock_entry)
+
+
+async def test_pre_affinity_bond_destruction_still_surfaces_reset_issue(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """PAIRING_REQUIRED remains visible even before source affinity is learned."""
+    client = await _setup_entry_with_client(hass, mock_entry, _mock_client())
+    client.ble_source_affinity = None
+
+    with patch(
+        "custom_components.melitta_barista.ir.async_create_issue",
+    ) as create_issue:
+        client.bond.on_bond_destroyed(
+            op="proxy_unpair_attempted_unconfirmed", trigger="rung3",
+        )
+
+    assert client.bond.state is BondState.PAIRING_REQUIRED
+    assert any(
+        item.kwargs.get("translation_key") == "bond_reset_required"
+        for item in create_issue.call_args_list
+    )
+
+
+async def test_source_loss_grace_creates_repair_issue_only_after_grace(
+    hass: HomeAssistant, mock_entry: MockConfigEntry,
+) -> None:
+    """A proven missing source visible elsewhere gets delayed migration UX."""
+    source = "11:22:33:44:55:66"
+    client = _mock_client()
+    client.ble_source_affinity = source
+    client = await _setup_entry_with_client(hass, mock_entry, client)
+    available_cb = client.set_source_available_callback.call_args.args[0]
+
+    seen_elsewhere = MagicMock()
+    seen_elsewhere.scanner.source = "AA:BB:CC:DD:EE:00"
+    with patch(
+        "custom_components.melitta_barista._ble_source_available",
+        return_value=False,
+    ), patch(
+        "custom_components.melitta_barista.bluetooth.async_scanner_devices_by_address",
+        return_value=[seen_elsewhere],
+    ), patch(
+        "custom_components.melitta_barista._time_monotonic",
+        side_effect=[100.0, 100.0 + SOURCE_AFFINITY_LOSS_GRACE_SECONDS + 1],
+    ), patch(
+        "custom_components.melitta_barista.ir.async_create_issue",
+    ) as create_issue:
+        assert available_cb(source) is False
+        assert not any(
+            call.kwargs.get("translation_key") == "ble_source_unavailable"
+            for call in create_issue.call_args_list
+        )
+        assert available_cb(source) is False
+
+    assert any(
+        call.kwargs.get("translation_key") == "ble_source_unavailable"
+        for call in create_issue.call_args_list
+    )
 
 
 async def test_unload_entry(hass: HomeAssistant, mock_entry: MockConfigEntry) -> None:

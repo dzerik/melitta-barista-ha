@@ -60,7 +60,8 @@
           "basic": "Основни поставки",
           "advanced": "Напредни поставки",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth адаптер"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth адаптер",
+        "description": "Изберете кој Bluetooth централен уред смее да се поврзува со оваа спарена машина за кафе.\n\n**Тековен извор на спарување:** {bonded_source}\n\nАвтоматскиот режим го памети адаптерот/proxy што последен успешно го завршил шифрираното ракување и продолжува да го користи. Изборот на друг адаптер е намерна миграција: ставете ја машината за кафе во режим на спарување пред да го зачувате новиот адаптер.",
+        "data": {
+          "bluetooth_source": "Адаптер за поврзување"
+        },
+        "data_description": {
+          "bluetooth_source": "Се препорачува Автоматски. Тоа го спречува Home Assistant да го префрла овој спарен уред меѓу локалниот Bluetooth адаптер и ESPHome proxy уредите."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Внесете важечко време во формат HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Апаратот за кафе треба повторно спарување",
       "description": "Апаратот за кафе ({address}) ја одбива Bluetooth размената за шифрирање — зачуваното спарување повеќе не одговара. Ова не може да се поправи само од Home Assistant.\n\nЕднократно обновување:\n1. На апаратот: отворете го Bluetooth менито и избришете/ресетирајте ја врската.\n2. Исклучете го и вклучете го апаратот.\n3. Отворете го екранот за Bluetooth спарување на апаратот.\n4. Додека е прикажан, повторно вчитајте ја интеграцијата (Поставки → Уреди и услуги → записот → Повторно вчитај).\n\nИнтеграцијата автоматски ќе се спари повторно и проблемот ќе исчезне по првата успешна врска."
+    },
+    "ble_source_unavailable": {
+      "title": "Спарениот Bluetooth адаптер не е достапен",
+      "description": "Апаратот за кафе ({address}) е видлив преку други Bluetooth адаптери, но адаптерот што го поседува спарувањето ({source}) не е достапен. Интеграцијата чека наместо да премине на друг Bluetooth централен уред, бидејќи тоа би предизвикало грешка при автентикација.\n\nАко адаптерот само се рестартира, не е потребно ништо. Ако е отстранет или заменет, отворете Поставки → Уреди и услуги → Melitta → Конфигурирај → Bluetooth адаптер, ставете го апаратот во режим на спарување и изберете заменски адаптер."
+    },
+    "ble_source_migration_pending": {
+      "title": "Миграцијата на Bluetooth адаптер е во тек",
+      "description": "Апаратот за кафе ({address}) се префрла на Bluetooth адаптерот {source}. Ставете го апаратот во режим на спарување и оставете го вклучен. Интеграцијата ќе се спари само преку овој адаптер и ќе го означи како нов сопственик на спарувањето по успешно шифрирано ракување. Другите Bluetooth proxy уреди остануваат активни, но не смеат да ја преземат оваа врска."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Автоматски — запомни го спарениот Bluetooth адаптер"
+      }
     }
   }
 }

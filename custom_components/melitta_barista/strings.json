@@ -15,6 +15,14 @@
     "bond_reset_required": {
       "title": "Coffee machine needs re-pairing",
       "description": "The coffee machine ({address}) is rejecting the Bluetooth encryption exchange — its stored pairing no longer matches. This cannot be fixed from Home Assistant alone.\n\nOne-time recovery:\n1. On the machine: open its Bluetooth menu and delete/reset the connection.\n2. Power the machine off and on.\n3. Open the machine's Bluetooth pairing screen.\n4. While it is showing, reload this integration (Settings → Devices & Services → the entry → Reload).\n\nThe integration will re-pair automatically and this issue will disappear after the first successful connection."
+    },
+    "ble_source_unavailable": {
+      "title": "Bonded Bluetooth adapter unavailable",
+      "description": "The coffee machine ({address}) is visible through other Bluetooth adapters, but the adapter that owns its bond ({source}) is unavailable. The integration is waiting instead of roaming to another Bluetooth central, because that would cause an authentication failure.\n\nIf the adapter is only restarting, no action is needed. If it was removed or replaced, open Settings → Devices & Services → Melitta → Configure → Bluetooth adapter, put the machine in pairing mode, and select a replacement adapter to migrate the bond."
+    },
+    "ble_source_migration_pending": {
+      "title": "Bluetooth adapter migration pending",
+      "description": "The coffee machine ({address}) is being moved to Bluetooth adapter {source}. Put the machine in Bluetooth pairing mode and keep it powered on. The integration will pair only through this adapter and will mark it as the new bond owner after an encrypted handshake succeeds. Other Bluetooth proxies remain active but are not allowed to take over this connection."
     }
   },
   "exceptions": {
@@ -101,7 +109,8 @@
           "basic": "Basic Settings",
           "advanced": "Advanced Settings",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth adapter"
         }
       },
       "repair": {
@@ -153,6 +162,16 @@
           "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
           "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
         }
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth adapter",
+        "description": "Choose which Bluetooth central may connect to this bonded coffee machine.\n\n**Current bonded source:** {bonded_source}\n\nAutomatic remembers the adapter/proxy that last completed an encrypted handshake and keeps using it. Selecting a different adapter is a deliberate migration: put the coffee machine in Bluetooth pairing mode before saving the new adapter.",
+        "data": {
+          "bluetooth_source": "Connection adapter"
+        },
+        "data_description": {
+          "bluetooth_source": "Automatic is recommended. It prevents Home Assistant from roaming this bonded device between the host Bluetooth adapter and ESPHome proxies."
+        }
       }
     },
     "abort": {
@@ -164,6 +183,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Enter a valid time in HH:MM format (00:00–23:59)."
     }
   },
   "entity": {
@@ -534,6 +556,13 @@
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatic — remember bonded adapter"
+      }
     }
   }
 }

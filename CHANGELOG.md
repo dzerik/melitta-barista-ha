@@ -2,6 +2,30 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [Unreleased]
+
+### Added
+
+- Bond-aware Bluetooth source affinity for Home Assistant installations with multiple local adapters and ESPHome Bluetooth proxies. After a successful encrypted connection, the integration remembers the exact Bluetooth scanner source that owns the machine bond.
+- Bluetooth adapter selection for automatic affinity, local adapters and individual ESPHome Bluetooth proxies.
+- Controlled Bluetooth source migration. A newly selected source is only persisted after it successfully completes the real encrypted machine handshake.
+- Source-affinity diagnostics showing the remembered and active Bluetooth source.
+
+### Fixed
+
+- Prevent bonded Melitta/Nivona connections from silently roaming to another Home Assistant Bluetooth central merely because another adapter or proxy has a stronger signal.
+- Pin the actual Home Assistant Bluetooth backend used by the connection. Supplying a source-specific BLEDevice alone was insufficient because HaBleakClientWrapper normally re-selects the best scanner during connect.
+- Allow authenticated pair=True reconnects on the already proven bond-owning source after a normal machine power cycle. This permits the existing encrypted relationship to be reused without allowing pairing to jump to another Bluetooth central.
+- Do not escalate ordinary timeout or link failures on the remembered Bluetooth source into destructive bond recovery.
+- Do not treat an ESPHome proxy unpair timeout or unusable unpair response as confirmed bond removal.
+- Keep the complete connect, authentication and encrypted handshake cycle on the same Bluetooth source.
+- Avoid clearing a valid bond simply because the coffee machine is powered off or temporarily unreachable.
+
+### Changed
+
+- Existing local BlueZ bonds can bootstrap Bluetooth source affinity from the adapter identity.
+- Other ESPHome Bluetooth proxies may remain active. Source affinity affects only this bonded coffee-machine connection and does not disable normal Home Assistant Bluetooth routing for other devices.
+
 ## [0.89.0b3] — 2026-08-29 (beta)
 
 ### Added

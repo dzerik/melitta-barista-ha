@@ -32,7 +32,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from .ble_client import MelittaBleClient
+from .ble_client import MelittaBleClient, UnpairOutcome
 from .bond_state import BondState, BondStateMachine
 # Imported at module level on purpose: HA loads this package in the import
 # executor, so the pydantic chain (panel_api → pydantic) is pulled in off
@@ -54,6 +54,9 @@ from .const import (
     CONF_RECIPE_RETRIES,
     CONF_INITIAL_CONNECT_DELAY,
     CONF_AUTO_CONFIRM_PROMPTS,
+    CONF_BLUETOOTH_SOURCE,
+    BLUETOOTH_SOURCE_AUTO,
+    DEFAULT_BLUETOOTH_SOURCE,
     CONF_BRAND,
     CONF_FAMILY_OVERRIDE,
     DEFAULT_BRAND,
@@ -74,6 +77,7 @@ from .const import (
     DEFAULT_AUTO_SYNC_DAILY_TIME,
     SERVICE_SYNC_CLOCK,
     SCANNER_STARVED_AFTER_SECONDS,
+    SOURCE_AFFINITY_LOSS_GRACE_SECONDS,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -402,8 +406,69 @@ def _async_register_sommelier(hass: HomeAssistant) -> None:
         )
 
 
+def _norm_ble_source(source: str | None) -> str:
+    """Normalize HA Bluetooth scanner source identifiers for comparison."""
+    return (source or "").lower().replace(":", "").replace("-", "")
+
+
+def _ble_device_for_source(
+    hass: HomeAssistant, address: str, source: str,
+):
+    """Return the BLEDevice for ``address`` as seen by one scanner source."""
+    target = _norm_ble_source(source)
+    try:
+        scanner_devices = bluetooth.async_scanner_devices_by_address(
+            hass, address, connectable=True,
+        )
+    except Exception:  # noqa: BLE001 — bluetooth registry may be mid-reload
+        return None
+    for scanner_device in scanner_devices:
+        scanner_source = getattr(scanner_device.scanner, "source", None)
+        if _norm_ble_source(scanner_source) == target:
+            return scanner_device.ble_device
+    return None
+
+
+def _source_for_ble_device(
+    hass: HomeAssistant, address: str, ble_device,
+) -> str | None:
+    """Resolve the HA scanner source that produced ``ble_device``."""
+    if ble_device is None:
+        return None
+    details = getattr(ble_device, "details", None)
+    if isinstance(details, dict):
+        source = details.get("source")
+        if source:
+            return str(source)
+    try:
+        scanner_devices = bluetooth.async_scanner_devices_by_address(
+            hass, address, connectable=True,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    for scanner_device in scanner_devices:
+        candidate = scanner_device.ble_device
+        if candidate is ble_device or getattr(candidate, "details", None) == details:
+            return getattr(scanner_device.scanner, "source", None)
+    return None
+
+
+def _ble_source_available(hass: HomeAssistant, source: str) -> bool:
+    """Return whether the affinity scanner source is currently registered."""
+    try:
+        if bluetooth.async_scanner_by_source(hass, source) is not None:
+            return True
+        target = _norm_ble_source(source)
+        return any(
+            _norm_ble_source(getattr(scanner, "source", None)) == target
+            for scanner in bluetooth.async_current_scanners(hass)
+        )
+    except Exception:  # noqa: BLE001 — treat registry uncertainty as available
+        return True
+
+
 def _find_proxy_entry_for_address(
-    hass: HomeAssistant, address: str,
+    hass: HomeAssistant, address: str, source: str | None = None,
 ) -> ConfigEntry | None:
     """Locate the ESPHome config entry whose proxy advertised the given peer.
 
@@ -429,28 +494,12 @@ def _find_proxy_entry_for_address(
         )
     except Exception:  # noqa: BLE001 — defensive: bluetooth API may not be ready
         _LOGGER.debug("Bluetooth API not available for scanner lookup", exc_info=True)
-        return None
+        scanner_devices = []
 
     esphome_entries = hass.config_entries.async_entries("esphome")
     if not esphome_entries:
         _LOGGER.debug("find_proxy_entry: no esphome ConfigEntries at all")
         return None
-
-    if not scanner_devices:
-        _LOGGER.debug(
-            "find_proxy_entry: no scanners report address %s — "
-            "either it's a local adapter setup or HA bluetooth has not "
-            "seen the device yet",
-            address,
-        )
-        # Issue #35: in the proxy-wedge state the scanner is starved, so a
-        # live sighting is exactly what we DON'T have — yet reloading /
-        # unpairing through the proxy is precisely the needed recovery.
-        # When there is a single unambiguous Bluetooth-proxy entry, use it.
-        return _fallback_single_proxy_entry(esphome_entries, address)
-
-    def _norm(s: str | None) -> str:
-        return (s or "").lower().replace(":", "").replace("-", "")
 
     # Collect candidate (entry, normalised_keys) pairs once so every scanner
     # iteration is O(entries) not O(entries * lookups).
@@ -463,30 +512,57 @@ def _find_proxy_entry_for_address(
     for entry in esphome_entries:
         keys: set[str] = set()
         if entry.unique_id:
-            keys.add(_norm(entry.unique_id))
+            keys.add(_norm_ble_source(entry.unique_id))
         # entry.data may carry CONF_BLUETOOTH_MAC_ADDRESS (persisted at
         # discovery / re-config time) — covers the case where runtime_data
         # isn't ready yet because the ESPHome entry is mid-setup.
         bt_mac_persisted = entry.data.get("bluetooth_mac_address")
         if bt_mac_persisted:
-            keys.add(_norm(bt_mac_persisted))
+            keys.add(_norm_ble_source(bt_mac_persisted))
         runtime = getattr(entry, "runtime_data", None)
         device_info = getattr(runtime, "device_info", None) if runtime else None
         if device_info is not None:
             for attr in ("bluetooth_mac_address", "mac_address", "name"):
                 value = getattr(device_info, attr, None)
                 if value:
-                    keys.add(_norm(value))
+                    keys.add(_norm_ble_source(value))
         if keys:
             candidates.append((entry, keys))
 
+    if source is not None:
+        target_source = _norm_ble_source(source)
+        for entry, keys in candidates:
+            if target_source in keys:
+                _LOGGER.debug(
+                    "find_proxy_entry: source affinity %s maps directly to "
+                    "ESPHome entry %s", source, entry.entry_id,
+                )
+                return entry
+
+    if not scanner_devices:
+        _LOGGER.debug(
+            "find_proxy_entry: no scanners report address %s — "
+            "either it's a local adapter setup or HA bluetooth has not "
+            "seen the device yet",
+            address,
+        )
+        # Issue #35: in the proxy-wedge state the scanner is starved, so a
+        # live sighting is exactly what we DON'T have. An explicit source was
+        # already matched against ESPHome metadata above; without affinity we
+        # retain the legacy single-proxy fallback.
+        if source is None:
+            return _fallback_single_proxy_entry(esphome_entries, address)
+        return None
+
     for scanner_device in scanner_devices:
         scanner = scanner_device.scanner
-        source = _norm(getattr(scanner, "source", None))
-        if not source:
+        scanner_source = _norm_ble_source(getattr(scanner, "source", None))
+        if not scanner_source:
+            continue
+        if source is not None and scanner_source != _norm_ble_source(source):
             continue
         for entry, keys in candidates:
-            if source in keys:
+            if scanner_source in keys:
                 _LOGGER.debug(
                     "find_proxy_entry: matched %s → ESPHome entry %s "
                     "(scanner.source=%s)",
@@ -543,63 +619,64 @@ def _fallback_single_proxy_entry(
     return None
 
 
-async def _async_proxy_unpair(hass: HomeAssistant, address: str) -> bool:
-    """Connection-less bond wipe for ``address`` via the ESPHome proxy API.
+async def _async_proxy_unpair(
+    hass: HomeAssistant, address: str, source: str | None = None,
+) -> UnpairOutcome:
+    """Request a connection-less bond wipe through an ESPHome proxy.
 
-    Sends ``bluetooth_device_unpair`` on the proxy entry's aioesphomeapi
-    client; the proxy firmware handles UNPAIR without an open BLE link
-    (``esp_ble_remove_bond_device``), so this works even when no BLEDevice
-    is cached — the state where the connect-then-unpair fallback in
-    ``MelittaBleClient._try_unpair`` is a guaranteed no-op (issue #35).
-
-    Returns True when the bond is gone — either confirmed by the proxy or
-    the known response-less timeout (the firmware processes the request but
-    replies with the wrong message type, so a timeout means "done" in
-    practice; treating it as failure made destructive wipes invisible,
-    0.87.2 audit). Returns False only when the request could not be sent at
-    all — the caller then falls back to connect-then-unpair.
+    ESPHome 2026.5/2026.7 field behavior is unusual but stable: the firmware
+    executes UNPAIR, then replies with a message type aioesphomeapi does not
+    accept, so the API call times out. That timeout means *request sent, result
+    unconfirmed* and must not trigger another destructive fallback.
     """
-    proxy_entry = _find_proxy_entry_for_address(hass, address)
+    proxy_entry = _find_proxy_entry_for_address(hass, address, source)
     if proxy_entry is None:
         _LOGGER.debug("proxy_unpair: no ESPHome proxy entry for %s", address)
-        return False
+        return UnpairOutcome.NOT_SENT
     api = getattr(getattr(proxy_entry, "runtime_data", None), "client", None)
     if api is None or not hasattr(api, "bluetooth_device_unpair"):
         _LOGGER.debug(
             "proxy_unpair: proxy entry %s has no usable API client",
             proxy_entry.entry_id,
         )
-        return False
+        return UnpairOutcome.NOT_SENT
     try:
         response = await api.bluetooth_device_unpair(
             int(address.replace(":", ""), 16), timeout=10.0,
         )
-    except Exception as err:  # noqa: BLE001 — any API error means "fall back"
+    except Exception as err:  # noqa: BLE001 — request may already have executed
         if isinstance(err, TimeoutError) or "Timeout" in type(err).__name__:
-            # The proxy NEVER answers UNPAIR (confirmed on 2026.5.3 and
-            # 2026.7.2: the firmware replies with the wrong message type —
-            # a PairingResponse — which aioesphomeapi's UnpairingResponse
-            # filter ignores). The request itself IS processed and the bond
-            # is gone. Treat as done so the caller does not run the
-            # connect-then-unpair fallback on top of an already-wiped bond
-            # (0.87.2 audit: destructive success masqueraded as failure).
-            _LOGGER.warning(
-                "proxy_unpair: request sent, no response for %s (known "
-                "proxy firmware quirk) — treating the bond as removed",
+            _LOGGER.info(
+                "proxy_unpair: %s timed out after UNPAIR was sent; this is the "
+                "known ESPHome response mismatch, so bond removal is recorded "
+                "as attempted-unconfirmed and no second unpair will be sent",
                 address,
             )
-            return True
-        _LOGGER.debug(
-            "proxy_unpair: bluetooth_device_unpair failed for %s",
-            address, exc_info=True,
-        )
-        return False
+        else:
+            _LOGGER.warning(
+                "proxy_unpair: request for %s raised %s after dispatch; "
+                "treating it as attempted-unconfirmed to avoid a second "
+                "destructive request",
+                address,
+                type(err).__name__,
+            )
+            _LOGGER.debug("proxy_unpair exception", exc_info=True)
+        return UnpairOutcome.ATTEMPTED_UNCONFIRMED
+
     success = bool(getattr(response, "success", True))
-    _LOGGER.info(
-        "proxy_unpair: connection-less unpair of %s via proxy API — %s",
-        address, "ok" if success else "proxy reported failure",
+    if success:
+        _LOGGER.info(
+            "proxy_unpair: connection-less unpair of %s via proxy API — ok",
+            address,
+        )
+        return UnpairOutcome.CONFIRMED
+
+    _LOGGER.warning(
+        "proxy_unpair: proxy returned a non-success response for %s after the "
+        "destructive request was sent; treating as attempted-unconfirmed",
+        address,
     )
-    return success
+    return UnpairOutcome.ATTEMPTED_UNCONFIRMED
 
 
 async def _async_force_repair(
@@ -653,7 +730,9 @@ async def _async_force_repair(
     except Exception:  # noqa: BLE001
         _LOGGER.debug("force_repair: disconnect failed", exc_info=True)
 
-    proxy_entry = _find_proxy_entry_for_address(hass, client.address)
+    proxy_entry = _find_proxy_entry_for_address(
+        hass, client.address, client.ble_source_affinity,
+    )
     if proxy_entry is None:
         _LOGGER.info(
             "force_repair: no ESPHome proxy entry for %s — falling back to "
@@ -802,7 +881,9 @@ async def _async_repair_pairing(
         _LOGGER.warning("repair_pairing: no runtime_data on entry %s", entry.entry_id)
         return False
 
-    proxy_entry = _find_proxy_entry_for_address(hass, client.address)
+    proxy_entry = _find_proxy_entry_for_address(
+        hass, client.address, client.ble_source_affinity,
+    )
     if proxy_entry is None:
         _LOGGER.info(
             "repair_pairing: no ESPHome proxy entry found for %s — "
@@ -954,9 +1035,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a coffee-machine integration from a config entry."""
     from .brands import get_profile  # noqa: PLC0415
 
+    from homeassistant.helpers.storage import Store  # noqa: PLC0415
+
     address: str = entry.data[CONF_ADDRESS]
     device_name: str | None = entry.data.get(CONF_NAME)
     brand_slug: str = entry.data.get(CONF_BRAND, DEFAULT_BRAND)
+    opts = entry.options
     try:
         brand = get_profile(brand_slug)
     except KeyError:
@@ -969,25 +1053,90 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         brand.brand_name, device_name or "unknown", address,
     )
 
-    # Get initial BLEDevice from HA bluetooth cache (may be None)
-    ble_device = None
-    try:
-        ble_device = bluetooth.async_ble_device_from_address(
-            hass, address.upper(), connectable=True
-        )
-        if ble_device is None:
-            ble_device = bluetooth.async_ble_device_from_address(
-                hass, address, connectable=True
+    # BLE source affinity state is separate from user options: Automatic is
+    # the default, while the last source that completed an encrypted handshake
+    # is persisted as runtime bond metadata. A manual option overrides it but
+    # only a successful handshake changes the stored bond owner.
+    source_store: Store = Store(hass, 1, f"{DOMAIN}_ble_source_{entry.entry_id}")
+    loaded_source_state = await source_store.async_load()
+    source_state = (
+        dict(loaded_source_state) if isinstance(loaded_source_state, dict) else {}
+    )
+    stored_source = source_state.get("bonded_source") or None
+    configured_source = opts.get(CONF_BLUETOOTH_SOURCE, DEFAULT_BLUETOOTH_SOURCE)
+    source_affinity = (
+        configured_source
+        if configured_source != BLUETOOTH_SOURCE_AUTO
+        else stored_source
+    )
+    source_migration_pending = (
+        configured_source != BLUETOOTH_SOURCE_AUTO
+        and _norm_ble_source(configured_source) != _norm_ble_source(stored_source)
+    )
+
+    # Upgrade bootstrap: an existing BlueZ ``Paired`` record is only a hint.
+    # BlueZ keeps that flag indefinitely, so persisting it as the bond owner
+    # before a Melitta encrypted handshake can pin an upgraded install to a
+    # stale local adapter. The hint is tried for the first cycle only and is
+    # promoted to real affinity exclusively by _on_source_learned after a
+    # successful handshake. AUTH failure drops it back to Automatic.
+    source_hint: str | None = None
+    if source_affinity is None and configured_source == BLUETOOTH_SOURCE_AUTO:
+        try:
+            from .ble_agent import async_get_paired_adapter_source  # noqa: PLC0415
+
+            source_hint = await asyncio.wait_for(
+                async_get_paired_adapter_source(address), timeout=10.0,
             )
-        _LOGGER.debug("Initial BLEDevice from cache: %s", ble_device)
+        except asyncio.TimeoutError:
+            _LOGGER.warning(
+                "Timed out after 10s while checking BlueZ bond source for %s; "
+                "continuing in Automatic mode",
+                address,
+            )
+            source_hint = None
+        except Exception:  # noqa: BLE001 — D-Bus is optional
+            source_hint = None
+
+    # Resolve an initial BLEDevice from proven affinity or the one-shot BlueZ
+    # hint when known. Unlike async_ble_device_from_address(), the hinted path
+    # asks for one specific scanner instead of the nearest available adapter.
+    ble_device = None
+    ble_device_source: str | None = None
+    try:
+        preferred_source = source_affinity or source_hint
+        if preferred_source is not None:
+            ble_device = _ble_device_for_source(hass, address, preferred_source)
+            ble_device_source = preferred_source if ble_device is not None else None
+            if ble_device is None and source_affinity is None:
+                # A stale/unavailable BlueZ record is not an affinity gate. If
+                # its scanner cannot currently provide the device, abandon the
+                # hint immediately and let Automatic choose a visible source.
+                source_hint = None
+        if ble_device is None and source_affinity is None and source_hint is None:
+            ble_device = bluetooth.async_ble_device_from_address(
+                hass, address.upper(), connectable=True
+            )
+            if ble_device is None:
+                ble_device = bluetooth.async_ble_device_from_address(
+                    hass, address, connectable=True
+                )
+            ble_device_source = _source_for_ble_device(hass, address, ble_device)
+        _LOGGER.debug(
+            "Initial BLEDevice from cache: %s (source=%s, affinity=%s, hint=%s)",
+            ble_device, ble_device_source, source_affinity, source_hint,
+        )
     except (AttributeError, ValueError):
         _LOGGER.debug("Could not get BLEDevice from cache", exc_info=True)
 
-    opts = entry.options
     client = MelittaBleClient(
         address,
         device_name=device_name,
         ble_device=ble_device,
+        ble_device_source=ble_device_source,
+        ble_source_affinity=source_affinity,
+        ble_source_hint=source_hint,
+        source_migration_pending=source_migration_pending,
         poll_interval=opts.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
         ble_connect_timeout=opts.get(CONF_BLE_CONNECT_TIMEOUT, DEFAULT_BLE_CONNECT_TIMEOUT),
         frame_timeout=opts.get(CONF_FRAME_TIMEOUT, DEFAULT_FRAME_TIMEOUT),
@@ -1008,7 +1157,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         @callback
         def _async_update_ble(service_info, change) -> None:
             """Update BLEDevice when new advertisement arrives."""
-            client.set_ble_device(service_info.device)
+            client.set_ble_device(
+                service_info.device, source=getattr(service_info, "source", None),
+            )
 
         entry.async_on_unload(
             bluetooth.async_register_callback(
@@ -1029,6 +1180,82 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.runtime_data = client
 
+    source_issue_id = f"ble_source_unavailable_{address}"
+    migration_issue_id = f"ble_source_migration_{address}"
+    source_missing_since: float | None = None
+
+    if source_migration_pending and source_affinity:
+        ir.async_create_issue(
+            hass, DOMAIN, migration_issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="ble_source_migration_pending",
+            translation_placeholders={
+                "address": address,
+                "source": source_affinity,
+            },
+        )
+    else:
+        ir.async_delete_issue(hass, DOMAIN, migration_issue_id)
+
+    def _on_source_learned(source: str) -> None:
+        """Persist the central that completed an encrypted handshake."""
+        source_state["bonded_source"] = source
+        source_store.async_delay_save(lambda: dict(source_state), 1.0)
+        ir.async_delete_issue(hass, DOMAIN, source_issue_id)
+        ir.async_delete_issue(hass, DOMAIN, migration_issue_id)
+        _LOGGER.info("Persisted BLE bond source %s for %s", source, address)
+
+    client.set_source_learned_callback(_on_source_learned)
+    entry.async_on_unload(lambda: client.set_source_learned_callback(None))
+
+    def _source_available(source: str) -> bool:
+        """Gate reconnects to the proven central and surface safe migration UX."""
+        nonlocal source_missing_since
+        available = _ble_source_available(hass, source)
+        if available:
+            source_missing_since = None
+            ir.async_delete_issue(hass, DOMAIN, source_issue_id)
+            return True
+
+        # Only call this a source-loss problem when the coffee machine is
+        # demonstrably visible through another connectable scanner. If the
+        # machine itself is powered off, there is nothing to migrate.
+        visible_elsewhere = False
+        try:
+            target = _norm_ble_source(source)
+            for scanner_device in bluetooth.async_scanner_devices_by_address(
+                hass, address, connectable=True,
+            ):
+                seen_source = getattr(scanner_device.scanner, "source", None)
+                if seen_source and _norm_ble_source(seen_source) != target:
+                    visible_elsewhere = True
+                    break
+        except Exception:  # noqa: BLE001
+            pass
+
+        if visible_elsewhere:
+            now = _time_monotonic()
+            if source_missing_since is None:
+                source_missing_since = now
+            elif now - source_missing_since >= SOURCE_AFFINITY_LOSS_GRACE_SECONDS:
+                ir.async_create_issue(
+                    hass, DOMAIN, source_issue_id,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="ble_source_unavailable",
+                    translation_placeholders={
+                        "address": address,
+                        "source": source,
+                    },
+                )
+        else:
+            source_missing_since = None
+        return False
+
+    client.set_source_available_callback(_source_available)
+    entry.async_on_unload(lambda: client.set_source_available_callback(None))
+
     # P1a — start a one-shot capabilities probe on first successful handshake.
     # Eagerly initialize sommelier_db so the probe-on-connect callback
     # actually registers (was lazy-init via WS in P1a, leaving the
@@ -1042,8 +1269,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Bond-health state machine (0.88): persisted across restarts, wired to
     # a repair issue + HA event so a destroyed/mismatched bond is loud and
     # actionable instead of an invisible reconnect loop.
-    from homeassistant.helpers.storage import Store  # noqa: PLC0415
-
     bond_store: Store = Store(hass, 1, f"{DOMAIN}_bond_{entry.entry_id}")
     bond_initial = await bond_store.async_load()
     bond_issue_id = f"bond_reset_required_{address}"
@@ -1085,6 +1310,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     proxy_reload_times: list[float] = []
 
     def _trigger_repair() -> None:
+        if client.source_migration_pending:
+            _LOGGER.info(
+                "Skipping automatic pairing repair for %s: a deliberate BLE "
+                "source migration is pending; waiting for pairing mode",
+                address,
+            )
+            return
         # Surface a Repair card so the user knows we hit the wedge even if
         # the auto-recovery (proxy reload) succeeds — gives them a chance
         # to flag the issue / share logs.
@@ -1101,11 +1333,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Auth-class wedges (bond mismatch) cannot be fixed by a proxy
         # reload — the broken half lives on the machine. Reloading would
         # only drop every other BLE device on that proxy (0.88 audit).
-        if client.bond.state in (BondState.MISMATCH, BondState.PAIRING_REQUIRED):
+        if (
+            client.ble_source_affinity is not None
+            and client.bond.state in (BondState.MISMATCH, BondState.PAIRING_REQUIRED)
+        ):
             _LOGGER.warning(
-                "Skipping proxy reload for %s: failure is auth-class "
-                "(bond state %s); re-pair the machine instead — see the "
-                "repair issue",
+                "Skipping proxy reload for %s: failure is auth-class on the "
+                "proven bond owner (bond state %s); re-pair the machine "
+                "instead — see the repair issue",
                 address, client.bond.state.value,
             )
             return
@@ -1136,6 +1371,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # unconnectable device is a genuine wedge.
     def _is_present() -> bool:
         try:
+            affinity = client.ble_source_affinity
+            if affinity is not None:
+                # Presence on another scanner must not authorize a bonded
+                # connection path. Pull the current BLEDevice directly from the
+                # affinity scanner's cache; HA Bluetooth callbacks suppress
+                # duplicate advertisements and are not guaranteed to deliver
+                # every seeing scanner independently.
+                affinity_device = _ble_device_for_source(hass, address, affinity)
+                if affinity_device is None:
+                    return False
+                client.set_ble_device(affinity_device, source=affinity)
+                return True
             return bluetooth.async_address_present(hass, address, connectable=True)
         except Exception:  # noqa: BLE001 — never let a presence check break reconnect
             # If presence can't be determined, fall back to "present" so the
@@ -1148,8 +1395,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Connection-less bond wipe (issue #35): lets _try_unpair clear a stale
     # bond through the proxy API even when no BLEDevice is cached — the
     # exact state a wedged proxy produces.
-    async def _proxy_unpair() -> bool:
-        return await _async_proxy_unpair(hass, address)
+    async def _proxy_unpair() -> UnpairOutcome:
+        return await _async_proxy_unpair(
+            hass, address, client.ble_source_affinity,
+        )
 
     client.set_unpair_callback(_proxy_unpair)
     entry.async_on_unload(lambda: client.set_unpair_callback(None))
@@ -1160,7 +1409,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # is indistinguishable from "machine off" by presence alone.
     def _is_scanner_starved() -> bool:
         try:
-            scanners = bluetooth.async_current_scanners(hass)
+            affinity = client.ble_source_affinity
+            if affinity is not None:
+                scanner = bluetooth.async_scanner_by_source(hass, affinity)
+                scanners = [scanner] if scanner is not None else []
+            else:
+                scanners = bluetooth.async_current_scanners(hass)
         except Exception:  # noqa: BLE001 — never let a health check break reconnect
             return False
         for scanner in scanners:
@@ -1751,7 +2005,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
             client: MelittaBleClient | None = getattr(entry, "runtime_data", None)
             if client is None:
                 continue
-            proxy_entry = _find_proxy_entry_for_address(hass, client.address)
+            proxy_entry = _find_proxy_entry_for_address(
+                hass, client.address, client.ble_source_affinity,
+            )
             if proxy_entry and proxy_entry.entry_id in reloaded:
                 _LOGGER.info(
                     "repair_connection: proxy %s already scheduled for reload",

@@ -60,7 +60,8 @@
           "basic": "Ustawienia podstawowe",
           "advanced": "Ustawienia zaawansowane",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Adapter Bluetooth"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Adapter Bluetooth",
+        "description": "Wybierz, który centralny interfejs Bluetooth może łączyć się z tym sparowanym ekspresem do kawy.\n\n**Bieżące źródło parowania:** {bonded_source}\n\nTryb Automatyczny zapamiętuje adapter/proxy, który ostatnio pomyślnie ukończył szyfrowany handshake, i nadal go używa. Wybór innego adaptera oznacza celową migrację: przed zapisaniem nowego adaptera przełącz ekspres w tryb parowania.",
+        "data": {
+          "bluetooth_source": "Adapter połączenia"
+        },
+        "data_description": {
+          "bluetooth_source": "Zalecany jest tryb Automatyczny. Zapobiega on przenoszeniu przez Home Assistant tego sparowanego urządzenia między lokalnym adapterem Bluetooth a proxy ESPHome."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Wprowadź prawidłowy czas w formacie HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Ekspres wymaga ponownego sparowania",
       "description": "Ekspres ({address}) odrzuca wymianę szyfrowania Bluetooth — zapisane parowanie już nie pasuje. Nie da się tego naprawić wyłącznie z Home Assistant.\n\nJednorazowe odzyskiwanie:\n1. Na ekspresie: otwórz menu Bluetooth i usuń/zresetuj połączenie.\n2. Wyłącz i włącz ekspres.\n3. Otwórz ekran parowania Bluetooth na ekspresie.\n4. Gdy jest widoczny, załaduj ponownie tę integrację (Ustawienia → Urządzenia i usługi → wpis → Załaduj ponownie).\n\nIntegracja sparuje się ponownie automatycznie, a problem zniknie po pierwszym udanym połączeniu."
+    },
+    "ble_source_unavailable": {
+      "title": "Sparowany adapter Bluetooth jest niedostępny",
+      "description": "Ekspres do kawy ({address}) jest widoczny przez inne adaptery Bluetooth, ale adapter będący właścicielem parowania ({source}) jest niedostępny. Integracja czeka zamiast przełączać się na inną centralę Bluetooth, ponieważ spowodowałoby to błąd uwierzytelniania.\n\nJeśli adapter tylko się uruchamia ponownie, nie trzeba nic robić. Jeśli został usunięty lub wymieniony, otwórz Ustawienia → Urządzenia i usługi → Melitta → Konfiguruj → Adapter Bluetooth, włącz tryb parowania w ekspresie i wybierz adapter zastępczy."
+    },
+    "ble_source_migration_pending": {
+      "title": "Oczekuje migracja adaptera Bluetooth",
+      "description": "Ekspres do kawy ({address}) jest przenoszony do adaptera Bluetooth {source}. Włącz tryb parowania i pozostaw ekspres włączony. Integracja sparuje się tylko przez ten adapter i po udanym szyfrowanym uzgodnieniu oznaczy go jako nowego właściciela parowania. Pozostałe proxy Bluetooth pozostaną aktywne, ale nie będą mogły przejąć tego połączenia."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatycznie — zapamiętaj sparowany adapter Bluetooth"
+      }
     }
   }
 }

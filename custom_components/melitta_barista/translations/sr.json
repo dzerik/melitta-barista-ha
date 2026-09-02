@@ -60,7 +60,8 @@
           "basic": "Основна подешавања",
           "advanced": "Напредна подешавања",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth adapter"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth adapter",
+        "description": "Izaberite koji Bluetooth centralni uređaj sme da se povezuje sa ovim uparenim aparatom za kafu.\n\n**Trenutni izvor uparivanja:** {bonded_source}\n\nAutomatski režim pamti adapter/proxy koji je poslednji uspešno završio šifrovano rukovanje i nastavlja da ga koristi. Izbor drugog adaptera je namerna migracija: stavite aparat za kafu u režim uparivanja pre čuvanja novog adaptera.",
+        "data": {
+          "bluetooth_source": "Adapter veze"
+        },
+        "data_description": {
+          "bluetooth_source": "Preporučuje se Automatski režim. On sprečava Home Assistant da prebacuje ovaj upareni uređaj između lokalnog Bluetooth adaptera i ESPHome proxy uređaja."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Unesite ispravno vreme u formatu HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Апарату за кафу је потребно поновно упаривање",
       "description": "Апарат за кафу ({address}) одбија Bluetooth размену шифровања — сачувано упаривање више не одговара. Ово се не може поправити само из Home Assistant-а.\n\nЈеднократни опоравак:\n1. На апарату: отворите Bluetooth мени и обришите/ресетујте везу.\n2. Искључите и укључите апарат.\n3. Отворите екран за Bluetooth упаривање на апарату.\n4. Док је приказан, поново учитајте ову интеграцију (Подешавања → Уређаји и услуге → унос → Поново учитај).\n\nИнтеграција ће се аутоматски поново упарити и проблем ће нестати након прве успешне везе."
+    },
+    "ble_source_unavailable": {
+      "title": "Упарени Bluetooth адаптер није доступан",
+      "description": "Апарат за кафу ({address}) је видљив преко других Bluetooth адаптера, али адаптер који поседује упаривање ({source}) није доступан. Интеграција чека уместо да пређе на други Bluetooth централни уређај, јер би то изазвало грешку аутентификације.\n\nАко се адаптер само поново покреће, није потребна радња. Ако је уклоњен или замењен, отворите Подешавања → Уређаји и услуге → Melitta → Конфигуриши → Bluetooth адаптер, ставите апарат у режим упаривања и изаберите заменски адаптер."
+    },
+    "ble_source_migration_pending": {
+      "title": "Миграција Bluetooth адаптера је на чекању",
+      "description": "Апарат за кафу ({address}) се премешта на Bluetooth адаптер {source}. Ставите апарат у режим упаривања и оставите га укљученим. Интеграција ће се упарити само преко овог адаптера и означити га као новог власника упаривања након успешног шифрованог руковања. Остали Bluetooth проксији остају активни, али не могу преузети ову везу."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Аутоматски — запамти упарени Bluetooth адаптер"
+      }
     }
   }
 }

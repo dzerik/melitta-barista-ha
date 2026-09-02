@@ -182,6 +182,64 @@ async def _cleanup(bus, adapter, discovery_started: bool) -> None:
         pass
 
 
+async def async_get_paired_adapter_source(address: str) -> str | None:
+    """Return the local BlueZ adapter MAC that owns an existing bond.
+
+    Home Assistant may expose the same peer through a local adapter and many
+    remote ESPHome scanners. For upgraded entries that pre-date source
+    affinity, this lets us bootstrap the affinity from BlueZ's persisted
+    ``Device1.Paired`` state instead of guessing from RSSI.
+
+    Returns ``None`` when system D-Bus is unavailable, the peer is not paired
+    locally, or the owning adapter address cannot be resolved. Remote proxy
+    bonds are intentionally not guessed here; they are learned after a
+    successful encrypted handshake.
+    """
+    bus = None
+    try:
+        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+        introspection = await bus.introspect("org.bluez", "/")
+        proxy = bus.get_proxy_object("org.bluez", "/", introspection)
+        manager = proxy.get_interface("org.freedesktop.DBus.ObjectManager")
+        objects = await manager.call_get_managed_objects()
+
+        target = address.upper()
+
+        def _value(value):
+            return getattr(value, "value", value)
+
+        for path, interfaces in objects.items():
+            device = interfaces.get("org.bluez.Device1")
+            if not device:
+                continue
+            device_address = _value(device.get("Address"))
+            paired = bool(_value(device.get("Paired")))
+            if not device_address or str(device_address).upper() != target or not paired:
+                continue
+
+            adapter_path = str(path).rsplit("/dev_", 1)[0]
+            adapter = objects.get(adapter_path, {}).get("org.bluez.Adapter1", {})
+            source = _value(adapter.get("Address"))
+            if source:
+                source = str(source).upper()
+                _LOGGER.info(
+                    "Existing BlueZ bond for %s belongs to local adapter %s",
+                    address, source,
+                )
+                return source
+            return None
+    except Exception:  # noqa: BLE001 — D-Bus is optional for proxy-only installs
+        _LOGGER.debug(
+            "Could not determine local bond owner for %s", address, exc_info=True,
+        )
+        return None
+    finally:
+        if bus is not None:
+            try:
+                bus.disconnect()
+            except Exception:  # noqa: BLE001 — best-effort cleanup
+                pass
+
 async def async_pair_device(address: str, timeout: float = 30.0) -> str:
     """Pair a BLE device via D-Bus BlueZ API with a registered Agent1.
 

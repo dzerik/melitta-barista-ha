@@ -60,7 +60,8 @@
           "basic": "Основни настройки",
           "advanced": "Разширени настройки",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth адаптер"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth адаптер",
+        "description": "Изберете кой Bluetooth централен адаптер може да се свързва с тази сдвоена кафемашина.\n\n**Текущ източник на сдвояването:** {bonded_source}\n\nАвтоматичният режим запомня адаптера/проксито, което последно е завършило криптиран обмен, и продължава да го използва. Избирането на друг адаптер е умишлена миграция: поставете кафемашината в режим на сдвояване, преди да запазите новия адаптер.",
+        "data": {
+          "bluetooth_source": "Адаптер за връзка"
+        },
+        "data_description": {
+          "bluetooth_source": "Препоръчва се автоматичен режим. Той не позволява на Home Assistant да мести това сдвоено устройство между локалния Bluetooth адаптер и ESPHome проксита."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Въведете валиден час във формат HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Кафемашината се нуждае от повторно сдвояване",
       "description": "Кафемашината ({address}) отхвърля Bluetooth-обмена за шифроване — запазеното сдвояване вече не съвпада. Това не може да се поправи само от Home Assistant.\n\nЕднократно възстановяване:\n1. На машината: отворете Bluetooth менюто и изтрийте/нулирайте връзката.\n2. Изключете и включете машината.\n3. Отворете екрана за Bluetooth сдвояване на машината.\n4. Докато е показан, презаредете тази интеграция (Настройки → Устройства и услуги → записа → Презареждане).\n\nИнтеграцията ще се сдвои отново автоматично и този проблем ще изчезне след първата успешна връзка."
+    },
+    "ble_source_unavailable": {
+      "title": "Сдвоеният Bluetooth адаптер не е наличен",
+      "description": "Кафемашината ({address}) се вижда през други Bluetooth адаптери, но адаптерът, който притежава сдвояването ({source}), не е наличен. Интеграцията изчаква, вместо да премине към друг Bluetooth централен адаптер, защото това би причинило грешка при удостоверяване.\n\nАко адаптерът само се рестартира, не е нужно действие. Ако е премахнат или заменен, отворете Настройки → Устройства и услуги → Melitta → Конфигуриране → Bluetooth адаптер, поставете машината в режим на сдвояване и изберете нов адаптер."
+    },
+    "ble_source_migration_pending": {
+      "title": "Предстои прехвърляне към друг Bluetooth адаптер",
+      "description": "Кафемашината ({address}) се премества към Bluetooth адаптер {source}. Поставете машината в режим на сдвояване и я оставете включена. Интеграцията ще се сдвои само през този адаптер и ще го запише като нов собственик на сдвояването след успешна криптирана ръкостискане. Другите Bluetooth проксита остават активни, но няма да поемат тази връзка."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Автоматично — запомни сдвоения Bluetooth адаптер"
+      }
     }
   }
 }

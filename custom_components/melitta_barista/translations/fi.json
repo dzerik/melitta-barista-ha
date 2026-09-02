@@ -60,7 +60,8 @@
           "basic": "Perusasetukset",
           "advanced": "Lisäasetukset",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth-sovitin"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth-sovitin",
+        "description": "Valitse, mikä Bluetooth-keskus saa yhdistää tähän paritettuun kahvinkeittimeen.\n\n**Nykyinen parituslähde:** {bonded_source}\n\nAutomaattinen muistaa sovittimen/proxyn, joka viimeksi suoritti salatun kättelyn onnistuneesti, ja jatkaa sen käyttöä. Toisen sovittimen valinta on tarkoituksellinen siirto: aseta kahvinkeitin paritustilaan ennen uuden sovittimen tallentamista.",
+        "data": {
+          "bluetooth_source": "Yhteyssovitin"
+        },
+        "data_description": {
+          "bluetooth_source": "Automaattinen on suositeltu. Se estää Home Assistantia siirtämästä tätä paritettua laitetta paikallisen Bluetooth-sovittimen ja ESPHome-proxyjen välillä."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Anna kelvollinen aika muodossa HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kahvikone on paritettava uudelleen",
       "description": "Kahvikone ({address}) hylkää Bluetooth-salausvaihdon — tallennettu paritus ei enää täsmää. Tätä ei voi korjata pelkästään Home Assistantista.\n\nKertaluonteinen palautus:\n1. Koneella: avaa Bluetooth-valikko ja poista/nollaa yhteys.\n2. Sammuta ja käynnistä kone.\n3. Avaa koneen Bluetooth-paritusnäyttö.\n4. Kun se näkyy, lataa tämä integraatio uudelleen (Asetukset → Laitteet ja palvelut → merkintä → Lataa uudelleen).\n\nIntegraatio parittuu automaattisesti uudelleen ja ongelma poistuu ensimmäisen onnistuneen yhteyden jälkeen."
+    },
+    "ble_source_unavailable": {
+      "title": "Paritettu Bluetooth-sovitin ei ole käytettävissä",
+      "description": "Kahvinkeitin ({address}) näkyy muiden Bluetooth-sovittimien kautta, mutta pariliitoksen omistava sovitin ({source}) ei ole käytettävissä. Integraatio odottaa sen sijaan, että vaihtaisi toiseen Bluetooth-keskukseen, koska vaihto aiheuttaisi todennusvirheen.\n\nJos sovitin vain käynnistyy uudelleen, mitään ei tarvitse tehdä. Jos se on poistettu tai vaihdettu, avaa Asetukset → Laitteet ja palvelut → Melitta → Määritä → Bluetooth-sovitin, aseta laite pariliitostilaan ja valitse korvaava sovitin."
+    },
+    "ble_source_migration_pending": {
+      "title": "Bluetooth-sovittimen siirto odottaa",
+      "description": "Kahvinkeitin ({address}) siirretään Bluetooth-sovittimelle {source}. Aseta laite pariliitostilaan ja pidä se päällä. Integraatio muodostaa pariliitoksen vain tämän sovittimen kautta ja merkitsee sen uuden pariliitoksen omistajaksi onnistuneen salatun kättelyn jälkeen. Muut Bluetooth-välityspalvelimet pysyvät aktiivisina, mutta eivät saa ottaa tätä yhteyttä haltuunsa."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automaattinen — muista paritettu Bluetooth-sovitin"
+      }
     }
   }
 }

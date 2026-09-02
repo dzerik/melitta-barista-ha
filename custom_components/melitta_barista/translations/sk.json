@@ -60,7 +60,8 @@
           "basic": "Základné nastavenia",
           "advanced": "Pokročilé nastavenia",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Adaptér Bluetooth"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Adaptér Bluetooth",
+        "description": "Vyberte, ktorá centrálna jednotka Bluetooth sa môže pripájať k tomuto spárovanému kávovaru.\n\n**Aktuálny zdroj párovania:** {bonded_source}\n\nAutomatický režim si pamätá adaptér/proxy, ktorý naposledy úspešne dokončil šifrované nadviazanie spojenia, a naďalej ho používa. Výber iného adaptéra je zámerná migrácia: pred uložením nového adaptéra prepnite kávovar do režimu párovania.",
+        "data": {
+          "bluetooth_source": "Adaptér pripojenia"
+        },
+        "data_description": {
+          "bluetooth_source": "Odporúča sa Automatický režim. Zabráni Home Assistantu presúvať toto spárované zariadenie medzi lokálnym Bluetooth adaptérom a ESPHome proxy."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Zadajte platný čas vo formáte HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kávovar vyžaduje nové spárovanie",
       "description": "Kávovar ({address}) odmieta Bluetooth šifrovaciu výmenu — uložené párovanie už nezodpovedá. Toto sa nedá opraviť len z Home Assistanta.\n\nJednorazová obnova:\n1. Na kávovare: otvorte Bluetooth menu a vymažte/resetujte pripojenie.\n2. Kávovar vypnite a zapnite.\n3. Otvorte na kávovare obrazovku Bluetooth párovania.\n4. Kým je zobrazená, znovu načítajte túto integráciu (Nastavenia → Zariadenia a služby → záznam → Znovu načítať).\n\nIntegrácia sa automaticky znovu spáruje a tento problém po prvom úspešnom pripojení zmizne."
+    },
+    "ble_source_unavailable": {
+      "title": "Spárovaný Bluetooth adaptér nie je dostupný",
+      "description": "Kávovar ({address}) je viditeľný cez iné Bluetooth adaptéry, ale adaptér, ktorý vlastní jeho párovanie ({source}), nie je dostupný. Integrácia čaká namiesto prechodu na inú Bluetooth centrálu, pretože by to spôsobilo chybu overenia.\n\nAk sa adaptér iba reštartuje, nie je potrebná žiadna akcia. Ak bol odstránený alebo nahradený, otvorte Nastavenia → Zariadenia a služby → Melitta → Konfigurovať → Bluetooth adaptér, prepnite kávovar do režimu párovania a vyberte náhradný adaptér."
+    },
+    "ble_source_migration_pending": {
+      "title": "Čaká migrácia Bluetooth adaptéra",
+      "description": "Kávovar ({address}) sa presúva na Bluetooth adaptér {source}. Prepnite kávovar do režimu párovania a nechajte ho zapnutý. Integrácia sa spáruje iba cez tento adaptér a po úspešnom šifrovanom nadviazaní spojenia ho označí ako nového vlastníka párovania. Ostatné Bluetooth proxy zostanú aktívne, ale nemôžu prevziať toto spojenie."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automaticky — zapamätať spárovaný Bluetooth adaptér"
+      }
     }
   }
 }

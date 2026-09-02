@@ -60,7 +60,8 @@
           "basic": "Pamata iestatījumi",
           "advanced": "Papildu iestatījumi",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth adapteris"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth adapteris",
+        "description": "Izvēlieties, kurš Bluetooth centrālais mezgls drīkst savienoties ar šo sapāroto kafijas automātu.\n\n**Pašreizējais pārošanas avots:** {bonded_source}\n\nAutomātiskais režīms atceras adapteri/proxy, kas pēdējais veiksmīgi pabeidza šifrēto rokasspiedienu, un turpina to izmantot. Cita adaptera izvēle ir apzināta migrācija: pirms jaunā adaptera saglabāšanas ieslēdziet kafijas automātā pārošanas režīmu.",
+        "data": {
+          "bluetooth_source": "Savienojuma adapteris"
+        },
+        "data_description": {
+          "bluetooth_source": "Ieteicams Automātiskais režīms. Tas neļauj Home Assistant pārvietot šo sapāroto ierīci starp lokālo Bluetooth adapteri un ESPHome proxy."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Ievadiet derīgu laiku formātā HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kafijas automāts jāsavieno pārī no jauna",
       "description": "Kafijas automāts ({address}) noraida Bluetooth šifrēšanas apmaiņu — saglabātā pāra savienošana vairs neatbilst. To nevar izlabot tikai no Home Assistant.\n\nVienreizēja atkopšana:\n1. Automātā: atveriet Bluetooth izvēlni un dzēsiet/atiestatiet savienojumu.\n2. Izslēdziet un ieslēdziet automātu.\n3. Atveriet automāta Bluetooth pāra savienošanas ekrānu.\n4. Kamēr tas ir redzams, pārlādējiet šo integrāciju (Iestatījumi → Ierīces un pakalpojumi → ieraksts → Pārlādēt).\n\nIntegrācija automātiski savienosies pārī no jauna, un problēma pazudīs pēc pirmā veiksmīgā savienojuma."
+    },
+    "ble_source_unavailable": {
+      "title": "Sapārotais Bluetooth adapteris nav pieejams",
+      "description": "Kafijas automāts ({address}) ir redzams caur citiem Bluetooth adapteriem, taču adapteris, kam pieder savienojums pārī ({source}), nav pieejams. Integrācija gaida, nevis pārslēdzas uz citu Bluetooth centrāli, jo tas izraisītu autentifikācijas kļūdu.\n\nJa adapteris tikai restartējas, nekas nav jādara. Ja tas ir noņemts vai nomainīts, atveriet Iestatījumi → Ierīces un pakalpojumi → Melitta → Konfigurēt → Bluetooth adapteris, ieslēdziet automātam pārošanas režīmu un izvēlieties citu adapteri."
+    },
+    "ble_source_migration_pending": {
+      "title": "Gaida Bluetooth adaptera migrācija",
+      "description": "Kafijas automāts ({address}) tiek pārvietots uz Bluetooth adapteri {source}. Ieslēdziet pārošanas režīmu un atstājiet automātu ieslēgtu. Integrācija pārosies tikai caur šo adapteri un pēc veiksmīgas šifrētas rokasspiediena to atzīmēs kā jauno pārojuma īpašnieku. Citi Bluetooth starpniekserveri paliks aktīvi, bet nevarēs pārņemt šo savienojumu."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automātiski — atcerēties sapāroto Bluetooth adapteri"
+      }
     }
   }
 }

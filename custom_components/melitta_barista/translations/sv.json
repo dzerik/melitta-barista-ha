@@ -60,7 +60,8 @@
           "basic": "Grundinställningar",
           "advanced": "Avancerade inställningar",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Bluetooth-adapter"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Bluetooth-adapter",
+        "description": "Välj vilken Bluetooth-central som får ansluta till den här parkopplade kaffemaskinen.\n\n**Aktuell parkopplingskälla:** {bonded_source}\n\nAutomatiskt kommer ihåg den adapter/proxy som senast slutförde ett krypterat handslag och fortsätter använda den. Att välja en annan adapter är en avsiktlig migrering: sätt kaffemaskinen i parkopplingsläge innan du sparar den nya adaptern.",
+        "data": {
+          "bluetooth_source": "Anslutningsadapter"
+        },
+        "data_description": {
+          "bluetooth_source": "Automatiskt rekommenderas. Det hindrar Home Assistant från att flytta den här parkopplade enheten mellan den lokala Bluetooth-adaptern och ESPHome-proxyer."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Ange en giltig tid i formatet HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "Kaffemaskinen behöver parkopplas igen",
       "description": "Kaffemaskinen ({address}) avvisar Bluetooth-krypteringsutbytet — den sparade parkopplingen stämmer inte längre. Detta kan inte åtgärdas enbart från Home Assistant.\n\nEngångsåterställning:\n1. På maskinen: öppna Bluetooth-menyn och ta bort/återställ anslutningen.\n2. Stäng av och sätt på maskinen.\n3. Öppna maskinens Bluetooth-parkopplingsskärm.\n4. Medan den visas, ladda om denna integration (Inställningar → Enheter och tjänster → posten → Ladda om).\n\nIntegrationen parkopplas automatiskt igen och problemet försvinner efter den första lyckade anslutningen."
+    },
+    "ble_source_unavailable": {
+      "title": "Den parkopplade Bluetooth-adaptern är inte tillgänglig",
+      "description": "Kaffemaskinen ({address}) syns via andra Bluetooth-adaptrar, men adaptern som äger parkopplingen ({source}) är inte tillgänglig. Integrationen väntar i stället för att byta till en annan Bluetooth-central, eftersom det skulle orsaka ett autentiseringsfel.\n\nOm adaptern bara startar om behövs ingen åtgärd. Om den har tagits bort eller ersatts, öppna Inställningar → Enheter och tjänster → Melitta → Konfigurera → Bluetooth-adapter, sätt maskinen i parkopplingsläge och välj en ersättningsadapter."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migrering av Bluetooth-adapter väntar",
+      "description": "Kaffemaskinen ({address}) flyttas till Bluetooth-adaptern {source}. Sätt maskinen i parkopplingsläge och låt den vara påslagen. Integrationen parkopplar endast via denna adapter och markerar den som ny ägare av parkopplingen efter en lyckad krypterad handskakning. Andra Bluetooth-proxyer förblir aktiva men får inte ta över anslutningen."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automatiskt — kom ihåg den parkopplade Bluetooth-adaptern"
+      }
     }
   }
 }

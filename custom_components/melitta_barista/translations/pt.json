@@ -60,7 +60,8 @@
           "basic": "Definições básicas",
           "advanced": "Definições avançadas",
           "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)"
+          "full_pair": "Force re-pair (hard)",
+          "bluetooth_source": "Adaptador Bluetooth"
         }
       },
       "basic": {
@@ -112,6 +113,16 @@
       "full_pair": {
         "title": "Force full re-pair",
         "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+      },
+      "bluetooth_source": {
+        "title": "Adaptador Bluetooth",
+        "description": "Escolha qual central Bluetooth pode ligar-se a esta máquina de café emparelhada.\n\n**Fonte de emparelhamento atual:** {bonded_source}\n\nO modo Automático memoriza o adaptador/proxy que concluiu mais recentemente uma negociação encriptada e continua a utilizá-lo. Selecionar outro adaptador é uma migração deliberada: coloque a máquina de café no modo de emparelhamento antes de guardar o novo adaptador.",
+        "data": {
+          "bluetooth_source": "Adaptador de ligação"
+        },
+        "data_description": {
+          "bluetooth_source": "Recomenda-se o modo Automático. Impede o Home Assistant de mover este dispositivo emparelhado entre o adaptador Bluetooth local e proxies ESPHome."
+        }
       }
     },
     "abort": {
@@ -123,6 +134,9 @@
       "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
       "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
       "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+    },
+    "error": {
+      "invalid_time": "Introduza uma hora válida no formato HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -528,12 +542,27 @@
     "bond_reset_required": {
       "title": "A máquina de café precisa de novo emparelhamento",
       "description": "A máquina de café ({address}) rejeita a troca de cifragem Bluetooth — o emparelhamento guardado já não corresponde. Isto não pode ser corrigido apenas a partir do Home Assistant.\n\nRecuperação única:\n1. Na máquina: abra o menu Bluetooth e elimine/reponha a ligação.\n2. Desligue e volte a ligar a máquina.\n3. Abra o ecrã de emparelhamento Bluetooth da máquina.\n4. Enquanto estiver visível, recarregue esta integração (Definições → Dispositivos e serviços → a entrada → Recarregar).\n\nA integração emparelhará novamente de forma automática e este problema desaparecerá após a primeira ligação bem-sucedida."
+    },
+    "ble_source_unavailable": {
+      "title": "Adaptador Bluetooth emparelhado indisponível",
+      "description": "A máquina de café ({address}) está visível através de outros adaptadores Bluetooth, mas o adaptador que detém o emparelhamento ({source}) está indisponível. A integração aguarda em vez de mudar para outra central Bluetooth, pois isso causaria uma falha de autenticação.\n\nSe o adaptador estiver apenas a reiniciar, não é necessária qualquer ação. Se foi removido ou substituído, abra Definições → Dispositivos e serviços → Melitta → Configurar → Adaptador Bluetooth, coloque a máquina em modo de emparelhamento e selecione um adaptador de substituição."
+    },
+    "ble_source_migration_pending": {
+      "title": "Migração do adaptador Bluetooth pendente",
+      "description": "A máquina de café ({address}) está a ser movida para o adaptador Bluetooth {source}. Coloque a máquina em modo de emparelhamento e mantenha-a ligada. A integração emparelhará apenas através deste adaptador e irá marcá-lo como novo proprietário do emparelhamento após uma negociação cifrada bem-sucedida. Os outros proxies Bluetooth permanecem ativos, mas não podem assumir esta ligação."
     }
   },
   "services": {
     "sync_clock": {
       "name": "Sync machine clock",
       "description": "Push Home Assistant's current local time to the machine RTC."
+    }
+  },
+  "selector": {
+    "bluetooth_source": {
+      "options": {
+        "auto": "Automático — memorizar o adaptador Bluetooth emparelhado"
+      }
     }
   }
 }

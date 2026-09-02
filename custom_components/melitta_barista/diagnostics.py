@@ -25,6 +25,15 @@ def _redact_address(address: str) -> str:
     )
 
 
+def _redact_source(source: str | None) -> str | None:
+    """Redact scanner MACs while leaving non-MAC source labels readable."""
+    if source is None:
+        return None
+    if len(source) == 17 and source.count(":") == 5:
+        return _redact_address(source)
+    return source
+
+
 def _redact_unique_id(unique_id: str | None) -> str | None:
     """Mask a colon-less MAC unique_id consistently with ``_redact_address``.
 
@@ -84,6 +93,28 @@ async def async_get_config_entry_diagnostics(
     if isinstance(bond, BondStateMachine):
         recovery["bond"] = bond.as_dict()
 
+    seen_sources = getattr(client, "seen_ble_sources", {})
+    if not isinstance(seen_sources, dict):
+        # Test doubles and older runtime clients may not expose the new
+        # mapping yet. Diagnostics must remain downloadable during upgrades.
+        seen_sources = {}
+    bluetooth_affinity = {
+        "affinity_source": _redact_source(
+            getattr(client, "ble_source_affinity", None),
+        ),
+        "current_device_source": _redact_source(
+            getattr(client, "ble_device_source", None),
+        ),
+        "last_connected_source": _redact_source(
+            getattr(client, "last_connected_source", None),
+        ),
+        "migration_pending": getattr(client, "source_migration_pending", False),
+        "seen_sources": {
+            _redact_source(source) or "unknown": last_seen
+            for source, last_seen in seen_sources.items()
+        },
+    }
+
     return {
         "entry": {
             "title": entry.title,
@@ -94,6 +125,7 @@ async def async_get_config_entry_diagnostics(
             "unique_id": _redact_unique_id(entry.unique_id),
         },
         "recovery": recovery,
+        "bluetooth_affinity": bluetooth_affinity,
         "domain_entries": {
             "count": len(domain_entries),
             "entries": [

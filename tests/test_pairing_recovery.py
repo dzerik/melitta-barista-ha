@@ -26,7 +26,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from bleak.exc import BleakError
 
-from custom_components.melitta_barista.ble_client import MelittaBleClient
+from custom_components.melitta_barista.bond_state import BondState
+from custom_components.melitta_barista.ble_client import MelittaBleClient, UnpairOutcome
 
 
 # ── Settle-delay between pair attempts ─────────────────────────────────
@@ -54,7 +55,10 @@ class TestPairSettleDelay:
 
     async def test_sleep_happens_between_pair_false_fail_and_pair_true(self):
         """When pair=False fails, settle delay precedes the pair=True attempt."""
-        client = MelittaBleClient("AA:BB:CC:DD:EE:FF", pair_settle_delay=0.05)
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF", pair_settle_delay=0.05,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
         # 0.88: keep the unpair rung reachable — pre-seed one auth cycle.
         from custom_components.melitta_barista.const import FAILURE_AUTH
         client.bond.on_cycle_failure(FAILURE_AUTH)
@@ -71,7 +75,10 @@ class TestPairSettleDelay:
             order.append(f"sleep_{t}")
 
         with patch.object(client, "_try_connect_and_handshake", new=fake_handshake):
-            with patch.object(client, "_try_unpair", new=AsyncMock()):
+            with patch.object(
+                client, "_try_unpair",
+                new=AsyncMock(return_value=UnpairOutcome.CONFIRMED),
+            ):
                 with patch("asyncio.sleep", new=fake_sleep):
                     result = await client._connect_impl()
 
@@ -84,6 +91,179 @@ class TestPairSettleDelay:
             "sleep_0.05",
             "connect_pair=True",
         ]
+
+
+class TestSourceMigrationPairing:
+    """A deliberate adapter migration may clean only the selected target."""
+
+    async def test_auth_failure_clears_target_once_then_retries_pairing(self):
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+            source_migration_pending=True,
+        )
+        calls: list[bool] = []
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            calls.append(pair)
+            client._auth_fail_seen = True
+            return False
+
+        unpair = AsyncMock(return_value=UnpairOutcome.CONFIRMED)
+        with patch.object(client, "_try_connect_and_handshake", new=fake_handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+
+        assert result is False
+        assert calls == [False, True, True]
+        unpair.assert_awaited_once()
+
+    async def test_attempted_unconfirmed_unpair_still_runs_final_pair(self):
+        """Known proxy timeout stops destruction, not the final pair=True rung."""
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+            source_migration_pending=True,
+        )
+        calls: list[bool] = []
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            calls.append(pair)
+            client._auth_fail_seen = True
+            return len(calls) == 3
+
+        unpair = AsyncMock(
+            return_value=UnpairOutcome.ATTEMPTED_UNCONFIRMED,
+        )
+        with patch.object(
+            client, "_try_connect_and_handshake", new=fake_handshake,
+        ), patch.object(client, "_try_unpair", unpair), patch.object(
+            client, "_read_dis_service", new=AsyncMock(),
+        ), patch.object(client, "_protocol") as proto:
+            proto.read_version = AsyncMock(return_value="1.0")
+            proto.read_serial = AsyncMock(return_value=None)
+            proto.read_features = AsyncMock(return_value=None)
+            proto.read_numerical = AsyncMock(return_value=None)
+            proto.set_family = MagicMock()
+            result = await client._connect_impl()
+
+        assert result is True
+        assert calls == [False, True, True]
+        unpair.assert_awaited_once()
+
+    async def test_normal_rung3_attempted_unconfirmed_still_runs_final_pair(self):
+        """A known proxy timeout still reaches final pair=True on normal recovery."""
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+        )
+        client.bond._state = BondState.MISMATCH
+        calls: list[bool] = []
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            calls.append(pair)
+            client._auth_fail_seen = True
+            return len(calls) == 3
+
+        with patch.object(
+            client, "_try_connect_and_handshake", new=fake_handshake,
+        ), patch.object(
+            client, "_try_unpair",
+            new=AsyncMock(return_value=UnpairOutcome.ATTEMPTED_UNCONFIRMED),
+        ) as unpair, patch.object(
+            client, "_read_dis_service", new=AsyncMock(),
+        ), patch.object(client, "_protocol") as proto:
+            proto.read_version = AsyncMock(return_value="1.0")
+            proto.read_serial = AsyncMock(return_value=None)
+            proto.read_features = AsyncMock(return_value=None)
+            proto.read_numerical = AsyncMock(return_value=None)
+            proto.set_family = MagicMock()
+            result = await client._connect_impl()
+
+        assert result is True
+        assert calls == [False, True, True]
+        unpair.assert_awaited_once()
+
+    async def test_not_sent_unpair_aborts_before_final_pair(self):
+        """If no destructive request could be sent, do not claim recovery."""
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+            source_migration_pending=True,
+        )
+        calls: list[bool] = []
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            calls.append(pair)
+            client._auth_fail_seen = True
+            return False
+
+        with patch.object(
+            client, "_try_connect_and_handshake", new=fake_handshake,
+        ), patch.object(
+            client, "_try_unpair",
+            new=AsyncMock(return_value=UnpairOutcome.NOT_SENT),
+        ):
+            result = await client._connect_impl()
+
+        assert result is False
+        assert calls == [False, True]
+
+    async def test_timeout_during_migration_does_not_clear_target(self):
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF",
+            pair_settle_delay=0,
+            ble_source_affinity="11:22:33:44:55:66",
+            source_migration_pending=True,
+        )
+
+        async def fake_handshake(*, pair: bool = False) -> bool:
+            client._auth_fail_seen = False
+            return False
+
+        unpair = AsyncMock()
+        with patch.object(client, "_try_connect_and_handshake", new=fake_handshake), \
+                patch.object(client, "_try_unpair", unpair):
+            result = await client._connect_impl()
+
+        assert result is False
+        unpair.assert_not_awaited()
+
+
+class TestSourceLearning:
+    """A successful connection commits the source as the bond owner."""
+
+    async def test_success_learns_and_publishes_source(self):
+        source = "11:22:33:44:55:66"
+        client = MelittaBleClient(
+            "AA:BB:CC:DD:EE:FF", ble_device_source=source,
+        )
+        learned = MagicMock()
+        client.set_source_learned_callback(learned)
+
+        with patch.object(
+            client, "_try_connect_and_handshake",
+            new=AsyncMock(return_value=True),
+        ), patch.object(client, "_read_dis_service", new=AsyncMock()), \
+                patch.object(client, "_protocol") as proto:
+            proto.read_version = AsyncMock(return_value="1.0")
+            proto.read_serial = AsyncMock(return_value=None)
+            proto.read_features = AsyncMock(return_value=None)
+            proto.read_numerical = AsyncMock(return_value=None)
+            proto.set_family = MagicMock()
+            result = await client._connect_impl()
+
+        assert result is True
+        assert client.ble_source_affinity == source
+        assert client.last_connected_source == source
+        assert client.source_migration_pending is False
+        learned.assert_called_once_with(source)
+        if client._post_connect_task is not None:
+            client._post_connect_task.cancel()
 
 
 # ── Disconnect resets bond flag ────────────────────────────────────────
