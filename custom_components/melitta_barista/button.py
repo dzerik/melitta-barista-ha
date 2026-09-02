@@ -590,6 +590,12 @@ class MelittaMaintenanceButton(_MelittaButtonBase):
 
     @property
     def available(self) -> bool:
+        # Power-off is valid whenever we have a live BLE connection. Unlike
+        # cleaning/descaling/filter operations it does not require the machine
+        # to be in the generic "ready" state.
+        if self._process is MachineProcess.SWITCH_OFF:
+            return self._client.connected
+
         return self._client.connected and (
             self._client.status is not None and self._client.status.is_ready
         )
