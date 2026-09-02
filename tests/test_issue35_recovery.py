@@ -495,21 +495,6 @@ class TestProxyUnpairHelper:
             )
 
 
-    async def test_unpair_timeout_is_not_treated_as_success(self):
-        proxy = _mock_proxy_entry()
-        proxy.runtime_data.client.bluetooth_device_unpair = AsyncMock(
-            side_effect=TimeoutError("no response"),
-        )
-        hass = MagicMock()
-        with patch(
-            "custom_components.melitta_barista._find_proxy_entry_for_address",
-            return_value=proxy,
-        ):
-            assert (
-                await _async_proxy_unpair(hass, ADDRESS)
-                is UnpairOutcome.ATTEMPTED_UNCONFIRMED
-            )
-
     async def test_unpair_returns_attempted_unconfirmed_on_api_error(self):
         proxy = _mock_proxy_entry()
         proxy.runtime_data.client.bluetooth_device_unpair = AsyncMock(

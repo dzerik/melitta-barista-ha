@@ -2,7 +2,9 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
-## [Unreleased]
+## [0.90.0b1] — 2026-09-01 (beta)
+
+First release with external contributions — both features in this beta were contributed by @Chreece (#39, #42). Thank you!
 
 ### Added
 
@@ -17,7 +19,8 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 - Pin the actual Home Assistant Bluetooth backend used by the connection. Supplying a source-specific BLEDevice alone was insufficient because HaBleakClientWrapper normally re-selects the best scanner during connect.
 - Allow authenticated pair=True reconnects on the already proven bond-owning source after a normal machine power cycle. This permits the existing encrypted relationship to be reused without allowing pairing to jump to another Bluetooth central.
 - Do not escalate ordinary timeout or link failures on the remembered Bluetooth source into destructive bond recovery.
-- Do not treat an ESPHome proxy unpair timeout or unusable unpair response as confirmed bond removal.
+- Distinguish three proxy unpair outcomes (confirmed / attempted-unconfirmed / not-sent). The known ESPHome timeout-after-dispatch is recorded as attempted bond destruction — it engages the audit trail and pairing-required handling, never re-arms a second destructive request, and recovery still proceeds to the final non-destructive pairing step.
+- Keep the Switch Off button available whenever a live BLE connection exists. Unlike cleaning, descaling and filter operations, powering off does not require the machine ready state (#42).
 - Keep the complete connect, authentication and encrypted handshake cycle on the same Bluetooth source.
 - Avoid clearing a valid bond simply because the coffee machine is powered off or temporarily unreachable.
 
