@@ -205,3 +205,76 @@ class TestRecipesListDirectKeySection:
         assert row["components"][0]["process"] == "coffee"
         assert row["components"][0]["portion_ml"] == 40
         assert row["icon"] is not None and row["icon"]["spec_version"] == 1
+
+    # ── UI Contract v3 §9.3.4: additive `category` token per row ─────────
+
+    def test_directkey_rows_carry_category_token(self):
+        """Every directkey row gains the lower_snake category token, so
+        clients stop duplicating the (id - 302) % 10 math."""
+        client = MagicMock()
+        client.base_recipes = {}
+        client._profile_names = {}
+        client._directkey_recipes = {
+            0: {
+                int(category): _espresso_recipe()
+                for category in DirectKeyCategory
+            },
+        }
+
+        payload = self._call(client)
+
+        rows = payload["directkey"][0]["recipes"]
+        assert [row["category"] for row in rows] == [
+            "espresso", "cafe_creme", "cappuccino", "latte_macchiato",
+            "milk_froth", "milk", "water",
+        ]
+
+    def test_directkey_name_labels_frozen(self):
+        """The Title-case `name` labels are a frozen legacy identity
+        surface (§5.2 rule 8) — the token rides NEXT TO them, additively."""
+        client = MagicMock()
+        client.base_recipes = {}
+        client._profile_names = {}
+        client._directkey_recipes = {
+            0: {
+                int(category): _espresso_recipe()
+                for category in DirectKeyCategory
+            },
+        }
+
+        payload = self._call(client)
+
+        rows = payload["directkey"][0]["recipes"]
+        assert [row["name"] for row in rows] == [
+            "Espresso", "Cafe Creme", "Cappuccino", "Latte Macchiato",
+            "Milk Froth", "Milk", "Water",
+        ]
+
+    def test_unknown_category_byte_serves_empty_token(self):
+        """An out-of-enum category byte degrades to category "" (the §3.3
+        unknown convention), never a crash or an invented token."""
+        client = MagicMock()
+        client.base_recipes = {}
+        client._profile_names = {}
+        client._directkey_recipes = {0: {9: _espresso_recipe(311)}}
+
+        payload = self._call(client)
+
+        row = payload["directkey"][0]["recipes"][0]
+        assert row["category"] == ""
+        assert row["name"] == "Category 9"
+
+    def test_base_recipe_rows_unchanged_by_category_delta(self):
+        """§9.3.4 adds `category` to directkey rows only — base_recipes
+        rows keep their exact pre-0.93 key set."""
+        from custom_components.melitta_barista.const import RecipeId
+
+        client = MagicMock()
+        client.base_recipes = {int(RecipeId.ESPRESSO): _espresso_recipe()}
+        client._profile_names = {}
+        client._directkey_recipes = {}
+
+        payload = self._call(client)
+
+        row = payload["base_recipes"][0]
+        assert set(row) == {"id", "name", "type", "icon", "components"}

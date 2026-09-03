@@ -17,6 +17,7 @@ from custom_components.melitta_barista import (
     BREW_DIRECTKEY_SCHEMA,
     BREW_FREESTYLE_SCHEMA,
     RESET_RECIPE_SCHEMA,
+    SAVE_DIRECTKEY_SCHEMA,
 )
 from custom_components.melitta_barista.brands.melitta import MelittaProfile
 from custom_components.melitta_barista.brands.nivona import NivonaProfile
@@ -93,6 +94,48 @@ _RESET_RECIPE_PARAMS = [
      "ranges": [[200, 223], [302, 388]]},
 ]
 
+_PROCESS_TOKENS = ["none", "coffee", "milk", "water"]
+_INTENSITY_TOKENS = ["very_mild", "mild", "medium", "strong", "very_strong"]
+_AROMA_TOKENS = ["standard", "intense"]
+_TEMPERATURE_TOKENS = ["cold", "normal", "high"]
+_SHOTS_TOKENS = ["none", "one", "two", "three"]
+
+# §9.3.5 introspected save_directkey params, exact required/default
+# flags: `category` required-no-default, `profile_id` optional-no-default
+# (static [[0,8]] mirrors the schema; real slot counts live in
+# `directkey.profiles`), `process1` Required-WITH-default (the marker
+# asymmetry is mirrored, not normalized), the rest optional-with-default.
+_SAVE_DIRECTKEY_PARAMS = [
+    {"name": "category", "kind": "enum", "required": True,
+     "tokens": _DIRECTKEY_TOKENS},
+    {"name": "profile_id", "kind": "int", "required": False,
+     "ranges": [[0, 8]]},
+    {"name": "process1", "kind": "enum", "required": True,
+     "tokens": _PROCESS_TOKENS, "default": "coffee"},
+    {"name": "intensity1", "kind": "enum", "required": False,
+     "tokens": _INTENSITY_TOKENS, "default": "medium"},
+    {"name": "aroma1", "kind": "enum", "required": False,
+     "tokens": _AROMA_TOKENS, "default": "standard"},
+    {"name": "portion1_ml", "kind": "int", "required": False,
+     "ranges": [[5, 250]], "default": 40},
+    {"name": "temperature1", "kind": "enum", "required": False,
+     "tokens": _TEMPERATURE_TOKENS, "default": "normal"},
+    {"name": "shots1", "kind": "enum", "required": False,
+     "tokens": _SHOTS_TOKENS, "default": "one"},
+    {"name": "process2", "kind": "enum", "required": False,
+     "tokens": _PROCESS_TOKENS, "default": "none"},
+    {"name": "intensity2", "kind": "enum", "required": False,
+     "tokens": _INTENSITY_TOKENS, "default": "medium"},
+    {"name": "aroma2", "kind": "enum", "required": False,
+     "tokens": _AROMA_TOKENS, "default": "standard"},
+    {"name": "portion2_ml", "kind": "int", "required": False,
+     "ranges": [[0, 250]], "default": 0},
+    {"name": "temperature2", "kind": "enum", "required": False,
+     "tokens": _TEMPERATURE_TOKENS, "default": "normal"},
+    {"name": "shots2", "kind": "enum", "required": False,
+     "tokens": _SHOTS_TOKENS, "default": "none"},
+]
+
 
 def _button(suffix):
     return {"kind": "button", "entity_suffix": suffix}
@@ -129,6 +172,11 @@ def _expected_catalog(*, freestyle, directkey, recipe_writes, factory_reset,
          "icon": "mdi:restore", "confirm": True, "requires": ["ready"],
          "available": recipe_writes,
          "invocation": _service("reset_recipe", _RESET_RECIPE_PARAMS)},
+        # §9.3.5: the 17th (0.93) entry — group `control`, HC-gated.
+        {"action": "save_directkey", "group": "control", "process": None,
+         "icon": "mdi:content-save", "confirm": True, "requires": ["ready"],
+         "available": directkey,
+         "invocation": _service("save_directkey", _SAVE_DIRECTKEY_PARAMS)},
         {"action": "easy_clean", "group": "cleaning", "process": "EASY_CLEAN",
          "icon": "mdi:shimmer", "confirm": True, "requires": ["ready"],
          "available": maintenance, "invocation": _button("easy_clean")},
@@ -363,6 +411,87 @@ def test_freestyle_params_ref_and_referenced_catalog_match_live_schema():
         "blend2": "hopper_1",
         "two_cups": False,
     }
+
+
+def test_catalog_has_seventeen_entries():
+    """§9.3.5: the 0.93 catalog is 17 entries for every brand."""
+    for client in (make_melitta_client(), make_nivona_client()):
+        assert len(catalog_for(client)) == 17
+
+
+def test_save_directkey_entry_shape():
+    """§9.3.5 table row: group control, process null, confirm yes,
+    requires ["ready"], mdi:content-save, service anchored on `brew`."""
+    entry = by_action(catalog_for(make_melitta_client()))["save_directkey"]
+    assert entry["group"] == "control"
+    assert entry["process"] is None
+    assert entry["confirm"] is True
+    assert "destructive" not in entry
+    assert entry["requires"] == ["ready"]
+    assert entry["icon"] == "mdi:content-save"
+    assert entry["invocation"]["kind"] == "service"
+    assert entry["invocation"]["service"] == "save_directkey"
+    assert entry["invocation"]["entity_suffix"] == "brew"
+
+
+def test_save_directkey_hc_gating():
+    """`available` iff "HC" in supported_extensions (same gate as
+    brew_directkey): Melitta true, Nivona false — entry still served."""
+    assert by_action(catalog_for(make_melitta_client()))["save_directkey"][
+        "available"] is True
+    assert by_action(catalog_for(make_nivona_client()))["save_directkey"][
+        "available"] is False
+
+
+def test_save_directkey_params_match_live_schema():
+    """§9.3.5: params byte-equal to SAVE_DIRECTKEY_SCHEMA, exact
+    required/default flags — including the `process1`
+    Required-with-default marker asymmetry (mirrored, not normalized) —
+    and no blend / no two_cups fields anywhere."""
+    entry = by_action(catalog_for(make_melitta_client()))["save_directkey"]
+    served = entry["invocation"]["params"]
+    assert served == _SAVE_DIRECTKEY_PARAMS
+
+    schema = _schema_map(SAVE_DIRECTKEY_SCHEMA)
+    schema_fields = [name for name in schema if name != "entity_id"]
+    assert [p["name"] for p in served] == schema_fields
+
+    by_name = {p["name"]: p for p in served}
+    for name, (marker, validator) in schema.items():
+        if name == "entity_id":
+            continue
+        param = by_name[name]
+        assert param["required"] is isinstance(marker, vol.Required), name
+        default = getattr(marker, "default", vol.UNDEFINED)
+        if default is vol.UNDEFINED:
+            assert "default" not in param, name
+        else:
+            assert param["default"] == default(), name
+        if isinstance(validator, vol.In):
+            assert param["kind"] == "enum"
+            assert param["tokens"] == list(validator.container), name
+        else:
+            assert param["kind"] == "int"
+            assert param["ranges"] == _ranges_of(validator), name
+
+    # Marker asymmetry pinned: category required-no-default; process1
+    # required WITH default; profile_id optional-no-default.
+    assert by_name["category"] == {
+        "name": "category", "kind": "enum", "required": True,
+        "tokens": _DIRECTKEY_TOKENS,
+    }
+    assert by_name["process1"]["required"] is True
+    assert by_name["process1"]["default"] == "coffee"
+    assert by_name["profile_id"] == {
+        "name": "profile_id", "kind": "int", "required": False,
+        "ranges": [[0, 8]],
+    }
+
+    # No blend and no two_cups — neither in the schema nor served.
+    assert not any(name.startswith("blend") for name in schema)
+    assert "two_cups" not in schema
+    assert not any(p["name"].startswith("blend") for p in served)
+    assert not any(p["name"] == "two_cups" for p in served)
 
 
 def test_every_service_entry_carries_entity_suffix():

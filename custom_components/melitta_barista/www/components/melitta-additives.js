@@ -25,9 +25,19 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import { labelFor } from "../i18n/server-strings.js";
 import "./melitta-confirm.js";
 
-const TYPES = ["syrup", "topping", "milk"];
+/**
+ * extras_kind tokens with a backing storage table in this panel — the
+ * whitelist that gates the served `vocab.extras_kind` list (UI Contract
+ * §9.0.3: an unknown served token is ignored, never invented a table
+ * for) and the fallback fixture when the vocab is absent (§9.2.6.1).
+ * `milk` is deliberately NOT here: milk types are a free-form family
+ * (§9.2.4) stored in their own panel-local list, so the kind picker
+ * appends it outside the vocabulary.
+ */
+const EXTRAS_KIND_TABLES = ["syrup", "topping"];
 const ATTRIBUTE_KEYS = [
   "vegan",
   "sugar_free",
@@ -42,6 +52,8 @@ class MelittaAdditives extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      vocab: { attribute: false },
+      serverStrings: { attribute: false },
       _syrups: { type: Array },
       _toppings: { type: Array },
       _milk: { type: Array },
@@ -56,6 +68,8 @@ class MelittaAdditives extends LitElement {
 
   constructor() {
     super();
+    this.vocab = null;
+    this.serverStrings = null;
     this._syrups = [];
     this._toppings = [];
     this._milk = [];
@@ -69,6 +83,37 @@ class MelittaAdditives extends LitElement {
 
   _t(key, params) {
     return t(key, this.lang || "en", params);
+  }
+
+  /**
+   * Kind tokens for the type picker: served `vocab.extras_kind.tokens`
+   * filtered to the kinds this panel has storage tables for (§9.0.3 —
+   * unknown served tokens are ignored), falling back to the whitelist
+   * itself (§9.2.6.1); `milk` is appended outside the vocabulary (a
+   * free-form family, §9.2.4).
+   */
+  _kindTokens() {
+    const served = this.vocab?.extras_kind?.tokens;
+    let kinds = Array.isArray(served) && served.length
+      ? served.filter((k) => EXTRAS_KIND_TABLES.includes(k))
+      : EXTRAS_KIND_TABLES;
+    if (!kinds.length) kinds = EXTRAS_KIND_TABLES;
+    return kinds.concat("milk");
+  }
+
+  /**
+   * Kind label (§9.2.6.2 chain): server string
+   * `sommelier.extras_kind.<token>` → panel bundle (`modal.type.<token>`,
+   * which also covers the vocab-external `milk`) → humanized token.
+   */
+  _kindLabel(token) {
+    const key = `modal.type.${token}`;
+    const bundled = this._t(key);
+    return labelFor(
+      `sommelier.extras_kind.${token}`,
+      bundled === key ? null : bundled,
+      token,
+    );
   }
 
   /**
@@ -510,9 +555,9 @@ class MelittaAdditives extends LitElement {
           <label>${this._t("modal.type")}
             <select .value=${e.type} ?disabled=${!!e.id}
               @change=${(ev) => this._updateField("type", ev.target.value)}>
-              ${TYPES.map((tp) => html`
+              ${this._kindTokens().map((tp) => html`
                 <option value=${tp} ?selected=${tp === e.type}>
-                  ${this._t(`modal.type.${tp}`)}
+                  ${this._kindLabel(tp)}
                 </option>
               `)}
             </select>

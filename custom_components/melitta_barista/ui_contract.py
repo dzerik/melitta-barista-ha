@@ -1,17 +1,19 @@
-"""UI Contract builder (docs/UI_CONTRACT.md; v2 additions per §6).
+"""UI Contract builder (docs/UI_CONTRACT.md; v2 additions per §6, v3 per §9).
 
 Pure, BLE-free derivation of the renderer-facing contract: token
 vocabularies, capability blocks, live status tokens, bridge attributes,
-procedural drink icon specs, the v2 parameter/action catalogs (§6.1/§6.2,
-additive within contract_version 1), and the full `ui_contract/get`
-document.
+procedural drink icon specs, the v2 parameter/action catalogs (§6.1/§6.2),
+the v3 settings/DirectKey blocks (§9.1/§9.3 — all additive within
+contract_version 1), and the full `ui_contract/get` document.
 Everything here is computed from data the integration already holds after
 handshake (MachineCapabilities, BrandProfile, const maps, the client-side
 base-recipe cache) — building a contract never triggers BLE traffic.
 
 Token vocabularies are generated from the real enums / const maps, never
 hand-copied, so a new enum member automatically ships as a new token
-(additive growth per spec §5.2.2).
+(additive growth per spec §5.2.2). The only intra-package imports are
+`const.py` and `brands/nivona/_options.py` (shared pure data tables) —
+no homeassistant modules.
 """
 
 from __future__ import annotations
@@ -29,15 +31,21 @@ from .coffee_platform.domain import (
     Manipulation,
     SubProcess,
 )
+from .brands.nivona._options import nivona_number_range, option_tokens
 from .const import (
     AROMA_MAP,
     BLEND_MAP,
+    DIRECTKEY_CATEGORY_ICONS,
+    DIRECTKEY_NO_BUTTON_CATEGORIES,
+    DirectKeyCategory,
     INTENSITY_MAP,
+    MELITTA_SETTING_TABLES,
     MachineType,
     PROCESS_MAP,
     PROMPT_MANIPULATIONS,
     RECIPE_KEY_MAP,
     RECIPE_NAMES,
+    SETTING_LEVEL_TOKENS,
     SHOTS_MAP,
     TEMPERATURE_MAP,
     get_available_recipes,
@@ -602,6 +610,203 @@ def build_parameters(capabilities_block: Mapping[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Settings descriptors (§9.1) — v3, additive within contract_version 1
+# ---------------------------------------------------------------------------
+
+# §9.1.3 group render order; unknown groups follow in served order.
+_SETTING_GROUP_ORDER: tuple[str, ...] = ("brew", "water", "power", "system")
+
+# §9.1.3 Nivona descriptor-key → group table; everything else → system.
+_NIVONA_SETTING_GROUPS: dict[str, str] = {
+    "temperature": "brew",
+    "coffee_temperature": "brew",
+    "milk_temperature": "brew",
+    "milk_foam_temperature": "brew",
+    "profile": "brew",
+    "cup_heater": "brew",
+    "water_hardness": "water",
+    "off_rinse": "water",
+    "power_on_rinse": "water",
+    "auto_off": "power",
+    "save_energy": "power",
+    "auto_on_deactivated": "power",
+}
+
+
+def _group_sorted(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stable-sort setting entries into the §9.1.3 group order.
+
+    Known groups in `brew, water, power, system` order; unknown groups
+    after them in served order; original order preserved within a group.
+    """
+    order = {group: index for index, group in enumerate(_SETTING_GROUP_ORDER)}
+    return sorted(entries, key=lambda entry: order.get(entry["group"], len(order)))
+
+
+def _melitta_setting_entries(caps: Any, machine_type: Any) -> list[dict[str, Any]]:
+    """Melitta settings entries from the shared MELITTA_SETTING_TABLES.
+
+    Evaluates the same gating data entity registration consumes (§9.1.2.5
+    predicate equality): the table's TS-only flags against the machine
+    type (unknown type follows the assume-TS precedent — the flag drops a
+    row only on a confirmed BARISTA_T) and the family's
+    `unsupported_generic_setting_ids`.
+    """
+    excluded = getattr(caps, "unsupported_generic_setting_ids", frozenset())
+    entries: list[dict[str, Any]] = []
+    for row in MELITTA_SETTING_TABLES:
+        if row["ts_only"] and machine_type == MachineType.BARISTA_T:
+            continue
+        if int(row["id"]) in excluded:
+            continue
+        entry: dict[str, Any] = {
+            "setting": row["setting"],
+            "control": row["control"],
+            "group": row["group"],
+            "icon": row["icon"],
+            "entity": {
+                "domain": row["control"],
+                "entity_suffix": row["setting"],
+            },
+            "writable": True,
+        }
+        if row["control"] == "number":
+            entry["min"] = row["min"]
+            entry["max"] = row["max"]
+            entry["step"] = row["step"]
+            if "unit" in row:
+                entry["unit"] = row["unit"]
+            entry["display"] = row["display"]
+            levels = SETTING_LEVEL_TOKENS.get(row["setting"])
+            if levels:
+                entry["levels"] = [
+                    {"value": value, "token": token} for value, token in levels
+                ]
+        entries.append(entry)
+    return entries
+
+
+def _descriptor_setting_entries(caps: Any) -> list[dict[str, Any]]:
+    """Nivona settings entries from the post-exclusion SettingDescriptors.
+
+    One `select` entry per options-bearing descriptor (labels derived at
+    build time from the descriptor tables — single source, §9.1.1;
+    tokens via the shared `_options.py` annotations) and one `number`
+    entry per options-less descriptor (range/unit from the shared
+    `nivona_number_range` helper, group `power`). Icons are `mdi:tune`
+    (§9.1.2.7); `writable` mirrors `descriptor.is_writable`.
+    """
+    entries: list[dict[str, Any]] = []
+    for descriptor in getattr(caps, "settings", ()) or ():
+        if descriptor.options:
+            tokens = option_tokens(descriptor.options)
+            entry: dict[str, Any] = {
+                "setting": descriptor.key,
+                "control": "select",
+                "group": _NIVONA_SETTING_GROUPS.get(descriptor.key, "system"),
+                "icon": "mdi:tune",
+                "entity": {"domain": "select", "entity_suffix": descriptor.key},
+                "writable": descriptor.is_writable,
+                "options": [
+                    {"value": value, "token": token, "label": label}
+                    for (value, label), token in zip(descriptor.options, tokens)
+                ],
+            }
+        else:
+            min_value, max_value, unit = nivona_number_range(descriptor)
+            entry = {
+                "setting": descriptor.key,
+                "control": "number",
+                "group": "power",
+                "icon": "mdi:tune",
+                "entity": {"domain": "number", "entity_suffix": descriptor.key},
+                "writable": descriptor.is_writable,
+                "min": min_value,
+                "max": max_value,
+                "step": 1,
+            }
+            unit = descriptor.unit or unit
+            if unit:
+                entry["unit"] = unit
+        entries.append(entry)
+    return entries
+
+
+def build_settings_block(
+    caps: Any, machine_type: Any, brand: Any,
+) -> list[dict[str, Any]]:
+    """Build the v3 `settings` block (§9.1) for one machine.
+
+    Melitta serves the shared `MELITTA_SETTING_TABLES` rows (TS-only and
+    `unsupported_generic_setting_ids` gating, §9.1.2.5); other brands
+    serve their post-exclusion `SettingDescriptor` tables. Served order
+    is the normative render order: grouped per §9.1.3, original order
+    preserved within each group. The block *describes* the entity
+    surface — writes still go through the bound entities (§9.1.6.4).
+    """
+    if brand.brand_slug == "melitta":
+        entries = _melitta_setting_entries(caps, machine_type)
+    else:
+        entries = _descriptor_setting_entries(caps)
+    return _group_sorted(entries)
+
+
+# ---------------------------------------------------------------------------
+# DirectKey / profile model (§9.3) — v3, additive within contract_version 1
+# ---------------------------------------------------------------------------
+
+def build_directkey_block(
+    caps: Any, machine_type: Any, brand: Any,
+) -> dict[str, Any] | None:
+    """Build the v3 `directkey` model block (§9.3.2), or None without HC.
+
+    Present iff the brand supports the HC DirectKey extension (Melitta
+    only — absence means feature absence, §9.0.1). Categories are always
+    all 7, in DirectKeyCategory enum order (the normative render order),
+    with `machine_button` truth from `DIRECTKEY_NO_BUTTON_CATEGORIES`
+    (§9.3.1: unknown machine type follows the TS row; a confirmed
+    BARISTA_T has no exclusions). Profile slots are
+    `capabilities.my_coffee_slots + 1` entries: the fixed slot 0
+    ("My Coffee") plus one entry per user slot with its name/activity
+    entity bindings. `active_profile` remains client-side selector state
+    on the integration's BLE client — the machine is never told about it.
+    """
+    if "HC" not in brand.supported_extensions:
+        return None
+    effective_type = (
+        MachineType.BARISTA_TS if machine_type is None else machine_type
+    )
+    no_button = DIRECTKEY_NO_BUTTON_CATEGORIES.get(effective_type, frozenset())
+
+    categories = [
+        {
+            "category": category.name.lower(),
+            "id": int(category),
+            "machine_button": category not in no_button,
+            "icon": DIRECTKEY_CATEGORY_ICONS.get(category, "mdi:cup"),
+        }
+        for category in DirectKeyCategory
+    ]
+
+    profiles: list[dict[str, Any]] = [
+        {"slot": 0, "fixed": True, "name_key": "my_coffee"},
+    ]
+    for slot in range(1, caps.my_coffee_slots + 1):
+        profiles.append({
+            "slot": slot,
+            "name_entity_suffix": f"profile_{slot}_name",
+            "active_entity_suffix": f"profile_{slot}_active",
+        })
+
+    return {
+        "categories": categories,
+        "profiles": profiles,
+        "profile_select_entity_suffix": "profile",
+        "active_profile_attribute": "active_profile",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Action catalog (§6.2) — v2, additive within contract_version 1
 # ---------------------------------------------------------------------------
 
@@ -642,6 +847,47 @@ def _extract_int_ranges(validator: Any) -> list[list[int]]:
     return ranges
 
 
+def _introspect_params(schema: Any) -> list[dict[str, Any]]:
+    """ActionParams introspected from a voluptuous service schema (§9.3.5).
+
+    Byte-exact mirror of the live schema, marker asymmetries included
+    (a `vol.Required(..., default=...)` field emits `required: true`
+    PLUS a `default` — the BREW_FREESTYLE precedent): `vol.In` fields
+    become `enum` params with the container's tokens in declaration
+    order, int/Range fields become `int` params with their flattened
+    ranges; `default` appears only where the marker declares one. The
+    `entity_id` targeting field is skipped — clients supply it from the
+    invocation's `entity_suffix` anchor (§6.2.1).
+    """
+    import voluptuous as vol  # noqa: PLC0415
+
+    params: list[dict[str, Any]] = []
+    for marker, validator in schema.schema.items():
+        name = str(marker)
+        if name == "entity_id":
+            continue
+        param: dict[str, Any] = {
+            "name": name,
+            "required": _marker_required(marker),
+        }
+        if isinstance(validator, vol.In):
+            param["kind"] = "enum"
+            param["tokens"] = list(validator.container)
+        else:
+            ranges = _extract_int_ranges(validator)
+            if not ranges:
+                raise ValueError(
+                    f"unsupported validator for schema field {name!r}"
+                )
+            param["kind"] = "int"
+            param["ranges"] = ranges
+        default = getattr(marker, "default", vol.UNDEFINED)
+        if default is not vol.UNDEFINED:
+            param["default"] = default() if callable(default) else default
+        params.append(param)
+    return params
+
+
 # §6.2.6 gating: catalog entries whose invocation starts a MachineProcess
 # via the start-process path (the 8 unconditionally-registered buttons of
 # issue #36); the `available` flag for these follows the per-family
@@ -672,11 +918,12 @@ def _process_available(
 def build_action_catalog(
     client: Any, capabilities_block: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    """Build the v2 `actions` catalog (§6.2.2) for one machine.
+    """Build the v2+v3 `actions` catalog (§6.2.2 + §9.3.5) for one machine.
 
-    Sixteen entries, always all served, with per-family truth encoded in
-    `available`: HJ gates `brew_freestyle`, HC gates `brew_directkey`,
-    `supports_recipe_writes` gates `reset_recipe`,
+    Seventeen entries (the 0.93 amendment adds `save_directkey`), always
+    all served, with per-family truth encoded in
+    `available`: HJ gates `brew_freestyle`, HC gates `brew_directkey`
+    and `save_directkey`, `supports_recipe_writes` gates `reset_recipe`,
     `supports_factory_reset` gates the factory resets, and the §6.2.6
     `verified_maintenance_processes` audit gates every start-process
     entry (all Nivona families ship `()` — unavailable — until the #36
@@ -689,6 +936,7 @@ def build_action_catalog(
     from . import (  # noqa: PLC0415 — lazy: avoids a circular module import
         BREW_DIRECTKEY_SCHEMA,
         RESET_RECIPE_SCHEMA,
+        SAVE_DIRECTKEY_SCHEMA,
     )
 
     caps = getattr(client, "capabilities", None)
@@ -735,6 +983,10 @@ def build_action_catalog(
         {"name": "params", "kind": "params_ref", "required": True,
          "ref": "freestyle"},
     ]
+    # §9.3.5: all save_directkey params introspected from the live
+    # schema, exact required/default flags included (the schema has no
+    # blend and no two_cups fields, so no params_ref is needed).
+    save_directkey_params = _introspect_params(SAVE_DIRECTKEY_SCHEMA)
 
     def button(suffix: str) -> dict[str, Any]:
         return {"kind": "button", "entity_suffix": suffix}
@@ -817,6 +1069,15 @@ def build_action_catalog(
             service("reset_recipe", reset_recipe_params),
             icon="mdi:restore", confirm=True, requires=["ready"],
             available=bool(capabilities_block.get("supports_recipe_writes")),
+        ),
+        # §9.3.5: 17th entry (0.93). Group `control` is deliberate —
+        # card 2.7 renders `control` with bespoke UI, so the new entry
+        # is informational there (§6.2.5.2). Confirm: overwrites a slot.
+        entry(
+            "save_directkey", "control", None,
+            service("save_directkey", save_directkey_params),
+            icon="mdi:content-save", confirm=True, requires=["ready"],
+            available=has_directkey,
         ),
         maintenance(
             "easy_clean", "cleaning", MachineProcess.EASY_CLEAN,
@@ -1147,6 +1408,11 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
     (§6.1.6, always `[]` today) and `strings_version` (§6.3.2), and
     recipe entries gain the additive `name_key` (§6.3.6) — all within
     `contract_version: 1`.
+
+    0.93 (§9.0): the additive v3 blocks join — `settings` (§9.1, both
+    brands) and `directkey` (§9.3, present iff the brand supports the HC
+    extension; absent = feature absent). Zero new fingerprint inputs
+    (§9.4): every value they derive from is already a §5.1 input.
     """
     caps = getattr(client, "capabilities", None)
     if caps is None:
@@ -1164,7 +1430,9 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    return {
+    directkey = build_directkey_block(caps, machine_type, brand)
+
+    document: dict[str, Any] = {
         "contract_version": CONTRACT_VERSION,
         "contract_fingerprint": compute_contract_fingerprint(client),
         "entry_id": entry.entry_id,
@@ -1192,6 +1460,8 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
         # v2 blocks (§6.0): additive within contract_version 1.
         "parameters": build_parameters(capabilities_block),
         "actions": build_action_catalog(client, capabilities_block),
+        # v3 block (§9.1): additive within contract_version 1.
+        "settings": build_settings_block(caps, machine_type, brand),
         # §6.1.6: defined shape, empty content in 0.92 — always emitted
         # so clients need no presence special-case.
         "forbidden_combinations": [],
@@ -1202,3 +1472,8 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
         "status_attribute_entity": "state",
         "bridge_attribute_entity": "connection",
     }
+    # v3 block (§9.3.2): present iff "HC" in supported_extensions —
+    # per-feature presence gating (§9.0.1), never an explicit null.
+    if directkey is not None:
+        document["directkey"] = directkey
+    return document

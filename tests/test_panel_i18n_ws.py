@@ -3,16 +3,23 @@
 Zone I-G of the UI Contract v2 (docs/UI_CONTRACT.md §6.3.1/§6.3.2/§8.1):
 locale resolution (`de-DE` → `de`, unknown → `en`), the en-first overlay
 merge for sparse locales, domain filtering (unknown domains ignored),
-`strings_version` from the cached manifest version, non-admin access,
-the pinned flat key format, and the per-resolved-locale loader cache
-(a single executor read per requested locale).
+non-admin access, the pinned flat key format, and the
+per-resolved-locale loader cache (a single executor read per requested
+locale).
+
+Extended by Zone I-K of the v3 amendment (§9.1.4/§9.2.5/§5.2 rule 10):
+the domain set grows to six (`settings`, `sommelier` added), explicit
+old-four-domain requests stay byte-identical, unfiltered requests
+include the new domains (the real 2.x-compat mechanism), and
+`strings_version` comes exclusively from the setup-time stash
+`hass.data[DOMAIN]["ui_strings_version"]` — the lazy
+`async_get_integration` path was removed (§9.2.2).
 """
 
 from __future__ import annotations
 
 import inspect
 import json
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -34,9 +41,10 @@ _i18n_get = inspect.unwrap(panel_api._ws_i18n_get)
 def make_hass(seed_version="0.0.0-test"):
     """MagicMock hass with a counting, synchronous executor shim.
 
-    `seed_version` pre-populates the cached manifest version so most
-    tests never touch `async_get_integration`; pass None to exercise
-    the real resolution path (with the loader patched).
+    `seed_version` pre-populates the setup-time stash exactly as
+    `async_setup_entry` does before WS registration; pass None to model
+    a hass where setup never ran (the handler serves "unknown" — the
+    lazy loader path was removed by the v3 amendment, §9.2.2).
     """
     hass = MagicMock()
     hass.data = {}
@@ -188,10 +196,88 @@ async def test_unknown_domains_ignored():
 
 
 async def test_omitted_domains_serves_all():
-    """No domains parameter serves every domain."""
+    """No domains parameter serves every shipped domain.
+
+    Robust across the Zone I-L asset seeding: the shipped en.json always
+    carries the four v2 domains, may additionally carry the two v3
+    domains (`settings`, `sommelier`), and never anything else.
+    """
     payload = await call(make_hass(), "en")
     prefixes = {key.split(".", 1)[0] for key in payload["strings"]}
-    assert prefixes == {"status", "values", "recipes", "actions"}
+    assert {"status", "values", "recipes", "actions"} <= prefixes
+    assert prefixes <= panel_api._I18N_DOMAINS
+
+
+# ---------------------------------------------------------------------------
+# Six-domain set (v3 amendment §9.1.4/§9.2.5; §5.2 rule 10 mechanism)
+# ---------------------------------------------------------------------------
+
+# Fixture asset carrying keys in all six served domains, so these tests
+# hold regardless of when the Zone I-L string assets land.
+_SIX_DOMAIN_EN = {
+    "status.process.READY": "Ready",
+    "values.intensity.mild": "Mild",
+    "recipes.name.espresso": "Espresso",
+    "actions.easy_clean.label": "Easy Clean",
+    "settings.water_hardness.label": "Water hardness",
+    "settings._levels.off": "Off",
+    "sommelier.roast.medium_dark": "Medium-dark roast",
+}
+
+
+@pytest.fixture
+def six_domain_dir(tmp_path, monkeypatch):
+    """Point the loader at a fixture en.json spanning all six domains."""
+    (tmp_path / "en.json").write_text(
+        json.dumps(_SIX_DOMAIN_EN), encoding="utf-8"
+    )
+    monkeypatch.setattr(panel_api, "_UI_STRINGS_DIR", tmp_path)
+    return tmp_path
+
+
+def test_i18n_domain_set_is_six():
+    """`settings` and `sommelier` joined the served domain set."""
+    assert panel_api._I18N_DOMAINS == frozenset({
+        "status", "values", "recipes", "actions", "settings", "sommelier",
+    })
+
+
+async def test_settings_and_sommelier_domains_filterable(six_domain_dir):
+    """The new domains are real filter values, not just pass-through."""
+    hass = make_hass()
+    payload = await call(hass, "en", domains=["settings"])
+    assert set(payload["strings"]) == {
+        "settings.water_hardness.label", "settings._levels.off",
+    }
+    payload = await call(hass, "en", domains=["sommelier"])
+    assert set(payload["strings"]) == {"sommelier.roast.medium_dark"}
+
+
+async def test_old_four_domain_filter_byte_identical(six_domain_dir):
+    """An explicit old-four-domain request excludes every new key —
+    byte-identical to a pre-0.93 response (§5.2 rule 10)."""
+    payload = await call(
+        make_hass(), "en", domains=["status", "values", "recipes", "actions"]
+    )
+    assert payload["strings"] == {
+        key: value
+        for key, value in _SIX_DOMAIN_EN.items()
+        if key.split(".", 1)[0] in {"status", "values", "recipes", "actions"}
+    }
+    assert not any(
+        key.startswith(("settings.", "sommelier."))
+        for key in payload["strings"]
+    )
+
+
+async def test_unfiltered_request_includes_new_domains(six_domain_dir):
+    """Shipped clients fetch without a domain filter, so their responses
+    grow with the `settings.*`/`sommelier.*` keys — the real 2.x-compat
+    mechanism is unknown-key tolerance, not filtering (§5.2 rule 10)."""
+    payload = await call(make_hass(), "en")
+    assert payload["strings"] == _SIX_DOMAIN_EN
+    assert "settings._levels.off" in payload["strings"]
+    assert "sommelier.roast.medium_dark" in payload["strings"]
 
 
 # ---------------------------------------------------------------------------
@@ -199,18 +285,10 @@ async def test_omitted_domains_serves_all():
 # ---------------------------------------------------------------------------
 
 
-async def test_strings_version_from_manifest():
-    """strings_version is the manifest version, resolved once and cached."""
-    hass = make_hass(seed_version=None)
-    integration = SimpleNamespace(manifest={"version": "7.7.7"})
-    with patch(
-        "homeassistant.loader.async_get_integration",
-        new=AsyncMock(return_value=integration),
-    ):
-        payload = await call(hass, "en")
-    assert payload["strings_version"] == "7.7.7"
-
-    # Cached: a second call never consults the loader again.
+async def test_strings_version_stash_only_loader_never_consulted():
+    """strings_version comes from the setup-time stash; the lazy
+    `async_get_integration` path is gone (§9.2.2 / §5.1 single-source)."""
+    hass = make_hass(seed_version="7.7.7")
     with patch(
         "homeassistant.loader.async_get_integration",
         new=AsyncMock(side_effect=AssertionError("must not be called")),
@@ -219,8 +297,21 @@ async def test_strings_version_from_manifest():
     assert payload["strings_version"] == "7.7.7"
 
 
+async def test_missing_stash_serves_unknown_without_loader():
+    """No stash (setup never ran — test-only state) degrades to 'unknown'
+    instead of resolving lazily; production writes the stash before WS
+    registration, so this state is unobservable on a live install."""
+    hass = make_hass(seed_version=None)
+    with patch(
+        "homeassistant.loader.async_get_integration",
+        new=AsyncMock(side_effect=AssertionError("must not be called")),
+    ):
+        payload = await call(hass, "en")
+    assert payload["strings_version"] == "unknown"
+
+
 async def test_seeded_strings_version_served():
-    """The hass.data-cached version is served without loader access."""
+    """The hass.data-stashed version is served without loader access."""
     payload = await call(make_hass(seed_version="1.2.3"), "en")
     assert payload["strings_version"] == "1.2.3"
 

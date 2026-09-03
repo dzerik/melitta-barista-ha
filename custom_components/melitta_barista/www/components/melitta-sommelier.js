@@ -18,13 +18,20 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
-import { displayNameFor } from "../i18n/server-strings.js";
+import { displayNameFor, labelFor } from "../i18n/server-strings.js";
 import "./melitta-sommelier-favorites.js";
 import "./melitta-sommelier-history.js";
 import "./melitta-sommelier-presets.js";
 import "./ui/melitta-star-rating.js";
 import "./ui/melitta-drink-icon.js";
 
+/**
+ * Hardcoded enum fixtures — since 0.93 these are the fallback tier only
+ * (UI Contract §9.2.6.1): the live token lists come from the served
+ * sommelier vocabulary (`melitta_barista/vocab/get`, fed by the panel
+ * shell as the `.vocab` prop). Permanent fixtures, never deleted
+ * (§5.3.6).
+ */
 const MODES = [
   { id: "surprise_me", label_en: "Surprise me", label_ru: "Удиви меня" },
   { id: "custom", label_en: "Custom request", label_ru: "Свой запрос" },
@@ -37,6 +44,22 @@ const TEMPERATURES = ["auto", "hot", "iced"];
 const CAFFEINE_PREFS = ["regular", "low", "decaf_evening"];
 const DIETARY = ["no_sugar", "lactose_free", "low_calorie", "vegan"];
 
+/**
+ * Vocab family → legacy panel-bundle key family. The pre-0.93 bundles
+ * key sommelier labels under abbreviated families (`sommelier.cup.*`,
+ * `sommelier.temp.*`, `sommelier.diet.*`); the server i18n keys use the
+ * vocab family names (`sommelier.cup_size.*`, §9.2.5). The bundle stays
+ * the middle tier of the §6.3.5 chain under its old keys.
+ */
+const VOCAB_BUNDLE_FAMILIES = {
+  cup_size: "cup",
+  mood: "mood",
+  occasion: "occasion",
+  temperature: "temp",
+  caffeine: "caffeine",
+  dietary: "diet",
+};
+
 class MelittaSommelier extends LitElement {
   static get properties() {
     return {
@@ -44,6 +67,7 @@ class MelittaSommelier extends LitElement {
       entryId: { type: String },
       lang: { type: String },
       serverStrings: { attribute: false },
+      vocab: { attribute: false },
       _mode: { type: String },
       _preference: { type: String },
       _count: { type: Number },
@@ -128,6 +152,7 @@ class MelittaSommelier extends LitElement {
     this._selectedPresetId = "";
     this._activeProfile = null;
     this.serverStrings = null;
+    this.vocab = null;
   }
 
   /**
@@ -158,8 +183,55 @@ class MelittaSommelier extends LitElement {
     return displayNameFor(family, token, bundled === bundleKey ? null : bundled);
   }
 
-  _modeLabel(m) {
-    return (this.lang || "").startsWith("ru") ? m.label_ru : m.label_en;
+  /**
+   * Enum token list for a vocab family (UI Contract §9.2.6.1): the
+   * served `vocab.<family>.tokens` list → the hardcoded fallback array.
+   * Never invents tokens — an absent/empty served family degrades to
+   * the fixture.
+   */
+  _vocabTokens(family, fallback) {
+    const tokens = this.vocab?.[family]?.tokens;
+    return Array.isArray(tokens) && tokens.length ? tokens : fallback;
+  }
+
+  /**
+   * Vocab-token label (§9.2.6.2 chain): server string
+   * `sommelier.<family>.<token>` → panel bundle under its legacy family
+   * key (`sommelier.cup.*` etc.) → humanized token.
+   */
+  _vocabLabel(family, token) {
+    const bundleFamily = VOCAB_BUNDLE_FAMILIES[family];
+    let bundled = null;
+    if (bundleFamily) {
+      const key = `sommelier.${bundleFamily}.${token}`;
+      const value = this._t(key);
+      if (value !== key) bundled = value;
+    }
+    return labelFor(`sommelier.${family}.${token}`, bundled, token);
+  }
+
+  /**
+   * Cup-size option label with the advisory served volume hint
+   * (§9.2.6.3 — display data only; the server re-validates cup_type).
+   */
+  _cupSizeLabel(token) {
+    const base = this._vocabLabel("cup_size", token);
+    const volumes = this.vocab?.cup_size?.volumes_ml?.[token];
+    return Array.isArray(volumes) && volumes.length === 2
+      ? `${base} (${volumes[0]}–${volumes[1]} ml)`
+      : base;
+  }
+
+  /**
+   * Mode label (§9.2.6.2): server string `sommelier.mode.<token>` →
+   * the legacy inline en/ru labels → humanized token.
+   */
+  _modeLabel(token) {
+    const legacy = MODES.find((m) => m.id === token);
+    const bundled = legacy
+      ? ((this.lang || "").startsWith("ru") ? legacy.label_ru : legacy.label_en)
+      : null;
+    return labelFor(`sommelier.mode.${token}`, bundled, token);
   }
 
   /**
@@ -519,8 +591,8 @@ class MelittaSommelier extends LitElement {
         <div class="row3">
           <select .value=${this._mode}
             @change=${(e) => { this._mode = e.target.value; }}>
-            ${MODES.map((m) => html`
-              <option value=${m.id} ?selected=${m.id === this._mode}>
+            ${this._vocabTokens("mode", MODES.map((m) => m.id)).map((m) => html`
+              <option value=${m} ?selected=${m === this._mode}>
                 ${this._modeLabel(m)}
               </option>
             `)}
@@ -599,8 +671,8 @@ class MelittaSommelier extends LitElement {
             <label>${this._t("sommelier.cup_size")}</label>
             <select .value=${this._cupSize}
               @change=${(e) => { this._cupSize = e.target.value; }}>
-              ${CUP_SIZES.map((c) => html`
-                <option value=${c} ?selected=${c === this._cupSize}>${this._t(`sommelier.cup.${c}`)}</option>
+              ${this._vocabTokens("cup_size", CUP_SIZES).map((c) => html`
+                <option value=${c} ?selected=${c === this._cupSize}>${this._cupSizeLabel(c)}</option>
               `)}
             </select>
           </div>
@@ -608,9 +680,9 @@ class MelittaSommelier extends LitElement {
           <div class="field">
             <label>${this._t("sommelier.mood_label")}</label>
             <div class="chips">
-              ${MOODS.map((m) => html`
+              ${this._vocabTokens("mood", MOODS).map((m) => html`
                 <button class=${this._moods.includes(m) ? "chip on" : "chip"}
-                  @click=${() => this._toggle("_moods", m)}>${this._t(`sommelier.mood.${m}`)}</button>
+                  @click=${() => this._toggle("_moods", m)}>${this._vocabLabel("mood", m)}</button>
               `)}
             </div>
           </div>
@@ -620,8 +692,8 @@ class MelittaSommelier extends LitElement {
             <select .value=${this._occasion}
               @change=${(e) => { this._occasion = e.target.value; }}>
               <option value="" ?selected=${!this._occasion}>—</option>
-              ${OCCASIONS.map((o) => html`
-                <option value=${o} ?selected=${o === this._occasion}>${this._t(`sommelier.occasion.${o}`)}</option>
+              ${this._vocabTokens("occasion", OCCASIONS).map((o) => html`
+                <option value=${o} ?selected=${o === this._occasion}>${this._vocabLabel("occasion", o)}</option>
               `)}
             </select>
           </div>
@@ -629,7 +701,7 @@ class MelittaSommelier extends LitElement {
           <div class="field">
             <label>${this._t("sommelier.temperature_label")}</label>
             <div class="chips">
-              ${TEMPERATURES.map((t_) => {
+              ${this._vocabTokens("temperature", TEMPERATURES).map((t_) => {
                 const caps = this._capabilities;
                 let supported = true;
                 if (caps && Array.isArray(caps.supported_temperatures)) {
@@ -647,7 +719,7 @@ class MelittaSommelier extends LitElement {
                   <button class=${cls}
                     ?disabled=${!supported}
                     title=${supported ? "" : this._t("sommelier.gate.unsupported")}
-                    @click=${() => { if (supported) this._temperature = t_; }}>${this._t(`sommelier.temp.${t_}`)}</button>
+                    @click=${() => { if (supported) this._temperature = t_; }}>${this._vocabLabel("temperature", t_)}</button>
                 `;
               })}
             </div>
@@ -657,8 +729,8 @@ class MelittaSommelier extends LitElement {
             <label>${this._t("sommelier.caffeine_label")}</label>
             <select .value=${this._caffeine}
               @change=${(e) => { this._caffeine = e.target.value; }}>
-              ${CAFFEINE_PREFS.map((c) => html`
-                <option value=${c} ?selected=${c === this._caffeine}>${this._t(`sommelier.caffeine.${c}`)}</option>
+              ${this._vocabTokens("caffeine", CAFFEINE_PREFS).map((c) => html`
+                <option value=${c} ?selected=${c === this._caffeine}>${this._vocabLabel("caffeine", c)}</option>
               `)}
             </select>
           </div>
@@ -666,9 +738,9 @@ class MelittaSommelier extends LitElement {
           <div class="field">
             <label>${this._t("sommelier.dietary_label")}</label>
             <div class="chips">
-              ${DIETARY.map((d) => html`
+              ${this._vocabTokens("dietary", DIETARY).map((d) => html`
                 <button class=${this._dietary.includes(d) ? "chip on" : "chip"}
-                  @click=${() => this._toggle("_dietary", d)}>${this._t(`sommelier.diet.${d}`)}</button>
+                  @click=${() => this._toggle("_dietary", d)}>${this._vocabLabel("dietary", d)}</button>
               `)}
             </div>
           </div>

@@ -15,7 +15,7 @@ import aiosqlite
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 _VALID_RATING_TARGET_TYPES = frozenset({"generated", "favorite"})
 
@@ -302,6 +302,20 @@ MIGRATE_V9_TO_V10 = """
 ALTER TABLE generated_recipes ADD COLUMN reasoning TEXT;
 """
 
+# v10 → v11: one-time normalization of the legacy cup-size token
+# `espresso` (written server-side by PWA ≤1.8.3 through the
+# profiles/add|update WS path) to the served token `espresso_cup` in
+# both storage columns (UI Contract §9.2.6.4). Without it, a stored
+# legacy token hits the hard vol.In(VALID_CUP_SIZES) rejection on
+# generate-time reads and silently misses the CUP_SIZE_VOLUMES prompt
+# lookup. The write path in sommelier_api (CUP_SIZE_ALIASES)
+# re-normalizes any further legacy writes on ingest, so this data
+# rewrite stays one-time. Idempotent — re-running matches zero rows.
+MIGRATE_V10_TO_V11 = """
+UPDATE sommelier_profiles SET cup_size = 'espresso_cup' WHERE cup_size = 'espresso';
+UPDATE user_preferences SET value = 'espresso_cup' WHERE key = 'default_cup_size' AND value = 'espresso';
+"""
+
 # Four built-in system presets seeded by `async_seed_system_presets` on
 # first setup. Deterministic ids (`sys_*`) keep INSERT OR IGNORE re-runs
 # stable. Each `payload` is a Sommelier "generate" form template; the
@@ -432,9 +446,12 @@ class SommelierDB:
 
         Migration statements that fail with an idempotency error (duplicate
         column / already exists) are skipped silently — re-running a step is
-        safe. Any other migration error is logged with the failing statement
-        and the schema_version stamp is withheld, so the migration is retried
-        on the next start instead of being silently marked as applied.
+        safe. UPDATE data-rewrite statements against a missing table are
+        also skipped (vacuous: no rows to rewrite; a later CREATE gets the
+        current schema). Any other migration error is logged with the
+        failing statement and the schema_version stamp is withheld, so the
+        migration is retried on the next start instead of being silently
+        marked as applied.
         """
         self._db = await aiosqlite.connect(self._db_path)
         self._db.row_factory = aiosqlite.Row
@@ -480,6 +497,8 @@ class SommelierDB:
                 migrations.append((9, MIGRATE_V8_TO_V9))
             if current_version < 10:
                 migrations.append((10, MIGRATE_V9_TO_V10))
+            if current_version < 11:
+                migrations.append((11, MIGRATE_V10_TO_V11))
             for target_version, sql in migrations:
                 for stmt in sql.strip().split(";"):
                     stmt = stmt.strip()
@@ -491,6 +510,17 @@ class SommelierDB:
                         msg = str(exc).lower()
                         if "duplicate column" in msg or "already exists" in msg:
                             continue  # idempotent re-run — column/table present
+                        if (
+                            "no such table" in msg
+                            and stmt.upper().startswith("UPDATE")
+                        ):
+                            # Data-rewrite step (e.g. the v11 cup-size
+                            # normalization) against a table this DB never
+                            # created: vacuously complete — there are no
+                            # rows to rewrite, and a later CREATE gets the
+                            # current, legacy-free schema. Withholding the
+                            # stamp here would retry forever for nothing.
+                            continue
                         migration_failed = True
                         _LOGGER.warning(
                             "Sommelier DB migration to v%d failed on statement "

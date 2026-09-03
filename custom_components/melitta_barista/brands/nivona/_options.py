@@ -60,3 +60,58 @@ _TANK_LIGHT_BRIGHTNESS_900_OPTIONS = (
 # "Minutes since midnight" bucket for AutoOn hour/minute pair. Raw
 # values go through unchanged (0..59 / 0..23); we surface them as a
 # number entity rather than an options list.
+
+
+# ---------------------------------------------------------------------------
+# Semantic option-token annotations (UI Contract §9.1.1, 0.93)
+# ---------------------------------------------------------------------------
+
+# Token ladders for the shared option tables, annotated ONCE here so
+# every descriptor referencing a table emits tokenized options in the
+# contract `settings` block. Labels above stay untouched (entity-layer
+# surface); tokens are the contract-side semantic identity. Tables
+# without an authored ladder serve `token: null` (label-only) — adding
+# ladders later is additive.
+_HARDNESS_TOKENS: tuple[str, ...] = ("soft", "medium", "hard", "very_hard")
+_OFF_ON_TOKENS: tuple[str, ...] = ("off", "on")
+
+# Keyed by the (value, label) tuples themselves: `_TEMP_ON_OFF` equals
+# `_OFF_ON_OPTIONS` element-wise, so the single `_OFF_ON_OPTIONS` entry
+# annotates both shared tables at once.
+_OPTION_TOKEN_TABLES: dict[tuple[tuple[int, str], ...], tuple[str, ...]] = {
+    _HARDNESS_OPTIONS: _HARDNESS_TOKENS,
+    _OFF_ON_OPTIONS: _OFF_ON_TOKENS,
+}
+
+
+def option_tokens(
+    options: tuple[tuple[int, str], ...],
+) -> tuple[str | None, ...]:
+    """Semantic tokens aligned with an option table's (value, label) pairs.
+
+    Returns the authored token ladder for annotated shared tables
+    (`_HARDNESS_OPTIONS`, `_OFF_ON_OPTIONS`/`_TEMP_ON_OFF`) and a
+    same-length all-``None`` tuple for every other table (UI Contract
+    §9.1.1: no token is invented where no ladder has been authored).
+    """
+    tokens = _OPTION_TOKEN_TABLES.get(tuple(options))
+    if tokens is None:
+        return (None,) * len(options)
+    return tokens
+
+
+def nivona_number_range(descriptor) -> tuple[int, int, str | None]:
+    """(min, max, unit) for an options-less Nivona SettingDescriptor.
+
+    The single shared range rule consumed by BOTH the
+    ``BrandSettingNumber`` entity and the contract settings builder
+    (UI Contract §9.1.3) — hours → 0-23 ``h``, minutes → 0-59 ``min``,
+    anything else → 0-255 with no unit — so a future descriptor cannot
+    get two different ranges. The unit strings are byte-equal to HA's
+    ``UnitOfTime.HOURS``/``UnitOfTime.MINUTES`` values.
+    """
+    if "hour" in descriptor.key:
+        return (0, 23, "h")
+    if "minute" in descriptor.key:
+        return (0, 59, "min")
+    return (0, 255, None)

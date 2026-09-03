@@ -238,9 +238,14 @@ def _ws_ui_contract(hass: HomeAssistant, connection, msg) -> None:
 # Module-level so tests can point the loader at a fixture directory.
 _UI_STRINGS_DIR = pathlib.Path(__file__).parent / "ui_strings"
 
-# The four served key domains (§6.3.1). Unknown requested domains are
-# ignored; an omitted `domains` parameter serves all of them.
-_I18N_DOMAINS = frozenset({"status", "values", "recipes", "actions"})
+# The served key domains (§6.3.1; `settings` and `sommelier` added by the
+# 0.93 amendment, §9.1.4/§9.2.5). Unknown requested domains are ignored;
+# an omitted `domains` parameter serves all of them — which is how the
+# shipped clients fetch, so their responses grow additively with new
+# domains (§5.2 rule 10; safe via unknown-key tolerance).
+_I18N_DOMAINS = frozenset({
+    "status", "values", "recipes", "actions", "settings", "sommelier",
+})
 
 # Plausible locale tags only — the locale is caller input used to build
 # a filename, so anything else (path separators, dots) resolves to en.
@@ -311,7 +316,11 @@ async def _ws_i18n_get(hass: HomeAssistant, connection, msg) -> None:
     merged en-overlay map is cached in `hass.data[DOMAIN]` for the life
     of the install (the assets are immutable between upgrades, and an
     upgrade restarts HA). `strings_version` is the integration manifest
-    version — the client-side cache axis for these strings (§6.3.2).
+    version — the client-side cache axis for these strings (§6.3.2) —
+    read from the setup-time stash `hass.data[DOMAIN]["ui_strings_version"]`
+    written by `async_setup_entry` before WS registration (§9.2.2 — the
+    former lazy `async_get_integration` fallback was removed per the
+    §5.1 single-source rule).
     """
     domain_data = hass.data.setdefault(DOMAIN, {})
     cache: dict[str, dict[str, str]] = domain_data.setdefault(
@@ -340,22 +349,47 @@ async def _ws_i18n_get(hass: HomeAssistant, connection, msg) -> None:
             if key.split(".", 1)[0] in wanted
         }
 
-    strings_version = domain_data.get("ui_strings_version")
-    if strings_version is None:
-        from homeassistant.loader import async_get_integration  # noqa: PLC0415
-
-        try:
-            integration = await async_get_integration(hass, DOMAIN)
-            strings_version = integration.manifest.get("version", "unknown")
-            domain_data["ui_strings_version"] = strings_version
-        except Exception:  # noqa: BLE001
-            strings_version = "unknown"
+    strings_version = domain_data.get("ui_strings_version", "unknown")
 
     _send_versioned(connection, msg["id"], {
         "locale": requested,
         "resolved_locale": resolved,
         "strings_version": strings_version,
         "strings": strings,
+    })
+
+
+# ── /vocab — sommelier enum vocabulary (docs/UI_CONTRACT.md §9.2) ────────
+
+
+@callback
+def _ws_vocab_get(hass: HomeAssistant, connection, msg) -> None:
+    """Serve the sommelier enum vocabulary (UI Contract v3, §9.2).
+
+    Deliberately named `melitta_barista/vocab/get`, OUTSIDE the
+    all-`require_admin` `sommelier/*` namespace: it lives in the
+    machine-independent constant-data lane beside `i18n/get`, where
+    `admin=False` is the lane norm (§9.2.2). The gating is intentional
+    — constant, non-sensitive enum data, same auth class as `i18n/get`;
+    a future security pass must NOT "fix" it to require_admin (that
+    would break non-admin sommelier screens; the write/brew commands
+    stay admin-gated, §9.2.6.6).
+
+    Not entry-scoped and machine-independent by construction: sommelier
+    UIs (bean library, profile editor) legitimately run with no machine
+    connected, so this must never require a ready client. Sync pure
+    read; `strings_version` — the client cache axis (§9.2.2) — comes
+    from the setup-time stash, so a first-call-of-the-session fetch can
+    never cache vocab under an unresolved version.
+    """
+    from .sommelier_api import build_sommelier_vocab  # noqa: PLC0415 — sommelier_api imports panel_api at module level
+
+    strings_version = hass.data.get(DOMAIN, {}).get(
+        "ui_strings_version", "unknown"
+    )
+    _send_versioned(connection, msg["id"], {
+        "strings_version": strings_version,
+        "vocab": build_sommelier_vocab(),
     })
 
 
@@ -473,7 +507,8 @@ def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
     Base recipes (IDs 200-223) come from the client-side base-recipe
     cache (``client.base_recipes``, UI Contract §7.1 Zone I-A0), which
     the post-connect preload fills; DirectKey recipes come from the
-    per-profile cache.
+    per-profile cache. Since 0.93 every DirectKey row also carries its
+    lower_snake ``category`` token (UI Contract §9.3.4, additive).
     """
     client = _resolve_client(hass, msg["entry_id"])
     if client is None:
@@ -504,7 +539,19 @@ def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
                 if category is not None
                 else cat_value
             )
-            rows.append(_recipe_to_dict(ble_recipe_id, recipes[cat_value], label=label))
+            row = _recipe_to_dict(
+                ble_recipe_id, recipes[cat_value], label=label
+            )
+            # UI Contract §9.3.4 (v3, additive): every directkey row
+            # carries its category token so clients stop duplicating the
+            # (id - 302) % 10 math and the Title-case reverse maps. ""
+            # for an out-of-enum category byte (same unknown convention
+            # as Recipe.category, §3.3). The Title-case `name` labels
+            # above stay frozen (§5.2 rule 8).
+            row["category"] = (
+                category.name.lower() if category is not None else ""
+            )
+            rows.append(row)
         directkey.append({
             "profile_id": profile_id,
             "profile_name": profile_names.get(profile_id, f"Profile {profile_id}"),
@@ -2084,6 +2131,10 @@ _UI_CONTRACT_SCHEMA = vol.Schema({
     vol.Required("entry_id"): str,
 })
 
+_VOCAB_GET_SCHEMA = vol.Schema({
+    vol.Required("type"): "melitta_barista/vocab/get",
+})
+
 
 def _wrap_sync_with_schema(handler, schema, *, admin: bool = False):
     """Wrap a sync `(hass, connection, msg)` handler with a vol schema decorator.
@@ -2128,6 +2179,12 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
     # machine-domain i18n (UI Contract v2 §6.3) — admin=False, async
     # (executor file I/O on first use per locale)
     async_register_command(hass, _ws_i18n_get)
+    # sommelier enum vocabulary (UI Contract v3 §9.2) — admin=False is
+    # deliberate (machine-independent constant-data lane, see handler)
+    async_register_command(
+        hass,
+        _wrap_sync_with_schema(_ws_vocab_get, _VOCAB_GET_SCHEMA, admin=False),
+    )
 
     # producers
     async_register_command(hass, _ws_producers_list)

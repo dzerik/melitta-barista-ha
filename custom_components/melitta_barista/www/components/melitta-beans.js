@@ -16,8 +16,15 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import { labelFor } from "../i18n/server-strings.js";
 import "./melitta-confirm.js";
 
+/**
+ * Hardcoded enum fixtures — since 0.93 the fallback tier only (UI
+ * Contract §9.2.6.1): the live token lists come from the served
+ * sommelier vocabulary (`melitta_barista/vocab/get`, the `.vocab`
+ * prop). Permanent fixtures, never deleted (§5.3.6).
+ */
 const ROASTS = ["light", "medium", "medium_dark", "dark"];
 const BEAN_TYPES = ["arabica", "arabica_robusta", "robusta"];
 const ORIGINS = ["single_origin", "blend"];
@@ -28,6 +35,8 @@ class MelittaBeans extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      vocab: { attribute: false },
+      serverStrings: { attribute: false },
       _producers: { type: Array },
       _beans: { type: Array },
       _allTags: { type: Array },
@@ -45,6 +54,8 @@ class MelittaBeans extends LitElement {
 
   constructor() {
     super();
+    this.vocab = null;
+    this.serverStrings = null;
     this._producers = [];
     this._beans = [];
     this._allTags = [];
@@ -67,6 +78,25 @@ class MelittaBeans extends LitElement {
 
   _t(key, params) {
     return t(key, this.lang || "en", params);
+  }
+
+  /**
+   * Enum token list for a vocab family (UI Contract §9.2.6.1): the
+   * served `vocab.<family>.tokens` list → the hardcoded fallback array.
+   */
+  _vocabTokens(family, fallback) {
+    const tokens = this.vocab?.[family]?.tokens;
+    return Array.isArray(tokens) && tokens.length ? tokens : fallback;
+  }
+
+  /**
+   * Vocab-token label (§9.2.6.2): server string
+   * `sommelier.<family>.<token>` → humanized token. The panel bundles
+   * carry no roast/bean_type/origin labels, so there is no middle tier —
+   * this replaces the previous raw-token rendering.
+   */
+  _vocabLabel(family, token) {
+    return labelFor(`sommelier.${family}.${token}`, null, token);
   }
 
   /**
@@ -232,9 +262,16 @@ class MelittaBeans extends LitElement {
       const parsed = result.parsed;
       if (parsed && typeof parsed === "object") {
         const merged = { ...this._editingBean };
-        if (ROASTS.includes(parsed.roast)) merged.roast = parsed.roast;
-        if (BEAN_TYPES.includes(parsed.bean_type)) merged.bean_type = parsed.bean_type;
-        if (ORIGINS.includes(parsed.origin)) merged.origin = parsed.origin;
+        // Validate LLM output against the active (served) token lists.
+        if (this._vocabTokens("roast", ROASTS).includes(parsed.roast)) {
+          merged.roast = parsed.roast;
+        }
+        if (this._vocabTokens("bean_type", BEAN_TYPES).includes(parsed.bean_type)) {
+          merged.bean_type = parsed.bean_type;
+        }
+        if (this._vocabTokens("origin", ORIGINS).includes(parsed.origin)) {
+          merged.origin = parsed.origin;
+        }
         if (parsed.origin_country) merged.origin_country = parsed.origin_country;
         if (Array.isArray(parsed.flavor_notes)) {
           // Dynamic: accept any string the LLM emits, normalise & dedupe.
@@ -384,8 +421,8 @@ class MelittaBeans extends LitElement {
             <tr>
               <td>${b.brand}</td>
               <td>${b.product}</td>
-              <td>${b.roast}</td>
-              <td>${b.origin_country || b.origin}</td>
+              <td>${this._vocabLabel("roast", b.roast)}</td>
+              <td>${b.origin_country || this._vocabLabel("origin", b.origin)}</td>
               <td>${(b.flavor_notes || []).join(", ")}</td>
               <td class="actions">
                 <button class="icon edit" @click=${() => this._openEditBean(b)}>✎</button>
@@ -432,17 +469,17 @@ class MelittaBeans extends LitElement {
             <label>${this._t("beans.roast")}
               <select .value=${b.roast}
                 @change=${(e) => this._updateBeanField("roast", e.target.value)}>
-                ${ROASTS.map((r) => html`<option value=${r} ?selected=${r === b.roast}>${r}</option>`)}
+                ${this._vocabTokens("roast", ROASTS).map((r) => html`<option value=${r} ?selected=${r === b.roast}>${this._vocabLabel("roast", r)}</option>`)}
               </select></label>
             <label>${this._t("modal.type")}
               <select .value=${b.bean_type}
                 @change=${(e) => this._updateBeanField("bean_type", e.target.value)}>
-                ${BEAN_TYPES.map((bt) => html`<option value=${bt} ?selected=${bt === b.bean_type}>${bt}</option>`)}
+                ${this._vocabTokens("bean_type", BEAN_TYPES).map((bt) => html`<option value=${bt} ?selected=${bt === b.bean_type}>${this._vocabLabel("bean_type", bt)}</option>`)}
               </select></label>
             <label>${this._t("beans.origin")}
               <select .value=${b.origin}
                 @change=${(e) => this._updateBeanField("origin", e.target.value)}>
-                ${ORIGINS.map((o) => html`<option value=${o} ?selected=${o === b.origin}>${o}</option>`)}
+                ${this._vocabTokens("origin", ORIGINS).map((o) => html`<option value=${o} ?selected=${o === b.origin}>${this._vocabLabel("origin", o)}</option>`)}
               </select></label>
           </div>
 

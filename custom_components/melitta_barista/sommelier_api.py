@@ -334,14 +334,14 @@ async def _brew_recipe_phase(
 VALID_ROASTS = ["light", "medium", "medium_dark", "dark"]
 VALID_BEAN_TYPES = ["arabica", "arabica_robusta", "robusta"]
 VALID_ORIGINS = ["single_origin", "blend"]
-VALID_FLAVOR_NOTES = [
-    "chocolate", "nutty", "fruity", "floral", "caramel",
-    "spicy", "earthy", "honey", "berry", "citrus",
-]
-VALID_MILK_TYPES = [
-    "regular", "whole", "skim", "oat", "almond",
-    "soy", "coconut", "cream",
-]
+# Deliberately NO enum constants for milk types, flavor notes, or profile
+# temperature_pref (UI Contract §9.2.4): those fields are free-form by
+# design — milk names may be localized ("Ультрапастеризованное 3%"),
+# flavor notes are a dynamic-tag vocabulary, and temperature_pref is an
+# unconstrained TEXT column. The former VALID_MILK_TYPES /
+# VALID_FLAVOR_NOTES / VALID_TEMP_PREFS lists were enforced nowhere and
+# were removed in 0.93 so no reader mistakes them for enforced enums (or
+# serves them via `vocab/get`, which carries enforced enums only).
 VALID_MODES = ["surprise_me", "custom"]
 VALID_EXTRAS_CATEGORIES = ["syrups", "toppings", "liqueurs"]
 
@@ -373,9 +373,71 @@ VALID_PREFERENCE_KEYS = [
 VALID_CUP_SIZES = ["espresso_cup", "cup", "mug", "tall_glass", "travel"]
 VALID_MOODS = ["energizing", "relaxing", "dessert", "classic"]
 VALID_OCCASIONS = ["morning", "after_lunch", "guests", "romantic", "work"]
-VALID_TEMP_PREFS = ["auto", "hot", "iced", "hot_only", "cold_ok", "prefer_cold"]
+# The generate command's temperature enum (UI Contract §9.2.3): hoisted
+# from the former inline `vol.In(["auto", "hot", "iced"])` literal so the
+# generate schema and `build_sommelier_vocab` read one named source.
+# Pinned set-equal to ai_recipes.VALID_TEMPERATURE_PREFS by test.
+VALID_GENERATE_TEMPERATURES = ["auto", "hot", "iced"]
 VALID_CAFFEINE_PREFS = ["regular", "low", "decaf_evening"]
 VALID_DIETARY = ["no_sugar", "lactose_free", "low_calorie", "vegan"]
+
+# Legacy cup-size tokens still written by shipped clients, normalized on
+# every profiles/add|update ingest (UI Contract §9.2.6.4). The DB
+# migration to schema v11 rewrites the same aliases one-time in the
+# stored `sommelier_profiles.cup_size` / `preferences.default_cup_size`
+# columns; this map keeps a still-running legacy client from re-polluting.
+CUP_SIZE_ALIASES = {"espresso": "espresso_cup"}
+
+
+def _normalize_cup_size_aliases(data: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite legacy cup-size tokens in a profile payload, in place.
+
+    Applies CUP_SIZE_ALIASES to the `cup_size` and `default_cup_size`
+    keys of ``data`` (the flat profile-row dict the profiles/add|update
+    WS handlers assemble). Returns ``data`` for call-site convenience.
+    """
+    for key in ("cup_size", "default_cup_size"):
+        value = data.get(key)
+        if isinstance(value, str) and value in CUP_SIZE_ALIASES:
+            data[key] = CUP_SIZE_ALIASES[value]
+    return data
+
+
+def build_sommelier_vocab() -> dict[str, Any]:
+    """Build the sommelier enum vocabulary served by `vocab/get` (§9.2).
+
+    Serves ONLY the enumerations the server actually enforces (UI
+    Contract §9.2.3), each family read from its authoritative ordered
+    list in this module (plus `CUP_SIZE_VOLUMES` from ai_recipes for the
+    advisory cup-volume metadata). Free-form families — milk types,
+    flavor notes, extras item names, profile temperature_pref — are
+    normatively excluded (§9.2.4): serving an unenforced enum would
+    advertise a false contract. Each family is an open object so
+    metadata keys can be added additively; token order is the wire
+    order (the ai_recipes duplicates are sets and are pinned set-equal
+    by test).
+    """
+    from .ai_recipes import CUP_SIZE_VOLUMES  # noqa: PLC0415
+
+    return {
+        "roast": {"tokens": list(VALID_ROASTS)},
+        "bean_type": {"tokens": list(VALID_BEAN_TYPES)},
+        "origin": {"tokens": list(VALID_ORIGINS)},
+        "mood": {"tokens": list(VALID_MOODS), "multi": True},
+        "occasion": {"tokens": list(VALID_OCCASIONS)},
+        "cup_size": {
+            "tokens": list(VALID_CUP_SIZES),
+            "volumes_ml": {
+                token: list(CUP_SIZE_VOLUMES[token])
+                for token in VALID_CUP_SIZES
+            },
+        },
+        "temperature": {"tokens": list(VALID_GENERATE_TEMPERATURES)},
+        "caffeine": {"tokens": list(VALID_CAFFEINE_PREFS)},
+        "dietary": {"tokens": list(VALID_DIETARY), "multi": True},
+        "mode": {"tokens": list(VALID_MODES)},
+        "extras_kind": {"tokens": list(_ADDITIVE_SLOTS)},
+    }
 
 BEAN_SCHEMA = {
     vol.Required("brand"): cv.string,
@@ -794,7 +856,9 @@ async def ws_milk_set_available(
         vol.Optional("mood"): vol.In(VALID_MOODS),
         vol.Optional("moods"): [vol.In(VALID_MOODS)],
         vol.Optional("occasion"): vol.In(VALID_OCCASIONS),
-        vol.Optional("temperature", default="auto"): vol.In(["auto", "hot", "iced"]),
+        vol.Optional("temperature", default="auto"): vol.In(
+            VALID_GENERATE_TEMPERATURES
+        ),
         vol.Optional("servings", default=1): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=4)
         ),
@@ -1890,9 +1954,18 @@ async def ws_preferences_set(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Set a user preference."""
+    """Set a user preference.
+
+    Cup-size values are alias-normalized on ingest (UI Contract §9.2.6.4)
+    so a pre-0.93 client writing the legacy "espresso" token cannot
+    re-introduce an un-normalized value after the v11 migration.
+    """
     db = await _async_get_db(hass)
-    await db.async_set_preference(msg["key"], msg["value"])
+    value = msg["value"]
+    if msg["key"] in ("cup_size", "default_cup_size"):
+        normalized = _normalize_cup_size_aliases({msg["key"]: value})
+        value = normalized[msg["key"]]
+    await db.async_set_preference(msg["key"], value)
     _send_versioned(connection, msg["id"], {})
 
 
@@ -1927,7 +2000,11 @@ async def ws_profiles_add(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Add a new profile."""
+    """Add a new profile.
+
+    Legacy cup-size tokens (PWA ≤1.8.3's ``espresso``) are normalized on
+    ingest via CUP_SIZE_ALIASES (UI Contract §9.2.6.4).
+    """
     db = await _async_get_db(hass)
     # async_add_profile accepts a single `data` dict shaped like a profile
     # row (name, cup_size, dietary, caffeine_pref, …). Earlier we passed
@@ -1936,6 +2013,7 @@ async def ws_profiles_add(
     # was silently dropped on the way to the DB.
     data: dict[str, Any] = {"name": msg["name"]}
     data.update(msg.get("preferences", {}))
+    _normalize_cup_size_aliases(data)
     profile = await db.async_add_profile(data)
     _send_versioned(connection, msg["id"], {"profile": profile})
 
@@ -1955,13 +2033,20 @@ async def ws_profiles_update(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Update an existing profile."""
+    """Update an existing profile.
+
+    Legacy cup-size tokens (PWA ≤1.8.3's ``espresso``) are normalized on
+    ingest via CUP_SIZE_ALIASES (UI Contract §9.2.6.4), inside the nested
+    ``preferences`` dict — the shape this handler forwards to the DB.
+    """
     db = await _async_get_db(hass)
     data: dict[str, Any] = {}
     if "name" in msg:
         data["name"] = msg["name"]
     if "preferences" in msg:
-        data["preferences"] = msg["preferences"]
+        data["preferences"] = _normalize_cup_size_aliases(
+            dict(msg["preferences"])
+        )
     profile = await db.async_update_profile(msg["profile_id"], data)
     if profile is None:
         connection.send_error(

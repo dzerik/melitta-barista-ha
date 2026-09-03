@@ -53,6 +53,7 @@ class MelittaPanel extends LitElement {
       _brandTheme: { state: true },
       _contract: { state: true },
       _serverStrings: { state: true },
+      _vocab: { state: true },
       _logoFailed: { state: true },
     };
   }
@@ -67,6 +68,8 @@ class MelittaPanel extends LitElement {
     this._brandTheme = null;
     this._contract = null;
     this._serverStrings = null;
+    this._vocab = null;
+    this._vocabFetched = false;
     this._i18nLocale = null;
     this._logoFailed = false;
   }
@@ -84,6 +87,7 @@ class MelittaPanel extends LitElement {
     if (changedProps.has("hass") && this.hass && !this._hassReady) {
       this._hassReady = true;
       this._loadEntries();
+      this._loadVocab();
     }
     // HA locale changes arrive as hass updates — re-fetch server strings
     // for the new locale (no-op while the locale is unchanged).
@@ -122,6 +126,33 @@ class MelittaPanel extends LitElement {
       // Graceful absence: bundle/humanized fallback for the session.
       setServerStrings(null);
       this._serverStrings = null;
+    }
+  }
+
+  /**
+   * Fetch the sommelier enum vocabulary (UI Contract §9.2) via
+   * `melitta_barista/vocab/get` — machine-independent constant data, so
+   * one fetch per panel session, no entry_id. The served families feed
+   * the sommelier/beans/additives pickers as the `.vocab` prop.
+   *
+   * Failure (an older backend without the command, a transient WS
+   * error) degrades per feature to the components' hardcoded fallback
+   * arrays (§9.2.6.1) — never a panel error.
+   */
+  async _loadVocab() {
+    if (!this.hass || this._vocabFetched) return;
+    this._vocabFetched = true;
+    try {
+      const result = await this.hass.callWS({
+        type: "melitta_barista/vocab/get",
+      });
+      this._vocab =
+        result && typeof result.vocab === "object" && result.vocab !== null
+          ? result.vocab
+          : null;
+    } catch (e) {
+      // Graceful absence: hardcoded fallback arrays for the session.
+      this._vocab = null;
     }
   }
 
@@ -279,13 +310,13 @@ class MelittaPanel extends LitElement {
     const props = { hass: this.hass, entryId: this._activeEntry, lang: this._lang };
     switch (this._tab) {
       case "sommelier":
-        return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .serverStrings=${this._serverStrings}></melitta-sommelier>`;
+        return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .vocab=${this._vocab} .serverStrings=${this._serverStrings}></melitta-sommelier>`;
       case "recipes":
         return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .contract=${this._contract} .serverStrings=${this._serverStrings}></melitta-recipes>`;
       case "beans":
-        return html`<melitta-beans .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-beans>`;
+        return html`<melitta-beans .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .vocab=${this._vocab} .serverStrings=${this._serverStrings}></melitta-beans>`;
       case "additives":
-        return html`<melitta-additives .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-additives>`;
+        return html`<melitta-additives .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .vocab=${this._vocab} .serverStrings=${this._serverStrings}></melitta-additives>`;
       case "producers":
         return html`<melitta-producers .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-producers>`;
       case "system":

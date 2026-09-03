@@ -16,8 +16,9 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.const import CONF_ADDRESS
 
 from .ble_client import resolve_caps_from_scanner
+from .brands.nivona._options import nivona_number_range
 from .coffee_platform.contract import CoffeeMachineClient
-from .const import DOMAIN, MachineSettingId
+from .const import DOMAIN, MELITTA_SETTING_TABLES
 from .entity import MelittaDeviceMixin
 
 
@@ -25,59 +26,45 @@ PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
 
 _LOGGER = logging.getLogger("melitta_barista")
 
+# Contract display hint ("slider"/"box") → HA NumberMode; contract unit
+# token → HA unit constant. The table stores the pure-data spellings
+# (UI Contract §9.1) so const.py needs no homeassistant imports.
+_DISPLAY_TO_MODE: dict[str, NumberMode] = {
+    "slider": NumberMode.SLIDER,
+    "box": NumberMode.BOX,
+}
+_UNIT_MAP: dict[str, str] = {
+    "min": UnitOfTime.MINUTES,
+    "h": UnitOfTime.HOURS,
+}
 
+
+def _number_definition(row: dict) -> dict:
+    """Entity definition dict for one MELITTA_SETTING_TABLES number row."""
+    definition = {
+        "id": row["id"],
+        "name": row["name"],
+        "icon": row["icon"],
+        "min": row["min"],
+        "max": row["max"],
+        "step": row["step"],
+        "mode": _DISPLAY_TO_MODE[row["display"]],
+        "category": EntityCategory.CONFIG,
+    }
+    if "unit" in row:
+        definition["unit"] = _UNIT_MAP[row["unit"]]
+    return definition
+
+
+# Numeric machine-setting entities, derived from the shared
+# MELITTA_SETTING_TABLES in const.py (single source for entities and the
+# UI-contract settings builder — UI Contract §5.2 rule 9 / §9.1.2.5).
+# Entity ids, names, icons, ranges and behaviour are byte-identical to
+# the pre-move hand-coded list.
 SETTING_DEFINITIONS: list[dict] = [
-    {
-        "id": MachineSettingId.WATER_HARDNESS,
-        "name": "Water Hardness",
-        "icon": "mdi:water-opacity",
-        "min": 1,
-        "max": 4,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "category": EntityCategory.CONFIG,
-    },
-    {
-        "id": MachineSettingId.AUTO_OFF_AFTER,
-        "name": "Auto Off After",
-        "icon": "mdi:timer-off-outline",
-        "min": 15,
-        "max": 240,
-        "step": 15,
-        "unit": UnitOfTime.MINUTES,
-        "mode": NumberMode.BOX,
-        "category": EntityCategory.CONFIG,
-    },
-    {
-        "id": MachineSettingId.TEMPERATURE,
-        "name": "Brew Temperature",
-        "icon": "mdi:thermometer",
-        "min": 0,
-        "max": 2,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "category": EntityCategory.CONFIG,
-    },
-    {
-        "id": MachineSettingId.LANGUAGE,
-        "name": "Language",
-        "icon": "mdi:translate",
-        "min": 0,
-        "max": 15,
-        "step": 1,
-        "mode": NumberMode.BOX,
-        "category": EntityCategory.CONFIG,
-    },
-    {
-        "id": MachineSettingId.FILTER,
-        "name": "Filter",
-        "icon": "mdi:filter-outline",
-        "min": 0,
-        "max": 1,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "category": EntityCategory.CONFIG,
-    },
+    _number_definition(row)
+    for row in MELITTA_SETTING_TABLES
+    if row["control"] == "number"
 ]
 
 
@@ -261,8 +248,10 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
     options list (e.g. AutoOn hour / minute fields on Nivona 900 /
     900-Light / 1030 / 1040).
 
-    Range is derived from the key name — hours → 0..23, minutes → 0..59,
-    otherwise 0..255 as a safe fallback.
+    Range and unit come from the shared pure helper
+    ``nivona_number_range`` (UI Contract §9.1.3) — hours → 0..23,
+    minutes → 0..59, otherwise 0..255 — the same rule the contract
+    settings builder serves, so entity and contract can never diverge.
     """
 
     _attr_has_entity_name = True
@@ -285,19 +274,16 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
         self._setting_id: int = descriptor.setting_id
         self._attr_translation_key = descriptor.key
         self._attr_name = descriptor.title
-        if "hour" in descriptor.key:
-            self._attr_native_min_value = 0
-            self._attr_native_max_value = 23
+        min_value, max_value, unit = nivona_number_range(descriptor)
+        self._attr_native_min_value = min_value
+        self._attr_native_max_value = max_value
+        if unit == "h":
             self._attr_native_unit_of_measurement = UnitOfTime.HOURS
             self._attr_icon = "mdi:clock-outline"
-        elif "minute" in descriptor.key:
-            self._attr_native_min_value = 0
-            self._attr_native_max_value = 59
+        elif unit == "min":
             self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
             self._attr_icon = "mdi:clock-time-four-outline"
         else:
-            self._attr_native_min_value = 0
-            self._attr_native_max_value = 255
             self._attr_icon = "mdi:cog"
         if descriptor.unit:
             self._attr_native_unit_of_measurement = descriptor.unit

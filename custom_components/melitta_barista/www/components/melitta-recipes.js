@@ -17,9 +17,12 @@
  * → hardcoded fallbacks matching the service schema defaults. Option and
  * DirectKey category labels prefer server-served strings
  * (`values.<family>.<token>` / `values.directkey_category.<token>`,
- * §6.3.5) over the panel bundle. Editing is disabled gracefully while
- * the machine is disconnected; the base-recipe table stays available as
- * a collapsed read-only reference.
+ * §6.3.5) over the panel bundle. Since 0.93 (UI Contract v3): row
+ * category identity is the served `category` token (§9.3.4 — no BLE
+ * slot-id math here), and empty-slot component defaults come from the
+ * `save_directkey` action-catalog entry's introspected params (§9.3.5).
+ * Editing is disabled gracefully while the machine is disconnected; the
+ * base-recipe table stays available as a collapsed read-only reference.
  */
 
 import { LitElement, html, css } from "../lit-base.js";
@@ -28,15 +31,18 @@ import { displayNameFor, labelFor } from "../i18n/server-strings.js";
 import "./melitta-confirm.js";
 import "./ui/melitta-drink-icon.js";
 
-/** DirectKey category tokens, index-aligned with DirectKeyCategory. */
+/**
+ * Fallback DirectKey category tokens, index-aligned with the enum order.
+ * Since 0.93 every `recipes/list` DirectKey row carries its own
+ * `category` token (UI Contract §9.3.4) — this array is only the
+ * positional tier-2 fixture for a row without one (§5.3.6). The BLE
+ * slot-id math this file used to duplicate is gone: the server derives
+ * the token.
+ */
 const DIRECTKEY_CATEGORIES = [
   "espresso", "cafe_creme", "cappuccino", "latte_macchiato",
   "milk_froth", "milk", "water",
 ];
-
-/** BLE id layout of DirectKey slots: 302 + profile_id * 10 + category. */
-const DIRECTKEY_OFFSET = 302;
-const DIRECTKEY_PROFILE_MULTIPLIER = 10;
 
 /**
  * Fallback freestyle vocabularies matching the save_directkey service
@@ -57,12 +63,17 @@ const FALLBACK_PORTION_LIMITS = {
   c2: { min: 0, max: 250, step: 5 },
 };
 
-/** Default component values (service schema defaults) for empty slots. */
-const DEFAULT_C1 = {
+/**
+ * Fallback component defaults for empty slots, mirroring the service
+ * schema. Tier 2 only (§5.3.6): the live defaults come from the
+ * `save_directkey` action-catalog entry's introspected params (§9.3.5)
+ * via `_componentDefaults()`.
+ */
+const FALLBACK_DEFAULT_C1 = {
   process: "coffee", intensity: "medium", aroma: "standard",
   temperature: "normal", shots: "one", portion_ml: 40,
 };
-const DEFAULT_C2 = {
+const FALLBACK_DEFAULT_C2 = {
   process: "none", intensity: "medium", aroma: "standard",
   temperature: "normal", shots: "none", portion_ml: 0,
 };
@@ -215,14 +226,60 @@ class MelittaRecipes extends LitElement {
     return Math.min(max, Math.max(min, v));
   }
 
+  /**
+   * Introspected params of the `save_directkey` action-catalog entry
+   * (UI Contract §9.3.5), or null when the contract/catalog/entry is
+   * absent (pre-handshake, older backend) — graceful absence per §9.0.4.
+   */
+  _saveDirectkeyParams() {
+    const actions = this.contract?.actions;
+    if (!Array.isArray(actions)) return null;
+    const entry = actions.find(
+      (a) => a && typeof a === "object" && a.action === "save_directkey",
+    );
+    const params = entry?.invocation?.params;
+    return Array.isArray(params) ? params : null;
+  }
+
+  /**
+   * Default component values ("c1"/"c2") for empty slots, from the
+   * `save_directkey` catalog entry's introspected param defaults
+   * (§9.3.5 — the DEFAULT_C1/C2 hand-copy is dead) with the hardcoded
+   * service-schema mirror as the §5.3.6 fallback tier.
+   */
+  _componentDefaults(slot) {
+    const n = slot === "c2" ? "2" : "1";
+    const fallback = slot === "c2" ? FALLBACK_DEFAULT_C2 : FALLBACK_DEFAULT_C1;
+    const params = this._saveDirectkeyParams();
+    if (!params) return fallback;
+    const fields = {
+      [`process${n}`]: "process",
+      [`intensity${n}`]: "intensity",
+      [`aroma${n}`]: "aroma",
+      [`temperature${n}`]: "temperature",
+      [`shots${n}`]: "shots",
+      [`portion${n}_ml`]: "portion_ml",
+    };
+    const defaults = { ...fallback };
+    for (const param of params) {
+      const field = fields[param?.name];
+      if (field && param.default !== undefined && param.default !== null) {
+        defaults[field] = param.default;
+      }
+    }
+    return defaults;
+  }
+
   // ── labels ─────────────────────────────────────────────────────────
 
-  /** DirectKey category token for a recipe row (derived from its BLE id). */
+  /**
+   * DirectKey category token for a recipe row: the served `category`
+   * field (§9.3.4 — the server derives it from the enum) with the
+   * positional fixture as fallback for rows without one.
+   */
   _categoryToken(recipe, index) {
-    const offset = Number(recipe?.id) - DIRECTKEY_OFFSET;
-    if (offset >= 0) {
-      const token = DIRECTKEY_CATEGORIES[offset % DIRECTKEY_PROFILE_MULTIPLIER];
-      if (token) return token;
+    if (typeof recipe?.category === "string" && recipe.category) {
+      return recipe.category;
     }
     return DIRECTKEY_CATEGORIES[index] || null;
   }
@@ -323,8 +380,8 @@ class MelittaRecipes extends LitElement {
       name: recipe?.name || this._categoryLabel(category),
       icon: recipe?.icon || null,
       empty: !components[0],
-      c1: this._componentForm(components[0], DEFAULT_C1),
-      c2: this._componentForm(components[1], DEFAULT_C2),
+      c1: this._componentForm(components[0], this._componentDefaults("c1")),
+      c2: this._componentForm(components[1], this._componentDefaults("c2")),
     };
   }
 

@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from bleak.exc import BleakError
 
 from .coffee_platform.contract import CoffeeMachineClient
-from .const import MachineSettingId, MachineType, TS_ONLY_SETTINGS, get_user_profile_count
+from .const import MELITTA_SETTING_TABLES, MachineType, get_user_profile_count
 from .entity import MelittaDeviceMixin
 
 
@@ -23,25 +23,21 @@ PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
 
 _LOGGER = logging.getLogger("melitta_barista")
 
+# Boolean machine-setting entities, derived from the shared
+# MELITTA_SETTING_TABLES in const.py (single source for entities and the
+# UI-contract settings builder — UI Contract §5.2 rule 9 / §9.1.2.5).
+# Entity ids, names, icons and behaviour are byte-identical to the
+# pre-move hand-coded list.
 SWITCH_DEFINITIONS: list[dict] = [
     {
-        "id": MachineSettingId.ENERGY_SAVING,
-        "name": "Energy Saving",
-        "icon": "mdi:leaf",
+        "id": row["id"],
+        "name": row["name"],
+        "icon": row["icon"],
         "category": EntityCategory.CONFIG,
-    },
-    {
-        "id": MachineSettingId.AUTO_BEAN_SELECT,
-        "name": "Auto Bean Select",
-        "icon": "mdi:grain",
-        "category": EntityCategory.CONFIG,
-    },
-    {
-        "id": MachineSettingId.RINSING_OFF,
-        "name": "Rinsing Disabled",
-        "icon": "mdi:water-off",
-        "category": EntityCategory.CONFIG,
-    },
+        "ts_only": row["ts_only"],
+    }
+    for row in MELITTA_SETTING_TABLES
+    if row["control"] == "switch"
 ]
 
 
@@ -58,7 +54,7 @@ async def async_setup_entry(
         MelittaSettingSwitch(client, entry, name, defn)
         for defn in SWITCH_DEFINITIONS
         if not (
-            defn["id"] in TS_ONLY_SETTINGS
+            defn["ts_only"]
             and client.machine_type == MachineType.BARISTA_T
         )
     ]

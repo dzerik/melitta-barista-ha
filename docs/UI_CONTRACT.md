@@ -3,7 +3,10 @@
 Status: **Design accepted for 0.91**. The v2 feature set — parameter catalogs,
 action catalog and i18n-over-WS — is **normative as of 0.92** (§6, shipped
 additively within `contract_version: 1`; implementation plan §8; Appendix A.1
-amendment 6).
+amendment 6). The v3 feature set — settings descriptors, the sommelier
+vocabulary endpoint and the DirectKey/profile model — is **normative as of
+0.93** (§9, shipped additively within `contract_version: 1`; implementation
+plan §10; Appendix A.1 amendment 7).
 
 This document is the canonical contract between the `melitta_barista` integration
 (server) and its thin clients: the Lovelace card (`melitta-barista-card`) and the
@@ -1044,6 +1047,30 @@ byte-exact.
   zero extra round-trips. (The draft's "deliberately excluded from the
   fingerprint" phrasing is retracted as misleading.)
 
+*Appended by the 0.93 amendment (Appendix A.1, entry 7):*
+
+* **Fingerprint inputs, 0.93 delta: none.** The v3 blocks add **no new machine-state
+  inputs** — every value they derive from is already a §5.1 input:
+  * `settings` derives from `family_key`, `machine_type` (TS-only gating),
+    `model_name` (the NICR 758 per-model descriptor exclusion),
+    `unsupported_generic_setting_ids` / `capabilities.settings` (both pure
+    functions of family + model), and the integration version (table edits
+    shipped in a release).
+  * `directkey` derives from `supported_extensions` (HC), `machine_type`
+    (physical-button map, slot count), `my_coffee_slots`, and the integration
+    version.
+  * The sommelier vocabulary is **deliberately outside the contract document**
+    (§9.2.1) and therefore outside the fingerprint; its cache axis is
+    `strings_version`, which is fingerprint-transitive via the integration
+    version. The §5.1 normative rule ("any value that feeds the served
+    catalogs MUST be a fingerprint input") is satisfied for all three features
+    with zero new inputs.
+* `strings_version` gains two new key domains (`settings`, `sommelier`,
+  §9.1.5/§9.2.5) on the same axis; no new version field is introduced by v3.
+  `strings_version` is resolved **once at setup** and stashed domain-wide
+  (§9.2.2) — the lazy per-request resolution inside `i18n/get` is removed in
+  the same release, applying the §5.1 single-source precedent.
+
 ### 5.2 Server rules
 
 1. Within `contract_version: 1`: additive-only. New fields, new *optional* tokens in
@@ -1076,6 +1103,40 @@ byte-exact.
    new keys inside them. All catalog evolution happens in `parameters` /
    `actions` / `forbidden_combinations`.
 
+8. *(0.93 amendment)* **Legacy DirectKey identity surfaces are frozen (mirror-and-freeze, same
+   pattern as rule 7).** The profile select's `directkey_recipes` attribute
+   (keyed by **English display names** — `"Espresso"`, `"Café Crème"`, …) and
+   the Title-case `name` labels in the `recipes/list` `directkey` rows are
+   closed sets: no new category keys or label spellings will ever be added
+   inside them, and the existing spellings are frozen (they are the shipped
+   card's and PWA's de-facto reverse-map API). All category identity evolution
+   happens in the token surfaces: the additive `category` field on
+   `recipes/list` rows and the contract `directkey` block (§9.3.4).
+9. *(0.93 amendment)* The Melitta settings entities' **behaviour** is unchanged by v3, but their
+   defining data moves: the switch/number setting tables migrate from
+   `switch.py`/`number.py` into `const.py` as pure data
+   (`MELITTA_SETTING_TABLES`: setting id, control kind, min/max/step, mode,
+   icon, English name, TS-only flag), consumed by **both** the entity
+   platforms and the contract builder — one source of truth, satisfying the
+   never-hand-copy rule without `ui_contract.py` importing
+   `homeassistant.components.*`. Entity ids, names, icons, and behaviour are
+   byte-identical before and after the move. The Nivona descriptor entities
+   are untouched. The `settings` block **describes** the entity surface, it
+   does not replace it; the builder and entity registration evaluate identical
+   predicates over identical tables, pinned by pytest as **predicate
+   equality** (§9.1.2 rule 5).
+10. *(0.93 amendment)* New `ui_strings/` key domains are additive. The `i18n/get` domain set
+    grows to `{status, values, recipes, actions, settings, sommelier}`;
+    unknown requested domains remain ignored (§6.3.1, unchanged). **Note the
+    real 2.x-compat mechanism:** shipped clients fetch i18n **without a
+    domain filter** (the card's `fetchServerStrings` passes no `domains`
+    parameter, and an omitted filter serves ALL domains), so their responses
+    against a ≥0.93 server DO grow with every `settings.*`/`sommelier.*` key.
+    Safety rests on §6.0.3 unknown-key tolerance (`setServerStrings` stores
+    keys nothing consumes; contract consumers never enumerate) — not on
+    domain filtering. Only a client that requests an explicit old-four-domain
+    filter sees byte-identical responses.
+
 ### 5.3 Client rules
 
 1. Ignore unknown fields everywhere.
@@ -1094,6 +1155,14 @@ byte-exact.
    contract-derived features, never attribute-token status.
 5. Keep the legacy code paths (string matching, `DRINKS`, hardcoded consts) alive
    and covered by tests for as long as integrations older than 0.91 are supported.
+
+6. *(0.93 amendment)* The three-tier fallback pattern (§6.1.5) extends to every v3 feature, per
+   feature independently: contract/WS-served data → the client's existing
+   hardcoded tables (settings tables, category arrays, sommelier option
+   lists) → hide/degrade. The hardcoded tables become permanent fallback
+   fixtures, never deleted while pre-0.93 integrations are supported.
+   **Within tier 1, entity existence remains a required gate** — contract
+   presence never overrides entity absence (§9.1.6 rule 2, §9.3.6 rule 6).
 
 ### 5.4 Compatibility matrix
 
@@ -1128,6 +1197,23 @@ legacy mode (v1 rule); it treats `parameters`/`actions` as optional exactly
 like the card and persists i18n per `locale + strings_version` with the §6.3.2
 revalidation rule.
 
+*Appended by the 0.93 amendment:*
+
+**0.93 feature-level matrix** (all cells inside `contract_version: 1`; the §5.4
+base matrix and the 0.92 matrix continue to govern older columns):
+
+| | **Integration 0.92.x** | **Integration ≥0.93** |
+| --- | --- | --- |
+| **Card 2.7.0 (v2-aware)** | Status quo (full v2). | Works unchanged: `settings`/`directkey` are unknown fields (§5.3.1); the `save_directkey` action entry is in the `control` group, which the card renders with bespoke UI (informational per §6.2.5.2); `vocab/get` is never called. Its unfiltered `i18n/get` responses **grow** with the new `settings.*`/`sommelier.*` keys — safe via unknown-key tolerance (§5.2 rule 10), and an expected observation in the §10.4 beta checklist, not a regression. Zero behaviour change — the reason §9.0 chose the additive path again. |
+| **Card 2.8 (v3-aware)** | `settings`/`directkey` absent → tier-2/3 fallback to `SWITCH_KEYS`/`NUMBER_KEYS`/`DIRECTKEY_CATEGORIES` + entity existence (today's 2.7 behaviour). | Contract-driven settings section (numbers become writable level controls; Nivona selects render), catalog-driven DirectKey category set with per-machine button truth. |
+| **PWA ≤1.8.3 (contract-unaware)** | Status quo. | Works unchanged: the entity surface it reads (states, attributes, services) is untouched by v3. The sole server-visible change is the cup-size token normalization (§9.2.6.4): a migrated profile's stored `espresso_cup` is not in 1.8.3's picker, so its profile dialog may show no preselected cup size until re-saved — cosmetic; re-saves of the legacy token are re-normalized on write. |
+| **PWA 2.0 (full v1+v2+v3 port)** | v1+v2 features active; v3 features absent → per-feature fallback to its ported hardcoded tables. Against <0.91 servers: no `contract_version` on the bridge → "update the integration" screen (§5.4 PWA rule, unchanged). | Full contract client: token status, icon specs, parameters, action catalog, settings descriptors, DirectKey/profile model, sommelier vocabulary, server i18n, brew-phase wizard. |
+
+Panel: ships inside the integration (always version-matched); adopts the
+`recipes/list` `category` token, the sommelier vocabulary, and the new
+`sommelier.*` labels as an ordinary consumer. The panel has **no
+machine-settings tab** (its tabs are sommelier/beans/additives/producers/
+system), so it consumes nothing from §9.1.
 ---
 
 ## 6. The v2 feature set (0.92, normative)
@@ -2110,6 +2196,1124 @@ matrix lands).
 
 ---
 
+## 9. The v3 feature set (0.93, normative)
+
+### 9.0 Versioning decision (normative)
+
+**All three v3 features ship additively within `contract_version: 1`.** No bump.
+This is the third application of the §6.0 precedent and the same reasoning
+applies verbatim: nothing in 0.93 removes, renames, re-types, or re-cases a
+v1/v2 surface, and a bump would push every shipped 2.4–2.7 card into full
+legacy mode for zero benefit.
+
+Consequent normative rules (extending §6.0's, which remain in force):
+
+1. **Per-feature presence gating.** Clients detect each v3 feature by
+   field/command presence, never by version: `settings` present →
+   descriptor-driven settings UI; `directkey` present → contract-driven
+   DirectKey/profile model; `vocab/get` answered → vocab-driven sommelier
+   enums. `validateContract` MUST NOT require any v3 field.
+2. `SUPPORTED_CONTRACT_VERSIONS` stays `[1]` in all clients.
+3. Unknown values inside v3 structures follow §5.3.2: unknown setting
+   `control` → that entry falls back to the client's hardcoded rendering for
+   that setting token, or is skipped if the token is also unknown; unknown
+   setting/action `group` → rendered after known groups under a humanized
+   header (§6.2.3 rule); unknown `levels`/`options` token → the raw numeric
+   value is shown; unknown vocab family in `vocab/get` → ignored; unknown
+   i18n keys → ignored.
+4. **Per-feature degradation** (§6.0.4 extended unchanged): failure or absence
+   of any one v3 feature never degrades another v3 feature, any v2 feature,
+   or v1 behaviour.
+
+### 9.1 Settings descriptors
+
+Machine settings today are three parallel server mechanisms (Melitta
+hand-coded switch/number tables, Nivona capability-driven descriptor
+selects/numbers, per-family gating via `TS_ONLY_SETTINGS` /
+`unsupported_generic_setting_ids` / `_MODEL_SETTINGS_EXCLUDE`) that both
+clients re-hardcode as identical suffix tables and level-label maps, hiding
+missing entities by existence check. v3 serves the resolved, per-machine
+settings surface as data, so clients render a settings section from the
+contract and the hardcoded tables become fallback tier 3.
+
+#### 9.1.1 Shape
+
+Additive top-level contract field `settings: SettingEntry[]`. **Served order is
+the normative render order** (grouped; groups in the §9.1.3 order).
+
+```ts
+settings?: SettingEntry[];
+
+interface SettingEntry {
+  setting: string;            // lower_snake stable token (§3.1); byte-equal to
+                              // the entity suffix — equality is TEST-ENFORCED
+                              // (§9.1.2 rule 1), one identity, two uses
+  control: string;            // known: "switch" | "number" | "select" (open, §5.3.2)
+  group: string;              // known: "brew" | "water" | "power" | "system" (open)
+  icon?: string;              // "mdi:<name>"; absent/malformed → mdi:tune
+  entity: {
+    domain: string;           // "switch" | "number" | "select"
+    entity_suffix: string;    // clients assemble <domain>.<prefix>_<entity_suffix>,
+  };                          // exactly the §6.2.1 anchor convention
+  writable: boolean;          // false → render read-only (descriptor.is_writable)
+  // control == "number":
+  min?: number; max?: number; step?: number;
+  unit?: string;              // known: "min" | "h"
+  display?: string;           // known: "slider" | "box" — advisory hint only
+  levels?: { value: number; token: string }[];   // semantic ladder for discrete scales
+  // control == "select":
+  options?: { value: number; token: string | null; label: string }[];
+}
+```
+
+Rules:
+
+* `levels`/`options` **tokens are the semantic identity; values are the wire
+  mapping.** The same token ladder is served with different values where the
+  hardware differs — Melitta water hardness is 1-based (`1→soft … 4→very_hard`),
+  Nivona is 0-based (`0→soft … 3→very_hard`) — resolving the cross-surface
+  divergence as data instead of client special-casing.
+* `options[].label` **mirrors the select entity's current option strings,
+  derived at build time from the descriptor tables in
+  `brands/nivona/_options.py`** (single source; the byte-equality pytest is
+  structural, not aspirational). Changing an option string is an
+  **entity-layer breaking change** (users' HA automations match on it),
+  governed outside this contract; contract clients are unaffected by any
+  future change because they write the *served* label (§9.1.6 rule 4) — a
+  later token-valued-options migration of the entity layer would not break
+  them.
+* `token` is present only where a semantic ladder has been authored. 0.93
+  tokenizes: `_HARDNESS_OPTIONS` → `soft medium hard very_hard`, and the
+  **shared** `_OFF_ON_OPTIONS` / `_TEMP_ON_OFF` tables → `off on`. The shared
+  tables are annotated **once**, so every descriptor key referencing them
+  (≈10 across the Nivona families — `off_rinse`, `cup_heater`,
+  `milk_products_active`, `direct_start_deactivated`, `touch_lock`,
+  `auto_on_deactivated`, `save_energy`, `tank_light`, `power_on_rinse`, plus
+  `coffee_temperature` on the 8000) emits tokenized options. Their labels
+  localize through the shared `settings._levels.*` tier (§9.1.4), so the
+  fan-out costs **zero** extra i18n keys. All other option tables ship
+  `token: null` + label-only in 0.93; tokenizing further tables later is
+  additive.
+* A number entry without `levels` (e.g. `auto_off_after`, `language`) is a
+  plain numeric control; clients MUST NOT invent level labels for it.
+
+#### 9.1.2 Token, binding, and gating rules (normative)
+
+1. `setting` tokens are byte-equal to the entity suffixes clients already
+   address — **and this equality is test-enforced, not "by construction"**:
+   * *Melitta:* suffixes derive from slugified English entity names; the Zone
+     I-J pytest pins `slugify(name) == token` for every
+     `MELITTA_SETTING_TABLES` row (`energy_saving`, `auto_bean_select`,
+     `rinsing_disabled`, `water_hardness`, `auto_off_after`,
+     `brew_temperature`, `language`, `filter`).
+   * *Nivona:* `BrandSettingSelect`/`BrandSettingNumber` set
+     `_attr_translation_key = descriptor.key` with `has_entity_name`, so HA
+     derives the entity_id suffix from the **slugified translated name**
+     (`entity.<domain>.<key>.name` in the server-language `translations/`
+     file). Today every pair matches only because those name strings are
+     English. **Anchored-entity naming invariant:** for every Nivona
+     `SettingDescriptor` whose key is served in this block,
+     `slugify(entity.<domain>.<key>.name) == descriptor.key` MUST hold in
+     **all 29** `translations/*.json` files, pinned by a Zone I-J pytest.
+     Those specific name strings are therefore frozen to slug-equal
+     (effectively English) forms; localizing them is forbidden while they
+     anchor the contract. (The alternative — dropping
+     `_attr_translation_key` with an entity-registry migration — is
+     deliberately deferred; noted in `docs/BACKLOG.md`.)
+
+   Note the deliberate token distinction: Melitta's id-22 entity is token
+   `brew_temperature` (its entity name), while Nivona's id-102 descriptor
+   keeps its key `temperature` — two different tokens for two different
+   settings; no collision with the freestyle `temperature` family because
+   settings live in their own keyspace.
+2. The Nivona `water_hardness` and Melitta `water_hardness` tokens are
+   **intentionally identical** — one label/level keyspace serves both brands
+   (§9.1.4), despite the 0-based/1-based value offset (carried per-entry in
+   `levels`/`options` values).
+3. `rinsing_disabled` binds to the existing switch entity semantics (on =
+   rinsing disabled). The contract carries **no inversion logic**; the machine
+   register's inverted sense (`RINSING_OFF`, id 18) is an entity-layer
+   concern, invisible here.
+4. Per-brew parameters are **not settings**: freestyle selects/numbers and
+   Nivona brew-override numbers stay exclusively in `parameters` (§6.1). The
+   `settings` block carries machine configuration only.
+5. **Predicate-equality invariant.** The builder and entity registration
+   consume the *same tables and predicates* — `MELITTA_SETTING_TABLES`
+   (incl. its TS-only flags, replacing `TS_ONLY_SETTINGS` as data),
+   `capabilities.unsupported_generic_setting_ids` (family), and the
+   `capabilities.settings` descriptors post-`_MODEL_SETTINGS_EXCLUDE` (model)
+   — *given the same `(family, model, machine_type)` input*. A Zone I-J
+   pytest evaluates **both predicate implementations** across all family ×
+   machine-type combinations and pins set equality. This is **predicate**
+   equality, not live-registry equality: entities register once at platform
+   setup with the then-known machine type (name-detected, or the assume-TS
+   default), while the contract block re-evaluates per request with the
+   HR-refined machine type. After a mid-session refinement (e.g. a handshake
+   confirming BARISTA_T on a machine whose name detection failed) the
+   contract drops `auto_bean_select` and the extra profile slots via the
+   fingerprint, while the stale entities persist until the entry reloads —
+   this divergence is **expected and intended**: contract-driven clients
+   render from the contract, the entity-absence rule (§9.1.6 rule 2) governs
+   the opposite direction, and the entity set converges on reload. For
+   exactly this reason, client entity-existence gating **remains REQUIRED**
+   inside tier 1 (it is not "redundant").
+6. Unknown `machine_type` (pre-refinement) follows the existing TS-assumption
+   precedent (`PROFILE_COUNTS`, `get_available_recipes`): `auto_bean_select`
+   is served. Post-handshake machine-type refinement changes the block and is
+   delivered by the fingerprint (`machine_type` is a §5.1 input), per rule 5's
+   convergence semantics.
+7. **Icon provenance.** `build_settings_block` reads icons at build time from
+   the same `const.py` tables the entities register with (Melitta) — icon
+   parity is structural, and the §9.1.3 table below documents it. Nivona
+   descriptor entries serve `mdi:tune`.
+
+#### 9.1.3 Contents served in 0.93 (normative tables)
+
+Group order: `brew, water, power, system`, then unknown groups in served
+order. Group headers localize via `settings._groups.<group>`.
+
+**Melitta (both families; Δ = gated):**
+
+| setting | id | control | group | binding | data | icon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `auto_bean_select` | 16 | switch | brew | `switch` / `auto_bean_select` | Δ absent on confirmed BARISTA_T (TS-only flag) | mdi:grain |
+| `brew_temperature` | 22 | number | brew | `number` / `brew_temperature` | 0–2/1, slider, levels `low normal high` | mdi:thermometer |
+| `water_hardness` | 11 | number | water | `number` / `water_hardness` | 1–4/1, slider, levels `soft medium hard very_hard` | mdi:water-opacity |
+| `filter` | 91 | number | water | `number` / `filter` | 0–1/1, slider, levels `off on` | mdi:filter-outline |
+| `rinsing_disabled` | 18 | switch | water | `switch` / `rinsing_disabled` | | mdi:water-off |
+| `energy_saving` | 12 | switch | power | `switch` / `energy_saving` | | mdi:leaf |
+| `auto_off_after` | 13 | number | power | `number` / `auto_off_after` | 15–240/15, box, unit `min`, no levels | mdi:timer-off-outline |
+| `language` | 15 | number | system | `number` / `language` | 0–15/1, box, **no levels** (register mapping unverified — issue #10 79x precedent; served numeric-only) | mdi:translate |
+
+The icon column mirrors the entity icons in `MELITTA_SETTING_TABLES` (the
+values `switch.py`/`number.py` register today — including `mdi:water-opacity`
+and `mdi:filter-outline`, which earlier drafts misquoted). Errata rule
+(extends the §6.2.2 errata precedent): where a client bundle icon differs
+(card `energy_saving` mdi:lightning-bolt), the served value — identical to
+the entity icon — is normative.
+
+**Nivona:** one `select` entry per post-exclusion `SettingDescriptor`
+(options from the descriptor, `writable` from `is_writable`, icon mdi:tune,
+group per the builder table: `temperature`/`coffee_temperature`/
+`milk_temperature`/`milk_foam_temperature`/`profile`/`cup_heater` → brew;
+`water_hardness`/`off_rinse`/`power_on_rinse` → water; `auto_off`/
+`save_energy`/`auto_on_deactivated` → power; everything else → system) and
+one `number` entry per options-less descriptor (group power; unit `h` for
+hours, `min` for minutes). **Options-less number ranges come from a single
+shared pure helper** `nivona_number_range(descriptor)` (hours → 0–23,
+minutes → 0–59, else 0–255), consumed by *both* `BrandSettingNumber` and
+`build_settings_block` — replacing the key-substring heuristic currently
+inlined in the entity, so a future descriptor cannot get two different
+ranges. `language` never appears (all Nivona families exclude generic id 15).
+NICR 758 omits `profile`; 79x omits `off_rinse` — all via rule §9.1.2.5, no
+new mechanism.
+
+#### 9.1.4 i18n — `settings` domain
+
+New `ui_strings/` keyspace (flat, §6.3.1 format; `settings` added to
+`_I18N_DOMAINS`):
+
+* `settings.<setting>.label` — display name.
+* `settings.<setting>.description` — optional (same optionality precedent as
+  `actions.<token>.description`).
+* `settings.<setting>.levels.<token>` — setting-scoped level/option token
+  labels (for tokens whose translation is setting-dependent).
+* `settings._levels.<token>` — **shared** token labels (0.93: `off`, `on`),
+  the fallback tier for tokens whose translation is setting-independent.
+  Authored **once** ×29, this tier serves Melitta `filter` and every
+  `_OFF_ON_OPTIONS`/`_TEMP_ON_OFF`-backed Nivona select (§9.1.1) with two
+  keys total.
+* `settings._groups.<group>` — 4 group headers.
+
+**Resolution chain (normative, extends §6.3.5.1):**
+`settings.<setting>.levels.<token>` → `settings._levels.<token>` → client
+bundle → humanized token / raw value.
+
+Seeding sources (reuse-first, per the §6.3.4 discipline):
+
+| keyspace | tokens | 29-language source today | 0.93 action |
+| --- | --- | --- | --- |
+| `settings.<setting>.label` | ~30 (8 Melitta + ~22 Nivona-key union) | integration dormant `entity.{switch,number,select}.<key>.name` blocks in `translations/*.json` — complete ×29 (the *dormant translated* blocks; distinct from the anchored name strings frozen by §9.1.2.1) | **port** under token keys |
+| `settings.<setting>.description` | 6 (`energy_saving`, `auto_bean_select`, `rinsing_disabled`, `water_hardness`, `auto_off_after`, `brew_temperature`) | PWA `src/locales` en/de/ru (switch descriptions + the number-setting `*_desc` keys the PWA already renders) | port 6 × 3 locales; sparse-others (allowed by §6.3.3 — en is complete) |
+| `settings.water_hardness.levels.*` (4), `settings.brew_temperature.levels.*` (3) | 7 | card `localize/languages/*.json` `settings.levels.*` — ×29, numeric-keyed | **port + re-key** numeric→token (`1`→`soft`, `0`→`low`, …); Nivona `water_hardness` options reuse the same 4 keys free |
+| `settings._levels.off` / `settings._levels.on` | 2 | none | **newly author** (trivial) + translate 29-way — covers filter + all ~10 off/on Nivona selects via the shared tier |
+| `settings._groups.*` | 4 | none | **newly author** + translate 29-way |
+
+The Zone I-L en-completeness test requires every emittable setting token,
+group, and level/option token to be **resolvable via the chain** (per-setting
+key *or* `_levels` key) — not per-setting keys for shared tokens.
+
+Nivona option labels without tokens are served via `label` only; no key is
+minted for a token that doesn't exist (§6.3.4 rule: nothing served without a
+home). Tokenizing more tables later brings its keys with it, additively.
+
+#### 9.1.5 Example payloads (pinned verbatim in tests)
+
+Melitta Barista TS (extends §3.7; abbreviated to four representative entries —
+the test pins all eight):
+
+```json
+"settings": [
+  { "setting": "auto_bean_select", "control": "switch", "group": "brew",
+    "icon": "mdi:grain",
+    "entity": { "domain": "switch", "entity_suffix": "auto_bean_select" },
+    "writable": true },
+  { "setting": "brew_temperature", "control": "number", "group": "brew",
+    "icon": "mdi:thermometer",
+    "entity": { "domain": "number", "entity_suffix": "brew_temperature" },
+    "writable": true, "min": 0, "max": 2, "step": 1, "display": "slider",
+    "levels": [ { "value": 0, "token": "low" },
+                { "value": 1, "token": "normal" },
+                { "value": 2, "token": "high" } ] },
+  { "setting": "water_hardness", "control": "number", "group": "water",
+    "icon": "mdi:water-opacity",
+    "entity": { "domain": "number", "entity_suffix": "water_hardness" },
+    "writable": true, "min": 1, "max": 4, "step": 1, "display": "slider",
+    "levels": [ { "value": 1, "token": "soft" },
+                { "value": 2, "token": "medium" },
+                { "value": 3, "token": "hard" },
+                { "value": 4, "token": "very_hard" } ] },
+  { "setting": "auto_off_after", "control": "number", "group": "power",
+    "icon": "mdi:timer-off-outline",
+    "entity": { "domain": "number", "entity_suffix": "auto_off_after" },
+    "writable": true, "min": 15, "max": 240, "step": 15,
+    "unit": "min", "display": "box" }
+]
+```
+
+Nivona 700 (NICR 769, extends §3.8; `auto_off` options elided here, pinned in
+full in the test):
+
+```json
+"settings": [
+  { "setting": "temperature", "control": "select", "group": "brew",
+    "icon": "mdi:tune",
+    "entity": { "domain": "select", "entity_suffix": "temperature" },
+    "writable": true,
+    "options": [ { "value": 0, "token": null, "label": "normal" },
+                 { "value": 1, "token": null, "label": "high" },
+                 { "value": 2, "token": null, "label": "max" },
+                 { "value": 3, "token": null, "label": "individual" } ] },
+  { "setting": "profile", "control": "select", "group": "brew",
+    "icon": "mdi:tune",
+    "entity": { "domain": "select", "entity_suffix": "profile" },
+    "writable": true,
+    "options": [ { "value": 0, "token": null, "label": "dynamic" },
+                 { "value": 1, "token": null, "label": "constant" },
+                 { "value": 2, "token": null, "label": "intense" },
+                 { "value": 3, "token": null, "label": "individual" } ] },
+  { "setting": "water_hardness", "control": "select", "group": "water",
+    "icon": "mdi:tune",
+    "entity": { "domain": "select", "entity_suffix": "water_hardness" },
+    "writable": true,
+    "options": [ { "value": 0, "token": "soft",      "label": "soft" },
+                 { "value": 1, "token": "medium",    "label": "medium" },
+                 { "value": 2, "token": "hard",      "label": "hard" },
+                 { "value": 3, "token": "very_hard", "label": "very hard" } ] },
+  { "setting": "off_rinse", "control": "select", "group": "water",
+    "icon": "mdi:tune",
+    "entity": { "domain": "select", "entity_suffix": "off_rinse" },
+    "writable": true,
+    "options": [ { "value": 0, "token": "off", "label": "off" },
+                 { "value": 1, "token": "on",  "label": "on" } ] },
+  { "setting": "auto_off", "control": "select", "group": "power",
+    "icon": "mdi:tune",
+    "entity": { "domain": "select", "entity_suffix": "auto_off" },
+    "writable": true,
+    "options": [ { "value": 0, "token": null, "label": "10 min" },
+                 { "value": 9, "token": null, "label": "off" } ] }
+]
+```
+
+#### 9.1.6 Client consumption rules
+
+1. Three-tier fallback per §5.3.6: `contract.settings` → hardcoded
+   suffix/meta tables + entity existence → hidden section.
+2. **Entity absence gates rendering (normative).** An entry whose bound
+   entity has no state object in `hass.states` (user-disabled in the entity
+   registry, renamed entity_id, or the registration lag of §9.1.2.5) MUST NOT
+   be rendered as a writable control: hide it, or render it as an explicit
+   "unavailable" read-only row. Contract presence never overrides entity
+   absence; the entity-existence check clients perform today stays a
+   **required** part of tier 1.
+3. Labels/levels resolve per the §9.1.4 chain (server per-setting key →
+   server `_levels` key → client bundle → humanized token / raw value).
+   Descriptions resolve server key → client bundle (via the client's own
+   legacy-key map, e.g. the PWA's `*_desc` keys) → omit.
+4. Writes go through the bound entity exactly as today
+   (`switch.turn_on/off`, `number.set_value`, `select.select_option` with the
+   served `label` string — the served label always matches the entity's
+   current options by construction, §9.1.1). The server re-validates
+   regardless (§5.2.5).
+5. `min`/`max`/`step` from the contract SHOULD still be cross-checked against
+   the live entity attributes when the entity is available; the entity is
+   authoritative for the current instant, the contract for rendering before
+   the entity loads.
+6. `writable: false` → read-only display, never a disabled write control that
+   suggests a temporary state.
+
+### 9.2 Sommelier vocabulary
+
+#### 9.2.1 Delivery decision (normative): a machine-independent WS command, NOT a contract block
+
+The sommelier enums are served by a new WS command, not inside the contract
+document. Rationale:
+
+* **Module boundary.** `ui_contract.py` is pure and BLE-free and MUST NOT
+  import sommelier modules; the vocabulary's single source of truth is
+  `sommelier_api.py` (`VALID_*`) + `ai_recipes.py` (`CUP_SIZE_VOLUMES`).
+  Embedding it in the contract would cross that boundary or force a hand
+  copy — forbidden by the never-hand-copy rule (ui_contract.py:12-14).
+* **Scope.** The vocabulary is installation-scoped, identical for every
+  entry; the contract document is machine-scoped and requires a ready client
+  (`contract_not_ready` pre-handshake). Sommelier UIs (bean library, profile
+  editor) legitimately run with no machine connected — the PWA's bean screens
+  must not block on a handshake.
+* **Fingerprint hygiene.** Vocab changes only with the integration version.
+  Keeping it out of the document keeps the §5.1 input set unchanged; caching
+  rides `strings_version` (fingerprint-transitive), so the §6.3.2 refetch
+  machinery delivers updates with zero new triggers.
+* **Precedent.** `i18n/get` (§6.3.1) established the machine-independent,
+  `admin=False`, `_send_versioned` WS lane; this is its second occupant —
+  and it is **named into that lane**, not into the sommelier namespace
+  (below).
+
+#### 9.2.2 Endpoint
+
+* **Name:** `melitta_barista/vocab/get`. Deliberately **outside** the
+  `melitta_barista/sommelier/*` namespace: every `sommelier/*` command is
+  `require_admin`, and parking the one non-admin command inside that
+  namespace is an audit trap (a future security pass "fixing" it would break
+  non-admin sessions). `vocab/get` sits beside `i18n/get` in the
+  machine-independent constant-data lane, where `admin=False` is the lane
+  norm. Nothing shipped calls any other name.
+* **Schema:** `{"type": ...}` — no arguments; not entry-scoped; no locale
+  (labels come from `i18n/get` domain `sommelier`).
+* **Auth:** `admin=False` (constant, non-sensitive data — same class as
+  `i18n/get`; a code comment and a `docs/SOMMELIER_API.md` note record this
+  deliberately). Registered inside `async_register_panel_websocket`
+  (auto-listed by `api/info`). Sync `@callback` via `_wrap_sync_with_schema`
+  (pure constant data).
+* **`strings_version` source (normative):** resolved **once in
+  `async_setup_entry`** and stashed as
+  `hass.data[DOMAIN]["ui_strings_version"]`, next to the existing
+  `client.integration_version` resolution and **before** WS registration.
+  Both `_ws_i18n_get` and the vocab handler read the stash; the lazy
+  `async_get_integration` path inside `i18n/get` is removed (§5.1
+  single-source precedent). This is what makes a sync handler possible and
+  guarantees no client can ever cache vocab under an `unknown` version — the
+  failure mode that would otherwise arm a permanent refetch loop when
+  `vocab/get` is the session's first call (the likely order for a sommelier
+  screen with no machine connected).
+* **Caching:** cache axis `strings_version`; refetch trigger is the
+  `contract_fingerprint` change (or session start), exactly the §6.3.2 rule.
+  If a refetch returns the cached `strings_version`, the cached vocab stands.
+
+```jsonc
+// response (via _send_versioned)
+{ "schema_version": 1,
+  "strings_version": "0.93.0",
+  "vocab": {
+    "roast":       { "tokens": ["light", "medium", "medium_dark", "dark"] },
+    "bean_type":   { "tokens": ["arabica", "arabica_robusta", "robusta"] },
+    "origin":      { "tokens": ["single_origin", "blend"] },
+    "mood":        { "tokens": ["energizing", "relaxing", "dessert", "classic"],
+                     "multi": true },
+    "occasion":    { "tokens": ["morning", "after_lunch", "guests", "romantic", "work"] },
+    "cup_size":    { "tokens": ["espresso_cup", "cup", "mug", "tall_glass", "travel"],
+                     "volumes_ml": { "espresso_cup": [60, 90], "cup": [150, 200],
+                                     "mug": [250, 350], "tall_glass": [300, 400],
+                                     "travel": [350, 500] } },
+    "temperature": { "tokens": ["auto", "hot", "iced"] },
+    "caffeine":    { "tokens": ["regular", "low", "decaf_evening"] },
+    "dietary":     { "tokens": ["no_sugar", "lactose_free", "low_calorie", "vegan"],
+                     "multi": true },
+    "mode":        { "tokens": ["surprise_me", "custom"] },
+    "extras_kind": { "tokens": ["syrup", "topping", "liqueur"] }
+  } }
+```
+
+Each family is an open object (additive room for metadata like `volumes_ml`);
+unknown families and unknown metadata keys are ignored by clients.
+
+#### 9.2.3 Families served, with the authoritative server-side source of each
+
+Only enumerations the server actually **enforces** are served. The WS builder
+reads the `sommelier_api.py` constants directly. **Served token order always
+comes from the ordered `sommelier_api.py` lists** (the wire lists are
+ordered); the `ai_recipes.py` duplicates are Python *sets*, so the pytest
+pinning them against the served families asserts **set-equality** (element
+membership, not order) — order is solely the list side's property.
+
+| family | authoritative source | enforcement point |
+| --- | --- | --- |
+| `roast` | `VALID_ROASTS` (sommelier_api.py) | `vol.In` in `BEAN_SCHEMA` + `beans/update`; pydantic `Literal` in autofill |
+| `bean_type` | `VALID_BEAN_TYPES` | same |
+| `origin` | `VALID_ORIGINS` | same |
+| `mood` | `VALID_MOODS` (= ai_recipes copy) | `vol.In` in `generate` (single + multi); prompt re-filter |
+| `occasion` | `VALID_OCCASIONS` | `vol.In` in `generate` |
+| `cup_size` | `VALID_CUP_SIZES`; volumes from `CUP_SIZE_VOLUMES` (ai_recipes.py) | `vol.In` in `generate`; LLM output re-validated with `mug` fallback |
+| `temperature` | **`VALID_GENERATE_TEMPERATURES = ["auto", "hot", "iced"]` — newly hoisted named constant in sommelier_api.py** (today an inline `vol.In` literal at the generate schema; the only named superset, `VALID_TEMP_PREFS`, is dead code slated for §9.2.4 removal and must not be the source). The hoisted list is used by the generate `vol.In` AND the vocab builder; pinned set-equal to ai_recipes' `VALID_TEMPERATURE_PREFS`. | `vol.In` in `generate` |
+| `caffeine` | `VALID_CAFFEINE_PREFS` | `vol.In` in `generate` |
+| `dietary` | `VALID_DIETARY` | `vol.In` in `generate`; prompt hint mapping |
+| `mode` | `VALID_MODES` | `vol.In` in `generate` |
+| `extras_kind` | `_ADDITIVE_SLOTS` (singular slot names; the fixed keys of the pydantic `RecipeExtras` model) | fixed model keys + `_validate_extras` |
+
+Note: `VALID_EXTRAS_CATEGORIES` (plural — `syrups/toppings/liqueurs`) is a
+different surface (the `extras/set` storage command) and is **not** served;
+the vocabulary serves the singular slot tokens that recipes actually carry.
+
+Machine-dependent sommelier constraints (`supported_aromas`,
+`supported_temperatures`, hopper data, `supports_recipe_writes`) remain in
+`capabilities/get` — the vocabulary is machine-independent by construction
+and MUST stay that way.
+
+#### 9.2.4 Deliberately NOT served (free-form families) — normative
+
+Serving an enum the server does not enforce would advertise a false contract.
+The following are free-form **by design** and MUST NOT be served as vocab:
+
+* **Milk types** — the whitelist was deliberately removed so users can store
+  localized names ("Ультрапастеризованное 3%"); `milk_config.milk_type` is
+  free TEXT. The PWA's `MILK_OPTIONS` list (which already diverges from the
+  dead server list) is re-classified as client-local *suggestions*.
+* **Flavor notes** — the legacy whitelist was dropped for the dynamic-tag UI;
+  `BEAN_SCHEMA` accepts any string list. The 10-token PWA/`VALID_FLAVOR_NOTES`
+  set is suggestion chips over a free-form field.
+* **Extras item names** (syrup/topping/liqueur values) — user-populated
+  catalogue rows (panel `syrups`/`toppings` tables, `user_extras`), validated
+  as free strings by design in `_validate_extras`. Only the *kind* slots are
+  enumerable (§9.2.3).
+* **Profile `temperature_pref`** (`hot_only`/`cold_ok`/`prefer_cold`) — the
+  `VALID_TEMP_PREFS` superset is enforced **nowhere** (dead code) and the DB
+  column is unconstrained TEXT. Not served in 0.93. Follow-up (post-0.93): either
+  add server-side enforcement and then serve it additively, or fold the
+  profile preference into the served `temperature` family with a data
+  migration — decision deferred, tracked in `docs/BACKLOG.md`.
+* **Profile `preferences` dict values** — plain dict, no enum enforcement.
+
+**Dead-code cleanup (same release):** `VALID_MILK_TYPES`,
+`VALID_FLAVOR_NOTES`, and `VALID_TEMP_PREFS` in `sommelier_api.py` are
+removed (or reduced to a comment) so no future reader mistakes them for
+enforced enums. Internal-only change; no wire impact.
+
+#### 9.2.5 i18n — `sommelier` domain
+
+New `ui_strings/` keyspace, family-scoped: `sommelier.<family>.<token>`
+(e.g. `sommelier.roast.medium_dark`, `sommelier.cup_size.espresso_cup`,
+`sommelier.extras_kind.syrup`). `sommelier` is added to `_I18N_DOMAINS`.
+
+| keyspace | tokens | 29-language source today | 0.93 action |
+| --- | --- | --- | --- |
+| `sommelier.mood.*` (4), `sommelier.occasion.*` (5), `sommelier.cup_size.*` (5), `sommelier.temperature.*` (3), `sommelier.caffeine.*` (3), `sommelier.dietary.*` (4) | 24 | panel `www/i18n/locales/*.js` `sommelier.{mood,occasion,cup,temp,caffeine,diet}.*` — ×29, complete | **port** (re-keyed to the vocab family names; note `cup`→`cup_size`, `temp`→`temperature`, `diet`→`dietary`) |
+| `sommelier.roast.*` (4), `sommelier.bean_type.*` (3), `sommelier.origin.*` (2) | 9 | PWA `src/locales` en/de/ru only (panel renders raw tokens today — a known gap this amendment fixes) | port en/de/ru from the PWA; **newly author ×26** |
+| `sommelier.mode.*` (2), `sommelier.extras_kind.*` (3) | 5 | **PWA en/de/ru only** — the panel bundles contain neither `sommelier.mode.*` nor any extras-kind label keys (verified against all 29 `www/i18n/locales/*.js`) | port en/de/ru; **newly author ×26** |
+
+**Honest authoring budget:** 14 tokens (roast 4 + bean_type 3 + origin 2 +
+mode 2 + extras_kind 3) × 26 locales ≈ **364 newly authored strings**, plus
+the hand-review pass — planned as an explicit line item in Zone I-L, not a
+seeding-time discovery.
+
+#### 9.2.6 Client consumption rules
+
+1. Three-tier per family: served `vocab.<family>.tokens` → the client's
+   hardcoded option list → hide the picker (never invent tokens).
+2. Labels per §6.3.5.1 via `sommelier.<family>.<token>`; the panel's current
+   raw-token rendering of roast/bean_type/origin is normatively fixed by this
+   (same rule as §6.3.5.3).
+3. `volumes_ml` is advisory display data (cup-size hints, wizard cup-step
+   synthesis); the server re-validates `cup_type` regardless.
+4. **Cup-size token normalization (server-side, normative).** The PWA's
+   legacy `"espresso"` token is wrong — the server token is `espresso_cup` —
+   and the bad token is **not** client-local state: PWA ≤1.8.3 persists it
+   *server-side* via `profiles/add|update` into the unconstrained
+   `profiles.cup_size` / `preferences.default_cup_size` TEXT columns, from
+   which generate-time reads then hit the hard `vol.In(VALID_CUP_SIZES)`
+   rejection (and silently miss the `CUP_SIZE_VOLUMES` prompt lookup). 0.93
+   therefore ships, in Zone I-K:
+   * a one-time `sommelier_db` migration rewriting the legacy token
+     `espresso`→`espresso_cup` in both columns, and
+   * write-path normalization in `profiles/add|update` through the same
+     alias map, so a still-running 1.8.3 client re-saving `espresso` is
+     corrected on ingest.
+
+   Clients then simply adopt the served token list; client-side migration
+   applies only to genuinely local state (e.g. localStorage form drafts).
+5. Free-form fields (milk, flavor notes, extras items) keep client-local
+   suggestion lists, clearly marked non-authoritative; user input is never
+   restricted to them.
+6. **Admin asymmetry (normative note).** `vocab/get` is `admin=False`, but
+   `sommelier/generate` and `sommelier/brew_phase` remain `require_admin` in
+   0.93 (their gating is unchanged by this amendment — relaxing it is a
+   security-posture decision out of scope for an additive amendment; tracked
+   in `docs/BACKLOG.md`). A non-admin session can therefore
+   render vocab-driven pickers and then fail at generate/brew time; clients
+   MUST map the WS `unauthorized` error to a localized "sommelier generation
+   requires a Home Assistant admin user" hint (the PWA does so in Zone P-H,
+   alongside the `no_llm_agent*` codes).
+
+### 9.3 DirectKey / profile model
+
+#### 9.3.1 Where the physical-button truth lives (normative)
+
+The fact "Barista TS Smart has no physical Milk button" currently exists only
+as four comments across two PWA files. It becomes server data:
+
+* New table in `const.py`, following the TS-gating table precedent:
+
+  ```python
+  DIRECTKEY_NO_BUTTON_CATEGORIES: dict[MachineType, frozenset[DirectKeyCategory]] = {
+      MachineType.BARISTA_TS: frozenset({DirectKeyCategory.MILK}),
+  }
+  ```
+
+* `machine_type is None` (pre-refinement) follows the **TS row** — consistent
+  with the existing assume-TS precedents (`PROFILE_COUNTS` → 8,
+  `get_available_recipes` → full TS list). Confirmed `BARISTA_T` → no
+  exclusions. Refinement semantics per §9.1.2.5 (contract flips via the
+  fingerprint; stale entities converge on reload).
+* **Semantics:** `machine_button: false` means the machine's own front panel
+  has no dedicated key for this category. It does **not** remove the category:
+  the recipe slot exists, `brew_directkey`/`save_directkey` keep accepting all
+  7 tokens, and the server keeps serving all 7 category entries. Clients MAY
+  hide or de-emphasize `machine_button: false` categories (the PWA's current
+  hard omission of `milk` is re-classified as exactly this flag).
+
+No `MachineCapabilities` field is added — the concept is Melitta-specific
+(DirectKey is HC-gated) and `coffee_platform` stays brand-generic.
+
+#### 9.3.2 Shape
+
+Additive top-level contract field `directkey`, present **iff** `"HC" in
+brand.supported_extensions` (Melitta only; absent = feature absent, §9.0.1):
+
+```ts
+directkey?: {
+  categories: DirectKeyCategoryEntry[];   // always all 7, in DirectKeyCategory
+                                          // enum order (normative render order)
+  profiles: ProfileSlotEntry[];           // length == capabilities.my_coffee_slots + 1
+  profile_select_entity_suffix: string;   // "profile" — the select entity anchor
+  active_profile_attribute: string;       // "active_profile" — attribute on that select
+};
+
+interface DirectKeyCategoryEntry {
+  category: string;         // token, byte-equal to _DIRECTKEY_CATEGORIES and to
+                            // the values.directkey_category.* i18n keys
+  id: number;               // wire category 0..6 (slot id = 302 + profile*10 + id)
+  machine_button: boolean;  // §9.3.1
+  icon: string;             // mdi fallback icon; composition-derived IconSpecs
+                            // (recipes/list) take precedence where available
+}
+
+interface ProfileSlotEntry {
+  slot: number;                   // 0..my_coffee_slots — stable identity (PR #6 rule)
+  fixed?: true;                   // slot 0 only: always active, non-renameable,
+                                  // recipes not resettable/editable
+  name_key?: string;              // slot 0 only: "my_coffee" — localized via the
+                                  // existing recipes.category.my_coffee key (reused)
+  name_entity_suffix?: string;    // slots >= 1: "profile_<n>_name" (text entity)
+  active_entity_suffix?: string;  // slots >= 1: "profile_<n>_active" (switch entity)
+}
+```
+
+Normative category icon table (`DIRECTKEY_CATEGORY_ICONS` in `const.py`;
+absent/malformed → `mdi:cup` default): `espresso` mdi:coffee, `cafe_creme`
+mdi:coffee-outline, `cappuccino` mdi:coffee, `latte_macchiato`
+mdi:glass-mug-variant, `milk_froth` mdi:cup, `milk` mdi:cup-outline, `water`
+mdi:cup-water.
+
+Profile-model semantics encoded (and pinned by tests, matching the shipped
+server behaviour): slot 0 is always present and active with no name text
+entity and no activity switch (`reset_all_profile_recipes` refuses it); slots
+1..N are visible iff their activity switch is `on`, renameable via the text
+entity, and editable/resettable; `active_profile` is **client-side selector
+state** on the integration's BLE client, consumed by `brew_directkey` and (as
+the default target) `save_directkey` — the machine itself is never told about
+it.
+
+#### 9.3.3 Example payload (Melitta Barista TS, extends §3.7; pinned verbatim)
+
+```json
+"directkey": {
+  "categories": [
+    { "category": "espresso",        "id": 0, "machine_button": true,  "icon": "mdi:coffee" },
+    { "category": "cafe_creme",      "id": 1, "machine_button": true,  "icon": "mdi:coffee-outline" },
+    { "category": "cappuccino",      "id": 2, "machine_button": true,  "icon": "mdi:coffee" },
+    { "category": "latte_macchiato", "id": 3, "machine_button": true,  "icon": "mdi:glass-mug-variant" },
+    { "category": "milk_froth",      "id": 4, "machine_button": true,  "icon": "mdi:cup" },
+    { "category": "milk",            "id": 5, "machine_button": false, "icon": "mdi:cup-outline" },
+    { "category": "water",           "id": 6, "machine_button": true,  "icon": "mdi:cup-water" }
+  ],
+  "profiles": [
+    { "slot": 0, "fixed": true, "name_key": "my_coffee" },
+    { "slot": 1, "name_entity_suffix": "profile_1_name", "active_entity_suffix": "profile_1_active" },
+    { "slot": 2, "name_entity_suffix": "profile_2_name", "active_entity_suffix": "profile_2_active" },
+    { "slot": 3, "name_entity_suffix": "profile_3_name", "active_entity_suffix": "profile_3_active" },
+    { "slot": 4, "name_entity_suffix": "profile_4_name", "active_entity_suffix": "profile_4_active" },
+    { "slot": 5, "name_entity_suffix": "profile_5_name", "active_entity_suffix": "profile_5_active" },
+    { "slot": 6, "name_entity_suffix": "profile_6_name", "active_entity_suffix": "profile_6_active" },
+    { "slot": 7, "name_entity_suffix": "profile_7_name", "active_entity_suffix": "profile_7_active" },
+    { "slot": 8, "name_entity_suffix": "profile_8_name", "active_entity_suffix": "profile_8_active" }
+  ],
+  "profile_select_entity_suffix": "profile",
+  "active_profile_attribute": "active_profile"
+}
+```
+
+(Barista T: `milk.machine_button: true` — no exclusion row — and 5 profile
+entries, slots 0–4.)
+
+#### 9.3.4 Relationship to `recipes/list` and the profile-select attribute: split, not duplicate
+
+The contract `directkey` block carries the **model** (categories, buttons,
+slots, bindings — fingerprint-cached, changes rarely); `recipes/list` carries
+the **data** (current per-slot recipe contents — live, refetched on
+`recipe_cache_generation` changes). No recipe contents are duplicated into
+the contract, and no category/slot model is duplicated into `recipes/list`
+beyond the identity fields below.
+
+* **`recipes/list` additive delta:** every `directkey` recipe row gains
+  `"category": "<token>"` (derived server-side from the enum — clients stop
+  duplicating the `(id - 302) % 10` math and the Title-case reverse maps).
+  The existing `id`, `name`, `type`, `icon`, `components` fields are
+  unchanged; `name` labels are frozen (§5.2 rule 8).
+* **Profile-select `directkey_recipes` attribute:** frozen legacy surface
+  (§5.2 rule 8) — display-name keys, closed set, kept for the shipped card
+  and PWA 1.x. New consumption goes through `recipes/list` + the contract
+  block. No new keys will ever be added inside it.
+* A pytest pins three-way consistency: contract `categories[].category` ==
+  `_DIRECTKEY_CATEGORIES` == the `values.directkey_category.*` key set, and
+  `len(profiles)` == `capabilities.my_coffee_slots + 1`.
+
+#### 9.3.5 Action catalog delta: `save_directkey` (17th entry)
+
+The `save_directkey` service becomes a catalog entry so the panel's
+`DEFAULT_C1`/`DEFAULT_C2` schema-default duplication dies. All params are
+introspected from `SAVE_DIRECTKEY_SCHEMA` (byte-equal, pytest-diffed — the
+§6.2.2 rule; the table below mirrors **exactly** what the shipped
+`_marker_required`/`_marker_default` helpers emit, marker asymmetries
+included); the schema has **no blend and no two_cups fields**, so no
+`params_ref` is needed:
+
+| action | group | process | invocation | confirm | requires | icon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `save_directkey` | control | null | service `save_directkey`, **`entity_suffix: "brew"`** (the `_SERVICE_ANCHOR_SUFFIX` convention used by all three existing service entries — required: clients build the `entity_id` anchor from it, and the shipped card's `readInvocation` drops a service entry without one) | yes (overwrites a slot) | `["ready"]` | mdi:content-save |
+
+Params (introspected; required/default flags exact):
+
+* `category` — enum (7 tokens), **required, no default**.
+* `profile_id` — int, ranges `[[0,8]]`, **optional, no default** (omitted →
+  the active profile).
+* `process1` — enum, **required with default** `coffee`. The live schema
+  declares `vol.Required("process1", default="coffee")` while every sibling
+  component field is `vol.Optional`; introspection therefore emits
+  `required: true` **plus** a default for this one field. The asymmetry is
+  mirrored, not normalized — the byte-equality rule makes introspection
+  authoritative (matching the `BREW_FREESTYLE` Required-with-default
+  precedent), and the pinned test fixture encodes it.
+* Optional-with-default: `intensity1` (enum, `medium`), `aroma1` (enum,
+  `standard`), `portion1_ml` (int, `[[5,250]]`, `40`), `temperature1` (enum,
+  `normal`), `shots1` (enum, `one`), `process2` (enum, `none`), `intensity2`
+  (enum, `medium`), `aroma2` (enum, `standard`), `portion2_ml` (int,
+  `[[0,250]]`, `0`), `temperature2` (enum, `normal`), `shots2` (enum,
+  `none`).
+
+`available` iff `"HC" in supported_extensions` (same gate as
+`brew_directkey`). Group `control` is deliberate: card 2.7 renders `control`
+with bespoke UI, so the new entry is informational there (§6.2.5.2) — zero
+2.7 behaviour change. The static `[[0,8]]` `profile_id` range mirrors the
+schema (byte-equality rule); the machine's real slot count lives in
+`directkey.profiles`, which clients use for slot pickers.
+
+#### 9.3.6 Client consumption rules
+
+1. Three-tier per §5.3.6: `contract.directkey` → hardcoded category arrays +
+   display-name reverse maps + string-template entity addressing → feature
+   hidden (Nivona/no-HC).
+2. Category render order = served order. Labels via the existing
+   `values.directkey_category.<token>` keys (×29, already shipped in 0.92 —
+   **zero new i18n keys** for this feature). Icons: served recipe `icon`
+   (IconSpec) where a recipe row exists, else the category `icon` mdi.
+3. `machine_button: false` → hide or visually de-emphasize; never disable
+   the BLE brew path because of it.
+4. Profile UI: slots and bindings from `profiles` entries (no more
+   `profile_${n}_name` string templates); slot 0 editing/renaming/reset UI
+   suppressed via `fixed`; slot visibility via the bound activity switch
+   state; selection writes the profile select; `active_profile` read from the
+   served attribute name.
+5. Recipe contents and slot ids come from `recipes/list` rows joined on
+   `profile_id` + `category` token (the display-name reverse maps become
+   fallback parsing for pre-0.93 servers only).
+6. **Entity absence gates rendering (mirror of §9.1.6 rule 2).** A profile
+   slot whose bound name/active entity has no state object in `hass.states`
+   (user-disabled, renamed, or the slot-count lag of §9.1.2.5 after a
+   BARISTA_T refinement) is not rendered as editable — hide it or show it
+   read-only; the profile select itself absent → the whole profile UI falls
+   back per rule 1. Contract presence never overrides entity absence.
+
+### 9.4 Fingerprint, `strings_version`, and propagation
+
+* Per the §5.1 delta: **no new fingerprint inputs.** `settings` and
+  `directkey` changes (machine-type refinement flipping `auto_bean_select` or
+  the milk button; a release editing a table) are delivered through existing
+  inputs (`machine_type`, `family_key`, `model_name`, `supported_extensions`,
+  `my_coffee_slots`, `integration_version`) within the §5.2.6 ~2 s window.
+  The entity registry may lag a mid-session refinement until reload
+  (§9.1.2.5); the contract is the leading surface and clients hide the
+  dropped entries via the entity-absence rules.
+* The sommelier vocabulary and the two new i18n domains version on
+  `strings_version` (setup-time stash, §9.2.2); an integration upgrade churns
+  every fingerprint (§5.1), arming exactly one vocab + i18n refetch per
+  client session — the same single-refetch economics as 0.92, with
+  `strings_version` as the short-circuit storage key.
+* A pytest extends the §5.1 invariant suite: bridge-vs-document fingerprint
+  equality is unaffected by v3 (no new call-site inputs exist to diverge).
+
+### 9.5 Compatibility
+
+Governed by the §5.4 0.93 feature-level matrix (see the §5.4 delta above).
+Definition-of-done for 0.93.0b1 includes the invisible-additive proof against
+the shipped card 2.7.0 and PWA 1.8.3 (top rows of the matrix) on the live HA
+before any client ships — including the two **expected** observable deltas:
+grown unfiltered `i18n/get` payloads for card 2.7.0 (§5.2 rule 10) and the
+cup-size DB normalization for PWA 1.8.3 profiles (§9.2.6.4).
+
+---
+
+## 10. Implementation plan (0.93)
+
+Ownership zones are file-disjoint per the §7/§8 conventions (the PWA zone map
+now lists `src/hooks/` explicitly — it was previously invisible to the plan).
+The integration ships first as **0.93.0b1**, is verified against card 2.7.0
+and PWA 1.8.3 (invisible-additive check), then the client wave lands: PWA
+**2.0.0** (the driver — full v1+v2+v3 port), card **2.8.0** (v3 delta), panel
+(ships inside 0.93). All integration tests: `.venv/bin/python -m pytest
+tests/ --timeout=10`.
+
+### 10.1 Integration side (`melitta-ha-integration`, 0.93.0b1)
+
+**Zone I-J — contract builders and setting tables (`ui_contract.py`,
+`const.py`, `switch.py`, `number.py`, `brands/nivona/_options.py`, + I-J
+tests only).**
+
+* `const.py`: `MELITTA_SETTING_TABLES` (pure data: setting id, control kind,
+  min/max/step, mode, icon, English name, TS-only flag — the content of
+  today's `SWITCH_DEFINITIONS`/`SETTING_DEFINITIONS` plus the
+  `TS_ONLY_SETTINGS` flag, moved per §5.2 rule 9);
+  `DIRECTKEY_NO_BUTTON_CATEGORIES` (§9.3.1); `SETTING_LEVEL_TOKENS`
+  (water_hardness/brew_temperature/filter ladders);
+  `DIRECTKEY_CATEGORY_ICONS`.
+* `switch.py`/`number.py`: rebuilt to consume `MELITTA_SETTING_TABLES` —
+  entity ids, names, icons, ranges, and behaviour byte-identical (a snapshot
+  test proves it); `number.py`'s inline range heuristic for Nivona
+  options-less descriptors replaced by the shared helper.
+* `brands/nivona/_options.py`: token annotations for `_HARDNESS_OPTIONS` and
+  the shared `_OFF_ON_OPTIONS`/`_TEMP_ON_OFF` (labels untouched); new pure
+  helper `nivona_number_range(descriptor)` (§9.1.3) consumed by both
+  `BrandSettingNumber` and the builder.
+* `ui_contract.py`: `build_settings_block(caps, machine_type, brand)` —
+  consumes `MELITTA_SETTING_TABLES` / descriptors / the same gating
+  predicates as entity registration (§9.1.2.5), icons read from the shared
+  tables (§9.1.2.7); `build_directkey_block(caps, machine_type, brand)`;
+  `build_action_catalog` gains the `save_directkey` entry with
+  `SAVE_DIRECTKEY_SCHEMA` introspection and the `"brew"` anchor suffix
+  (existing lazy-import + `_schema_entry` helpers); `build_ui_contract` gains
+  `settings` and `directkey`. Module stays pure/BLE-free (it imports only
+  `const.py` and `brands/nivona/_options.py` — no `homeassistant.components`
+  import is needed anymore); docstrings per the boy-scout rule; logger
+  literal unchanged.
+* `tests/test_ui_contract_settings.py`: §9.1.5 Melitta TS + Nivona 700
+  payloads pinned verbatim (full, including all `auto_off` options);
+  per-family pinned sets (T drops `auto_bean_select`; 79x drops `off_rinse`;
+  758 drops `profile`; `language` absent on every Nivona family, present on
+  Melitta); **predicate-equality invariant** — builder vs entity-registration
+  predicates evaluated across all family × machine-type combinations
+  (§9.1.2.5), both now reading the shared tables; **naming invariants** —
+  `slugify(name) == token` for every `MELITTA_SETTING_TABLES` row, and
+  `slugify(entity.<domain>.<key>.name) == descriptor.key` for every anchored
+  Nivona descriptor across **all 29** `translations/*.json` (§9.1.2.1);
+  option labels byte-equal to `_options.py` (structural via build-time
+  derivation); level values match entity min/max; `nivona_number_range`
+  parity between entity and builder; entity-surface snapshot (ids, names,
+  icons unchanged by the table move).
+* `tests/test_ui_contract_directkey.py`: block absent for Nivona; §9.3.3
+  payload pinned verbatim; TS `milk.machine_button == false`, T all-true,
+  `machine_type None` follows TS; `len(profiles) == my_coffee_slots + 1`;
+  slot-0 `fixed` + `name_key`; category tokens == `_DIRECTKEY_CATEGORIES` ==
+  `values.directkey_category.*` key set.
+* `tests/test_ui_contract_actions.py` (extend): 17-entry catalog;
+  `save_directkey` params diffed against `SAVE_DIRECTKEY_SCHEMA` — including
+  the exact required/default flags of §9.3.5 (`category` required-no-default,
+  `process1` required-with-default, `profile_id` optional-no-default, rest
+  optional-with-default), no blend, no two_cups; invocation
+  `entity_suffix == "brew"`; HC gating; confirm true; group `control`.
+
+**Zone I-K — WS surfaces and DB migration (`panel_api.py`,
+`sommelier_api.py`, `sommelier_db.py`, `__init__.py` — the
+`strings_version` stash only, `docs/SOMMELIER_API.md`, + I-K tests only).**
+
+* `__init__.py`: resolve and stash
+  `hass.data[DOMAIN]["ui_strings_version"]` in `async_setup_entry`, next to
+  the `client.integration_version` resolution, **before** WS registration
+  (§9.2.2).
+* `sommelier_api.py`: hoist `VALID_GENERATE_TEMPERATURES` and use it in the
+  generate `vol.In` (§9.2.3); `build_sommelier_vocab()` from the ordered
+  `VALID_*` lists + `CUP_SIZE_VOLUMES`; dead-code removal
+  (`VALID_MILK_TYPES`, `VALID_FLAVOR_NOTES`, `VALID_TEMP_PREFS`, §9.2.4);
+  cup-size alias normalization on the `profiles/add|update` write path
+  (§9.2.6.4).
+* `sommelier_db.py`: one-time migration rewriting `espresso`→`espresso_cup`
+  in `profiles.cup_size` and `preferences.default_cup_size` (strict
+  migration-runner rules from 0.89 apply).
+* `panel_api.py`: register `melitta_barista/vocab/get` (§9.2.2,
+  `admin=False` with the intentional-gating code comment, `_send_versioned`,
+  `strings_version` from the setup-time stash); `_ws_i18n_get` switches to
+  the stash (lazy `async_get_integration` path removed); `_I18N_DOMAINS` +=
+  `{"settings", "sommelier"}`; `_ws_recipes_list` directkey rows gain the
+  `category` token field (§9.3.4).
+* `docs/SOMMELIER_API.md`: document `vocab/get` (name, lane, the deliberate
+  `admin=False` rationale) and the admin asymmetry note (§9.2.6.6).
+* `tests/test_sommelier_vocab_ws.py`: full payload pinned verbatim
+  (order-sensitive, from the sommelier_api lists); `strings_version` ==
+  manifest, served correctly when `vocab/get` is the session's **first** WS
+  call (no i18n/get before it); non-admin access; no entry_id required;
+  sommelier_api-vs-ai_recipes **set-equality** pins (mood/occasion/cup_size/
+  temperature/caffeine/dietary + volume map); free-form families provably
+  absent; cup-size DB migration + write-path normalization covered.
+* Extend `tests/test_panel_i18n_ws.py` (six-domain filtering; explicit
+  old-four-domain requests byte-identical; **unfiltered requests include the
+  new domains** — the §5.2 rule 10 mechanism pinned) and the recipes/list
+  tests (`category` field per row; `name` labels unchanged).
+
+**Zone I-L — string assets (`ui_strings/*.json` × 29, seeding script,
+after I-J for token constants).**
+
+* Seed the `settings.*` and `sommelier.*` keys per the §9.1.4/§9.2.5 source
+  tables: port from `translations/*.json` dormant entity blocks (~30 labels
+  ×29), card `settings.levels.*` bundles (7 level tokens ×29, re-keyed
+  numeric→token), panel sommelier locales (24 tokens ×29), PWA locales
+  (en/de/ru seeds for roast/bean_type/origin/mode/extras_kind + the 6
+  setting descriptions); newly author + translate the flagged gaps —
+  `settings._levels.{off,on}` (2 ×29, the shared tier), `settings._groups.*`
+  (4 ×29), and the honest sommelier budget of **14 tokens ×26 ≈ 364
+  strings** (§9.2.5). Seeding-script extension in `scripts/` (not shipped);
+  hand-review of authored strings; `strings.json`/`translations/` untouched
+  except that the anchored Nivona name strings are now test-frozen
+  (§9.1.2.1 — hassfest regression run in definition-of-done).
+* Extend `tests/test_ui_contract_i18n_assets.py`: en completeness for every
+  emittable setting token, group, and vocab token, with level/option tokens
+  resolvable via the **chain** (per-setting key or `_levels` key, §9.1.4);
+  no orphans; sparse-subset validation for the other 28 unchanged.
+
+**Zone I-M — panel consumers (`www/` only; after I-K + I-L).**
+
+* `melitta-recipes.js`: prefer the served `category` token per row (the
+  `(id - 302) % 10` math and `DIRECTKEY_OFFSET` copy become fallback for
+  nothing — panel is version-matched — so they are deleted); drop
+  `DEFAULT_C1`/`DEFAULT_C2` in favour of `save_directkey` catalog param
+  defaults.
+* `melitta-sommelier.js`, `melitta-beans.js`, `melitta-additives.js`:
+  option lists from `vocab/get` with the existing hardcoded arrays as
+  fallback; roast/bean_type/origin rendered via `sommelier.*` server strings
+  (fixes the raw-token rendering); free-form fields untouched.
+* No settings consumer (the panel has no machine-settings tab — §5.4 note).
+* Verification via the live-HA manual checklist (§10.4) — no JS harness for
+  `www/`.
+
+**Zone I-N — release (single owner, after I-J…I-M).**
+
+* `manifest.json` → `0.93.0b1`; `CHANGELOG.md` (English); merge the
+  0.93 amendment into `docs/UI_CONTRACT.md` per its merge instructions (the
+  amendment's design-note appendix stays a review record, outside this
+  document); tag `v0.93.0b1`, GitHub prerelease.
+
+### 10.2 PWA side (`melitta-barista-app`, 2.0.0 — full v1+v2+v3 port)
+
+**Zone P-0 — CI enablement (`package.json`, `.github/workflows/ci.yml`;
+lands FIRST, before P-A/P-B).** `package.json` gains
+`"test": "vitest run"`; `ci.yml` gains a `- run: npm test` step between lint
+and build; confirm the repo's 7 existing test suites are green. Today those
+suites **never run in CI** — this pre-zone exists precisely so that every
+subsequent zone's tests actually gate merges (placing it inside the release
+zone, as an earlier draft did, would have gated nothing).
+
+**Zone P-A — contract core (`src/lib/contract.ts` NEW, `src/lib/ha.ts`,
+`src/lib/icons.ts` NEW).** `ui_contract/get` fetch over the existing
+`home-assistant-js-websocket` connection; `validateContract` requiring only
+v1 fields (§6.0.1); `SUPPORTED_CONTRACT_VERSIONS = [1]` with the two §5.4
+mismatch screens; bridge-attribute watcher on the connection sensor;
+per-`entry_id` last-good persistence with stale marking; per-feature
+presence-gating helpers. `ha.ts` additionally gains a `selectOption` helper
+(`select.select_option` — needed by P-E's Nivona support). `icons.ts`: the
+app has **no mdi renderer** (lucide-react only), so served `mdi:*` names
+resolve through a small mdi-name → lucide/local-asset map with a generic
+icon as final fallback (§5.3.2-style degradation; the served icon field is a
+hint, never a hard requirement). Tests: `tests/contract.test.ts` (both
+§6.1.4 fixtures + §9.1.5/§9.3.3 fixtures; v1-only document valid; mismatch
+directions; persistence revalidation), `tests/icons.test.ts`.
+
+**Zone P-B — server strings (`src/lib/server-strings.ts` NEW,
+`src/lib/i18n.ts`).** §6.3.5.6 split: pure registry (`setServerStrings`/
+`serverString`/`resetServerStrings`) + fetch half (`i18n/get`, all six
+domains, `locale + strings_version` persistence with §6.3.2 revalidation);
+en/de/ru bundles stay as the fallback tier. Tests:
+`tests/server-strings.test.ts` (preference order, overlay, revalidation
+short-circuit).
+
+**Zone P-C — v1 adoption (`StatusBar.tsx`, `StatusOverlay.tsx`,
+`ConnectScreen.tsx`, `RecipeGrid.tsx`, `RecipeCard.tsx`, `CoffeeIcon.tsx`,
+`RecipeCarousel.tsx`).** Token-mode status from the state-sensor attributes
+(replacing `native_value` string matching); capability-gated sections;
+recipe catalog + `name_key` labels from the contract; IconSpec rendering
+(served spec → existing `CoffeeIcon` drawing as the §5.3.2 fallback).
+Tests extend `CoffeeIcon.test.tsx`, `RecipeCarousel.test.tsx`; new
+`tests/status-tokens.test.ts`.
+
+**Zone P-D — v2 adoption (`FreestyleSection.tsx`, `FreestyleGlass.tsx`,
+`RecipeEditModal.tsx`, `MaintenanceSection.tsx`, `src/lib/actions.ts` NEW).**
+Three-tier parameter resolution (§6.1.5 — tier 3 is the PWA's current
+consts); action-catalog module porting the card's pure `action-catalog.ts`
+semantics (`resolveActionCatalog`, `evalRequires` with fail-open unknowns,
+`planActionInvocation` with `entity_id = button.<prefix>_<entity_suffix>`,
+destructive⇒confirm, `available:false` hidden); maintenance section becomes
+a catalog renderer — the #36 hazard class disappears for the PWA.
+`RecipeEditModal.tsx` (the sole `save_directkey` call site, hence owned
+here, not in P-G) adopts the `save_directkey` catalog entry's introspected
+defaults in place of its hardcoded ones. Tests: `tests/actions.test.ts`,
+`tests/parameters.test.ts`.
+
+**Zone P-E — v3 settings (`SettingsSection.tsx`).** Render from
+`contract.settings`: switches, level segments/sliders from `levels`, unit
+numbers, **select controls via P-A's `selectOption` (Nivona support arrives
+free)**; the §9.1.6 entity-absence rule enforced (no state object → hidden/
+unavailable row, never a live control); `SWITCHES`/`NUMBERS`/`LEVEL_LABELS`
+tables demoted to tier-2 fallback; labels/descriptions via `settings.*`
+server strings (incl. the `_levels` shared tier and the legacy `*_desc` key
+map) → local bundle → humanized; icons via P-A's `icons.ts`. Tests:
+`tests/settings-section.test.tsx`.
+
+**Zone P-F — v3 sommelier vocab (`SommelierGenerate.tsx`,
+`SommelierBeanDialog.tsx`, `SommelierProfileDialog.tsx`,
+`SommelierBeans.tsx`, `src/hooks/useSommelier.ts`).** Owns the sommelier WS
+hook (`useSommelier.ts`), which gains the `vocab/get` fetch + caching; enum
+pickers from the served vocab with the current arrays as fallback; **no
+client-side cup-size migration** — the server normalizes (§9.2.6.4), the
+client simply adopts the served list (localStorage form drafts are the only
+locally normalized state); `TEMP_PREFS` picker removed pending the §9.2.4
+follow-up; labels via `sommelier.*` server strings; milk/flavor-note/
+extras-item lists re-labelled as local suggestions over free-form input.
+Tests: `tests/sommelier-vocab.test.ts`.
+
+**Zone P-G — v3 DirectKey/profiles (`BrewSection.tsx`,
+`src/lib/entities.ts`).** Categories from `contract.directkey` (order,
+labels via `values.directkey_category.*`, icons via `icons.ts`,
+`machine_button` de-emphasis — the four source comments die); recipe rows
+joined via `recipes/list` `category` tokens; `DIRECTKEY_CATEGORIES`/
+`DIRECTKEY_DISPLAY_TO_KEY` demoted to fallback; profile slots, bindings,
+slot-0 gating, and the §9.3.6 entity-absence rule from `profiles` entries
+(string templates deleted). Tests: `tests/directkey-model.test.ts`.
+
+**Zone P-H — brew-phase wizard + sommelier error codes (`BrewWizard.tsx`
+NEW, `src/hooks/useBrewPhase.ts` NEW, `SommelierRecipeCard.tsx`,
+`SommelierSection.tsx`).** Port of the panel step-machine
+(`melitta-brew-wizard.js` semantics): numbered linear steps from `steps.pre`
++ `machine_phases` (interleaving `user_action_before`) + `steps.post`;
+synthesized cup-placement step from `cup_type` +
+`vocab.cup_size.volumes_ml`; per-phase brewing and extended-status polling
+via the new `useBrewPhase.ts` hook (WS `melitta_barista/sommelier/
+brew_phase` + real progress/`is_brewing`) — a separate hook so P-H does not
+touch P-F's `useSommelier.ts`, only consumes its exports;
+`confirm_prompt`/`awaiting_confirmation` gate integration; localStorage
+re-entry with the 2 h TTL. Sommelier generate/brew errors mapped by code —
+`no_llm_agent`, `no_llm_agent_selected`, `llm_agent_missing`, timeout, and
+**`unauthorized`** (the §9.2.6.6 admin-requirement hint) — to localized
+guidance (keys added to the PWA en/de/ru bundles). Tests:
+`tests/brew-wizard.test.tsx` (step synthesis, phase sequencing, re-entry
+TTL, error-code mapping incl. unauthorized).
+
+**Zone P-I — wiring + release (single owner, after P-A…P-H).** `App.tsx`
+wires the contract/i18n/vocab providers; version `2.0.0`; deploy workflow
+unchanged. (CI enablement moved to P-0.)
+
+### 10.3 Card side (`melitta-barista-card`, 2.8.0)
+
+**Zone C-J — types + settings section (`src/contract.ts`,
+`src/sections/settings.ts`, `src/settings-catalog.ts` NEW).** Additive
+`SettingEntry` types (`validateContract` untouched); pure
+`resolveSettings(contract)` with the §5.3.6 tiers (`contract.settings` →
+`SWITCH_KEYS`/`NUMBER_KEYS`/META + entity existence → hidden) and the
+§9.1.6 entity-absence rule inside tier 1; the settings renderer gains
+writable level controls for numbers (today read-only) and select rows
+(Nivona) when catalog-driven; labels/levels per §6.3.5 + the `_levels`
+shared tier. `tests/settings-catalog.test.ts`: tier fallback, level-token
+rendering (per-setting and shared-tier), missing-entity handling, unknown
+control/group handling, legacy suites unchanged.
+
+**Zone C-K — DirectKey model (`src/directkey.ts`, `src/profile.ts`,
+`src/const.ts` annotations only).** Consume `contract.directkey`: category
+set/order/icons/`machine_button`; profile slots from `profiles` entries
+(preserving the PR #6 stable-slot rule and its `console.warn`) with the
+§9.3.6 entity-absence rule. Data path: the card keeps reading the frozen
+`directkey_recipes` select attribute — **not** because `recipes/list` is
+unavailable to it (it is `admin=False` and the card has the connection), but
+because the attribute is **push-updated with entity state** while
+`recipes/list` is a poll lane requiring its own
+fingerprint/`recipe_cache_generation` refetch plumbing; the contract block
+is the model path over that pushed data. Card 2.9+ MAY adopt `recipes/list`
+with the panel's refetch trigger if the attribute freeze ever pinches.
+`tests/directkey-model.test.ts`.
+
+**Zone C-L — wiring + release (`melitta-barista-card.ts`,
+`src/sections/directkey.ts`; after C-J/C-K).** Pass resolved
+settings/directkey props down (sections never read `hass`); `milk` rendered
+per `machine_button`; version `2.8.0`; dist rebuild; full vitest green
+including all legacy suites.
+
+### 10.4 Sequencing
+
+```mermaid
+flowchart LR
+  IJ[I-J contract builders + tables] --> IL[I-L ui_strings assets]
+  IK[I-K WS surfaces + DB migration] --> IM[I-M panel consumers]
+  IL --> IM
+  IJ --> IN[I-N release 0.93.0b1]
+  IK --> IN
+  IM --> IN
+  IN -. beta verified: card 2.7.0 + PWA 1.8.3 behaviour unchanged .-> PW[PWA wave]
+  IN -.-> CW[card wave]
+  P0[P-0 CI enablement] --> PA[P-A contract core]
+  P0 --> PB[P-B server strings]
+  PA --> PC[P-C v1] --> PD[P-D v2]
+  PB --> PC
+  PD --> PE[P-E settings] & PF[P-F sommelier] & PG[P-G directkey]
+  PF --> PH[P-H wizard + errors]
+  PE --> PI[P-I wiring + release 2.0.0]
+  PG --> PI
+  PH --> PI
+  CJ[C-J settings] --> CL[C-L wiring 2.8.0]
+  CK[C-K directkey] --> CL
+```
+
+Live-HA beta checklist before any client ships: card 2.7.0 and PWA 1.8.3
+**behaviour** unchanged against 0.93.0b1 (invisible-additive proof), with the
+two expected observable deltas confirmed harmless — card 2.7.0's unfiltered
+`i18n/get` responses grown by the new `settings.*`/`sommelier.*` keys
+(§5.2 rule 10) and, for any PWA-created profile, the cup-size token
+normalized in the DB (§9.2.6.4; 1.8.3 profile dialog shows no preselected
+cup size until re-save — cosmetic); `settings` block matches the entity set
+predicted by the shared tables on the live TS machine; machine-type
+refinement observed flipping `auto_bean_select` + `milk.machine_button` in
+the **contract** within one poll cycle via the fingerprint, while the stale
+entities persist until reload and a v3 client hides them (the §9.1.2.5
+convergence semantics, verified end to end); `vocab/get` served with the
+correct `strings_version` as the session's first call and cached across
+exactly one refetch per upgrade; panel beans tab shows localized roast
+labels in a non-English locale; `recipes/list` rows carry `category`
+tokens; Nivona entry (when available) serves select descriptors with
+tokenized hardness (per-setting + `_levels` resolution both exercised) and
+no `directkey` block.
+---
+
 ## Appendix A — Design notes (review resolutions)
 
 All blocker and major findings from the 2026-09-02 adversarial review are
@@ -2189,6 +3393,29 @@ anchors it already declared):
    existing integration/card/panel 29-locale assets per the §6.3.4 table, with
    asymmetric completeness (en complete, other locales may be sparse over the
    en overlay).
+
+7. **(0.93)** Third additive feature wave within `contract_version: 1`
+   (§9.0, extending the §6.0 precedent): `settings` descriptors with
+   semantic level/option tokens (values-as-wire-mapping — resolving the
+   1-based/0-based hardness divergence as data; setting-scoped keys with a
+   shared `settings._levels.*` tier for setting-independent tokens; setting
+   tables moved to `const.py` as the single source for entities and builder;
+   predicate-equality and anchored-entity-naming invariants pinned by test),
+   machine-independent `melitta_barista/vocab/get` (enforced enums only;
+   `VALID_GENERATE_TEMPERATURES` hoisted; free-form families normatively
+   excluded; `VALID_MILK_TYPES`/`VALID_FLAVOR_NOTES`/`VALID_TEMP_PREFS` dead
+   code removed; `strings_version` stashed at setup for both i18n and
+   vocab), and the `directkey` model block
+   (`DIRECTKEY_NO_BUTTON_CATEGORIES` gives the "no milk button on Barista
+   TS" fact a server home; profile slot model as data; `save_directkey`
+   catalog entry with the `"brew"` anchor and exact introspected
+   required/default flags; `category` token added to `recipes/list` rows;
+   display-name-keyed legacy surfaces mirror-and-frozen as §5.2 rule 8).
+   Entity absence normatively gates client rendering (§9.1.6.2/§9.3.6.6).
+   Zero new fingerprint inputs; two new i18n domains on the
+   `strings_version` axis; the legacy PWA cup-size token `espresso`
+   normalized to `espresso_cup` **server-side** (DB migration + write-path
+   aliasing).
 
 ### A.2 Design notes (0.92 adversarial round)
 

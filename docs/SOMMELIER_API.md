@@ -65,6 +65,7 @@ The following sections group endpoints by their `melitta_barista/<namespace>/...
 - [`capabilities/*`](#capabilities) — live machine capabilities
 - [`ui_contract/*`](#ui_contract) — UI Contract v1 document (renderer-facing)
 - [`i18n/*`](#i18n) — machine-domain display strings (UI Contract v2)
+- [`vocab/*`](#vocab) — sommelier enum vocabulary (UI Contract v3)
 - [`sommelier/beans/*`](#sommelier-beans) — bean catalogue (sommelier)
 - [`sommelier/hoppers/*`](#sommelier-hoppers) — hopper-to-bean mapping
 - [`sommelier/milk/*`](#sommelier-milk) — available milk types
@@ -350,6 +351,7 @@ Defined in `panel_api.py`. All three handlers are admin-only.
         {
           "id": 256,
           "name": "Espresso",
+          "category": "espresso",
           "type": 24,
           "icon": { "spec_version": 1, "...": "..." },
           "components": [
@@ -382,6 +384,15 @@ Defined in `panel_api.py`. All three handlers are admin-only.
 - Since 0.91.0 every recipe entry carries `icon`: the composition-derived
   `IconSpec` (`docs/UI_CONTRACT.md` §3.6) or `null` for empty slots —
   WS `recipes/list` is one of the §2.1 icon delivery surfaces.
+- Since 0.93.0 every `directkey` recipe row additionally carries
+  `category`: the lower_snake DirectKey category token
+  (`espresso`, `cafe_creme`, `cappuccino`, `latte_macchiato`,
+  `milk_froth`, `milk`, `water`; `""` for an out-of-enum category byte)
+  — UI Contract §9.3.4. Clients join on `profile_id` + `category`
+  instead of duplicating the `(id - 302) % 10` math or the Title-case
+  reverse maps. The Title-case `name` labels are a frozen legacy
+  surface (§5.2 rule 8) and will never change spelling.
+  `base_recipes` rows are unchanged.
 - Each component may be `null` if absent (e.g. single-pour recipe ⇒
   `components[1] == null`).
 
@@ -1001,7 +1012,11 @@ The full UI Contract v1 document (normative shape: `docs/UI_CONTRACT.md`
 **Inputs**
 - `locale: str` (required) — the requested display locale, e.g. `"de-DE"`.
 - `domains: list[str]` (optional) — subset of `status`, `values`,
-  `recipes`, `actions`. Unknown domains are ignored; omitted = all.
+  `recipes`, `actions`, `settings`, `sommelier` (the last two added in
+  0.93, UI Contract §9.1.4/§9.2.5). Unknown domains are ignored;
+  omitted = all — so unfiltered responses grow additively with new
+  domains (§5.2 rule 10; clients rely on unknown-key tolerance, not
+  filtering).
 
 **Not entry-scoped** — the served strings are machine-independent, so
 there is no `entry_id` parameter.
@@ -1033,7 +1048,12 @@ there is no `entry_id` parameter.
 - `strings_version` — the integration `manifest.json` version, the
   client-side cache axis for server strings (`locale +
   strings_version`, `docs/UI_CONTRACT.md` §6.3.2). It carries no
-  semantics beyond equality.
+  semantics beyond equality. Since 0.93 it is resolved once in
+  `async_setup_entry` and stashed as
+  `hass.data[DOMAIN]["ui_strings_version"]` before WS registration
+  (§9.2.2) — this endpoint and `vocab/get` both read the stash; the
+  former lazy per-request resolution was removed (§5.1 single-source
+  rule).
 - `strings` — a flat, dot-joined map, keys byte-equal to the contract
   tokens they describe (`status.*` embeds `UPPER_SNAKE`, `values.*` /
   `recipes.*` / `actions.*` embed `lower_snake`; no client may
@@ -1049,6 +1069,81 @@ there is no `entry_id` parameter.
   catalogs, or status handling.
 - Read-only, informational — same auth class as `ui_contract/get`,
   `status`, `recipes/list` and `api/info`.
+
+---
+
+## `vocab`
+
+### `melitta_barista/vocab/get`
+
+| | |
+|---|---|
+| **Decorators** | sync `@callback` via `_wrap_sync_with_schema(..., admin=False)` |
+| **Stability** | stable (UI Contract v3, see `docs/UI_CONTRACT.md` §9.2) |
+| **Introduced** | 0.93.0 |
+
+**Inputs**
+- none — **not entry-scoped**, no `locale`. The vocabulary is
+  installation-scoped and machine-independent by construction; labels
+  come from `i18n/get` domain `sommelier`.
+
+**Response**
+
+```json
+{
+  "schema_version": 1,
+  "strings_version": "0.93.0",
+  "vocab": {
+    "roast":       { "tokens": ["light", "medium", "medium_dark", "dark"] },
+    "bean_type":   { "tokens": ["arabica", "arabica_robusta", "robusta"] },
+    "origin":      { "tokens": ["single_origin", "blend"] },
+    "mood":        { "tokens": ["energizing", "relaxing", "dessert", "classic"],
+                     "multi": true },
+    "occasion":    { "tokens": ["morning", "after_lunch", "guests", "romantic", "work"] },
+    "cup_size":    { "tokens": ["espresso_cup", "cup", "mug", "tall_glass", "travel"],
+                     "volumes_ml": { "espresso_cup": [60, 90], "cup": [150, 200],
+                                     "mug": [250, 350], "tall_glass": [300, 400],
+                                     "travel": [350, 500] } },
+    "temperature": { "tokens": ["auto", "hot", "iced"] },
+    "caffeine":    { "tokens": ["regular", "low", "decaf_evening"] },
+    "dietary":     { "tokens": ["no_sugar", "lactose_free", "low_calorie", "vegan"],
+                     "multi": true },
+    "mode":        { "tokens": ["surprise_me", "custom"] },
+    "extras_kind": { "tokens": ["syrup", "topping", "liqueur"] }
+  }
+}
+```
+
+**Notes**
+- **Lane and auth (deliberate).** The command is named into the
+  machine-independent constant-data lane beside `i18n/get` —
+  deliberately *outside* the all-`require_admin` `sommelier/*`
+  namespace. `admin=False` is intentional and load-bearing: the data
+  is constant and non-sensitive (same class as `i18n/get`), and
+  sommelier screens (bean library, profile editor) legitimately run in
+  non-admin sessions with no machine connected. A future security pass
+  must **not** "fix" this endpoint to `require_admin`.
+- **Admin asymmetry** (UI Contract §9.2.6.6): `sommelier/generate` and
+  `sommelier/brew_phase` remain `require_admin`. A non-admin session
+  can therefore render vocab-driven pickers and then fail at
+  generate/brew time; clients MUST map the WS `unauthorized` error to
+  a localized "sommelier generation requires a Home Assistant admin
+  user" hint.
+- Serves **only enforced enums** (each family reads its authoritative
+  ordered `VALID_*` list in `sommelier_api.py`, plus
+  `CUP_SIZE_VOLUMES` from `ai_recipes.py`). Free-form families — milk
+  types, flavor notes, extras item names, profile `temperature_pref` —
+  are normatively excluded (§9.2.4): serving an unenforced enum would
+  advertise a false contract. Client option lists for those fields are
+  local suggestions over free-form input.
+- Each family is an open object (additive room for metadata like
+  `volumes_ml`); clients ignore unknown families and unknown metadata
+  keys. Token order is the wire order. `volumes_ml` is advisory
+  display data — the server re-validates `cup_type` regardless.
+- `strings_version` is the client cache axis (same value and stash as
+  `i18n/get`); refetch on `contract_fingerprint` change or session
+  start, and keep the cached vocab when a refetch returns the cached
+  version (§9.2.2).
 
 ---
 
@@ -1761,6 +1856,13 @@ One profile may be "active" at a time and feeds defaults into
 { "profile": { "id": "...", "name": "...", "...": "..." } }
 ```
 
+**Notes**
+- Since 0.93.0 legacy cup-size tokens are normalized on ingest
+  (`espresso` → `espresso_cup`, UI Contract §9.2.6.4) in both add and
+  update; a one-time DB migration (schema v11) rewrote previously
+  stored legacy tokens in `sommelier_profiles.cup_size` and
+  `user_preferences.default_cup_size`.
+
 ### `melitta_barista/sommelier/profiles/update`
 
 | | |
@@ -1821,78 +1923,10 @@ One profile may be "active" at a time and feeds defaults into
 
 ---
 
-## Endpoint index (checklist)
+## Endpoint index
 
-The complete enumeration produced by
-`grep -rE 'vol.Required\("type"\)' custom_components/melitta_barista/*.py`,
-expanded for the factory-generated additive handlers. **Total: 65
-runtime endpoints.** (One additional `melitta_barista/api/info` entry
-ships in 0.66.0 Task 2.)
-
-| # | Type |
-|---:|---|
-| 1 | `melitta_barista/entries` |
-| 2 | `melitta_barista/status` |
-| 3 | `melitta_barista/diagnostics` |
-| 4 | `melitta_barista/diagnostics/clear` |
-| 5 | `melitta_barista/diagnostics/llm_calls` |
-| 6 | `melitta_barista/recipes/list` |
-| 7 | `melitta_barista/producers/list` |
-| 8 | `melitta_barista/producers/add` |
-| 9 | `melitta_barista/producers/update` |
-| 10 | `melitta_barista/producers/delete` |
-| 11 | `melitta_barista/syrups/list` |
-| 12 | `melitta_barista/syrups/add` |
-| 13 | `melitta_barista/syrups/update` |
-| 14 | `melitta_barista/syrups/delete` |
-| 15 | `melitta_barista/syrups/set_available` |
-| 16 | `melitta_barista/toppings/list` |
-| 17 | `melitta_barista/toppings/add` |
-| 18 | `melitta_barista/toppings/update` |
-| 19 | `melitta_barista/toppings/delete` |
-| 20 | `melitta_barista/toppings/set_available` |
-| 21 | `melitta_barista/tags/list` |
-| 22 | `melitta_barista/tags/add` |
-| 23 | `melitta_barista/tags/delete` |
-| 24 | `melitta_barista/beans/autofill` |
-| 25 | `melitta_barista/prompts/list` |
-| 26 | `melitta_barista/prompts/save` |
-| 27 | `melitta_barista/prompts/preview` |
-| 28 | `melitta_barista/prompts/reset` |
-| 29 | `melitta_barista/llm/agents` |
-| 30 | `melitta_barista/capabilities/get` |
-| 31 | `melitta_barista/sommelier/beans/list` |
-| 32 | `melitta_barista/sommelier/beans/add` |
-| 33 | `melitta_barista/sommelier/beans/update` |
-| 34 | `melitta_barista/sommelier/beans/delete` |
-| 35 | `melitta_barista/sommelier/hoppers/get` |
-| 36 | `melitta_barista/sommelier/hoppers/assign` |
-| 37 | `melitta_barista/sommelier/milk/get` |
-| 38 | `melitta_barista/sommelier/milk/set` |
-| 39 | `melitta_barista/sommelier/extras/get` |
-| 40 | `melitta_barista/sommelier/extras/set` |
-| 41 | `melitta_barista/sommelier/generate` |
-| 42 | `melitta_barista/sommelier/brew` |
-| 43 | `melitta_barista/sommelier/favorites/list` |
-| 44 | `melitta_barista/sommelier/favorites/add` |
-| 45 | `melitta_barista/sommelier/favorites/remove` |
-| 46 | `melitta_barista/sommelier/favorites/update` |
-| 47 | `melitta_barista/sommelier/favorites/brew` |
-| 48 | `melitta_barista/sommelier/history/list` |
-| 49 | `melitta_barista/sommelier/history/clear` |
-| 50 | `melitta_barista/sommelier/recipe/rate` |
-| 51 | `melitta_barista/sommelier/recipe/unrate` |
-| 52 | `melitta_barista/sommelier/presets/list` |
-| 53 | `melitta_barista/sommelier/presets/add` |
-| 54 | `melitta_barista/sommelier/presets/update` |
-| 55 | `melitta_barista/sommelier/presets/delete` |
-| 56 | `melitta_barista/sommelier/bean_presets/list` |
-| 57 | `melitta_barista/sommelier/settings/get` |
-| 58 | `melitta_barista/sommelier/settings/set` |
-| 59 | `melitta_barista/sommelier/preferences/get` |
-| 60 | `melitta_barista/sommelier/preferences/set` |
-| 61 | `melitta_barista/sommelier/profiles/list` |
-| 62 | `melitta_barista/sommelier/profiles/add` |
-| 63 | `melitta_barista/sommelier/profiles/update` |
-| 64 | `melitta_barista/sommelier/profiles/delete` |
-| 65 | `melitta_barista/sommelier/profiles/activate` |
+The authoritative, always-current enumeration of registered WS commands is
+served at runtime by `melitta_barista/api/info` (it lists every command
+registered in `async_register_panel_websocket` and the sommelier module).
+A hand-maintained table went stale repeatedly and was removed — consult
+the per-endpoint sections above or `api/info` instead.

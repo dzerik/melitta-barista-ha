@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.93.0b1] — 2026-09-03 (beta)
+
+UI Contract v3 (additive within contract_version 1 — shipped clients are unaffected):
+
+### Added
+
+- **Settings descriptors** (`settings` contract block): the resolved per-machine settings surface as data — switches, level numbers and Nivona selects with semantic level/option tokens, groups, icons and entity bindings, gated by the same tables and predicates the entities register with (single source in `const.py`, equality pinned by tests). New `settings.*` i18n domain in all 29 languages with a shared `settings._levels.*` tier.
+- **Sommelier vocabulary endpoint** (`melitta_barista/vocab/get`): the enforced sommelier enums (roast, bean type, origin, mood, occasion, cup size with volume hints, temperature, caffeine, dietary, mode, extras kind) served machine-independently and non-admin, cached on `strings_version`; free-form families (milk types, flavor notes, extras items) are deliberately not served. New `sommelier.*` i18n domain; the panel now renders localized roast/bean-type/origin labels. Legacy `espresso` cup-size tokens are normalized to `espresso_cup` (one-time DB migration plus write-path aliasing).
+- **DirectKey/profile model** (`directkey` contract block, Melitta/HC only): all 7 categories with wire ids, icons and per-machine physical-button truth (`machine_button` — the Barista TS "no milk button" fact becomes server data), plus the profile slot model (fixed slot 0, name/activity entity bindings) and the profile-select anchor. `save_directkey` joins the action catalog as its 17th entry with schema-introspected params.
+- `recipes/list` DirectKey rows carry an additive `category` token, so clients stop duplicating the slot-id math and Title-case reverse maps (legacy `name` labels and the `directkey_recipes` attribute are frozen unchanged).
+
+See docs/UI_CONTRACT.md §9 for the full normative specification.
+
 ## [0.92.0b1] — 2026-09-03 (beta)
 
 UI Contract v2 (additive within contract_version 1 — shipped clients are unaffected):

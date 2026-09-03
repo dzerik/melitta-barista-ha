@@ -1208,6 +1208,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     integration = await async_get_integration(hass, DOMAIN)
     client.integration_version = integration.manifest.get("version", "unknown")
+    # UI Contract §9.2.2 (v3): stash the same manifest version domain-wide
+    # as `strings_version` for the machine-independent WS lane (`i18n/get`
+    # and `vocab/get`). Resolved ONCE here, before WS registration below,
+    # so both sync/async handlers read the stash and no client can ever
+    # cache vocab or strings under an unresolved version — the lazy
+    # per-request resolution inside i18n/get was removed (§5.1
+    # single-source precedent).
+    hass.data.setdefault(DOMAIN, {})["ui_strings_version"] = (
+        client.integration_version
+    )
 
     entry.runtime_data = client
 

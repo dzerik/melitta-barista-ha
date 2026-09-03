@@ -7,6 +7,12 @@ are legitimate — the WS loader overlays English per key).
 
 Builder token constants are imported read-only (the dependency points
 Zone I-E → Zone I-F, per the §8.3 plan).
+
+Extended for v3 (Zone I-L, §9.1.4/§9.2.5): the `settings.*` and
+`sommelier.*` domains — every emittable setting token, group, and vocab
+token must resolve in `en.json`, with level/option tokens resolvable via
+the §9.1.4 chain (per-setting `settings.<setting>.levels.<token>` OR the
+shared `settings._levels.<token>` tier).
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ from custom_components.melitta_barista.brands.nivona._family_8000 import (
     RECIPES_8000_CHILLED,
 )
 from custom_components.melitta_barista.const import MachineType
+from custom_components.melitta_barista.sommelier_api import build_sommelier_vocab
 from custom_components.melitta_barista.ui_contract import (
     FREESTYLE_AROMA_TOKENS,
     FREESTYLE_BLEND_TOKENS,
@@ -37,6 +44,7 @@ from custom_components.melitta_barista.ui_contract import (
     STATUS_SUB_PROCESS_TOKENS,
     build_action_catalog,
     build_capabilities_block,
+    build_settings_block,
 )
 
 COMPONENT_DIR = Path(__file__).parent.parent / "custom_components" / "melitta_barista"
@@ -56,6 +64,17 @@ DESCRIBED_ACTIONS = frozenset({
 
 # §6.2.3 known group render order.
 KNOWN_GROUPS = ("brew", "control", "cleaning", "filter", "power", "danger")
+
+# §9.1.3 known settings groups (`settings._groups.*` — a keyspace separate
+# from `actions._groups.*`).
+SETTINGS_KNOWN_GROUPS = ("brew", "water", "power", "system")
+
+# §9.1.4: exactly these six settings ship a `settings.<setting>.description`
+# (ported from the PWA locales, en/de/ru); all other settings ship none.
+DESCRIBED_SETTINGS = frozenset({
+    "energy_saving", "auto_bean_select", "rinsing_disabled",
+    "water_hardness", "auto_off_after", "brew_temperature",
+})
 
 
 class _FakeClient:
@@ -97,6 +116,51 @@ def _all_descriptors():
     return descriptors
 
 
+def _all_settings_blocks():
+    """Every §9.1 settings block any (family, machine_type) can produce."""
+    melitta, nivona = MelittaProfile(), NivonaProfile()
+    blocks = []
+    for family in melitta.families:
+        for machine_type in (MachineType.BARISTA_TS, MachineType.BARISTA_T, None):
+            blocks.append(
+                build_settings_block(
+                    melitta.capabilities_for(family), machine_type, melitta,
+                )
+            )
+    for family in nivona.families:
+        blocks.append(
+            build_settings_block(nivona.capabilities_for(family), None, nivona)
+        )
+    return blocks
+
+
+def _emittable_settings():
+    """(setting tokens, groups, (setting, level/option token) pairs) union."""
+    tokens: set[str] = set()
+    groups: set[str] = set()
+    level_pairs: set[tuple[str, str]] = set()
+    for block in _all_settings_blocks():
+        for entry in block:
+            tokens.add(entry["setting"])
+            groups.add(entry["group"])
+            for level in entry.get("levels", ()):
+                if level["token"]:
+                    level_pairs.add((entry["setting"], level["token"]))
+            for option in entry.get("options", ()):
+                if option["token"]:
+                    level_pairs.add((entry["setting"], option["token"]))
+    return tokens, groups, level_pairs
+
+
+def _vocab_keys():
+    """Every `sommelier.<family>.<token>` key the vocab can emit (§9.2.5)."""
+    return {
+        f"sommelier.{family}.{token}"
+        for family, spec in build_sommelier_vocab().items()
+        for token in spec["tokens"]
+    }
+
+
 def _required_en_keys():
     """Every key the contract builders can emit a token for (§6.3.4)."""
     keys = set()
@@ -134,6 +198,12 @@ def _required_en_keys():
         keys.add(f"actions._groups.{entry['group']}")
     for group in KNOWN_GROUPS:
         keys.add(f"actions._groups.{group}")
+    setting_tokens, setting_groups, _level_pairs = _emittable_settings()
+    for token in setting_tokens:
+        keys.add(f"settings.{token}.label")
+    for group in setting_groups | set(SETTINGS_KNOWN_GROUPS):
+        keys.add(f"settings._groups.{group}")
+    keys |= _vocab_keys()
     return keys
 
 
@@ -182,7 +252,13 @@ def test_en_no_orphans(en_strings):
     """§6.3.3: en.json carries no keys outside the derived keyspace."""
     allowed = _required_en_keys() | {
         f"actions.{action}.description" for action in DESCRIBED_ACTIONS
+    } | {
+        f"settings.{setting}.description" for setting in DESCRIBED_SETTINGS
     }
+    _tokens, _groups, level_pairs = _emittable_settings()
+    for setting, token in level_pairs:
+        allowed.add(f"settings.{setting}.levels.{token}")
+        allowed.add(f"settings._levels.{token}")
     orphans = set(en_strings) - allowed
     assert not orphans, f"en.json has orphan keys: {sorted(orphans)}"
 
@@ -246,6 +322,67 @@ def test_every_melitta_name_key_covered(en_strings):
     assert len(MELITTA_RECIPE_NAME_KEYS) == 24
     for name_key in MELITTA_RECIPE_NAME_KEYS.values():
         assert f"recipes.name.{name_key}" in en_strings
+
+
+def test_en_setting_level_tokens_resolve_via_chain(en_strings):
+    """§9.1.4: every emitted level/option token resolves via the chain —
+    `settings.<setting>.levels.<token>` OR the shared `settings._levels.<token>`."""
+    _tokens, _groups, level_pairs = _emittable_settings()
+    assert level_pairs, "no level/option tokens emitted — enumeration broken"
+    for setting, token in sorted(level_pairs):
+        assert (
+            f"settings.{setting}.levels.{token}" in en_strings
+            or f"settings._levels.{token}" in en_strings
+        ), f"level token {token!r} of setting {setting!r} unresolvable in en"
+
+
+def test_en_shared_levels_are_exactly_off_on(en_strings):
+    """§9.1.4: the shared `_levels` tier carries exactly `off` and `on` in 0.93."""
+    shared = {
+        key.removeprefix("settings._levels.")
+        for key in en_strings
+        if key.startswith("settings._levels.")
+    }
+    assert shared == {"off", "on"}
+
+
+def test_en_setting_descriptions_are_exactly_the_six(en_strings):
+    """§9.1.4: the 6 ported setting descriptions ship; other settings none."""
+    described = {
+        key.split(".")[1]
+        for key in en_strings
+        if key.startswith("settings.") and key.endswith(".description")
+    }
+    assert described == set(DESCRIBED_SETTINGS)
+
+
+def test_en_settings_authored_strings_pinned(en_strings):
+    """The §9.1.4 newly authored English strings, verbatim."""
+    assert en_strings["settings._groups.brew"] == "Brewing"
+    assert en_strings["settings._groups.water"] == "Water"
+    assert en_strings["settings._groups.power"] == "Power"
+    assert en_strings["settings._groups.system"] == "System"
+    assert en_strings["settings._levels.off"] == "Off"
+    assert en_strings["settings._levels.on"] == "On"
+
+
+def test_en_settings_key_casing_pinned(en_strings):
+    """§6.3.1: settings/sommelier keys embed the lower_snake tokens byte-equal."""
+    assert "settings.auto_bean_select.label" in en_strings
+    assert "settings.water_hardness.levels.very_hard" in en_strings
+    assert "settings.brew_temperature.levels.low" in en_strings
+    assert "sommelier.cup_size.espresso_cup" in en_strings
+    assert "sommelier.roast.medium_dark" in en_strings
+    assert "sommelier.extras_kind.syrup" in en_strings
+    assert "actions.save_directkey.label" in en_strings
+
+
+def test_vocab_families_pinned():
+    """§9.2.3: the 11 served vocab families (the sommelier keyspace roots)."""
+    assert set(build_sommelier_vocab()) == {
+        "roast", "bean_type", "origin", "mood", "occasion", "cup_size",
+        "temperature", "caffeine", "dietary", "mode", "extras_kind",
+    }
 
 
 @pytest.mark.parametrize(

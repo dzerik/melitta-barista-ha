@@ -233,6 +233,29 @@ class DirectKeyCategory(IntEnum):
 DIRECTKEY_OFFSET = 302
 DIRECTKEY_PROFILE_MULTIPLIER = 10
 
+# DirectKey categories with NO dedicated key on the machine's own front
+# panel, per machine type (UI Contract §9.3.1). Absence of a physical
+# button does NOT remove the category: the recipe slot exists and the
+# BLE brew/save paths keep accepting the token — clients may merely hide
+# or de-emphasize it. `machine_type is None` (pre-refinement) follows
+# the TS row, consistent with the assume-TS precedents (PROFILE_COUNTS,
+# get_available_recipes). A confirmed BARISTA_T has no exclusions.
+DIRECTKEY_NO_BUTTON_CATEGORIES: dict[MachineType, frozenset[DirectKeyCategory]] = {
+    MachineType.BARISTA_TS: frozenset({DirectKeyCategory.MILK}),
+}
+
+# Normative mdi fallback icon per DirectKey category (UI Contract §9.3.2;
+# composition-derived IconSpecs take precedence where available).
+DIRECTKEY_CATEGORY_ICONS: dict[DirectKeyCategory, str] = {
+    DirectKeyCategory.ESPRESSO: "mdi:coffee",
+    DirectKeyCategory.CAFE_CREME: "mdi:coffee-outline",
+    DirectKeyCategory.CAPPUCCINO: "mdi:coffee",
+    DirectKeyCategory.LATTE_MACCHIATO: "mdi:glass-mug-variant",
+    DirectKeyCategory.MILK_FROTH: "mdi:cup",
+    DirectKeyCategory.MILK: "mdi:cup-outline",
+    DirectKeyCategory.WATER: "mdi:cup-water",
+}
+
 
 def get_directkey_id(profile_id: int, category: DirectKeyCategory) -> int:
     """Calculate DirectKey recipe ID for a profile and category."""
@@ -426,9 +449,68 @@ class MachineSettingId(IntEnum):
     FILTER = 91
 
 
-# TS-only settings (Barista T has one bean hopper)
+# ---------------------------------------------------------------------------
+# Melitta machine-setting tables (UI Contract §9.1, moved per §5.2 rule 9)
+# ---------------------------------------------------------------------------
+
+# Single source of truth for the Melitta switch/number setting entities
+# AND the contract `settings` block (UI Contract §9.1.2.5 predicate
+# equality). Consumed by switch.py / number.py (entity registration) and
+# ui_contract.build_settings_block — never hand-copied. Pure data: no
+# homeassistant imports; `display` is the contract hint ("slider"/"box",
+# mapped to NumberMode by number.py) and `unit` the contract unit token
+# ("min"), byte-equal to the HA unit string.
+#
+# Row order is the §9.1.3 normative render order (grouped: brew, water,
+# power, system). `setting` tokens are byte-equal to the slugified
+# entity names (test-enforced, §9.1.2.1).
+MELITTA_SETTING_TABLES: tuple[dict, ...] = (
+    {"setting": "auto_bean_select", "id": MachineSettingId.AUTO_BEAN_SELECT,
+     "control": "switch", "group": "brew", "name": "Auto Bean Select",
+     "icon": "mdi:grain", "ts_only": True},
+    {"setting": "brew_temperature", "id": MachineSettingId.TEMPERATURE,
+     "control": "number", "group": "brew", "name": "Brew Temperature",
+     "icon": "mdi:thermometer", "ts_only": False,
+     "min": 0, "max": 2, "step": 1, "display": "slider"},
+    {"setting": "water_hardness", "id": MachineSettingId.WATER_HARDNESS,
+     "control": "number", "group": "water", "name": "Water Hardness",
+     "icon": "mdi:water-opacity", "ts_only": False,
+     "min": 1, "max": 4, "step": 1, "display": "slider"},
+    {"setting": "filter", "id": MachineSettingId.FILTER,
+     "control": "number", "group": "water", "name": "Filter",
+     "icon": "mdi:filter-outline", "ts_only": False,
+     "min": 0, "max": 1, "step": 1, "display": "slider"},
+    {"setting": "rinsing_disabled", "id": MachineSettingId.RINSING_OFF,
+     "control": "switch", "group": "water", "name": "Rinsing Disabled",
+     "icon": "mdi:water-off", "ts_only": False},
+    {"setting": "energy_saving", "id": MachineSettingId.ENERGY_SAVING,
+     "control": "switch", "group": "power", "name": "Energy Saving",
+     "icon": "mdi:leaf", "ts_only": False},
+    {"setting": "auto_off_after", "id": MachineSettingId.AUTO_OFF_AFTER,
+     "control": "number", "group": "power", "name": "Auto Off After",
+     "icon": "mdi:timer-off-outline", "ts_only": False,
+     "min": 15, "max": 240, "step": 15, "unit": "min", "display": "box"},
+    # LANGUAGE stays a plain numeric control: the register mapping is
+    # unverified (issue #10 79x precedent) — served numeric-only, no levels.
+    {"setting": "language", "id": MachineSettingId.LANGUAGE,
+     "control": "number", "group": "system", "name": "Language",
+     "icon": "mdi:translate", "ts_only": False,
+     "min": 0, "max": 15, "step": 1, "display": "box"},
+)
+
+# Semantic (value, token) ladders for discrete Melitta number settings
+# (UI Contract §9.1.1: tokens are the semantic identity, values the wire
+# mapping). Settings without an authored ladder are plain numerics.
+SETTING_LEVEL_TOKENS: dict[str, tuple[tuple[int, str], ...]] = {
+    "brew_temperature": ((0, "low"), (1, "normal"), (2, "high")),
+    "water_hardness": ((1, "soft"), (2, "medium"), (3, "hard"), (4, "very_hard")),
+    "filter": ((0, "off"), (1, "on")),
+}
+
+# TS-only settings (Barista T has one bean hopper). Derived from the
+# table's ts_only flags — MELITTA_SETTING_TABLES is the single source.
 TS_ONLY_SETTINGS: set[int] = {
-    MachineSettingId.AUTO_BEAN_SELECT,
+    int(row["id"]) for row in MELITTA_SETTING_TABLES if row["ts_only"]
 }
 
 
