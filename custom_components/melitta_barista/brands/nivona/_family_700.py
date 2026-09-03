@@ -25,24 +25,24 @@ from . import _family_600
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES_700: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Cream", "coffee"),
-    RecipeDescriptor(2, "Lungo", "coffee"),
-    RecipeDescriptor(3, "Americano", "americano"),
-    RecipeDescriptor(4, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Cream", "coffee", name_key="cream"),
+    RecipeDescriptor(2, "Lungo", "coffee", name_key="lungo"),
+    RecipeDescriptor(3, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(4, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink", name_key="latte_macchiato"),
+    RecipeDescriptor(6, "Milk", "milk_drink", name_key="milk"),
+    RecipeDescriptor(7, "Hot Water", "water", name_key="hot_water"),
 )
 
 RECIPES_79X: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee", name_key="coffee"),
+    RecipeDescriptor(2, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink", name_key="latte_macchiato"),
+    RecipeDescriptor(6, "Milk", "milk_drink", name_key="milk"),
+    RecipeDescriptor(7, "Hot Water", "water", name_key="hot_water"),
 )
 
 
@@ -148,6 +148,8 @@ CAPABILITIES_700 = MachineCapabilities(
     strength_levels=3,
     has_aroma_balance=True,
     brew_command_mode=0x0B,
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_700,
     settings=SETTINGS_700,
     stats=STATS_700,
@@ -165,6 +167,8 @@ CAPABILITIES_79X = MachineCapabilities(
     strength_levels=5,
     has_aroma_balance=True,
     brew_command_mode=0x0B,
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_79X,
     settings=SETTINGS_79X,
     stats=STATS_79X,

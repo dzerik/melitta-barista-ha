@@ -36,28 +36,28 @@ from ._family_600 import UNSUPPORTED_GENERIC_SETTINGS
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES_1030: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Hot Water", "water"),
-    RecipeDescriptor(7, "Warm Milk", "milk_drink"),
-    RecipeDescriptor(8, "Hot Milk", "milk_drink"),
-    RecipeDescriptor(9, "Frothy Milk", "milk_drink"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee", name_key="coffee"),
+    RecipeDescriptor(2, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink", name_key="caffe_latte"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink", name_key="latte_macchiato"),
+    RecipeDescriptor(6, "Hot Water", "water", name_key="hot_water"),
+    RecipeDescriptor(7, "Warm Milk", "milk_drink", name_key="warm_milk"),
+    RecipeDescriptor(8, "Hot Milk", "milk_drink", name_key="hot_milk"),
+    RecipeDescriptor(9, "Frothy Milk", "milk_drink", name_key="frothy_milk"),
 )
 
 RECIPES_1040: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Hot Water", "water"),
-    RecipeDescriptor(7, "Warm Milk", "milk_drink"),
-    RecipeDescriptor(8, "Frothy Milk", "milk_drink"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee", name_key="coffee"),
+    RecipeDescriptor(2, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink", name_key="caffe_latte"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink", name_key="latte_macchiato"),
+    RecipeDescriptor(6, "Hot Water", "water", name_key="hot_water"),
+    RecipeDescriptor(7, "Warm Milk", "milk_drink", name_key="warm_milk"),
+    RecipeDescriptor(8, "Frothy Milk", "milk_drink", name_key="frothy_milk"),
 )
 
 
@@ -213,6 +213,8 @@ CAPABILITIES_1030 = MachineCapabilities(
     my_coffee_slots=4,
     strength_levels=5,
     brew_command_mode=0x0B,
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_1030,
     settings=SETTINGS_1030,
     stats=STATS_1030,
@@ -229,6 +231,8 @@ CAPABILITIES_1040 = MachineCapabilities(
     my_coffee_slots=4,
     strength_levels=5,
     brew_command_mode=0x0B,
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_1040,
     settings=SETTINGS_1040,
     stats=STATS_1040,

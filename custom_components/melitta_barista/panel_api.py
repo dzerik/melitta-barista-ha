@@ -10,7 +10,10 @@ read in-memory client state, and use `async_response` when DB I/O is involved.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import pathlib
+import re
 import time
 from collections import deque
 from typing import Any, Literal
@@ -227,6 +230,133 @@ def _ws_ui_contract(hass: HomeAssistant, connection, msg) -> None:
         connection.send_error(msg["id"], "contract_not_ready", str(exc))
         return
     _send_versioned(connection, msg["id"], contract)
+
+
+# ── /i18n — machine-domain UI strings (docs/UI_CONTRACT.md §6.3) ─────────
+
+# Asset directory holding the flat {key: string} locale maps (§6.3.3).
+# Module-level so tests can point the loader at a fixture directory.
+_UI_STRINGS_DIR = pathlib.Path(__file__).parent / "ui_strings"
+
+# The four served key domains (§6.3.1). Unknown requested domains are
+# ignored; an omitted `domains` parameter serves all of them.
+_I18N_DOMAINS = frozenset({"status", "values", "recipes", "actions"})
+
+# Plausible locale tags only — the locale is caller input used to build
+# a filename, so anything else (path separators, dots) resolves to en.
+_I18N_LOCALE_RE = re.compile(r"^[A-Za-z0-9_-]{1,35}$")
+
+
+def _read_ui_strings_file(locale: str) -> dict[str, str] | None:
+    """Read one `ui_strings/<locale>.json` flat map, or None if unusable.
+
+    Executor-only (blocking file I/O). A missing file is the normal
+    "locale not shipped" signal; a malformed one is logged and treated
+    the same so a bad asset can never break the endpoint.
+    """
+    path = _UI_STRINGS_DIR / f"{locale}.json"
+    try:
+        with path.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        _LOGGER.warning("Unreadable ui_strings asset: %s", path)
+        return None
+    if not isinstance(data, dict):
+        _LOGGER.warning("ui_strings asset is not a flat map: %s", path)
+        return None
+    return {
+        str(key): value for key, value in data.items() if isinstance(value, str)
+    }
+
+
+def _load_ui_strings(requested_locale: str) -> tuple[str, dict[str, str]]:
+    """Resolve a locale against ui_strings/ and return (resolved, merged map).
+
+    Executor-only. Resolution chain per §6.3.1: exact match → base
+    language (``de-DE`` → ``de``) → ``en``. The winning locale file is
+    overlaid en-first (§6.3.3), so every key a sparse locale lacks is
+    served in English — per key, not per fetch.
+    """
+    candidates: list[str] = []
+    if _I18N_LOCALE_RE.match(requested_locale):
+        candidates.append(requested_locale)
+        base = re.split(r"[-_]", requested_locale, maxsplit=1)[0].lower()
+        if base and base not in candidates:
+            candidates.append(base)
+
+    en_map = _read_ui_strings_file("en") or {}
+    for candidate in candidates:
+        if candidate == "en":
+            break
+        overlay = _read_ui_strings_file(candidate)
+        if overlay is not None:
+            return candidate, {**en_map, **overlay}
+    return "en", en_map
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "melitta_barista/i18n/get",
+    vol.Required("locale"): str,
+    vol.Optional("domains"): [str],
+})
+@websocket_api.async_response
+async def _ws_i18n_get(hass: HomeAssistant, connection, msg) -> None:
+    """Serve machine-domain display strings (UI Contract v2, §6.3).
+
+    Not entry-scoped — the strings are machine-independent — and not
+    admin-gated (informational, same class as `ui_contract/get`). The
+    locale file is read once per resolved locale on the executor and the
+    merged en-overlay map is cached in `hass.data[DOMAIN]` for the life
+    of the install (the assets are immutable between upgrades, and an
+    upgrade restarts HA). `strings_version` is the integration manifest
+    version — the client-side cache axis for these strings (§6.3.2).
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    cache: dict[str, dict[str, str]] = domain_data.setdefault(
+        "ui_strings_cache", {}
+    )
+    resolution: dict[str, str] = domain_data.setdefault(
+        "ui_strings_resolution", {}
+    )
+
+    requested = msg["locale"]
+    resolved = resolution.get(requested)
+    if resolved is None or resolved not in cache:
+        resolved, merged = await hass.async_add_executor_job(
+            _load_ui_strings, requested
+        )
+        resolution[requested] = resolved
+        cache[resolved] = merged
+    strings = cache[resolved]
+
+    domains = msg.get("domains")
+    if domains is not None:
+        wanted = {domain for domain in domains if domain in _I18N_DOMAINS}
+        strings = {
+            key: value
+            for key, value in strings.items()
+            if key.split(".", 1)[0] in wanted
+        }
+
+    strings_version = domain_data.get("ui_strings_version")
+    if strings_version is None:
+        from homeassistant.loader import async_get_integration  # noqa: PLC0415
+
+        try:
+            integration = await async_get_integration(hass, DOMAIN)
+            strings_version = integration.manifest.get("version", "unknown")
+            domain_data["ui_strings_version"] = strings_version
+        except Exception:  # noqa: BLE001
+            strings_version = "unknown"
+
+    _send_versioned(connection, msg["id"], {
+        "locale": requested,
+        "resolved_locale": resolved,
+        "strings_version": strings_version,
+        "strings": strings,
+    })
 
 
 # ── /diagnostics ────────────────────────────────────────────────────────
@@ -1995,6 +2125,9 @@ def async_register_panel_websocket(hass: HomeAssistant) -> None:
         hass,
         _wrap_sync_with_schema(_ws_ui_contract, _UI_CONTRACT_SCHEMA, admin=False),
     )
+    # machine-domain i18n (UI Contract v2 §6.3) — admin=False, async
+    # (executor file I/O on first use per locale)
+    async_register_command(hass, _ws_i18n_get)
 
     # producers
     async_register_command(hass, _ws_producers_list)

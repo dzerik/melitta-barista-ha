@@ -7,10 +7,15 @@
  * per-recipe counters, plus the time of the last successful HU handshake.
  *
  * Polls `melitta_barista/status` every 5 seconds so brews show up live.
+ *
+ * Process/manipulation tokens render via server-served strings
+ * (`status.process.*` / `status.manipulation.*`, UI Contract §6.3) with a
+ * humanized-token fallback — never the raw UPPER_SNAKE token.
  */
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import { labelFor } from "../i18n/server-strings.js";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -20,6 +25,7 @@ class MelittaStatus extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      serverStrings: { attribute: false },
       _data: { type: Object },
       _error: { type: String },
       _loading: { type: Boolean },
@@ -28,6 +34,7 @@ class MelittaStatus extends LitElement {
 
   constructor() {
     super();
+    this.serverStrings = null;
     this._data = null;
     this._error = "";
     this._loading = false;
@@ -101,15 +108,30 @@ class MelittaStatus extends LitElement {
     `;
   }
 
+  /**
+   * Display label for a status-domain token (UI Contract §6.3.5): server
+   * string `status.<kind>.<TOKEN>` first, then a humanized token — never
+   * the raw UPPER_SNAKE token.
+   */
+  _statusToken(kind, token) {
+    return labelFor(`status.${kind}.${token}`, null, token);
+  }
+
   _renderStatusBlock() {
     const status = this._data?.status;
     if (!status) {
       return html`<div class="hint">${this._t("status.no_status")}</div>`;
     }
     return html`
-      ${this._renderRow(this._t("status.process"), status.process)}
+      ${this._renderRow(
+        this._t("status.process"),
+        status.process ? this._statusToken("process", status.process) : status.process,
+      )}
       ${status.manipulation && status.manipulation !== "NONE"
-        ? this._renderRow(this._t("status.manipulation"), status.manipulation)
+        ? this._renderRow(
+            this._t("status.manipulation"),
+            this._statusToken("manipulation", status.manipulation),
+          )
         : ""}
     `;
   }

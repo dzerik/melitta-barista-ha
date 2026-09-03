@@ -34,20 +34,23 @@ from ._family_600 import UNSUPPORTED_GENERIC_SETTINGS
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES_8000: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee", name_key="coffee"),
+    RecipeDescriptor(2, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink", name_key="caffe_latte"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink", name_key="latte_macchiato"),
+    RecipeDescriptor(6, "Milk", "milk_drink", name_key="milk"),
+    RecipeDescriptor(7, "Hot Water", "water", name_key="hot_water"),
 )
 
 RECIPES_8000_CHILLED: tuple[RecipeDescriptor, ...] = RECIPES_8000 + (
-    RecipeDescriptor(8,  "Chilled Espresso",  "espresso"),
-    RecipeDescriptor(9,  "Chilled Lungo",     "coffee"),
-    RecipeDescriptor(10, "Chilled Americano", "americano"),
+    RecipeDescriptor(8,  "Chilled Espresso",  "espresso",
+                     name_key="chilled_espresso"),
+    RecipeDescriptor(9,  "Chilled Lungo",     "coffee",
+                     name_key="chilled_lungo"),
+    RecipeDescriptor(10, "Chilled Americano", "americano",
+                     name_key="chilled_americano"),
 )
 
 # Selectors that require the chilled-brew flag byte when sent as HE.
@@ -133,6 +136,8 @@ CAPABILITIES_8000 = MachineCapabilities(
     my_coffee_slots=4,
     strength_levels=5,
     brew_command_mode=0x04,    # NIVO8000 uses different brew opcode byte
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_8000,
     settings=SETTINGS_8000,
     stats=STATS_8000,

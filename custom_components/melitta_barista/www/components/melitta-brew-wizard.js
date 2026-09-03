@@ -35,6 +35,7 @@
 import { LitElement, html, css } from "../lit-base.js";
 import { sharedStyles } from "../design-tokens.js";
 import { t } from "../i18n/index.js";
+import { displayNameFor, labelFor } from "../i18n/server-strings.js";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_BUFFER_S = 30;
@@ -76,6 +77,7 @@ class MelittaBrewWizard extends LitElement {
       source: { type: String },
       sourceId: { type: String },
       canBrew: { type: Boolean },
+      serverStrings: { attribute: false },
       _steps: { state: true },
       _stepIndex: { state: true },
       _machine: { state: true },
@@ -93,6 +95,7 @@ class MelittaBrewWizard extends LitElement {
     // Optimistic default — the parent overrides when capabilities say
     // the machine is print-only (Nivona recipe_writes gate).
     this.canBrew = true;
+    this.serverStrings = null;
     this._steps = [];
     this._stepIndex = 0;
     this._machine = freshMachineState();
@@ -103,6 +106,17 @@ class MelittaBrewWizard extends LitElement {
   }
 
   _t(key, params) { return t(key, this.lang || "en", params); }
+
+  /**
+   * Family-scoped value-token label (UI Contract §6.3.5): server string
+   * `values.<family>.<token>` → panel bundle (`recipes.opt.<token>`) →
+   * humanized token.
+   */
+  _valueLabel(family, token) {
+    const bundleKey = `recipes.opt.${token}`;
+    const bundled = this._t(bundleKey);
+    return displayNameFor(family, token, bundled === bundleKey ? null : bundled);
+  }
 
   // ── Step model ─────────────────────────────────────────────────────
 
@@ -360,10 +374,12 @@ class MelittaBrewWizard extends LitElement {
     }
     const st = payload?.status;
     if (!st || this._machine.state !== "brewing") return;
+    // Manipulation prompt text per §6.3.5: server string
+    // (status.manipulation.<TOKEN>) → humanized token fallback.
     const patch = {
       prompt: st.awaiting_confirmation === true
         ? (st.manipulation
-            ? String(st.manipulation).replace(/_/g, " ").toLowerCase()
+            ? labelFor(`status.manipulation.${st.manipulation}`, null, st.manipulation)
             : this._t("wizard.machine.prompt_generic"))
         : null,
     };
@@ -440,10 +456,10 @@ class MelittaBrewWizard extends LitElement {
   _renderComponentBadges(component) {
     const c = component || {};
     const badges = [];
-    if (c.process) badges.push(String(c.process).replaceAll("_", " "));
+    if (c.process) badges.push(this._valueLabel("process", c.process));
     if (c.portion_ml) badges.push(`${c.portion_ml} ml`);
     if (c.shots) badges.push(`×${c.shots}`);
-    if (c.intensity) badges.push(String(c.intensity).replaceAll("_", " "));
+    if (c.intensity) badges.push(this._valueLabel("intensity", c.intensity));
     return badges.length
       ? html`<div class="badges">${badges.map((b) => html`<span class="badge">${b}</span>`)}</div>`
       : "";

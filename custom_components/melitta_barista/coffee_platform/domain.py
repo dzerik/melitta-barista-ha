@@ -144,10 +144,19 @@ class MachineStatus:
 
 @dataclass(frozen=True)
 class RecipeDescriptor:
-    """One drink recipe, brand-agnostic representation."""
+    """One drink recipe, brand-agnostic representation.
+
+    ``name_key`` is the stable ASCII lower_snake i18n key for this drink
+    (UI Contract §6.3.6): an explicit *authored* field written once per
+    descriptor, never derived from ``name`` at runtime — display names
+    may contain non-ASCII ("Caffè Latte") and a rename would silently
+    orphan translations. Empty string means "no key authored yet"; the
+    contract builder then omits the field.
+    """
     recipe_id: int
     name: str
     category: str = ""               # "espresso", "milk_drink", etc.
+    name_key: str = ""               # authored i18n key (UI Contract §6.3.6)
 
 
 @dataclass(frozen=True)
@@ -285,6 +294,16 @@ class MachineCapabilities:
     # capability-driven `stats` table instead. Melitta = True; all
     # Nivona families = False.
     uses_legacy_total_cups_sensor: bool = False
+
+    # Per-family hardware-verification audit of MachineProcess start
+    # codes (UI Contract §6.2.6, issue #36: process start codes are
+    # shifted on at least the Nivona 700 family). ``None`` means every
+    # process code is verified for this family (Melitta — hardware-
+    # verified); a tuple lists the ONLY verified process ids, everything
+    # else is unverified and the action catalog serves those entries
+    # ``available: false``. All Nivona families ship ``()`` until the
+    # #36 TX-byte button matrix populates per-family tuples.
+    verified_maintenance_processes: tuple[int, ...] | None = None
 
 
 # ---------------------------------------------------------------------------

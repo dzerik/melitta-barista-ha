@@ -1197,6 +1197,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         f"/local/melitta_barista/{brand.brand_slug}.png" if logo_exists else None
     )
 
+    # UI Contract §5.1 single-source rule: the integration version is a
+    # contract-fingerprint input with two independent sync call sites
+    # (connection-sensor bridge attributes and the WS document builder).
+    # Resolve the manifest version ONCE here — async, via the loader's
+    # cached manifest, no event-loop-blocking file read — and stash it on
+    # the client so both sites read the byte-identical string. It also
+    # feeds the contract document's `strings_version` field (§6.3.2).
+    from homeassistant.loader import async_get_integration  # noqa: PLC0415
+
+    integration = await async_get_integration(hass, DOMAIN)
+    client.integration_version = integration.manifest.get("version", "unknown")
+
     entry.runtime_data = client
 
     source_issue_id = f"ble_source_unavailable_{address}"

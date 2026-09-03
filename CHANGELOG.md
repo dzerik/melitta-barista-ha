@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.92.0b1] — 2026-09-03 (beta)
+
+UI Contract v2 (additive within contract_version 1 — shipped clients are unaffected):
+
+### Added
+
+- **Parameter catalogs**: machine parameters as self-describing enum/range descriptors with scopes and per-process applicability; the v1 freestyle vocabularies are frozen and mirrored (invariant pinned by tests).
+- **Action catalog**: brew and maintenance operations as data (invocation shape, availability conditions, confirm/destructive flags) — derived from the live service schemas; unverified per-family maintenance operations (Nivona 700) are served as unavailable until the process-code matrix lands.
+- **Machine-domain i18n over WS** (`melitta_barista/i18n/get`): status/value/action/recipe display strings served from new `ui_strings/` assets in all 29 languages with per-key English fallback; the panel renders server strings first.
+- Recipe entries carry a stable `name_key`; the contract fingerprint now includes the integration version.
+
+See docs/UI_CONTRACT.md §6 for the full normative specification.
+
 ## [0.91.0] — 2026-09-03
 
 First stable release since 0.87.2, consolidating the 0.88-0.91 beta train. Highlights for stable-channel users:

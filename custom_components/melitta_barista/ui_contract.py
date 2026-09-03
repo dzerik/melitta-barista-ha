@@ -1,8 +1,10 @@
-"""UI Contract v1 builder (docs/UI_CONTRACT.md).
+"""UI Contract builder (docs/UI_CONTRACT.md; v2 additions per §6).
 
 Pure, BLE-free derivation of the renderer-facing contract: token
 vocabularies, capability blocks, live status tokens, bridge attributes,
-procedural drink icon specs, and the full `ui_contract/get` document.
+procedural drink icon specs, the v2 parameter/action catalogs (§6.1/§6.2,
+additive within contract_version 1), and the full `ui_contract/get`
+document.
 Everything here is computed from data the integration already holds after
 handshake (MachineCapabilities, BrandProfile, const maps, the client-side
 base-recipe cache) — building a contract never triggers BLE traffic.
@@ -150,6 +152,39 @@ MELITTA_RECIPE_CATEGORIES: dict[int, str] = {
     for recipe_id, key in RECIPE_KEY_MAP.items()
 }
 """RecipeId -> contract category token, generated from RECIPE_KEY_MAP."""
+
+MELITTA_RECIPE_NAME_KEYS: dict[int, str] = {
+    200: "espresso",
+    201: "ristretto",
+    202: "lungo",
+    203: "espresso_doppio",
+    204: "ristretto_doppio",
+    205: "cafe_creme",
+    206: "cafe_creme_doppio",
+    207: "americano",
+    208: "americano_extra",
+    209: "long_black",
+    210: "red_eye",
+    211: "black_eye",
+    212: "dead_eye",
+    213: "cappuccino",
+    214: "espresso_macchiato",
+    215: "caffe_latte",
+    216: "cafe_au_lait",
+    217: "flat_white",
+    218: "latte_macchiato",
+    219: "latte_macchiato_extra",
+    220: "latte_macchiato_triple",
+    221: "milk",
+    222: "milk_froth",
+    223: "hot_water",
+}
+"""RecipeId -> stable ASCII lower_snake i18n `name_key` (spec §6.3.6).
+
+Authored once, matching the existing 24-entry recipe translation block;
+never derived from display names at runtime (a rename would silently
+orphan translations).
+"""
 
 # §4.8 fixed synthetic compositions for composition-less recipes.
 _CATEGORY_COMPOSITIONS: dict[str, tuple[dict[str, Any], ...]] = {
@@ -302,6 +337,20 @@ def build_status_tokens(status: Any, connected: bool) -> dict[str, Any]:
 # Bridge attributes + fingerprint (§3.4 block A, §5.1)
 # ---------------------------------------------------------------------------
 
+def _integration_version(client: Any) -> str | None:
+    """The setup-time stashed integration version string, or None.
+
+    §5.1 single-source rule: `async_setup_entry` resolves the manifest
+    version once (async, via `async_get_integration`) and stashes it as
+    `client.integration_version`; both sync fingerprint call sites read
+    it back here so they are byte-identical by construction. A non-str
+    value (absent attribute, test double) collapses to None so the
+    fingerprint stays deterministic and JSON-serializable.
+    """
+    version = getattr(client, "integration_version", None)
+    return version if isinstance(version, str) else None
+
+
 def compute_contract_fingerprint(client: Any) -> str | None:
     """Content revision for this machine's contract: 12 hex chars of sha256.
 
@@ -312,13 +361,23 @@ def compute_contract_fingerprint(client: Any) -> str | None:
     only differ across entry reloads. Carries no semantics beyond equality
     comparison. Returns None while the client has no capabilities
     (pre-handshake — no contract exists).
+
+    0.92 delta (§5.1 amendment): the integration version string joins the
+    inputs — read from `client.integration_version`, stashed once by
+    `async_setup_entry` (single-source rule: both sync call sites, the
+    connection sensor and the WS document, see the identical value) — so
+    catalog-content changes shipped in a release refresh long-lived
+    client sessions. `verified_maintenance_processes` (§6.2.6) joins too,
+    because it feeds the served action catalog's `available` flags.
     """
     caps = getattr(client, "capabilities", None)
     if caps is None:
         return None
     machine_type = getattr(client, "machine_type", None)
     brand = client.brand
+    verified = getattr(caps, "verified_maintenance_processes", None)
     payload = {
+        "integration_version": _integration_version(client),
         "brand": brand.brand_slug,
         "family_key": caps.family_key,
         "model_name": caps.model_name,
@@ -334,6 +393,9 @@ def compute_contract_fingerprint(client: Any) -> str | None:
         "tolerated_brew_manipulations": list(caps.tolerated_brew_manipulations),
         "recipe_cache_generation": getattr(client, "recipe_cache_generation", 0),
         "brand_logo": bool(getattr(client, "brand_logo_url", None)),
+        "verified_maintenance_processes": (
+            None if verified is None else sorted(int(v) for v in verified)
+        ),
     }
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
@@ -476,6 +538,335 @@ def build_vocabularies(caps: Mapping[str, Any]) -> dict[str, Any]:
             "blend": blend,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Parameter catalog (§6.1) — v2, additive within contract_version 1
+# ---------------------------------------------------------------------------
+
+# §6.1.3 family table: (family, potential scopes, applies_to). A scope
+# survives only when the matching capability gate is on (`freestyle` iff
+# supports_freestyle, `brew_override` iff supports_brew_overrides); a
+# family whose scope list empties out is omitted entirely.
+_PARAMETER_FAMILIES: tuple[tuple[str, tuple[str, ...], tuple[str, ...] | None], ...] = (
+    ("process", ("freestyle",), None),
+    ("intensity", ("freestyle", "brew_override"), ("coffee",)),
+    ("aroma", ("freestyle", "brew_override"), ("coffee",)),
+    ("temperature", ("freestyle",), None),
+    ("shots", ("freestyle",), ("coffee",)),
+    ("blend", ("freestyle",), ("coffee",)),
+)
+
+
+def build_parameters(capabilities_block: Mapping[str, Any]) -> dict[str, Any]:
+    """Build the v2 `parameters` catalog (§6.1) for one machine.
+
+    `capabilities_block` is the §3.3 block from build_capabilities_block.
+    Enum token lists are taken from build_vocabularies, which guarantees
+    the §6.1.2 mirror-and-freeze invariant by construction:
+    `parameters.<family>.tokens` is byte-equal to
+    `vocabularies.freestyle.<family>` and `parameters.portion_ml.c1/.c2`
+    to `limits.portion_ml.c1/.c2`. Scope gating per §6.1.3:
+    `freestyle`-scoped descriptors are emitted iff supports_freestyle,
+    `brew_override`-scoped iff supports_brew_overrides; a family left
+    with no scope is omitted entirely.
+    """
+    freestyle_vocab = build_vocabularies(capabilities_block)["freestyle"]
+    gates = {
+        "freestyle": bool(capabilities_block.get("supports_freestyle")),
+        "brew_override": bool(capabilities_block.get("supports_brew_overrides")),
+    }
+
+    parameters: dict[str, Any] = {}
+    for family, potential_scopes, applies_to in _PARAMETER_FAMILIES:
+        scope = [s for s in potential_scopes if gates[s]]
+        if not scope:
+            continue
+        descriptor: dict[str, Any] = {"kind": "enum", "scope": scope}
+        if applies_to is not None:
+            descriptor["applies_to"] = list(applies_to)
+        descriptor["tokens"] = list(freestyle_vocab[family])
+        parameters[family] = descriptor
+
+    portion_scope = [s for s in ("freestyle", "brew_override") if gates[s]]
+    if portion_scope:
+        parameters["portion_ml"] = {
+            "kind": "range",
+            "scope": portion_scope,
+            "unit": "ml",
+            "per_component": True,
+            "c1": dict(_PORTION_LIMITS["c1"]),
+            "c2": dict(_PORTION_LIMITS["c2"]),
+        }
+    return parameters
+
+
+# ---------------------------------------------------------------------------
+# Action catalog (§6.2) — v2, additive within contract_version 1
+# ---------------------------------------------------------------------------
+
+def _schema_entry(schema: Any, name: str) -> tuple[Any, Any]:
+    """Return (marker, validator) for one key of a voluptuous Schema."""
+    for marker, validator in schema.schema.items():
+        if str(marker) == name:
+            return marker, validator
+    raise KeyError(name)
+
+
+def _marker_required(marker: Any) -> bool:
+    """True for a vol.Required marker (vol imported lazily by the caller)."""
+    import voluptuous as vol  # noqa: PLC0415
+
+    return isinstance(marker, vol.Required)
+
+
+def _marker_default(marker: Any) -> Any:
+    """The marker's declared default value, or None when undefined."""
+    import voluptuous as vol  # noqa: PLC0415
+
+    default = getattr(marker, "default", vol.UNDEFINED)
+    if default is vol.UNDEFINED:
+        return None
+    return default() if callable(default) else default
+
+
+def _extract_int_ranges(validator: Any) -> list[list[int]]:
+    """Flatten vol.All/vol.Any/vol.Range trees into [[min, max], ...]."""
+    import voluptuous as vol  # noqa: PLC0415
+
+    if isinstance(validator, vol.Range):
+        return [[int(validator.min), int(validator.max)]]
+    ranges: list[list[int]] = []
+    for child in getattr(validator, "validators", ()):
+        ranges.extend(_extract_int_ranges(child))
+    return ranges
+
+
+# §6.2.6 gating: catalog entries whose invocation starts a MachineProcess
+# via the start-process path (the 8 unconditionally-registered buttons of
+# issue #36); the `available` flag for these follows the per-family
+# `verified_maintenance_processes` audit field. `brew` also carries a
+# process token (PRODUCT) but uses the brew command path, not
+# start_process, so it is not gated here.
+_PROCESS_START_ACTIONS: frozenset[str] = frozenset({
+    "easy_clean", "intensive_clean", "descaling",
+    "filter_insert", "filter_replace", "filter_remove",
+    "evaporating", "switch_off",
+})
+
+# Suffix of the anchor button entity used for service-kind invocations:
+# every melitta_barista service resolves its target machine from the
+# passed entity_id (§6.2.1 multi-machine targeting), and the brew button
+# exists for every brand — today's `button.<prefix>_brew` anchor.
+_SERVICE_ANCHOR_SUFFIX = "brew"
+
+
+def _process_available(
+    process: MachineProcess, verified: Sequence[int] | None,
+) -> bool:
+    """§6.2.6: a start-process action is available iff its process id is
+    hardware-verified for the family (None = everything verified)."""
+    return verified is None or int(process) in verified
+
+
+def build_action_catalog(
+    client: Any, capabilities_block: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Build the v2 `actions` catalog (§6.2.2) for one machine.
+
+    Sixteen entries, always all served, with per-family truth encoded in
+    `available`: HJ gates `brew_freestyle`, HC gates `brew_directkey`,
+    `supports_recipe_writes` gates `reset_recipe`,
+    `supports_factory_reset` gates the factory resets, and the §6.2.6
+    `verified_maintenance_processes` audit gates every start-process
+    entry (all Nivona families ship `()` — unavailable — until the #36
+    button matrix lands). `switch_off.requires == ["connected"]` encodes
+    the PR #42 precedent (usable while connected-not-ready) as data.
+    Service-kind `ActionParam`s are introspected from the live voluptuous
+    service schemas in `__init__` — never hand-copied — so they cannot
+    drift.
+    """
+    from . import (  # noqa: PLC0415 — lazy: avoids a circular module import
+        BREW_DIRECTKEY_SCHEMA,
+        RESET_RECIPE_SCHEMA,
+    )
+
+    caps = getattr(client, "capabilities", None)
+    if caps is None:
+        raise ContractNotReadyError(
+            "client has no MachineCapabilities yet (no handshake)"
+        )
+    brand = client.brand
+    verified = getattr(caps, "verified_maintenance_processes", None)
+    supports_freestyle = bool(capabilities_block.get("supports_freestyle"))
+    has_directkey = "HC" in brand.supported_extensions
+
+    # ActionParams from the live schemas (§6.2.2).
+    category_marker, category_validator = _schema_entry(
+        BREW_DIRECTKEY_SCHEMA, "category",
+    )
+    two_cups_marker, _ = _schema_entry(BREW_DIRECTKEY_SCHEMA, "two_cups")
+    directkey_params = [
+        {
+            "name": "category",
+            "kind": "enum",
+            "required": _marker_required(category_marker),
+            "tokens": list(category_validator.container),
+        },
+        {
+            "name": "two_cups",
+            "kind": "bool",
+            "required": _marker_required(two_cups_marker),
+            "default": _marker_default(two_cups_marker),
+        },
+    ]
+    recipe_id_marker, recipe_id_validator = _schema_entry(
+        RESET_RECIPE_SCHEMA, "recipe_id",
+    )
+    reset_recipe_params = [
+        {
+            "name": "recipe_id",
+            "kind": "int",
+            "required": _marker_required(recipe_id_marker),
+            "ranges": _extract_int_ranges(recipe_id_validator),
+        },
+    ]
+    freestyle_params = [
+        {"name": "params", "kind": "params_ref", "required": True,
+         "ref": "freestyle"},
+    ]
+
+    def button(suffix: str) -> dict[str, Any]:
+        return {"kind": "button", "entity_suffix": suffix}
+
+    def service(name: str, params: list[dict[str, Any]]) -> dict[str, Any]:
+        return {
+            "kind": "service",
+            "service": name,
+            "entity_suffix": _SERVICE_ANCHOR_SUFFIX,
+            "params": params,
+        }
+
+    def entry(
+        action: str,
+        group: str,
+        process: MachineProcess | None,
+        invocation: dict[str, Any],
+        *,
+        icon: str,
+        confirm: bool,
+        requires: list[str],
+        available: bool,
+        destructive: bool = False,
+    ) -> dict[str, Any]:
+        built: dict[str, Any] = {
+            "action": action,
+            "group": group,
+            "process": process.name if process is not None else None,
+            "icon": icon,
+            "confirm": confirm,
+        }
+        if destructive:
+            built["destructive"] = True
+        built["requires"] = requires
+        built["available"] = available
+        built["invocation"] = invocation
+        return built
+
+    def maintenance(
+        action: str, group: str, process: MachineProcess,
+        *, icon: str, confirm: bool, requires: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return entry(
+            action, group, process, button(action),
+            icon=icon, confirm=confirm,
+            requires=requires if requires is not None else ["ready"],
+            available=_process_available(process, verified),
+        )
+
+    return [
+        entry(
+            "brew", "brew", MachineProcess.PRODUCT, button("brew"),
+            icon="mdi:coffee", confirm=False, requires=["ready"],
+            available=True,
+        ),
+        entry(
+            "brew_freestyle", "brew", MachineProcess.PRODUCT,
+            service("brew_freestyle", freestyle_params),
+            icon="mdi:coffee-maker", confirm=False, requires=["ready"],
+            available=supports_freestyle,
+        ),
+        entry(
+            "brew_directkey", "brew", MachineProcess.PRODUCT,
+            service("brew_directkey", directkey_params),
+            icon="mdi:gesture-tap-button", confirm=False, requires=["ready"],
+            available=has_directkey,
+        ),
+        entry(
+            "cancel", "control", None, button("cancel"),
+            icon="mdi:stop", confirm=False, requires=["connected"],
+            available=True,
+        ),
+        entry(
+            "confirm_prompt", "control", None, button("confirm_prompt"),
+            icon="mdi:check-circle", confirm=False,
+            requires=["awaiting_confirmation"], available=True,
+        ),
+        entry(
+            "reset_recipe", "control", None,
+            service("reset_recipe", reset_recipe_params),
+            icon="mdi:restore", confirm=True, requires=["ready"],
+            available=bool(capabilities_block.get("supports_recipe_writes")),
+        ),
+        maintenance(
+            "easy_clean", "cleaning", MachineProcess.EASY_CLEAN,
+            icon="mdi:shimmer", confirm=True,
+        ),
+        maintenance(
+            "intensive_clean", "cleaning", MachineProcess.INTENSIVE_CLEAN,
+            icon="mdi:dishwasher", confirm=True,
+        ),
+        maintenance(
+            "descaling", "cleaning", MachineProcess.DESCALING,
+            icon="mdi:water-sync", confirm=True,
+        ),
+        maintenance(
+            "filter_insert", "filter", MachineProcess.FILTER_INSERT,
+            icon="mdi:filter-plus", confirm=False,
+        ),
+        maintenance(
+            "filter_replace", "filter", MachineProcess.FILTER_REPLACE,
+            icon="mdi:filter-cog", confirm=False,
+        ),
+        maintenance(
+            "filter_remove", "filter", MachineProcess.FILTER_REMOVE,
+            icon="mdi:filter-remove", confirm=False,
+        ),
+        maintenance(
+            "evaporating", "power", MachineProcess.EVAPORATING,
+            icon="mdi:air-humidifier", confirm=True,
+        ),
+        # PR #42 precedent as data: Switch Off stays usable while
+        # connected-not-ready, hence requires=["connected"], not "ready".
+        maintenance(
+            "switch_off", "power", MachineProcess.SWITCH_OFF,
+            icon="mdi:power", confirm=True, requires=["connected"],
+        ),
+        entry(
+            "factory_reset_settings", "danger", None,
+            button("factory_reset_settings"),
+            icon="mdi:cog-refresh", confirm=True, destructive=True,
+            requires=["ready"],
+            available=bool(capabilities_block.get("supports_factory_reset")),
+        ),
+        entry(
+            "factory_reset_recipes", "danger", None,
+            button("factory_reset_recipes"),
+            icon="mdi:book-refresh", confirm=True, destructive=True,
+            requires=["ready"],
+            available=bool(capabilities_block.get("supports_factory_reset")),
+        ),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -697,6 +1088,9 @@ def _melitta_recipe_catalog(client: Any) -> list[dict[str, Any]]:
             "name": RECIPE_NAMES.get(rid, str(rid)),
             "category": category,
         }
+        name_key = MELITTA_RECIPE_NAME_KEYS.get(rid)
+        if name_key:
+            recipe["name_key"] = name_key
         cached = base_recipes.get(rid)
         if cached is not None:
             c1_raw = getattr(cached, "component1", None)
@@ -718,17 +1112,22 @@ def _descriptor_recipe_catalog(caps: Any) -> list[dict[str, Any]]:
     """Nivona catalog: MachineCapabilities.recipes descriptor tables.
 
     Composition is not exposed per-recipe, so no `components` blocks;
-    icons come from category defaults (§4.8).
+    icons come from category defaults (§4.8). Each entry carries the
+    descriptor's authored `name_key` (§6.3.6) when one is seeded.
     """
-    return [
-        {
+    catalog: list[dict[str, Any]] = []
+    for descriptor in caps.recipes:
+        recipe: dict[str, Any] = {
             "recipe_id": descriptor.recipe_id,
             "name": descriptor.name,
             "category": descriptor.category,
-            "icon": icon_spec_for_category(descriptor.category),
         }
-        for descriptor in caps.recipes
-    ]
+        name_key = getattr(descriptor, "name_key", "")
+        if name_key:
+            recipe["name_key"] = name_key
+        recipe["icon"] = icon_spec_for_category(descriptor.category)
+        catalog.append(recipe)
+    return catalog
 
 
 # ---------------------------------------------------------------------------
@@ -742,6 +1141,12 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
     DB. The WS transport envelope (`schema_version`) is added by the
     caller via `_send_versioned`. Raises ContractNotReadyError when the
     client has no MachineCapabilities yet (mapped to `contract_not_ready`).
+
+    0.92 (§6.0): the document additionally carries the additive v2 blocks
+    `parameters` (§6.1), `actions` (§6.2), `forbidden_combinations`
+    (§6.1.6, always `[]` today) and `strings_version` (§6.3.2), and
+    recipe entries gain the additive `name_key` (§6.3.6) — all within
+    `contract_version: 1`.
     """
     caps = getattr(client, "capabilities", None)
     if caps is None:
@@ -784,6 +1189,15 @@ def build_ui_contract(entry: Any, client: Any) -> dict[str, Any]:
                 for component, limits in _PORTION_LIMITS.items()
             },
         },
+        # v2 blocks (§6.0): additive within contract_version 1.
+        "parameters": build_parameters(capabilities_block),
+        "actions": build_action_catalog(client, capabilities_block),
+        # §6.1.6: defined shape, empty content in 0.92 — always emitted
+        # so clients need no presence special-case.
+        "forbidden_combinations": [],
+        # §6.3.2: cache axis for server-served display strings; equals
+        # the integration manifest version (single-source stash, §5.1).
+        "strings_version": _integration_version(client) or "unknown",
         "recipes": recipes,
         "status_attribute_entity": "state",
         "bridge_attribute_entity": "connection",

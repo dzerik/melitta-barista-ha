@@ -64,6 +64,7 @@ The following sections group endpoints by their `melitta_barista/<namespace>/...
 - [`llm/agents`](#llm-agents) — list HA conversation agents
 - [`capabilities/*`](#capabilities) — live machine capabilities
 - [`ui_contract/*`](#ui_contract) — UI Contract v1 document (renderer-facing)
+- [`i18n/*`](#i18n) — machine-domain display strings (UI Contract v2)
 - [`sommelier/beans/*`](#sommelier-beans) — bean catalogue (sommelier)
 - [`sommelier/hoppers/*`](#sommelier-hoppers) — hopper-to-bean mapping
 - [`sommelier/milk/*`](#sommelier-milk) — available milk types
@@ -984,6 +985,70 @@ The full UI Contract v1 document (normative shape: `docs/UI_CONTRACT.md`
   `melitta_barista/status`, `recipes/list` and `api/info`.
 - Renderer-facing counterpart of `capabilities/get` (which stays the
   LLM-facing surface); the two version independently.
+
+---
+
+## `i18n`
+
+### `melitta_barista/i18n/get`
+
+| | |
+|---|---|
+| **Decorators** | `@websocket_api.async_response` (executor file I/O on first use per locale); no admin requirement |
+| **Stability** | stable (UI Contract v2, see `docs/UI_CONTRACT.md` §6.3) |
+| **Introduced** | 0.92.0 |
+
+**Inputs**
+- `locale: str` (required) — the requested display locale, e.g. `"de-DE"`.
+- `domains: list[str]` (optional) — subset of `status`, `values`,
+  `recipes`, `actions`. Unknown domains are ignored; omitted = all.
+
+**Not entry-scoped** — the served strings are machine-independent, so
+there is no `entry_id` parameter.
+
+**Response**
+
+```json
+{
+  "schema_version": 1,
+  "locale": "de-DE",
+  "resolved_locale": "de",
+  "strings_version": "0.92.0",
+  "strings": {
+    "status.process.READY": "Bereit",
+    "status.manipulation.FILL_WATER": "Wassertank füllen",
+    "values.intensity.very_mild": "Sehr mild",
+    "recipes.name.espresso": "Espresso",
+    "actions.easy_clean.label": "Easy Clean",
+    "actions._groups.cleaning": "Reinigung"
+  }
+}
+```
+
+- `resolved_locale` — the locale file that won the resolution chain:
+  requested locale → exact match → base language (`de-DE` → `de`) →
+  `en`. Per-key fallback to English applies on top: the winning locale
+  file is overlaid onto `en.json`, so a sparse locale still serves
+  every key (missing ones in English).
+- `strings_version` — the integration `manifest.json` version, the
+  client-side cache axis for server strings (`locale +
+  strings_version`, `docs/UI_CONTRACT.md` §6.3.2). It carries no
+  semantics beyond equality.
+- `strings` — a flat, dot-joined map, keys byte-equal to the contract
+  tokens they describe (`status.*` embeds `UPPER_SNAKE`, `values.*` /
+  `recipes.*` / `actions.*` embed `lower_snake`; no client may
+  case-fold keys).
+
+**Notes**
+- Strings live in `custom_components/melitta_barista/ui_strings/
+  <locale>.json` (29 locales); the merged en-overlay map is cached in
+  `hass.data` per resolved locale, so each locale is read from disk at
+  most once per HA run (the assets are immutable between upgrades).
+- i18n failure on the client (e.g. `unknown_command` from a pre-0.92
+  server) degrades only display strings — never token semantics,
+  catalogs, or status handling.
+- Read-only, informational — same auth class as `ui_contract/get`,
+  `status`, `recipes/list` and `api/info`.
 
 ---
 

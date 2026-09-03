@@ -25,12 +25,12 @@ from ._options import (
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Frothy Milk", "milk_drink"),
-    RecipeDescriptor(5, "Hot Water", "water"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee", name_key="coffee"),
+    RecipeDescriptor(2, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(4, "Frothy Milk", "milk_drink", name_key="frothy_milk"),
+    RecipeDescriptor(5, "Hot Water", "water", name_key="hot_water"),
 )
 
 
@@ -105,6 +105,9 @@ CAPABILITIES = MachineCapabilities(
     strength_levels=3,
     has_aroma_balance=False,
     brew_command_mode=0x0B,
+    # UI Contract §6.2.6: no Nivona family has hardware-verified process
+    # start codes yet (issue #36) — empty tuple = nothing verified.
+    verified_maintenance_processes=(),
     recipes=RECIPES,
     settings=SETTINGS,
     stats=STATS,

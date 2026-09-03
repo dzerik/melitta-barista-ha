@@ -30,14 +30,14 @@ from ._family_600 import UNSUPPORTED_GENERIC_SETTINGS
 from ._stats_helpers import _count, _flag, _pct
 
 RECIPES_900: tuple[RecipeDescriptor, ...] = (
-    RecipeDescriptor(0, "Espresso", "espresso"),
-    RecipeDescriptor(1, "Coffee", "coffee"),
-    RecipeDescriptor(2, "Americano", "americano"),
-    RecipeDescriptor(3, "Cappuccino", "cappuccino"),
-    RecipeDescriptor(4, "Caffè Latte", "milk_drink"),
-    RecipeDescriptor(5, "Latte Macchiato", "milk_drink"),
-    RecipeDescriptor(6, "Hot Milk", "milk_drink"),
-    RecipeDescriptor(7, "Hot Water", "water"),
+    RecipeDescriptor(0, "Espresso", "espresso", name_key="espresso"),
+    RecipeDescriptor(1, "Coffee", "coffee", name_key="coffee"),
+    RecipeDescriptor(2, "Americano", "americano", name_key="americano"),
+    RecipeDescriptor(3, "Cappuccino", "cappuccino", name_key="cappuccino"),
+    RecipeDescriptor(4, "Caffè Latte", "milk_drink", name_key="caffe_latte"),
+    RecipeDescriptor(5, "Latte Macchiato", "milk_drink", name_key="latte_macchiato"),
+    RecipeDescriptor(6, "Hot Milk", "milk_drink", name_key="hot_milk"),
+    RecipeDescriptor(7, "Hot Water", "water", name_key="hot_water"),
 )
 
 # 900-light family reuses the 900 recipe table.
@@ -182,6 +182,8 @@ CAPABILITIES_900 = MachineCapabilities(
     brew_command_mode=0x0B,
     fluid_scale_factor=10,
     tolerated_brew_manipulations=(11,),
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_900,
     settings=SETTINGS_900,
     stats=STATS_900,
@@ -199,6 +201,8 @@ CAPABILITIES_900_LIGHT = MachineCapabilities(
     strength_levels=3,
     brew_command_mode=0x0B,
     tolerated_brew_manipulations=(11,),
+    # UI Contract §6.2.6: process start codes unverified (issue #36).
+    verified_maintenance_processes=(),
     recipes=RECIPES_900_LIGHT,
     settings=SETTINGS_900_LIGHT,
     stats=STATS_900_LIGHT,

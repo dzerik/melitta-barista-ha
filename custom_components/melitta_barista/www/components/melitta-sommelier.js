@@ -18,6 +18,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import { displayNameFor } from "../i18n/server-strings.js";
 import "./melitta-sommelier-favorites.js";
 import "./melitta-sommelier-history.js";
 import "./melitta-sommelier-presets.js";
@@ -42,6 +43,7 @@ class MelittaSommelier extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      serverStrings: { attribute: false },
       _mode: { type: String },
       _preference: { type: String },
       _count: { type: Number },
@@ -125,6 +127,7 @@ class MelittaSommelier extends LitElement {
     this._saveAsBindToProfile = false;
     this._selectedPresetId = "";
     this._activeProfile = null;
+    this.serverStrings = null;
   }
 
   /**
@@ -142,6 +145,17 @@ class MelittaSommelier extends LitElement {
 
   _t(key, params) {
     return t(key, this.lang || "en", params);
+  }
+
+  /**
+   * Family-scoped value-token label (UI Contract §6.3.5): server string
+   * `values.<family>.<token>` → panel bundle (`recipes.opt.<token>`) →
+   * humanized token.
+   */
+  _valueLabel(family, token) {
+    const bundleKey = `recipes.opt.${token}`;
+    const bundled = this._t(bundleKey);
+    return displayNameFor(family, token, bundled === bundleKey ? null : bundled);
   }
 
   _modeLabel(m) {
@@ -706,14 +720,14 @@ class MelittaSommelier extends LitElement {
     if (!comp || comp.process === "none" || comp.process === 0) return "";
     return html`
       <div class="comp">
-        <span class="proc">${comp.process}</span>
+        <span class="proc">${this._valueLabel("process", comp.process)}</span>
         <span class="ml">${comp.portion_ml} ml</span>
         ${comp.intensity && comp.intensity !== "medium"
-          ? html`<span class="badge">${comp.intensity}</span>` : ""}
+          ? html`<span class="badge">${this._valueLabel("intensity", comp.intensity)}</span>` : ""}
         ${comp.aroma && comp.aroma !== "standard"
-          ? html`<span class="badge">${comp.aroma}</span>` : ""}
+          ? html`<span class="badge">${this._valueLabel("aroma", comp.aroma)}</span>` : ""}
         ${comp.temperature && comp.temperature !== "normal"
-          ? html`<span class="badge">${comp.temperature}</span>` : ""}
+          ? html`<span class="badge">${this._valueLabel("temperature", comp.temperature)}</span>` : ""}
       </div>
     `;
   }
@@ -845,6 +859,7 @@ class MelittaSommelier extends LitElement {
         .hass=${this.hass}
         .entryId=${this.entryId}
         .lang=${this.lang}
+        .serverStrings=${this.serverStrings}
         .recipe=${this._wizardRecipe}
         .source=${this._wizardSource || "generated"}
         .sourceId=${this._wizardSourceId}

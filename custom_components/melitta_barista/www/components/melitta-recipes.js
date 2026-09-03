@@ -11,15 +11,20 @@
  *   - per-recipe reset-to-default via `melitta_barista.reset_recipe`.
  *
  * Form option lists and portion clamps come from the UI Contract document
- * (`.contract` property fed by the panel shell's single contract fetch —
- * vocabularies.freestyle + limits.portion_ml) with hardcoded
- * fallbacks matching the service schema defaults. Editing is disabled
- * gracefully while the machine is disconnected; the base-recipe table
- * stays available as a collapsed read-only reference.
+ * (`.contract` property fed by the panel shell's single contract fetch)
+ * with the §6.1.5 three-tier fallback per parameter: the v2 `parameters`
+ * catalog → the v1 `vocabularies.freestyle` / `limits.portion_ml` blocks
+ * → hardcoded fallbacks matching the service schema defaults. Option and
+ * DirectKey category labels prefer server-served strings
+ * (`values.<family>.<token>` / `values.directkey_category.<token>`,
+ * §6.3.5) over the panel bundle. Editing is disabled gracefully while
+ * the machine is disconnected; the base-recipe table stays available as
+ * a collapsed read-only reference.
  */
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import { displayNameFor, labelFor } from "../i18n/server-strings.js";
 import "./melitta-confirm.js";
 import "./ui/melitta-drink-icon.js";
 
@@ -69,6 +74,7 @@ class MelittaRecipes extends LitElement {
       entryId: { type: String },
       lang: { type: String },
       contract: { attribute: false },
+      serverStrings: { attribute: false },
       _data: { type: Object },
       _status: { type: Object },
       _profileId: { state: true },
@@ -82,6 +88,7 @@ class MelittaRecipes extends LitElement {
   constructor() {
     super();
     this.contract = null;
+    this.serverStrings = null;
     this._data = null;
     this._status = null;
     this._profileId = null;
@@ -153,14 +160,46 @@ class MelittaRecipes extends LitElement {
 
   // ── contract-driven vocabularies & limits ──────────────────────────
 
-  /** Freestyle token list from the contract, fallback per service schema. */
+  /**
+   * Enum descriptor from the v2 `parameters` catalog for a freestyle
+   * family, or null when the catalog is absent / the descriptor has an
+   * unknown kind or a scope without "freestyle" (UI Contract §6.1.5 —
+   * such parameters fall back tier by tier, never error).
+   */
+  _enumParameter(key) {
+    const desc = this.contract?.parameters?.[key];
+    if (!desc || typeof desc !== "object" || desc.kind !== "enum") return null;
+    if (Array.isArray(desc.scope) && !desc.scope.includes("freestyle")) {
+      return null;
+    }
+    return Array.isArray(desc.tokens) && desc.tokens.length ? desc : null;
+  }
+
+  /**
+   * Freestyle token list with the §6.1.5 three-tier fallback:
+   * `parameters.<family>.tokens` → `vocabularies.freestyle.<family>` →
+   * hardcoded service-schema defaults.
+   */
   _vocab(key) {
+    const desc = this._enumParameter(key);
+    if (desc) return desc.tokens;
     const list = this.contract?.vocabularies?.freestyle?.[key];
     return Array.isArray(list) && list.length ? list : FALLBACK_FREESTYLE[key];
   }
 
-  /** Portion clamps ({min,max,step}) for "c1"/"c2" from limits.portion_ml. */
+  /**
+   * Portion clamps ({min,max,step}) for "c1"/"c2" with the §6.1.5
+   * three-tier fallback: `parameters.portion_ml.<comp>` →
+   * `limits.portion_ml.<comp>` → service-schema defaults.
+   */
   _portionLimits(comp) {
+    const range = this.contract?.parameters?.portion_ml;
+    if (
+      range && typeof range === "object" && range.kind === "range"
+      && range.per_component && range[comp] && typeof range[comp] === "object"
+    ) {
+      return range[comp];
+    }
     const limits = this.contract?.limits?.portion_ml?.[comp];
     return limits && typeof limits === "object"
       ? limits
@@ -188,17 +227,27 @@ class MelittaRecipes extends LitElement {
     return DIRECTKEY_CATEGORIES[index] || null;
   }
 
+  /**
+   * DirectKey category label (§6.3.5): server string
+   * `values.directkey_category.<token>` → panel bundle
+   * (`recipes.cat.<token>`) → provided fallback / raw token.
+   */
   _categoryLabel(token, fallback) {
     const key = `recipes.cat.${token}`;
     const value = this._t(key);
-    return value === key ? (fallback || token) : value;
+    const bundled = value === key ? (fallback || token) : value;
+    return labelFor(`values.directkey_category.${token}`, bundled, token);
   }
 
-  /** Localized label for a vocabulary token; unknown tokens pass through. */
-  _optionLabel(token) {
+  /**
+   * Family-scoped label for a vocabulary token (§6.3.5): server string
+   * `values.<family>.<token>` → panel bundle (`recipes.opt.<token>`) →
+   * humanized token.
+   */
+  _optionLabel(family, token) {
     const key = `recipes.opt.${token}`;
     const value = this._t(key);
-    return value === key ? token : value;
+    return displayNameFor(family, token, value === key ? null : value);
   }
 
   // ── service plumbing ───────────────────────────────────────────────
@@ -374,10 +423,10 @@ class MelittaRecipes extends LitElement {
 
   _componentSummary(comp) {
     if (!comp || comp.process === "none") return null;
-    const parts = [this._optionLabel(comp.process)];
+    const parts = [this._optionLabel("process", comp.process)];
     if (comp.portion_ml) parts.push(`${comp.portion_ml} ml`);
     if (comp.process === "coffee" && comp.intensity) {
-      parts.push(this._optionLabel(comp.intensity));
+      parts.push(this._optionLabel("intensity", comp.intensity));
     }
     return parts.join(" · ");
   }
@@ -429,7 +478,7 @@ class MelittaRecipes extends LitElement {
           @change=${(e) => this._updateComponent(slot, key, e.target.value)}>
           ${options.map((opt) => html`
             <option value=${opt} ?selected=${opt === current}>
-              ${this._optionLabel(opt)}
+              ${this._optionLabel(key, opt)}
             </option>
           `)}
         </select>
@@ -514,12 +563,12 @@ class MelittaRecipes extends LitElement {
     if (!comp || comp.process === "none") return html`<span class="dim">—</span>`;
     return html`
       <div class="comp">
-        <span class="proc">${this._optionLabel(comp.process)}</span>
+        <span class="proc">${this._optionLabel("process", comp.process)}</span>
         ${comp.portion_ml ? html`<span class="ml">${comp.portion_ml} ml</span>` : ""}
-        ${comp.intensity && comp.intensity !== "medium" ? html`<span class="badge">${this._optionLabel(comp.intensity)}</span>` : ""}
-        ${comp.aroma && comp.aroma !== "standard" ? html`<span class="badge">${this._optionLabel(comp.aroma)}</span>` : ""}
-        ${comp.temperature && comp.temperature !== "normal" ? html`<span class="badge">${this._optionLabel(comp.temperature)}</span>` : ""}
-        ${comp.shots && comp.shots !== "none" ? html`<span class="badge">${this._optionLabel(comp.shots)}</span>` : ""}
+        ${comp.intensity && comp.intensity !== "medium" ? html`<span class="badge">${this._optionLabel("intensity", comp.intensity)}</span>` : ""}
+        ${comp.aroma && comp.aroma !== "standard" ? html`<span class="badge">${this._optionLabel("aroma", comp.aroma)}</span>` : ""}
+        ${comp.temperature && comp.temperature !== "normal" ? html`<span class="badge">${this._optionLabel("temperature", comp.temperature)}</span>` : ""}
+        ${comp.shots && comp.shots !== "none" ? html`<span class="badge">${this._optionLabel("shots", comp.shots)}</span>` : ""}
       </div>
     `;
   }

@@ -1,7 +1,9 @@
 # UI Contract Specification (v1)
 
-Status: **Design accepted for 0.91** (implementation next). Enum catalogs, action catalog
-and i18n-over-WS are **specified as v2 sketches only** (0.92, §6).
+Status: **Design accepted for 0.91**. The v2 feature set — parameter catalogs,
+action catalog and i18n-over-WS — is **normative as of 0.92** (§6, shipped
+additively within `contract_version: 1`; implementation plan §8; Appendix A.1
+amendment 6).
 
 This document is the canonical contract between the `melitta_barista` integration
 (server) and its thin clients: the Lovelace card (`melitta-barista-card`) and the
@@ -1001,6 +1003,47 @@ byte-exact.
   versions, and sommelier DB `SCHEMA_VERSION`. None of them are reused for the UI
   contract.
 
+*Appended by the 0.92 amendment (Appendix A.1, entry 6):*
+
+* `strings_version` — **string**, the integration `manifest.json` version.
+  Carried in every `i18n/get` response and, additively, in the contract
+  document. The cache axis for server-served display strings
+  (`locale + strings_version`, §6.3.2). Orthogonal to `contract_version`;
+  carries no semantics beyond equality.
+* **Fingerprint inputs, 0.92 delta:** the `parameters` and `actions` blocks add
+  no new machine-state inputs — every value they derive from (`family_key`,
+  `machine_type`, `strength_levels`, `has_aroma_balance`,
+  `supported_extensions`, `supports_factory_reset`, `supports_brew_overrides`,
+  `verified_maintenance_processes`, `tolerated_brew_manipulations`, …) is
+  already, or hereby becomes, a §5.1 input. **One new input: the integration
+  version string**, so catalog-content changes shipped in a release (e.g. the
+  #36 audit flipping an `available` flag) refresh long-lived client sessions
+  whose fingerprint would otherwise be unchanged. Normative rule going forward:
+  any value that feeds the served catalogs MUST be (directly or transitively) a
+  fingerprint input.
+* **Single-source rule for the version input (normative):** the fingerprint has
+  two independent call paths — `build_bridge_attributes` (connection sensor)
+  and `build_ui_contract` (WS handler). They MUST be byte-identical by
+  construction: `async_setup_entry` resolves the manifest version **once** via
+  the existing `async_get_integration` pattern (async — no event-loop-blocking
+  manifest read) and stashes it on the client
+  (`client.integration_version`), like every other fingerprint input;
+  `compute_contract_fingerprint` reads it from `client` at both call sites
+  (which are sync — the cached string is their only valid source). Threading
+  the version through per-call-site arguments is forbidden: divergent values
+  would make the card's fingerprint cache check permanently fail and re-arm a
+  WS refetch every ~2 s status poll, for every client, indefinitely. A pytest
+  pins `build_bridge_attributes(...)['contract_fingerprint'] ==
+  build_ui_contract(...)['contract_fingerprint']`.
+* **On i18n and the fingerprint:** server i18n strings are not a *direct*
+  fingerprint input — but because `strings_version` equals the integration
+  version, which *is* an input, any release that changes served strings churns
+  every entry's fingerprint as a side effect. This one-contract-refetch-per-
+  entry-per-upgrade cost is accepted and intended: it is precisely the
+  mechanism that delivers the new `strings_version` to clients (§6.3.2) with
+  zero extra round-trips. (The draft's "deliberately excluded from the
+  fingerprint" phrasing is retracted as misleading.)
+
 ### 5.2 Server rules
 
 1. Within `contract_version: 1`: additive-only. New fields, new *optional* tokens in
@@ -1027,6 +1070,11 @@ byte-exact.
    connection-sensor state write — in practice within one status-poll cycle
    (~2 s), which is the effective granularity of the §2.3.4 refetch trigger.
    (Amended from "in the same state write" — see Appendix A amendment log.)
+7. *(0.92 amendment)* The v1 `vocabularies.freestyle` and `limits.portion_ml` blocks are closed
+   sets mirrored by `parameters` (§6.1.2): the server MUST keep them present,
+   MUST keep them element-wise consistent with `parameters`, and MUST NOT add
+   new keys inside them. All catalog evolution happens in `parameters` /
+   `actions` / `forbidden_combinations`.
 
 ### 5.3 Client rules
 
@@ -1063,72 +1111,558 @@ screen. The PWA additionally persists the last-good contract per `entry_id`
 the device is offline, marking the data as possibly stale and refetching on the
 next successful connection.
 
+*Appended by the 0.92 amendment:*
+
+**0.92 feature-level matrix** (all cells inside `contract_version: 1`; the §5.4
+base matrix continues to govern the <0.91 column):
+
+| | **Integration 0.91.x** | **Integration ≥0.92** |
+| --- | --- | --- |
+| **Card 2.4–2.6.x (v1-only)** | Status quo (v1 token mode). | Works unchanged: `parameters`/`actions`/`forbidden_combinations`/`strings_version`/`name_key` are unknown fields (`validateContract` passes and ignores them, §3.2); `i18n/get` is never called. Zero behaviour change — the reason §6.0 chose the additive path. |
+| **Card 2.7 (v2-aware)** | Token mode as today; `parameters` absent → **v1 `vocabularies.freestyle`/`limits` (today's behaviour; `const.ts` only without any contract, §6.1.5)**; `actions` absent → legacy hardcoded action arrays; `i18n/get` → `unknown_command` → durable fallback to card bundles for the session. | Full v2: catalog-driven pickers/sliders and action groups, server display strings with bundle fallback. Per-feature degradation throughout (§6.0.4). |
+
+Panel: ships inside the integration package, so panel and server are always
+version-matched; the panel adopts `parameters` and i18n-over-WS as an ordinary
+consumer (§6.3.5) with its existing per-key bundle fallback. PWA: still no
+legacy mode (v1 rule); it treats `parameters`/`actions` as optional exactly
+like the card and persists i18n per `locale + strings_version` with the §6.3.2
+revalidation rule.
+
 ---
 
-## 6. Deferred to v2 (0.92) — shape sketches only
+## 6. The v2 feature set (0.92, normative)
 
-All three ship as **additive** fields/commands within `contract_version: 1`.
+### 6.0 Versioning decision (normative)
 
-### 6.1 Enum catalogs with ranges
+**All three v2 features ship additively within `contract_version: 1`.** No bump
+to `contract_version: 2`.
 
-Extends `vocabularies.freestyle` from bare token lists to self-describing
-parameter catalogs (the `{token,min,max,step}` unification):
+Rationale, per the §5 rules:
 
-```jsonc
-"parameters": {
-  "portion_ml":  { "kind": "range", "per_component": true,
-                   "c1": { "min": 5, "max": 250, "step": 5 },
-                   "c2": { "min": 0, "max": 250, "step": 5 } },
-  "intensity":   { "kind": "enum", "tokens": ["mild", "medium", "strong"] },
-  "blend":       { "kind": "enum", "tokens": ["hopper_1", "hopper_2"],
-                   "applies_to": ["coffee"] },
-  "shots":       { "kind": "enum", "tokens": ["none", "one", "two", "three"],
-                   "applies_to": ["coffee"] }
+* §5.2.1 permits new fields and new commands within v1; nothing in 0.92 removes,
+  renames, or re-types a v1 field, changes a token spelling, or changes casing
+  conventions — the §5.2.1 bump triggers are all absent.
+* A bump would be strictly *worse* for compatibility: §5.3.3 makes the version
+  gate cover the attribute surface too, so a `contract_version: 2` server would
+  push every shipped 2.4–2.6.x card — whose `SUPPORTED_CONTRACT_VERSIONS` is
+  `[1]` — into **full legacy string-matching mode**, discarding working token
+  status for zero benefit. The additive path leaves them byte-for-byte
+  unaffected (v2 fields are unknown fields; §5.3.1).
+* Precedent: `brand_theme` (Appendix A.1 amendment 5) already shipped a whole
+  feature block additively within v1.
+
+Consequent normative rules:
+
+1. **Per-feature presence gating.** Clients detect each v2 feature by field/
+   command presence, never by version: `parameters` present → catalog-driven
+   pickers; `actions` present → catalog-driven action UI; `i18n/get` answered →
+   server strings. `validateContract` MUST NOT require any v2 field — a v1
+   document without them remains valid.
+2. `SUPPORTED_CONTRACT_VERSIONS` stays `[1]` in all clients. No client story for
+   a version bump is needed because no bump occurs.
+3. Unknown values inside v2 structures follow §5.3.2: unknown parameter `kind`
+   or `scope` → that parameter falls back (§6.1.5); unknown action `kind` →
+   that entry is dropped; unknown `requires` token → condition treated as
+   satisfied (server re-validates anyway); unknown i18n keys → ignored.
+4. **Per-feature degradation.** Failure or absence of any one v2 feature never
+   degrades another, and never degrades v1 behaviour (token status, icon specs,
+   v1 vocabularies). This extends §2.3.5 unchanged.
+
+### 6.1 Parameter catalogs (enum catalogs with ranges)
+
+#### 6.1.1 Shape
+
+Additive top-level contract field `parameters`, a map from parameter family to a
+self-describing descriptor:
+
+```ts
+// Additive to UiContractResponse (§3.3):
+parameters?: Record<string, ParameterDescriptor>;
+forbidden_combinations?: ForbiddenCombination[];   // §6.1.6
+strings_version?: string;                          // §6.3.2
+
+interface ParameterDescriptor {
+  kind: string;              // known: "enum" | "range" (open, §5.3.2)
+  scope: string[];           // known: "freestyle" | "brew_override" (open)
+  applies_to?: string[];     // freestyle process tokens the parameter attaches
+                             // to (e.g. ["coffee"]); absent = all processes
+  // kind == "enum":
+  tokens?: string[];         // lower_snake value tokens, §3.1 casing
+  // kind == "range":
+  unit?: string;             // known: "ml"
+  per_component?: true;      // when set, c1/c2 sub-ranges below; else min/max/step
+  c1?: { min: number; max: number; step: number };
+  c2?: { min: number; max: number; step: number };
+  min?: number; max?: number; step?: number;
 }
 ```
 
-Clamp rules travel as data; enforcement stays server-side (§1.2).
+Rules: a descriptor with unknown `kind` is ignored (per-parameter fallback,
+§6.1.5); a descriptor whose `scope` contains no token the client understands is
+not rendered; enum `tokens` are byte-equal to the const-map keys (§3.1) and are
+the exact set the server's `_resolve_enum` accepts for this machine. Clamp
+rules travel as data; enforcement stays server-side (§1.2 — unchanged).
+
+#### 6.1.2 Relationship to v1 `vocabularies.freestyle` / `limits.portion_ml`: mirror-and-freeze
+
+The v1 blocks are neither removed (forbidden by §5.2.1) nor left to drift.
+Normatively (also appended as §5.2 rule 7):
+
+* `vocabularies.freestyle` and `limits.portion_ml` remain present forever within
+  v1, but become **closed sets**: no new keys will ever be added inside them.
+* `parameters` **mirrors** them: for every freestyle family,
+  `parameters.<family>.tokens` is byte-equal to
+  `vocabularies.freestyle.<family>`, and `parameters.portion_ml.c1/.c2` are
+  element-wise equal to `limits.portion_ml.c1/.c2`. A pytest pins this
+  invariant.
+* All catalog evolution (new families, ranges, scopes, `applies_to`,
+  `forbidden_combinations`) happens exclusively in the v2 blocks.
+
+#### 6.1.3 Families and scopes served in 0.92
+
+| family | kind | Melitta (TS example) | Nivona (700 example) | scope |
+| --- | --- | --- | --- | --- |
+| `process` | enum | `none coffee milk water` | same | `freestyle` |
+| `intensity` | enum | 5 tokens | `mild medium strong` | Melitta: `freestyle`; Nivona: `brew_override` |
+| `aroma` | enum | `standard intense` | per `has_aroma_balance` | as intensity |
+| `temperature` | enum | `cold normal high` | same | `freestyle` (Melitta only) |
+| `shots` | enum | `none one two three` | same | `freestyle` (Melitta only) |
+| `blend` | enum, `applies_to: ["coffee"]` | `hopper_1 hopper_2` (T: 1) | `hopper_1` | `freestyle` |
+| `portion_ml` | range, `per_component`, `unit: "ml"` | c1 {5,250,5}, c2 {0,250,5} | same | Melitta: `freestyle`; Nivona: `brew_override` |
+
+`brew_override`-scoped descriptors are emitted **iff**
+`capabilities.supports_brew_overrides`; `freestyle`-scoped descriptors iff
+`capabilities.supports_freestyle`. A machine with neither gets an empty-scope
+family omitted entirely. Token subsets follow the exact same server filters as
+the v1 vocabularies (3-level intensity, single-hopper blend, §3.5) — guaranteed
+by the §6.1.2 mirror.
+
+#### 6.1.4 Example payloads (pinned verbatim in tests)
+
+Melitta Barista TS (extends the §3.7 document):
+
+```json
+"parameters": {
+  "process":     { "kind": "enum", "scope": ["freestyle"],
+                   "tokens": ["none", "coffee", "milk", "water"] },
+  "intensity":   { "kind": "enum", "scope": ["freestyle"], "applies_to": ["coffee"],
+                   "tokens": ["very_mild", "mild", "medium", "strong", "very_strong"] },
+  "aroma":       { "kind": "enum", "scope": ["freestyle"], "applies_to": ["coffee"],
+                   "tokens": ["standard", "intense"] },
+  "temperature": { "kind": "enum", "scope": ["freestyle"],
+                   "tokens": ["cold", "normal", "high"] },
+  "shots":       { "kind": "enum", "scope": ["freestyle"], "applies_to": ["coffee"],
+                   "tokens": ["none", "one", "two", "three"] },
+  "blend":       { "kind": "enum", "scope": ["freestyle"], "applies_to": ["coffee"],
+                   "tokens": ["hopper_1", "hopper_2"] },
+  "portion_ml":  { "kind": "range", "scope": ["freestyle"], "unit": "ml",
+                   "per_component": true,
+                   "c1": { "min": 5, "max": 250, "step": 5 },
+                   "c2": { "min": 0, "max": 250, "step": 5 } }
+},
+"forbidden_combinations": []
+```
+
+Nivona 700 (extends §3.8): only
+
+```json
+"parameters": {
+  "intensity":  { "kind": "enum", "scope": ["brew_override"], "applies_to": ["coffee"],
+                  "tokens": ["mild", "medium", "strong"] },
+  "aroma":      { "kind": "enum", "scope": ["brew_override"], "applies_to": ["coffee"],
+                  "tokens": ["standard", "intense"] },
+  "portion_ml": { "kind": "range", "scope": ["brew_override"], "unit": "ml",
+                  "per_component": true,
+                  "c1": { "min": 5, "max": 250, "step": 5 },
+                  "c2": { "min": 0, "max": 250, "step": 5 } }
+},
+"forbidden_combinations": []
+```
+
+(The v1 `vocabularies.freestyle` block in the same Nivona document still carries
+the full mirrored token lists — the mirror invariant applies to the families
+both surfaces carry; families the v1 block lists but `parameters` scopes away
+from this machine are simply not rendered as freestyle UI, which matches
+`supports_freestyle: false` gating that v1 clients already apply.)
+
+#### 6.1.5 Client fallback chain (normative — three tiers)
+
+Per parameter, independently:
+
+**`parameters.<family>` → v1 `vocabularies.freestyle.<family>` /
+`limits.portion_ml` → hardcoded client consts.**
+
+A v2-aware client talking to a 0.91 server (no `parameters`) MUST land on tier 2
+— the server-filtered v1 blocks — which is exactly today's 2.6.x behaviour
+(3-level Nivona intensity, single-hopper blend). Tier 3 (client consts) is
+reached only with no contract at all. Skipping tier 2 is forbidden: it would
+regress a v2 card below the card it replaces. The §6.1.2 mirror guarantees tiers
+1 and 2 agree on ≥0.92 servers, so `resolveParameters` is a cheap generalization
+of the existing `resolveFreestyleVocab`.
+
+#### 6.1.6 `forbidden_combinations`
+
+Defined shape, empty content in 0.92 (`LiveCapabilities` carries none today):
+
+```ts
+interface ForbiddenCombination {
+  params: Record<string, string>;   // e.g. { "process": "milk", "temperature": "cold" }
+  reason_token?: string;            // optional i18n-able token
+}
+```
+
+Clients MAY grey out matching combinations; the server re-validates regardless.
+Always emitted (as `[]`) so clients need no presence special-case once they
+support it.
 
 ### 6.2 Action catalog
 
-Replaces the card's three hardcoded maintenance arrays and the
-suffix-probing convention:
+#### 6.2.1 Shape
 
-```jsonc
-"actions": [
-  { "action": "easy_clean",   "process": "EASY_CLEAN",  "group": "cleaning",
-    "confirm": true,  "entity_suffix": "easy_clean",  "available": true },
-  { "action": "descaling",    "process": "DESCALING",   "group": "cleaning",
-    "confirm": true,  "entity_suffix": "descaling",   "available": true },
-  { "action": "filter_insert","process": "FILTER_INSERT","group": "filter",
-    "confirm": false, "entity_suffix": "filter_insert","available": true },
-  { "action": "switch_off",   "process": "SWITCH_OFF",  "group": "power",
-    "confirm": true,  "entity_suffix": "switch_off",   "available": true },
-  { "action": "factory_reset","process": null,           "group": "danger",
-    "confirm": true,  "entity_suffix": "factory_reset","available": false }
-]
+Additive top-level contract field `actions: ActionEntry[]`:
+
+```ts
+actions?: ActionEntry[];
+
+interface ActionEntry {
+  action: string;              // lower_snake action token (§6.2.2)
+  group: string;               // known: "brew" | "control" | "cleaning" |
+                               // "filter" | "power" | "danger" (open set)
+  process: string | null;      // MachineProcess token the action starts, if any
+  icon?: string;               // "mdi:<name>" — an mdi identifier is data, not a
+                               // brand asset; absent/malformed → client default
+                               // (normatively: mdi:cog)
+  confirm: boolean;            // client shows a confirm step (two-tap or dialog)
+  destructive?: true;          // implies confirm regardless of the confirm flag,
+                               // plus danger styling
+  requires: string[];          // condition tokens, §6.2.4; [] = always
+  available: boolean;          // per-family truth, §6.2.6
+  invocation: ActionInvocation;
+}
+
+type ActionInvocation =
+  | { kind: "button";
+      entity_suffix: string }                 // press button.<prefix>_<suffix>
+  | { kind: "service";
+      service: string;                        // melitta_barista.<service>
+      entity_suffix: string;                  // REQUIRED: the button entity whose
+                                              // entity_id is passed as the
+                                              // service's entity_id
+      params: ActionParam[] };
+
+interface ActionParam {
+  name: string;
+  kind: string;                // known: "enum" | "bool" | "int" | "params_ref"
+  required: boolean;
+  tokens?: string[];           // kind enum
+  default?: string | number | boolean;
+  ranges?: [number, number][]; // kind int; disjoint inclusive ranges
+  ref?: string;                // kind params_ref; known: "freestyle" — the full
+                               // freestyle form per the `parameters` catalog
+}
 ```
 
-`available` finally gives per-family maintenance truth (today buttons register
-unconditionally). Requires the per-family maintenance-support audit first — that
-audit is the actual 0.92 work; the shape above is settled.
+**Multi-machine targeting is normative:** every `melitta_barista` service
+requires `entity_id` and resolves the target machine through it (`_find_client`
+via the entity registry). Therefore service-kind entries MUST carry
+`entity_suffix`; clients assemble `entity_id = "button.<prefix>_<entity_suffix>"`
+exactly as button-kind does (today's `button.<prefix>_brew` anchor generalized).
+An entry with unknown `invocation.kind` is dropped by the client (§6.0.3).
+
+#### 6.2.2 Catalog contents (0.92)
+
+Sixteen action tokens. Icons for the twelve existing buttons are the mdi names
+the server already owns in `button.py`; the four new entries get authored icons.
+
+Errata: three catalog icons (cancel mdi:stop, brew_freestyle mdi:coffee-maker,
+confirm_prompt mdi:check-circle) intentionally differ from the entity icons
+button.py owns (mdi:stop-circle, mdi:coffee-maker-outline,
+mdi:check-circle-outline); the table is the normative catalog surface.
+
+| action | group | process | invocation | confirm | destructive | requires | icon |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `brew` | brew | `PRODUCT` | button `brew` | no | | `["ready"]` | mdi:coffee |
+| `brew_freestyle` | brew | `PRODUCT` | service `brew_freestyle`, params `[{name:"params", kind:"params_ref", ref:"freestyle", required:true}]` | no | | `["ready"]` | mdi:coffee-maker |
+| `brew_directkey` | brew | `PRODUCT` | service `brew_directkey`, params `[{name:"category", kind:"enum", tokens:[7 DirectKey tokens], required:true}, {name:"two_cups", kind:"bool", default:false, required:false}]` | no | | `["ready"]` | mdi:gesture-tap-button |
+| `cancel` | control | null | button `cancel` | no | | `["connected"]` | mdi:stop |
+| `confirm_prompt` | control | null | button `confirm_prompt` | no | | `["awaiting_confirmation"]` | mdi:check-circle |
+| `reset_recipe` | control | null | service `reset_recipe`, params `[{name:"recipe_id", kind:"int", ranges:[[200,223],[302,388]], required:false}]` | yes | | `["ready"]` | mdi:restore |
+| `easy_clean` | cleaning | `EASY_CLEAN` | button `easy_clean` | yes | | `["ready"]` | mdi:shimmer |
+| `intensive_clean` | cleaning | `INTENSIVE_CLEAN` | button `intensive_clean` | yes | | `["ready"]` | mdi:dishwasher |
+| `descaling` | cleaning | `DESCALING` | button `descaling` | yes | | `["ready"]` | mdi:water-sync |
+| `filter_insert` | filter | `FILTER_INSERT` | button `filter_insert` | no | | `["ready"]` | mdi:filter-plus |
+| `filter_replace` | filter | `FILTER_REPLACE` | button `filter_replace` | no | | `["ready"]` | mdi:filter-cog |
+| `filter_remove` | filter | `FILTER_REMOVE` | button `filter_remove` | no | | `["ready"]` | mdi:filter-remove |
+| `evaporating` | power | `EVAPORATING` | button `evaporating` | yes | | `["ready"]` | mdi:air-humidifier |
+| `switch_off` | power | `SWITCH_OFF` | button `switch_off` | yes | | `["connected"]` | mdi:power |
+| `factory_reset_settings` | danger | null | button `factory_reset_settings` | yes | yes | `["ready"]` | mdi:cog-refresh |
+| `factory_reset_recipes` | danger | null | button `factory_reset_recipes` | yes | yes | `["ready"]` | mdi:book-refresh |
+
+Availability gating (server-side, encoded into `available`):
+`brew_freestyle`/`reset_recipe` require the HJ/HD write paths
+(`supports_freestyle` / `supports_recipe_writes`); `brew_directkey` requires the
+HC extension; `factory_reset_*` require `supports_factory_reset` (Nivona 8000 →
+`available: false`); process-starting maintenance actions follow §6.2.6.
+`switch_off.requires == ["connected"]` — not `ready` — encodes the PR #42
+precedent (Switch Off stays usable while connected-not-ready) as data.
+
+Parameter shapes are **byte-equal to the service schemas** in `__init__.py`
+(`BREW_FREESTYLE_SCHEMA`, `BREW_DIRECTKEY_SCHEMA`, `RESET_RECIPE_SCHEMA`): the
+DirectKey token list is the 7-member `_DIRECTKEY_CATEGORIES`, the `params_ref:
+"freestyle"` form is the 15 freestyle fields with the exact voluptuous defaults
+(`name` defaults to `"Custom"` and is omittable), `reset_recipe.recipe_id` is
+optional with the split 200–223 / 302–388 range. A pytest diffs the emitted
+`ActionParam`s against the live schemas so they can never drift.
+
+#### 6.2.3 Group labels and ordering
+
+Known group render order: `brew, control, cleaning, filter, power, danger`,
+then unknown groups in served order. Group headers are localized via
+`actions._groups.<group>` i18n keys (§6.3.4); an unknown group id with no
+served string falls back to the humanized token (normative).
+
+#### 6.2.4 `requires` evaluation (client-side, advisory)
+
+Known condition tokens, all derived from surfaces clients already read:
+
+* `connected` — bridge attribute `connected == true` (§3.4 block A).
+* `ready` — `process_token == "READY" && manipulation_token == "NONE"` (§3.4).
+* `awaiting_confirmation` — state attribute `awaiting_confirmation == true`.
+
+All listed tokens must hold (AND). An **unknown token is treated as satisfied**
+(fail-open) — the catalog is descriptive; the server re-validates every command
+and the machine NACKs what it can't do. `requires` gates enablement styling,
+never correctness.
+
+#### 6.2.5 Client consumption rules
+
+1. **Fallback:** `actions` absent (0.91 server) → the client's existing
+   hardcoded action lists (`CLEANING_ACTIONS`/`FILTER_ACTIONS`/`OTHER_ACTIONS`)
+   render exactly as today. The legacy arrays are a permanent fixture, not a
+   shim (§5.4 logic).
+2. **Partial adoption is allowed:** clients MAY catalog-drive any subset of
+   groups. Entries in groups a client renders with bespoke UI (the card's
+   existing brew/freestyle/DirectKey sections) are **informational** for that
+   client — catalog completeness exists for the PWA and future clients, and a
+   client never builds two invocation paths for the same brew. Card 2.7
+   catalog-drives `cleaning`/`filter`/`power`/`danger` plus unknown groups.
+3. `available: false` entries are hidden by default (clients MAY render them
+   disabled-with-explanation).
+4. `destructive` forces the confirm step and danger styling regardless of
+   `confirm`.
+5. Labels/descriptions resolve per §6.3.5 (server string → client bundle →
+   humanized token); icons per §6.2.1 (default `mdi:cog`).
+
+#### 6.2.6 Maintenance availability and the per-family verification audit
+
+The catalog MUST NOT promote unverified assumptions into served truth. Issue
+#36 (NICR 779) proved that `MachineProcess` start codes are shifted on at least
+the Nivona 700 family (a "power off" press started a cleaning cycle);
+`button.py` registering all 8 maintenance buttons unconditionally is a known
+bug, and this catalog is where it gets fixed as data:
+
+* New field `MachineCapabilities.verified_maintenance_processes:
+  tuple[int, ...] | None = None`. `None` = all process codes verified for this
+  family (Melitta families — hardware-verified). A tuple = only the listed
+  process ids are verified; everything else is unverified.
+* `build_action_catalog` emits `available: false` for every process-starting
+  entry whose process id is not verified for the family. **All Nivona families
+  ship 0.92.0b1 with `verified_maintenance_processes = ()`** — maintenance and
+  `switch_off`/`evaporating` entries served `available: false` — until the #36
+  TX-byte button matrix lands and populates per-family tuples. This is
+  explicit, intended b1 behaviour, and flipping a flag later is a
+  catalog-content change delivered by the fingerprint (§5.1 amendment).
+* Button *entities* are unchanged in 0.92 (fixing their unconditional
+  registration is tracked separately); only the catalog carries the truth.
+  Clients that catalog-drive these groups therefore stop exposing the broken
+  buttons — the #36 hazard disappears for catalog-aware clients first.
 
 ### 6.3 Machine-domain i18n over WS
 
+#### 6.3.1 Endpoint
+
+* **Name:** `melitta_barista/i18n/get`
+* **Schema:** `{"type": ..., vol.Required("locale"): str, vol.Optional("domains"): [str]}`
+* **Not entry-scoped** — served strings are machine-independent (no `entry_id`).
+* **Auth:** `admin=False` (informational, same class as `ui_contract/get`).
+* **Handler:** async (file I/O on first use per locale), registered inside
+  `async_register_panel_websocket`; auto-listed by `api/info`.
+* **Locale resolution chain (normative):** requested locale → exact match →
+  base language (`de-DE` → `de`) → `en`. `resolved_locale` reports the file
+  that won; per-key fallback to `en` applies on top (§6.3.3).
+* **Domains:** `status`, `values`, `recipes`, `actions`. Unknown requested
+  domains are ignored; omitted `domains` = all.
+
 ```jsonc
 // request
-{ "type": "melitta_barista/i18n/get", "locale": "de", "domains": ["status", "recipes", "actions"] }
-// response (server falls back de-DE → de → en per key)
-{ "schema_version": 1, "locale": "de", "resolved_locale": "de",
-  "strings": { "status.process.READY": "Bereit",
-               "recipes.name.200": "Espresso",
-               "actions.easy_clean": "Easy Clean" } }
+{ "type": "melitta_barista/i18n/get", "locale": "de-DE",
+  "domains": ["status", "values", "recipes", "actions"] }
+// response (via _send_versioned)
+{ "schema_version": 1,
+  "locale": "de-DE", "resolved_locale": "de",
+  "strings_version": "0.92.0",
+  "strings": {
+    "status.process.READY": "Bereit",
+    "status.manipulation.FILL_WATER": "Wassertank füllen",
+    "values.intensity.very_mild": "Sehr mild",
+    "recipes.name.espresso": "Espresso",
+    "actions.easy_clean.label": "Easy Clean",
+    "actions.easy_clean.description": "Milchsystem spülen",
+    "actions._groups.cleaning": "Reinigung"
+  } }
 ```
 
-Served from the integration's 29-locale `translations/` assets (single source of
-truth); the card keeps only card-chrome strings in its own bundles. Recipe `name`
-in the contract then becomes a fallback, keyed by `recipe_id`. Until then, v1
-token display uses the card-side key map of §7.2 Zone C-B.
+Keys are flat, dot-joined, and **byte-equal to the tokens they describe**
+(§3.1 casing preserved): `status.*` embeds `UPPER_SNAKE`, `values.*` /
+`recipes.*` / `actions.*` embed `lower_snake`. No client may case-fold keys.
+`values.*` keys are family-scoped (`values.intensity.very_mild`) because bare
+tokens collide across families (`none`, `standard`).
+
+#### 6.3.2 Versioning and caching
+
+* New version field **`strings_version`** (string) — the integration
+  `manifest.json` version. Carried in every `i18n/get` response **and**, as an
+  additive top-level field, in the contract document itself
+  (`UiContractResponse.strings_version?`). It is the cache/equality axis for
+  server strings; it carries no semantics beyond equality. Orthogonal to
+  `contract_version`; related to `contract_fingerprint` only as described in
+  the §5.1 amendment.
+* **Refetch triggers (normative):** clients (re)fetch i18n on (a) session
+  start / first token-mode activation, (b) HA locale change, and (c)
+  `contract_fingerprint` change — the trigger the card already observes via
+  `noteBridgeUpdate`, and which now transitively encodes the integration
+  version (§5.1 amendment), so an integration upgrade arms exactly one
+  re-fetch. `strings_version` is the **storage key, never the trigger**: if a
+  re-fetch returns the cached `strings_version`, the cached strings stand.
+* **Persisted caches** (PWA): a persisted `locale + strings_version` entry MUST
+  be revalidated against the `strings_version` in the current session's
+  contract document (free — it rides the contract fetch), or by one `i18n/get`
+  per session when no contract is available. This closes the
+  stale-across-upgrades hole a fetch-suppressing persisted cache would
+  otherwise have.
+* i18n failure (durable `unknown_command` on a 0.91 server, or transient)
+  degrades **only display strings** — never token semantics, catalogs, or
+  status handling.
+
+#### 6.3.3 Where the strings live: `ui_strings/` asset files (NOT `translations/`)
+
+The draft's "new `ui_contract` category in `strings.json`/`translations/*.json`
+served via `async_get_translations`" is **rejected as unimplementable**: this
+repo runs hassfest in CI (validate.yml and tests.yml), and hassfest validates
+both `strings.json` and `translations/en.json` for custom integrations against
+a closed voluptuous schema of known categories — an unknown top-level
+`ui_contract` key fails with `extra keys not allowed`, and hassfest's slug key
+rules would reject `UPPER_SNAKE`-embedding keys even inside an allowed
+category. CI reality wins over the loader convenience.
+
+Normative replacement:
+
+* Strings ship as **`custom_components/melitta_barista/ui_strings/<locale>.json`**
+  — `en.json` plus the same 28 additional locales as `translations/` (29
+  total). Flat `{key: string}` maps in exactly the §6.3.1 key format, served
+  verbatim after domain filtering. The directory is invisible to hassfest and
+  is included in the HACS zip automatically (release packaging zips the whole
+  component directory).
+* The WS handler uses a small dedicated loader (~40 lines): resolve the locale
+  per §6.3.1, `hass.async_add_executor_job(json-read)` for the locale file and
+  `en.json`, **merge en-first** so every missing key falls back to English per
+  key, cache the merged map in `hass.data[DOMAIN]` per resolved locale (files
+  are immutable for the life of the install). No `async_get_translations`, no
+  prefix stripping, no runtime mapping tables — the files are the wire format.
+* **Completeness rules (asymmetric, replacing the draft's hard 29-way parity):**
+  `en.json` MUST be complete — every token the contract builders can emit has a
+  key, and no orphan keys exist (both enforced by pytest). The other 28 locales
+  MAY be sparse; missing keys are served via the en overlay. The 0.92 seeding
+  produces full 29-locale coverage for the initial content, but a future token
+  may ship with English only, un-gated by 29 hand translations. (This mirrors
+  HA core's own "only English needs to be always complete" rule and is what
+  the per-key fallback chain exists for.)
+* The dormant `entity.*` blocks in `translations/*.json` are **left untouched**
+  — they belong to the entity-translation system (wiring entity
+  `translation_key`s stays out of scope for 0.92). Duplication between
+  `entity.*` and `ui_strings/` is accepted and deliberate: different key
+  schemas, different freeze rules; only `ui_strings/` is normative for this
+  endpoint.
+* All strings are our own authored translations — never brand marketing copy or
+  extracted brand assets (legal rule unchanged).
+* Zone I-F definition-of-done includes a local hassfest run as a regression
+  check that `translations/` remained untouched-valid.
+
+#### 6.3.4 Token families served in 0.92, with the true source of each
+
+Seeding plan per family — 29-language material that already exists in this
+project's own repos is **ported** into `ui_strings/`; gaps are **newly
+authored** (English first, 29-way translation as part of Zone I-F; nothing is
+served that has no home):
+
+| domain | keyspace | tokens | 29-language source today | 0.92 action |
+| --- | --- | --- | --- | --- |
+| `status` | `status.process.<TOKEN>` | 12 `MachineProcess` tokens | integration `entity.sensor.state.state.*` (dormant, complete; `READY`→`ready`, `PRODUCT`→`brewing`, `SWITCH_OFF`→`off`, rest mechanical lowercase) | copy into `ui_strings/` under token keys |
+| `status` | `status.sub_process.<TOKEN>` | 5 `SubProcess` tokens | integration `entity.sensor.activity.state.*` (dormant; `GRINDING`→`grinding`, `COFFEE`→`extracting`, `STEAM`→`steaming`, `WATER`→`dispensing_water`, `PREPARE`→`preparing`) | copy under token keys |
+| `status` | `status.manipulation.<TOKEN>` | 9 `Manipulation` tokens | 7/9 in integration `entity.sensor.action_required.state.*` (`BU_REMOVED`→`brew_unit_removed`, rest mechanical); `MOVE_CUP_TO_FROTHER`, `FLUSH_REQUIRED` exist in 29 languages only in the card bundles (`action.*`) | copy 7; port the 2 card translations |
+| `status` | `status.info_message.<TOKEN>` | 5 `InfoMessage` tokens | none anywhere | newly author English (`FILL_BEANS_1` "Fill bean hopper 1", `FILL_BEANS_2` "Fill bean hopper 2", `EASY_CLEAN` "Easy Clean recommended", `POWDER_FILLED` "Ground coffee filled", `PREPARATION_CANCELLED` "Preparation cancelled") + translate 29-way |
+| `values` | `values.<family>.<token>` | 20 freestyle tokens (family-scoped keys — bare tokens collide) | card `values.*` (18 tokens, 29 langs) for process/intensity/aroma/temperature/shots; panel `hopper.*`/`beans.*` strings inform `blend`; integration: none | port card translations; author `blend` labels; drop the card-only `extra_strong` (no server token — never served) |
+| `values` | `values.directkey_category.<token>` | 7 DirectKey categories | panel `recipes.cat.*` (7, 29 langs); card `drinks.*` (7, 29 langs) | port panel translations |
+| `recipes` | `recipes.name.<name_key>` | 24 Melitta keys + Nivona descriptor name_keys | integration `entity.select.recipe.state.*` (24, dormant, 29 langs); Nivona-only names: none | copy the 24; author Nivona `name_key` entries (§6.3.6), reusing overlapping keys (`espresso`, `cappuccino`, …), newly author the remainder |
+| `recipes` | `recipes.category.<token>` | 5 contract categories (`espresso coffee milk_drink water my_coffee`) | none (panel's 7 DirectKey categories are a different set) | newly author + translate |
+| `actions` | `actions.<token>.label` | 16 §6.2.2 action tokens | integration `entity.button.<key>.name` (dormant, 29 langs) for the 12 existing button keys; missing: `brew_freestyle`, `brew_directkey`, `factory_reset_settings`, `factory_reset_recipes` | copy 12; newly author 4 |
+| `actions` | `actions.<token>.description` (optional key) | 8 in 0.92 | card `maintenance.actions.<key>.desc` (8, 29 langs) | port the 8; other actions ship without description |
+| `actions` | `actions._groups.<group>` | 6 known groups (§6.2.3) | card `maintenance.groups.*` (partial) | port existing + newly author the rest |
+
+#### 6.3.5 Client consumption rules (normative)
+
+1. Per-key preference order: **server string → client bundle string → humanized
+   raw token** (§5.3.2 unchanged as last resort). Client bundles remain for UI
+   chrome and as the fallback layer — server i18n never becomes a hard
+   dependency.
+2. Fetch/refetch/persistence per §6.3.2 (fingerprint-change and locale-change
+   triggers; `strings_version` as the cache key).
+3. Status/manipulation/value tokens MUST no longer be rendered raw when server
+   strings are available (this normatively fixes the panel's current raw-token
+   rendering in `melitta-status.js` / `melitta-brew-wizard.js`).
+4. Unknown keys in `strings` are ignored; missing keys fall through the
+   preference order per key, not per fetch.
+5. Casing is significant and byte-equal to contract tokens (§6.3.1).
+6. **Implementation shape (normative for card and panel alike):** the string
+   store is split into (a) a **pure synchronous registry** with zero HA imports
+   — `setServerStrings(map | null)`, `serverString(key)`,
+   `resetServerStrings()` (the existing `currentLang` singleton pattern) — which
+   is all that label/format modules may import, and (b) a hass-coupled
+   fetch/cache/failure-classification half, called only from top-level wiring,
+   which feeds (a). This preserves the pure-module isolation the existing test
+   suites depend on and keeps label functions synchronous.
+7. Family-scoped value lookup goes through a new
+   `displayNameFor(family, token)` (server key `values.<family>.<token>` →
+   bundle `values.<token>` → humanized token). The legacy bare-token
+   `displayName(token)` stays unchanged as the bundle-only path.
+
+#### 6.3.6 Recipe keying: `name_key` (additive `Recipe` field)
+
+i18n keys recipes by a stable **`name_key`**, not `recipe_id` — Nivona recipe
+ids collide across families (id 0 is a different drink per family), so the v1
+sketch's `recipes.name.200` id-keying is replaced. Contract delta (additive):
+
+```ts
+interface Recipe {  // §3.3, additive field
+  name_key?: string;   // stable ASCII lower_snake i18n key
+  // Recipe.name stays the English fallback exactly as v1 specified
+}
+```
+
+* **Melitta:** the lower_snake key matching the existing 24-entry translation
+  block (`espresso`, `cafe_creme`, `latte_macchiato_extra`, …).
+* **Nivona:** `name_key` becomes an **explicit authored field on
+  `RecipeDescriptor`** (`coffee_platform/domain.py`) — ASCII lower_snake,
+  written once per descriptor (`caffe_latte`, `frothy_milk`,
+  `chilled_espresso`, …). Runtime derivation from the display name is
+  **forbidden** as the normative rule: descriptor names contain non-ASCII
+  ("Caffè Latte") and a display rename would silently orphan 29 translations.
+  Derivation (NFKD → strip diacritics → lowercase → spaces→underscores) is
+  defined only as the one-off seeding-script default, hand-reviewed. The full
+  per-family `name_key` sets — every Nivona family, including the NICR 8107
+  chilled variants — are pinned in a test so a descriptor rename cannot move a
+  key, and every derived/authored key is asserted to have a
+  `recipes.name.<name_key>` entry in `ui_strings/en.json`.
 
 ---
 
@@ -1360,6 +1894,222 @@ components).
 
 ---
 
+## 8. Implementation plan (0.92)
+
+Ownership zones are file-disjoint per the §7 conventions. Integration ships
+first as **0.92.0b1** (beta), is verified against the shipped 2.6.1 card
+(invisible-additive check, top-right cell of the §5.4 amendment matrix), then
+the card ships **2.7.0**. All integration tests:
+`.venv/bin/python -m pytest tests/ --timeout=10`.
+
+### 8.1 Integration side (`melitta-ha-integration`, 0.92.0b1)
+
+**Zone I-E — catalog builders (`ui_contract.py`, `coffee_platform/domain.py`
+capability fields, the `async_setup_entry` version stash, + I-E tests only).**
+
+* `MachineCapabilities` gains `verified_maintenance_processes:
+  tuple[int, ...] | None = None` (§6.2.6; Melitta families `None`, all Nivona
+  families `()` in b1) and `RecipeDescriptor` gains the authored `name_key`
+  field (§6.3.6) — seeded across all family tables.
+* `async_setup_entry`: resolve the manifest version once via
+  `async_get_integration` (existing pattern) → `client.integration_version`;
+  both fingerprint call sites read it from `client` (§5.1 single-source rule).
+  `ui_contract.py` stays import-pure — no manifest I/O inside it.
+* `build_parameters(capabilities_block) -> dict` — §6.1.3 families from the
+  same const maps/filters as `build_vocabularies`; scopes per
+  `supports_freestyle`/`supports_brew_overrides`.
+* `build_action_catalog(client, capabilities_block) -> list[dict]` — §6.2.2
+  contents; gating on `supported_extensions` (HC/HJ), `supports_recipe_writes`,
+  `supports_factory_reset`, and `verified_maintenance_processes`;
+  `switch_off.requires == ["connected"]` encoded here; `ActionParam`s built
+  from the live service schemas, not hand copies.
+* `build_ui_contract` gains `parameters`, `actions`,
+  `forbidden_combinations: []`, `strings_version`; recipe entries gain
+  `name_key`; `compute_contract_fingerprint` gains the
+  `client.integration_version` input.
+* Docstrings on every new public symbol (boy-scout rule); logger literal
+  unchanged.
+* `tests/test_ui_contract_parameters.py`: mirror invariant
+  (`parameters.<family>.tokens == vocabularies.freestyle.<family>`,
+  `parameters.portion_ml == limits.portion_ml`, byte-exact); §6.1.4 Melitta TS
+  and Nivona 700 payloads pinned verbatim; scope gating; 3-level intensity
+  slice; single-hopper blend.
+* `tests/test_ui_contract_actions.py`: full catalog per brand pinned;
+  `switch_off` connected-only; factory-reset entries destructive + gated (8000
+  → `available: false`); HC/HJ/HD gating of `brew_directkey` /
+  `brew_freestyle` / `reset_recipe`; **family 700 → all process-starting
+  maintenance entries `available: false`** (§6.2.6); `ActionParam`s diffed
+  against `BREW_FREESTYLE_SCHEMA` / `BREW_DIRECTKEY_SCHEMA` /
+  `RESET_RECIPE_SCHEMA`; every service-kind entry carries `entity_suffix`;
+  fingerprint changes on integration-version change; **bridge-vs-document
+  fingerprint equality invariant**; per-family `name_key` sets pinned
+  (all Nivona families incl. 8000 chilled variants).
+
+**Zone I-F — string assets (`ui_strings/*.json` × 29, seeding script, asset tests).**
+
+* Create `custom_components/melitta_barista/ui_strings/{en,…}.json` per
+  §6.3.3/§6.3.4: copy from the dormant `entity.*` blocks, port card/panel
+  bundle translations (both are this project's own repos), newly author the
+  listed gaps (info messages, blend labels, recipe categories, 4 action
+  labels, Nivona recipe names, group labels) in English + 29 translations for
+  the 0.92 set. `strings.json`/`translations/*.json` are NOT touched.
+* One-off seeding script in `scripts/` (not shipped in the component) for the
+  mechanical copy/port incl. the §6.3.6 name derivation; hand-review of
+  authored strings.
+* `tests/test_ui_contract_i18n_assets.py`: `en.json` completeness — every
+  builder-emittable token keyed (process/sub_process/manipulation/info_message
+  enums, const-map value tokens, DirectKey categories, Melitta name_keys,
+  **every registered family's `RecipeDescriptor.name_key`** via the shared
+  derivation/authored values, §6.2.2 action tokens + `_groups`); no orphan
+  keys in `en.json`; `values.intensity` has exactly the 5 server tokens (no
+  `extra_strong`); other locales validated for key-subset-of-en only (sparse
+  allowed, §6.3.3). Imports builder token constants read-only — the
+  dependency points I-E → I-F.
+* Definition-of-done includes a local hassfest run (translations untouched).
+
+**Zone I-G — WS endpoint (`panel_api.py`, `docs/SOMMELIER_API.md`, new test file).**
+
+* `_ws_i18n_get` **async** handler: §6.3.1 locale resolution against the known
+  locale set; executor-based JSON loader with en-overlay merge, cached in
+  `hass.data[DOMAIN]` per resolved locale (§6.3.3); domain filter;
+  `strings_version` from `client`-independent cached manifest version;
+  `_send_versioned` envelope. Registered `admin=False` inside
+  `async_register_panel_websocket` (auto-listed by `api/info`).
+* `tests/test_panel_i18n_ws.py`: `de-DE`→`de` and `xx`→`en` resolution;
+  per-key en overlay (sparse locale fixture); domain filtering; unknown
+  domains ignored; `strings_version` equals manifest version; non-admin
+  access; flat-key format pinned (`status.process.READY`); loader cache hit
+  (one executor read per locale).
+
+**Zone I-H — panel consumers (`www/` only; after I-G).**
+
+* `melitta-panel.js`: fetch `i18n/get` once per locale alongside the contract
+  fetch; feed a pure resolver (§6.3.5.6 shape) passed down as props.
+* `melitta-status.js`, `melitta-brew-wizard.js`, `melitta-sommelier.js`:
+  render status/manipulation/value tokens via server strings → panel bundle →
+  humanized token (replacing raw-token rendering).
+* `melitta-recipes.js`: prefer `contract.parameters` per-parameter with the
+  §6.1.5 three-tier fallback; DirectKey category labels via
+  `values.directkey_category.*`.
+* No JS test harness exists for `www/` — verification via the live-HA manual
+  checklist (§8.3).
+
+**Zone I-I — release (single owner, after I-E…I-H merge).**
+
+* `manifest.json` → `0.92.0b1`; `CHANGELOG.md` (English); merge this amendment
+  into `docs/UI_CONTRACT.md` per the merge instructions; tag `v0.92.0b1`,
+  GitHub prerelease, per project release rules.
+
+### 8.2 Card side (`melitta-barista-card`, 2.7.0)
+
+**Zone C-E — contract types + i18n registry (new/typed surface; LANDS FIRST).**
+
+* `src/contract.ts`: additive optional types `ParameterDescriptor`,
+  `ActionEntry`, `ActionInvocation`, `ActionParam`, `parameters?`, `actions?`,
+  `forbidden_combinations?`, `strings_version?`, `Recipe.name_key?`.
+  **`validateContract` is not extended** — it MUST NOT require any v2 field
+  (§6.0.1).
+* `src/server-i18n.ts` (new), split per §6.3.5.6: (a) pure registry —
+  `setServerStrings`, `serverString`, `resetServerStrings`, zero HA imports;
+  (b) `fetchServerStrings(hass, locale)` with durable-`unknown_command`
+  classification and `locale + strings_version` caching. Only (a) is imported
+  by label/format modules; (b) is called from C-I wiring.
+* `tests/contract-v2.test.ts`, `tests/server-i18n.test.ts`: v2 payload parsing
+  (both §6.1.4 fixtures verbatim); v1 payload without v2 fields still valid;
+  unknown descriptor/invocation kinds dropped; registry set/get/reset; cache +
+  durable fallback; fingerprint-change re-fetch with matching-`strings_version`
+  short-circuit.
+
+**Zone C-F — parameter wiring (`src/contract-wiring.ts`, `src/sections/controls.ts`; after C-E).**
+
+* Generalize `resolveFreestyleVocab` → `resolveParameters(contract)` with the
+  normative three-tier fallback (§6.1.5): `parameters.<family>` → v1
+  `vocabularies.freestyle.<family>`/`limits.portion_ml` → `const.ts`, per
+  parameter (keeping the existing `stringList`/`portionLimit` guards); range
+  descriptors drive sliders (min/max/step/unit), enums drive segments;
+  `applies_to` filters per component process; unknown kind/scope → that
+  parameter falls back / is not rendered.
+* Migrates the `controls.ts` call sites to `displayNameFor(family, token)`
+  (signature frozen in §6.3.5.7; internals are C-H's).
+* Tests: three-tier fallback per parameter (incl. v1-server → tier 2, not tier
+  3); 3-level intensity; brew-override scope not rendered in freestyle UI.
+
+**Zone C-G — action catalog logic (`src/action-catalog.ts` NEW + `src/sections/maintenance.ts`; after C-E).**
+
+* Pure module `src/action-catalog.ts` (no Lit, no hass — vitest-testable):
+  `resolveActionCatalog(contract)` — parse, drop unknown-invocation-kind
+  entries, `available:false` filtering, group ordering (§6.2.3), legacy-array
+  fallback when `actions` is absent; `evalRequires(requires, {statusTokens,
+  connected})` with unknown-token→satisfied; confirm/destructive policy; and
+  `planActionInvocation(entry, prefix, formState)` returning
+  `{button: suffix} | {domain, service, data}` with `entity_id =
+  button.<prefix>_<entity_suffix>` always set for service kind.
+* `maintenance.ts` becomes a thin renderer over the resolved list:
+  catalog-drives `cleaning`/`filter`/`power`/`danger` + unknown groups
+  (§6.2.5.2 — brew/control entries stay informational; the card keeps its
+  bespoke brew sections, so `params_ref` handling never enters maintenance
+  rendering); icons from `entry.icon` with `mdi:cog` default; group headers
+  via `actions._groups.*` → bundle → humanized; labels/descriptions per
+  §6.3.5.1; destructive styling + forced confirm.
+* **Does not touch `melitta-barista-card.ts`** — dispatch wiring is C-I's.
+* `tests/action-catalog.test.ts` (pure): catalog resolution, group order,
+  legacy fallback, unknown-kind dropped, `evalRequires` incl. switch_off
+  connected-not-ready, destructive⇒confirm, service plan carries `entity_id`,
+  param assembly pinned to the §6.2.2 shapes. Rendering itself is verified by
+  the §8.3 live checklist (no DOM harness exists).
+
+**Zone C-H — display-string preference (`src/machine-state.ts` label fns, `src/format.ts`; after C-E).**
+
+* `processLabel`/`activityLabel`/`actionLabel` gain the server-string
+  preference layer via the **pure registry only** (§6.3.5.6);
+  `PROCESS_TOKEN_I18N`/`ACTIVITY_TOKEN_I18N`/`ACTION_TOKEN_I18N` and the 29
+  card bundles stay untouched as the fallback layer.
+* `format.ts` gains `displayNameFor(family, token)` (§6.3.5.7); legacy
+  `displayName(token)` unchanged. Call-site migration belongs to C-F.
+* Tests: preference order per key; missing server key falls through; module
+  purity preserved (no new imports beyond the registry); legacy suites
+  unchanged.
+
+**Zone C-I — wiring + release (single owner, after C-E…C-H).**
+
+* `melitta-barista-card.ts`: fetch server strings when token mode is active
+  (triggers per §6.3.2: locale change, fingerprint change via the existing
+  `noteBridgeUpdate` path) → `setServerStrings`; pass
+  `parameters`/`actions`-derived props and resolvers down (sections never read
+  `hass` directly, per v1 rule); wire `planActionInvocation` results into
+  `pressButton`/`hass.callService` dispatch; version `2.7.0`; dist rebuild;
+  full vitest run green including all legacy-mode suites.
+
+### 8.3 Sequencing
+
+```mermaid
+flowchart LR
+  IE[I-E catalog builders] --> IF[I-F ui_strings assets]
+  IF --> IG[I-G i18n WS endpoint]
+  IG --> IH[I-H panel consumers]
+  IE --> IH
+  IE --> II[I-I release 0.92.0b1]
+  IH --> II
+  CE[C-E types + i18n registry] --> CF[C-F parameters]
+  CE --> CG[C-G action catalog]
+  CE --> CH[C-H display strings]
+  CF --> CI[C-I wiring 2.7.0]
+  CG --> CI
+  CH --> CI
+  II -. beta verified with card 2.6.1 .-> CI
+```
+
+Live-HA beta checklist before 2.7.0: 2.6.1 card fully unchanged against
+0.92.0b1 (invisible-additive proof); panel shows translated status tokens in a
+non-English HA locale; `i18n/get` en-overlay observed for an untranslated key;
+fingerprint change observed across an integration upgrade, and exactly one
+i18n re-fetch armed by it; catalog-driven maintenance rendering on the panel;
+Nivona entry (when available) serves override parameters, factory-reset
+entries, and maintenance entries `available: false` (per §6.2.6 until the #36
+matrix lands).
+
+---
+
 ## Appendix A — Design notes (review resolutions)
 
 All blocker and major findings from the 2026-09-02 adversarial review are
@@ -1383,7 +2133,7 @@ resolved as follows:
 
 No review findings were rejected.
 
-### A.1 Amendment log — 0.91 implementation round
+### A.1 Amendment log
 
 Versioned amendments landed during implementation (contract semantics
 unchanged unless noted; all are corrections of the document to the normative
@@ -1416,3 +2166,80 @@ anchors it already declared):
    brand-logo presence flag as a new `contract_fingerprint` input (§5.1), and
    the §7.4 panel-as-consumer note. Absent block ⇒ neutral rendering; no
    client-breaking change.
+
+6. **§6 replaced by the normative v2 feature set (0.92)**, shipping additively
+   within `contract_version: 1` per the §6.0 decision (brand_theme precedent,
+   amendment 5). Notable deltas from the v1 sketches: `parameters` mirrors and
+   **closes** the v1 `vocabularies.freestyle`/`limits.portion_ml` blocks
+   (mirror-and-freeze, §6.1.2) instead of superseding them, with a normative
+   three-tier client fallback; the action-catalog shape gains
+   `invocation`/`requires`/`destructive`/`icon`, makes the service-kind
+   `entity_suffix` anchor and schema-byte-equal params normative, encodes the
+   switch_off connected-only precedent as data, and gates maintenance
+   availability on a new per-family `verified_maintenance_processes`
+   verification field (Nivona ships unavailable-by-default until the #36
+   matrix lands); `forbidden_combinations` lands with a defined shape and
+   empty content; i18n keys recipes by an authored additive `Recipe.name_key`
+   (Nivona id collisions; runtime name-derivation forbidden) and is cached by
+   a dedicated `strings_version` axis carried in both the i18n response and
+   the contract document; the integration version string joins the fingerprint
+   inputs under a single-source rule; all served strings live in a new
+   hassfest-invisible `ui_strings/` asset set served by a dedicated loader
+   (the `translations/` category approach was rejected — CI), seeded from the
+   existing integration/card/panel 29-locale assets per the §6.3.4 table, with
+   asymmetric completeness (en complete, other locales may be sparse over the
+   en overlay).
+
+### A.2 Design notes (0.92 adversarial round)
+
+All blocker and major findings are incorporated above:
+
+* **hassfest blocker (×3 convergent findings):** `translations/` category
+  approach replaced by `ui_strings/<locale>.json` + own loader (§6.3.3). The
+  three findings proposed three directory names (`contract_strings/`,
+  `ui_strings/`, `ui_translations/`); unified on `ui_strings/`.
+* **Fingerprint dual-surface divergence** → `client.integration_version`
+  single-source rule + equality-invariant test (§5.1 amendment, Zone I-E).
+* **i18n cache staleness / unobservable axis (×2):** `strings_version` added to
+  the contract document; fingerprint change is the re-fetch trigger,
+  `strings_version` the storage key (§6.3.2).
+* **#36 maintenance-audit gap** → `verified_maintenance_processes`, Nivona
+  unavailable-by-default in b1 (§6.2.6).
+* **Service invocation entity anchor + schema-pinned params** → §6.2.1/§6.2.2.
+* **Three-tier parameter fallback** (v1-vocabulary tier restored) → §6.1.5,
+  §5.4 cell corrected.
+* **Action icons + group labels** → `ActionEntry.icon` (mdi identifiers are
+  data, not brand assets), `actions._groups.*` keys, humanize fallback
+  (§6.2.1/§6.2.3).
+* **Card zone graph and file ownership** → C-E lands first; C-G confined to a
+  pure `action-catalog.ts` module + thin renderer; card dispatch moved to C-I
+  (§8.2/§8.3).
+* **Pure-module isolation of label fns** → registry/fetch split (§6.3.5.6).
+* **`displayName` family scoping** → `displayNameFor` frozen signature, call
+  sites assigned to C-F (§6.3.5.7).
+* **Untestable DOM assertions** → C-G tests target the pure module; rendering
+  verified on live HA (§8.2).
+
+Minor findings — resolutions:
+
+* §5.1 i18n/fingerprint contradiction: accepted; reworded as
+  side-effect-churn-by-design (§5.1 amendment).
+* Nivona name_key parity gap: accepted; per-family descriptor iteration in the
+  I-F asset test + authored `name_key` field (§6.3.6).
+* Sync source for the version input: accepted; folded into the single-source
+  rule (§5.1 amendment, Zone I-E).
+* 29-way hard parity: accepted; relaxed to en-complete + sparse locales over
+  the en overlay (§6.3.3). **Rejected sub-suggestion:** keeping a
+  "non-blocking full-parity report" test — CI has no non-blocking channel and
+  a permanently-yellow test is noise; sparse locales are legitimate under the
+  relaxed rule.
+* name_key derivation instability: accepted; explicit authored field, runtime
+  derivation forbidden, NFKD seeding rule, pinned sets (§6.3.6).
+* i18n refetch trigger sentence: accepted (§6.3.2).
+* I-E→I-F cross-zone test direction: accepted; the every-action-token-keyed
+  assertion moved to the I-F asset test, which imports builder constants
+  read-only, and the §8.3 graph gained the IE→IF edge.
+* Brew-group bespoke-UI duplication: accepted; §6.2.5.2 informational-entries
+  rule; card catalog-drives cleaning/filter/power/danger only.
+
+No other findings were rejected.

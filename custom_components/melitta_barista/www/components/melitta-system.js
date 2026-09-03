@@ -5,6 +5,7 @@
  * still "coming soon", but moved out of the top nav).
  *
  * Renders an inner tab strip and forwards .hass / .entryId / .lang
+ * (plus the shell's .contract and .serverStrings, UI Contract §6.1/§6.3)
  * to the matching child component.
  */
 
@@ -20,12 +21,16 @@ class MelittaSystem extends LitElement {
       hass: { type: Object },
       entryId: { type: String },
       lang: { type: String },
+      contract: { attribute: false },
+      serverStrings: { attribute: false },
       _sub: { state: true },
     };
   }
 
   constructor() {
     super();
+    this.contract = null;
+    this.serverStrings = null;
     this._sub = SUBTABS[0];
   }
 
@@ -48,13 +53,13 @@ class MelittaSystem extends LitElement {
     const props = { hass: this.hass, entryId: this.entryId, lang: this.lang };
     switch (this._sub) {
       case "status":
-        return html`<melitta-status .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-status>`;
+        return html`<melitta-status .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .serverStrings=${this.serverStrings}></melitta-status>`;
       case "settings":
         return html`<melitta-settings .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-settings>`;
       case "diagnostics":
         return html`<melitta-diagnostics .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-diagnostics>`;
       case "recipes":
-        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-recipes>`;
+        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .contract=${this.contract} .serverStrings=${this.serverStrings}></melitta-recipes>`;
       default:
         return "";
     }

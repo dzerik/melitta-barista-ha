@@ -34,6 +34,7 @@ await Promise.all([
 
 import { LitElement, html, css } from "./lit-base.js";
 import { t } from "./i18n/index.js";
+import { setServerStrings } from "./i18n/server-strings.js";
 
 const TAB_IDS = [
   "sommelier", "recipes", "beans", "additives", "producers", "system",
@@ -51,6 +52,7 @@ class MelittaPanel extends LitElement {
       _error: { type: String },
       _brandTheme: { state: true },
       _contract: { state: true },
+      _serverStrings: { state: true },
       _logoFailed: { state: true },
     };
   }
@@ -64,6 +66,8 @@ class MelittaPanel extends LitElement {
     this._hassReady = false;
     this._brandTheme = null;
     this._contract = null;
+    this._serverStrings = null;
+    this._i18nLocale = null;
     this._logoFailed = false;
   }
 
@@ -80,6 +84,44 @@ class MelittaPanel extends LitElement {
     if (changedProps.has("hass") && this.hass && !this._hassReady) {
       this._hassReady = true;
       this._loadEntries();
+    }
+    // HA locale changes arrive as hass updates — re-fetch server strings
+    // for the new locale (no-op while the locale is unchanged).
+    if (changedProps.has("hass") && this.hass) {
+      this._loadServerStrings();
+    }
+  }
+
+  /**
+   * Fetch machine-domain display strings (UI Contract §6.3) via
+   * `melitta_barista/i18n/get`, once per HA locale, alongside the
+   * contract fetch. The merged map feeds the pure server-string registry
+   * (i18n/server-strings.js) and is passed down to components as the
+   * `.serverStrings` prop so they re-render when strings arrive.
+   *
+   * Failure (an older backend without the command, a transient WS error)
+   * degrades to the panel bundles only — never a panel error, and never
+   * anything beyond display strings (§6.3.2).
+   */
+  async _loadServerStrings() {
+    const locale = this._lang;
+    if (!this.hass || locale === this._i18nLocale) return;
+    this._i18nLocale = locale;
+    try {
+      const result = await this.hass.callWS({
+        type: "melitta_barista/i18n/get",
+        locale,
+      });
+      const strings =
+        result && typeof result.strings === "object" && result.strings !== null
+          ? result.strings
+          : null;
+      setServerStrings(strings);
+      this._serverStrings = strings;
+    } catch (e) {
+      // Graceful absence: bundle/humanized fallback for the session.
+      setServerStrings(null);
+      this._serverStrings = null;
     }
   }
 
@@ -114,6 +156,7 @@ class MelittaPanel extends LitElement {
     this._contract = null;
     this._logoFailed = false;
     if (!this._activeEntry || !this.hass) return;
+    this._loadServerStrings();
     try {
       const contract = await this.hass.callWS({
         type: "melitta_barista/ui_contract/get",
@@ -236,9 +279,9 @@ class MelittaPanel extends LitElement {
     const props = { hass: this.hass, entryId: this._activeEntry, lang: this._lang };
     switch (this._tab) {
       case "sommelier":
-        return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-sommelier>`;
+        return html`<melitta-sommelier .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .serverStrings=${this._serverStrings}></melitta-sommelier>`;
       case "recipes":
-        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .contract=${this._contract}></melitta-recipes>`;
+        return html`<melitta-recipes .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .contract=${this._contract} .serverStrings=${this._serverStrings}></melitta-recipes>`;
       case "beans":
         return html`<melitta-beans .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-beans>`;
       case "additives":
@@ -246,7 +289,7 @@ class MelittaPanel extends LitElement {
       case "producers":
         return html`<melitta-producers .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-producers>`;
       case "system":
-        return html`<melitta-system .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang}></melitta-system>`;
+        return html`<melitta-system .hass=${props.hass} .entryId=${props.entryId} .lang=${props.lang} .contract=${this._contract} .serverStrings=${this._serverStrings}></melitta-system>`;
       default:
         return "";
     }
