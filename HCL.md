@@ -66,7 +66,17 @@ These machines keep **a single bond slot tied to the identity of the one
 proxy that paired**. Home Assistant routes each connection through whichever
 connectable proxy has the best signal *at that moment* — if that's ever a
 different proxy, the machine rejects the encryption with
-`auth fail reason=82` and the connection drops (field case #10). Rules:
+`auth fail reason=82` and the connection drops (field case #10).
+
+**As of integration 0.91.0** this is handled in software: bonded BLE
+**source affinity** pins every connect to the proxy that owns the bond
+(learned from the successful encrypted handshake), so all proxies may keep
+`bluetooth_proxy: { active: true }`. A different bond-owning source can be
+selected deliberately in the integration's options (Automatic / local
+adapter / a specific proxy); the switch takes effect after the next
+successful handshake.
+
+**On integration versions before 0.91.0** apply the manual rule instead:
 
 - exactly **one** proxy in the machine's radio range runs
   `bluetooth_proxy: { active: true }`;

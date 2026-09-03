@@ -2,6 +2,31 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.91.0] — 2026-09-03
+
+First stable release since 0.87.2, consolidating the 0.88-0.91 beta train. Highlights for stable-channel users:
+
+### Reliability (0.88, 0.90)
+
+- **Bond state machine**: destructive bond recovery now requires repeated auth-class evidence; a machine-side bond mismatch raises a repair card instead of silent loops. Field-proven over weeks of beta dogfooding.
+- **Bonded BLE source affinity** (contributed by @Chreece, #39): connections are pinned to the Bluetooth central that owns the machine bond — multi-proxy installs no longer need the `active: false` workaround (see HCL.md; the manual rule still applies to older versions).
+- No more false `pairing_wedged` repair card when the machine is simply powered off.
+- The Switch Off button stays available whenever a live BLE connection exists (#42).
+
+### AI Sommelier (0.89, 0.91)
+
+- Honest brew results, correct hopper/blend translation at the BLE boundary, per-phase brewing with a step-by-step wizard, recipe reasoning end-to-end (now also on history cards), star-to-favorite from history, anti-repeat generation context, LLM agent pre-flight with actionable errors, configurable LLM timeout and a compact prompt mode for local models.
+
+### UI Contract v1 (0.91)
+
+- A versioned, machine-agnostic contract between the integration and its clients (docs/UI_CONTRACT.md): capabilities, status tokens, procedural drink-icon specs, brand theme. The Lovelace card v2.4+ consumes it with full legacy fallback.
+
+### Panel
+
+- Per-profile machine recipe editor, drink icons everywhere, brand badge, and full localization in all 29 languages.
+
+See the beta entries below for the complete change list.
+
 ## [0.91.0b7] — 2026-09-03 (beta)
 
 ### Fixed

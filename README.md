@@ -168,8 +168,10 @@ showed constant connection-establish failures at under a meter (weak
 antenna + one shared 2.4 GHz radio) that vanished the moment the same spot
 got a XIAO ESP32-S3. See [`HCL.md`](HCL.md) for the full board table, the
 required config knobs (`power_save_mode: NONE` is the most-missed one), and
-the **multi-proxy rule** (these machines bond to exactly one proxy —
-`active: true` on the nearest, `active: false` everywhere else).
+the **multi-proxy notes** (these machines bond to exactly one proxy; since
+integration 0.91.0 bonded-source affinity handles this automatically and
+all proxies may stay `active: true` — on older versions keep `active: true`
+only on the nearest proxy, `active: false` everywhere else).
 
 ### Running HA in a Docker container? Three host-side prerequisites
 
