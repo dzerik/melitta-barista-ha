@@ -2,6 +2,29 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.94.0b1] — 2026-09-04 (beta)
+
+Machine-domain strings wave (UI Contract §6.3.7, additive within `contract_version: 1` — shipped clients keep working byte-identically).
+
+The panel, the Lovelace card and the PWA each carried their own copy of wording that describes the machine rather than the client: brew-guide vocabulary, machine-state descriptions, service-cycle sublabels, sommelier LLM error hints and labels for the well-known free-form suggestion values. Three copies meant three translation bills and three chances to word the same thing differently. Those families now live in the integration and are served to every client over the existing `i18n/get` endpoint.
+
+### Added
+
+- 84 new English keys in `ui_strings/`: `wizard.*` (29 brew-guide keys, in a new `wizard` i18n domain), `status.process.<TOKEN>.description` (12) and `status.sub_process.<TOKEN>.description` (4), `sommelier.error.<code>` (5 LLM pre-flight hints), and `sommelier.{milk,syrup,topping,liqueur,note}.<token>` (34 labels for well-known suggestion values).
+- `wizard` joins the served i18n domains. Clients that omit the `domains` filter — all shipped clients — receive it automatically; a client sending an explicit list must add `"wizard"`.
+
+### Changed
+
+- **All 29 locales are now complete over the served keyspace** (296 keys each, was 212 in English against 185–191 elsewhere). Strings the server genuinely serves — `settings.*.description` among them — no longer reach non-English users in English. Placeholders (`{n}`, `{m}`, `{cup}`, `{ml}`, `{sec}`, `{prompt}`) are carried verbatim in every locale and pinned by tests.
+- Liqueur names use their Latin trademark form in all 29 locales (`ru`/`uk` join the other 27); `marshmallow` uses each locale's own word for the confection in that locale's script (`el` is now Greek).
+- `ru`/`uk`: the brewing-temperature setting is labelled "Температура заваривания" / "Температура заварювання" so it no longer collides with the machine temperature setting.
+
+### Notes
+
+- The free-form suggestion fields stay free-form (§9.2.4): the new labels are display sugar, are **not** served by `vocab/get`, and unknown user text still renders verbatim.
+- Client bundles keep these keys as an offline / pre-0.94-server fallback; nothing is deleted this round.
+- No new fingerprint inputs. The version bump moves `strings_version` off 0.93.0, which is what arms exactly one client refetch of the enlarged bundle.
+
 ## [0.93.0] — 2026-09-04
 
 Consolidates the 0.92/0.93 beta line into a stable release: the UI Contract is now complete through v3, and all three clients (Home Assistant panel, Lovelace card, PWA) render machine truth served by the integration instead of their own hardcoded tables.

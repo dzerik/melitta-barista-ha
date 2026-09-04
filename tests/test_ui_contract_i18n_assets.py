@@ -1,9 +1,13 @@
 """Tests for the `ui_strings/` i18n asset files (UI Contract §6.3.3/§6.3.4, Zone I-F).
 
-Enforces the asymmetric completeness rules: `en.json` must key every
-token the contract builders can emit and carry no orphan keys; the other
-28 locales are validated as key-subsets of `en.json` only (sparse locales
-are legitimate — the WS loader overlays English per key).
+Enforces the completeness rules: `en.json` must key every token the
+contract builders can emit and carry no orphan keys, and the other 28
+locales must key exactly the served keyspace — subset (never invent a
+key, §6.3.3) *and* superset (§6.3.7(b): complete over everything the
+server serves, minus the explicitly reviewed `SPARSE_EXEMPT_KEYS`, which
+is where §6.3.3's sparse allowance is invoked for future single-key
+additions riding the loader's per-key en overlay). Placeholder spans are
+compared against `en.json` in every locale (§6.3.7(a)).
 
 Builder token constants are imported read-only (the dependency points
 Zone I-E → Zone I-F, per the §8.3 plan).
@@ -13,11 +17,21 @@ Extended for v3 (Zone I-L, §9.1.4/§9.2.5): the `settings.*` and
 token must resolve in `en.json`, with level/option tokens resolvable via
 the §9.1.4 chain (per-setting `settings.<setting>.levels.<token>` OR the
 shared `settings._levels.<token>` tier).
+
+Extended for the 0.94 amendment (§6.3.7): the machine-domain families
+moved off the three clients — `wizard.*` (brew-guide vocabulary, key
+names byte-equal to the PWA bundle), `status.process.<TOKEN>.description`
+/ `status.sub_process.<TOKEN>.description`, `sommelier.error.<code>` and
+the five free-form suggestion label families. Status/description tokens
+come from the builder constants read-only; the suggestion token lists are
+pinned here explicitly, because those fields stay free-form (§9.2.4) and
+have no server-side enumeration to import.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -75,6 +89,70 @@ DESCRIBED_SETTINGS = frozenset({
     "energy_saving", "auto_bean_select", "rinsing_disabled",
     "water_hardness", "auto_off_after", "brew_temperature",
 })
+
+# §6.3.7: the 29 brew-guide keys, with the placeholder set each one must
+# carry. Key names and placeholder names are byte-equal to the PWA bundle
+# (`src/locales/en.json`, `wizard.` prefix) — a rename here silently
+# breaks every client that already ships these keys as its tier-2 bundle.
+WIZARD_KEYS: dict[str, frozenset[str]] = {
+    "wizard.title": frozenset(),
+    "wizard.step_of": frozenset({"{n}", "{m}"}),
+    "wizard.resumed": frozenset(),
+    "wizard.restart": frozenset(),
+    "wizard.step.cup": frozenset({"{cup}", "{ml}"}),
+    "wizard.step.done": frozenset(),
+    "wizard.step.machine": frozenset(),
+    "wizard.step.machine_n": frozenset({"{n}", "{m}"}),
+    "wizard.machine.start": frozenset(),
+    "wizard.machine.start_full": frozenset(),
+    "wizard.machine.retry": frozenset(),
+    "wizard.machine.skip": frozenset(),
+    "wizard.machine.failed": frozenset(),
+    "wizard.machine.waiting": frozenset(),
+    "wizard.machine.estimated": frozenset({"{sec}"}),
+    "wizard.machine.im_done": frozenset(),
+    "wizard.machine.during_hint": frozenset(),
+    "wizard.machine.prompt": frozenset({"{prompt}"}),
+    "wizard.machine.prompt_generic": frozenset(),
+    "wizard.machine.confirm": frozenset(),
+    "wizard.machine.confirm_manual": frozenset(),
+    "wizard.machine.confirm_failed": frozenset(),
+    "wizard.finish.title": frozenset(),
+    "wizard.finish.message": frozenset(),
+    "wizard.finish.button": frozenset(),
+    "wizard.close.title": frozenset(),
+    "wizard.close.message": frozenset(),
+    "wizard.close.stay": frozenset(),
+    "wizard.close.leave": frozenset(),
+}
+
+# §6.3.7: the only placeholder names any served string may use.
+KNOWN_PLACEHOLDERS = frozenset({"{n}", "{m}", "{cup}", "{ml}", "{sec}", "{prompt}"})
+
+# §6.3.7: `status.sub_process.<TOKEN>.description` ships only where the
+# sentence adds meaning over the label — WATER ("Dispensing Water") does
+# not, so it stays label-only. Process descriptions ship for all 12.
+DESCRIBED_SUB_PROCESSES = frozenset({"GRINDING", "COFFEE", "STEAM", "PREPARE"})
+
+# §6.3.7: the five sommelier LLM pre-flight codes.
+SOMMELIER_ERROR_CODES = ("no_llm_agent", "no_llm_agent_selected",
+                         "llm_agent_missing", "timeout", "unauthorized")
+
+# §6.3.7 / §9.2.4: labels for the well-known values of fields that stay
+# FREE-FORM. Pinned here, not imported: there is deliberately no
+# server-side enumeration, `vocab/get` does not serve these families, and
+# unknown user text must render verbatim. The lists may only grow.
+SUGGESTION_TOKENS: dict[str, tuple[str, ...]] = {
+    "milk": ("regular", "whole", "skim", "oat", "almond", "soy",
+             "coconut", "cream"),
+    "syrup": ("vanilla", "caramel", "hazelnut", "chocolate", "maple",
+              "lavender", "peppermint"),
+    "topping": ("cinnamon_powder", "whipped_cream", "cocoa_powder",
+                "marshmallow", "caramel_drizzle"),
+    "liqueur": ("baileys", "kahlua", "amaretto", "frangelico"),
+    "note": ("chocolate", "nutty", "fruity", "floral", "caramel", "spicy",
+             "earthy", "honey", "berry", "citrus"),
+}
 
 
 class _FakeClient:
@@ -204,6 +282,22 @@ def _required_en_keys():
     for group in setting_groups | set(SETTINGS_KNOWN_GROUPS):
         keys.add(f"settings._groups.{group}")
     keys |= _vocab_keys()
+    keys |= _amendment_keys()
+    return keys
+
+
+def _amendment_keys():
+    """Every key of the §6.3.7 machine-domain families (0.94 amendment)."""
+    keys = set(WIZARD_KEYS)
+    for token in STATUS_PROCESS_TOKENS:
+        keys.add(f"status.process.{token}.description")
+    for token in DESCRIBED_SUB_PROCESSES:
+        keys.add(f"status.sub_process.{token}.description")
+    for code in SOMMELIER_ERROR_CODES:
+        keys.add(f"sommelier.error.{code}")
+    for family, tokens in SUGGESTION_TOKENS.items():
+        for token in tokens:
+            keys.add(f"sommelier.{family}.{token}")
     return keys
 
 
@@ -385,13 +479,179 @@ def test_vocab_families_pinned():
     }
 
 
-@pytest.mark.parametrize(
-    "locale",
-    sorted(_locale_names(TRANSLATIONS_DIR) - {"en"}),
-)
+# ---------------------------------------------------------------------------
+# 0.94 amendment — machine-domain families moved off the clients (§6.3.7)
+# ---------------------------------------------------------------------------
+
+
+def test_en_wizard_keys_exactly_pinned(en_strings):
+    """§6.3.7: the 29 brew-guide keys ship, and nothing else under `wizard.`."""
+    shipped = {key for key in en_strings if key.startswith("wizard.")}
+    assert shipped == set(WIZARD_KEYS)
+    assert len(WIZARD_KEYS) == 29
+
+
+def test_en_wizard_placeholders_pinned(en_strings):
+    """§6.3.7: placeholders are carried verbatim — none renamed or dropped."""
+    for key, expected in sorted(WIZARD_KEYS.items()):
+        found = {token for token in KNOWN_PLACEHOLDERS if token in en_strings[key]}
+        assert found == expected, (
+            f"{key}: placeholders {sorted(found)} != {sorted(expected)}"
+        )
+
+
+def test_en_uses_no_unknown_placeholders(en_strings):
+    """§6.3.7: `{...}` spans are limited to the six declared placeholders."""
+    unknown = {
+        (key, span)
+        for key, value in en_strings.items()
+        for span in re.findall(r"\{[^}]*\}", value)
+        if span not in KNOWN_PLACEHOLDERS
+    }
+    assert not unknown, f"undeclared placeholders: {sorted(unknown)}"
+
+
+def test_en_process_descriptions_cover_every_token(en_strings):
+    """§6.3.7: all 12 `status.process` tokens ship a `.description`."""
+    described = {
+        key.removeprefix("status.process.").removesuffix(".description")
+        for key in en_strings
+        if key.startswith("status.process.") and key.endswith(".description")
+    }
+    assert described == set(STATUS_PROCESS_TOKENS)
+    assert len(STATUS_PROCESS_TOKENS) == 12
+
+
+def test_en_sub_process_descriptions_are_the_pinned_subset(en_strings):
+    """§6.3.7: sub-process descriptions ship only where they add meaning."""
+    assert DESCRIBED_SUB_PROCESSES <= set(STATUS_SUB_PROCESS_TOKENS)
+    described = {
+        key.removeprefix("status.sub_process.").removesuffix(".description")
+        for key in en_strings
+        if key.startswith("status.sub_process.") and key.endswith(".description")
+    }
+    assert described == set(DESCRIBED_SUB_PROCESSES)
+
+
+def test_en_descriptions_coexist_with_their_labels(en_strings):
+    """§6.3.7: `.description` lives beside the bare label in a flat keyspace."""
+    for token in STATUS_PROCESS_TOKENS:
+        assert f"status.process.{token}" in en_strings
+        assert f"status.process.{token}.description" in en_strings
+    for token in DESCRIBED_SUB_PROCESSES:
+        assert f"status.sub_process.{token}" in en_strings
+        assert f"status.sub_process.{token}.description" in en_strings
+
+
+def test_en_sommelier_error_codes_exactly_five(en_strings):
+    """§6.3.7: one actionable hint per LLM pre-flight code, no extras."""
+    shipped = {
+        key.removeprefix("sommelier.error.")
+        for key in en_strings
+        if key.startswith("sommelier.error.")
+    }
+    assert shipped == set(SOMMELIER_ERROR_CODES)
+
+
+@pytest.mark.parametrize("family", sorted(SUGGESTION_TOKENS))
+def test_en_suggestion_family_tokens_pinned(family, en_strings):
+    """§6.3.7: each free-form suggestion family labels exactly its tokens."""
+    prefix = f"sommelier.{family}."
+    shipped = {key.removeprefix(prefix) for key in en_strings if key.startswith(prefix)}
+    assert shipped == set(SUGGESTION_TOKENS[family])
+
+
+def test_suggestion_families_are_not_vocab_families():
+    """§9.2.4 intact: labelling a token does not close the field.
+
+    The five suggestion families are display sugar over fields that keep
+    accepting arbitrary text, so they must never appear in `vocab/get`.
+    """
+    assert not set(SUGGESTION_TOKENS) & set(build_sommelier_vocab())
+
+
+def test_amendment_family_counts_pinned():
+    """§6.3.7 table: 29 + 12 + 4 + 5 + 34 = 84 new English keys."""
+    assert len(WIZARD_KEYS) == 29
+    assert len(STATUS_PROCESS_TOKENS) == 12
+    assert len(DESCRIBED_SUB_PROCESSES) == 4
+    assert len(SOMMELIER_ERROR_CODES) == 5
+    assert {family: len(tokens) for family, tokens in SUGGESTION_TOKENS.items()} == {
+        "milk": 8, "syrup": 7, "topping": 5, "liqueur": 4, "note": 10,
+    }
+    assert len(_amendment_keys()) == 84
+
+
+# ---------------------------------------------------------------------------
+# Per-locale rules (§6.3.3 subset, §6.3.7(b) completeness, §6.3.7(a) placeholders)
+# ---------------------------------------------------------------------------
+
+# §6.3.7(b): every locale must key everything the server actually serves.
+# The §6.3.3 sparse allowance is NOT withdrawn — it is invoked per key
+# instead of per locale. A token that may legitimately ship English-only
+# (riding the WS loader's per-key en overlay until translations land) is
+# listed here, which makes the exemption a reviewed, reviewable act
+# rather than a silent regression of the whole bundle. Empty since the
+# 0.94 wave closed the 212-vs-185 gap.
+SPARSE_EXEMPT_KEYS: frozenset[str] = frozenset()
+
+# Any `{...}` span, whether or not it is one of KNOWN_PLACEHOLDERS — a
+# renamed placeholder must fail the per-locale comparison, not slip past
+# it as "no known placeholder found".
+_PLACEHOLDER_SPAN = re.compile(r"\{[^}]*\}")
+
+NON_EN_LOCALES = sorted(_locale_names(TRANSLATIONS_DIR) - {"en"})
+
+
+def _spans(value: str) -> list[str]:
+    """Placeholder spans of a string, order-insensitive but count-sensitive."""
+    return sorted(_PLACEHOLDER_SPAN.findall(value))
+
+
+@pytest.fixture(scope="module")
+def served_keyspace(en_strings):
+    """The keys all 29 locales must carry (§6.3.7(b))."""
+    return set(en_strings) - SPARSE_EXEMPT_KEYS
+
+
+@pytest.mark.parametrize("locale", NON_EN_LOCALES)
 def test_locale_is_key_subset_of_en(locale, en_strings):
     """§6.3.3: non-en locales may be sparse but never invent keys."""
     data = _load(UI_STRINGS_DIR / f"{locale}.json")
     _assert_flat_string_map(data, f"{locale}.json")
     extra = set(data) - set(en_strings)
     assert not extra, f"{locale}.json has keys absent from en.json: {sorted(extra)}"
+
+
+@pytest.mark.parametrize("locale", NON_EN_LOCALES)
+def test_locale_covers_the_served_keyspace(locale, served_keyspace):
+    """§6.3.7(b): all 29 locales are complete over what the server serves.
+
+    Guards the invariant the 0.94 wave established. Without it the gap
+    that motivated the wave (en 212 keys against 185–191 elsewhere, so
+    served strings such as `settings.*.description` reached non-English
+    users in English) can silently reopen on any later commit.
+    """
+    data = _load(UI_STRINGS_DIR / f"{locale}.json")
+    missing = served_keyspace - set(data)
+    assert not missing, (
+        f"{locale}.json is missing {len(missing)} served keys: {sorted(missing)}"
+    )
+
+
+@pytest.mark.parametrize("locale", NON_EN_LOCALES)
+def test_locale_carries_placeholders_verbatim(locale, en_strings):
+    """§6.3.7(a): translators may reorder placeholders, never rename or drop.
+
+    The en-only pins (`test_en_wizard_placeholders_pinned`) say nothing
+    about the 28 translated files, where the placeholder-bearing keys
+    were hand-edited: a translation that drops `{sec}` or `{prompt}`
+    would render a wizard step without its value at runtime.
+    """
+    data = _load(UI_STRINGS_DIR / f"{locale}.json")
+    mismatched = {
+        key: (_spans(value), _spans(en_strings[key]))
+        for key, value in data.items()
+        if key in en_strings and _spans(value) != _spans(en_strings[key])
+    }
+    assert not mismatched, f"{locale}.json placeholder drift: {mismatched}"

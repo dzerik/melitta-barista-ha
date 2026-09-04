@@ -200,7 +200,8 @@ async def test_omitted_domains_serves_all():
 
     Robust across the Zone I-L asset seeding: the shipped en.json always
     carries the four v2 domains, may additionally carry the two v3
-    domains (`settings`, `sommelier`), and never anything else.
+    domains (`settings`, `sommelier`) and the §6.3.7 `wizard` domain, and
+    never anything else.
     """
     payload = await call(make_hass(), "en")
     prefixes = {key.split(".", 1)[0] for key in payload["strings"]}
@@ -209,12 +210,12 @@ async def test_omitted_domains_serves_all():
 
 
 # ---------------------------------------------------------------------------
-# Six-domain set (v3 amendment §9.1.4/§9.2.5; §5.2 rule 10 mechanism)
+# Seven-domain set (v3 §9.1.4/§9.2.5 + §6.3.7 `wizard`; §5.2 rule 10 mechanism)
 # ---------------------------------------------------------------------------
 
-# Fixture asset carrying keys in all six served domains, so these tests
-# hold regardless of when the Zone I-L string assets land.
-_SIX_DOMAIN_EN = {
+# Fixture asset carrying keys in all seven served domains, so these tests
+# hold regardless of when the string assets land.
+_SEVEN_DOMAIN_EN = {
     "status.process.READY": "Ready",
     "values.intensity.mild": "Mild",
     "recipes.name.espresso": "Espresso",
@@ -222,28 +223,30 @@ _SIX_DOMAIN_EN = {
     "settings.water_hardness.label": "Water hardness",
     "settings._levels.off": "Off",
     "sommelier.roast.medium_dark": "Medium-dark roast",
+    "wizard.step.cup": "Place the cup",
 }
 
 
 @pytest.fixture
-def six_domain_dir(tmp_path, monkeypatch):
-    """Point the loader at a fixture en.json spanning all six domains."""
+def seven_domain_dir(tmp_path, monkeypatch):
+    """Point the loader at a fixture en.json spanning all seven domains."""
     (tmp_path / "en.json").write_text(
-        json.dumps(_SIX_DOMAIN_EN), encoding="utf-8"
+        json.dumps(_SEVEN_DOMAIN_EN), encoding="utf-8"
     )
     monkeypatch.setattr(panel_api, "_UI_STRINGS_DIR", tmp_path)
     return tmp_path
 
 
-def test_i18n_domain_set_is_six():
-    """`settings` and `sommelier` joined the served domain set."""
+def test_i18n_domain_set_is_seven():
+    """`settings`/`sommelier` (v3) and `wizard` (§6.3.7) joined the set."""
     assert panel_api._I18N_DOMAINS == frozenset({
         "status", "values", "recipes", "actions", "settings", "sommelier",
+        "wizard",
     })
 
 
-async def test_settings_and_sommelier_domains_filterable(six_domain_dir):
-    """The new domains are real filter values, not just pass-through."""
+async def test_new_domains_are_filterable(seven_domain_dir):
+    """The v3 and §6.3.7 domains are real filter values, not pass-through."""
     hass = make_hass()
     payload = await call(hass, "en", domains=["settings"])
     assert set(payload["strings"]) == {
@@ -251,9 +254,11 @@ async def test_settings_and_sommelier_domains_filterable(six_domain_dir):
     }
     payload = await call(hass, "en", domains=["sommelier"])
     assert set(payload["strings"]) == {"sommelier.roast.medium_dark"}
+    payload = await call(hass, "en", domains=["wizard"])
+    assert set(payload["strings"]) == {"wizard.step.cup"}
 
 
-async def test_old_four_domain_filter_byte_identical(six_domain_dir):
+async def test_old_four_domain_filter_byte_identical(seven_domain_dir):
     """An explicit old-four-domain request excludes every new key —
     byte-identical to a pre-0.93 response (§5.2 rule 10)."""
     payload = await call(
@@ -261,23 +266,25 @@ async def test_old_four_domain_filter_byte_identical(six_domain_dir):
     )
     assert payload["strings"] == {
         key: value
-        for key, value in _SIX_DOMAIN_EN.items()
+        for key, value in _SEVEN_DOMAIN_EN.items()
         if key.split(".", 1)[0] in {"status", "values", "recipes", "actions"}
     }
     assert not any(
-        key.startswith(("settings.", "sommelier."))
+        key.startswith(("settings.", "sommelier.", "wizard."))
         for key in payload["strings"]
     )
 
 
-async def test_unfiltered_request_includes_new_domains(six_domain_dir):
+async def test_unfiltered_request_includes_new_domains(seven_domain_dir):
     """Shipped clients fetch without a domain filter, so their responses
-    grow with the `settings.*`/`sommelier.*` keys — the real 2.x-compat
-    mechanism is unknown-key tolerance, not filtering (§5.2 rule 10)."""
+    grow with the `settings.*`/`sommelier.*`/`wizard.*` keys — the real
+    2.x-compat mechanism is unknown-key tolerance, not filtering
+    (§5.2 rule 10)."""
     payload = await call(make_hass(), "en")
-    assert payload["strings"] == _SIX_DOMAIN_EN
+    assert payload["strings"] == _SEVEN_DOMAIN_EN
     assert "settings._levels.off" in payload["strings"]
     assert "sommelier.roast.medium_dark" in payload["strings"]
+    assert "wizard.step.cup" in payload["strings"]
 
 
 # ---------------------------------------------------------------------------

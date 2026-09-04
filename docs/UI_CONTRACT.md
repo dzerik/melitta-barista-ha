@@ -1750,6 +1750,83 @@ interface Recipe {  // §3.3, additive field
   key, and every derived/authored key is asserted to have a
   `recipes.name.<name_key>` entry in `ui_strings/en.json`.
 
+#### 6.3.7 Machine-domain string families added in 0.94 (v3.1 amendment)
+
+All three clients — PWA (`src/locales/*.json`), panel (`www/i18n/locales/*.js`)
+and card (`src/localize/languages/*.json`) — still carry their own copies of
+wording that belongs to the machine, not to a client: brew-guide vocabulary,
+machine-state descriptions, service-cycle sublabels, sommelier LLM error hints
+and labels for the well-known free-form suggestion values. Three copies mean
+three translation bills and three chances to word the same thing differently.
+This amendment moves those families to the server. It is a strings wave, not a
+mechanism: additive within `contract_version: 1` (§6.0), served by the existing
+`i18n/get` loader on the existing `strings_version` axis (§6.3.2), zero new
+fingerprint inputs.
+
+**(a) Families (normative key shapes).** English wording is sourced from the
+existing client bundles wherever they already say it well (all three are this
+project's own repos); it is re-authored only where a bundle is vague, and stays
+in the interface voice — plain verbs, sentence case, no apologies.
+
+| keyspace | count | source | notes |
+| --- | --- | --- | --- |
+| `wizard.<dotted.key>` | 29 | PWA `wizard.*` (primary), panel `wizard.*` (second reading) | brew-guide vocabulary; key names **byte-equal to the PWA bundle** (`wizard.title`, `wizard.step.cup`, `wizard.machine.start_full`, `wizard.finish.title`, `wizard.close.message`, …) |
+| `status.process.<TOKEN>.description` | 12 | newly authored | one sentence describing the state to a user |
+| `status.sub_process.<TOKEN>.description` | ≤5 | newly authored | served **only where it adds meaning** over the label |
+| `sommelier.error.<code>` | 5 | PWA `sommelier.error.*`, card `sommelier.err.*`, panel `sommelier.err.*` | codes: `no_llm_agent`, `no_llm_agent_selected`, `llm_agent_missing`, `timeout`, `unauthorized` |
+| `sommelier.milk.<token>` `sommelier.syrup.<token>` `sommelier.topping.<token>` `sommelier.liqueur.<token>` `sommelier.note.<token>` | 8/7/5/4/10 | PWA `sommelier.milk_*` / `syrup_*` / `topping_*` / `liqueur_*` / `note_*` | labels for the well-known suggestion values |
+
+* **`wizard` is a new i18n domain** (7th member of `_I18N_DOMAINS`; the domain
+  of a key is its first dot segment). Additive per §5.2 rule 10 — clients that
+  omit `domains` (all shipped clients) receive it automatically; a client that
+  sends an explicit list must add `"wizard"`.
+* **Placeholders are carried verbatim** — `{n}`, `{m}`, `{cup}`, `{ml}`,
+  `{sec}`, `{prompt}` keep their names, count and substitution semantics per
+  key. Translators may reorder them within a sentence; nobody may rename or
+  drop one. `{prompt}` passes machine text through unchanged.
+* **`.description` keys live in the flat keyspace beside their labels**: both
+  `status.process.READY` and `status.process.READY.description` exist and are
+  looked up by exact key — no prefix scanning, no key nesting. A missing
+  `.description` means "show the label alone", never an error.
+* **Free-form caveat (normative).** The five suggestion families label values
+  of fields that stay free-form by design (§9.2.4). Serving a label for a known
+  token MUST NOT be read as a closed vocabulary: these families are **not**
+  served by `vocab/get`, the server keeps accepting and storing arbitrary text
+  in those fields, and clients MUST render unknown user text **verbatim** — no
+  filtering, no coercion to a token, no "unknown value" state. The label map is
+  display sugar over an open field; the token set may grow additively and never
+  narrows the accepted input space.
+
+**(b) Completeness rule enforced this round.** `en.json` stays complete with no
+orphans (§6.3.3, unchanged). New: **for every family the server actually
+serves, all 29 locales MUST be complete** at the end of this wave, enforced by
+pytest over the served keyspace. This closes the gap that motivated the round —
+`en.json` carries 212 keys against 185–191 elsewhere, so genuinely-served
+strings (e.g. `settings.*.description`) reach non-English users in English. The
+§6.3.3 sparse allowance is **not** withdrawn: it remains the rule for future
+additions, so a new token can still ship English-only over the en overlay
+without 29 hand translations gating the commit. The invariant is "complete at
+the end of the wave that serves it", not "translated before it may exist".
+
+The two rules are reconciled in one enforcement point:
+`tests/test_ui_contract_i18n_assets.py` asserts, per locale, both directions
+against `en.json` — subset (§6.3.3: never invent a key) and superset over the
+**served keyspace**, defined as `en.json` minus the explicit
+`SPARSE_EXEMPT_KEYS` set. Invoking the sparse allowance for a new token is
+therefore an entry in that set, reviewed like any other diff, rather than a
+silent locale-wide gap; the set is empty as of this wave. Placeholder integrity
+(a) is checked in every locale too — the `{...}` spans of a translated value
+must match the spans of its `en.json` counterpart, name for name and count for
+count, in any order.
+
+**(c) Client tiering.** Clients SHOULD prefer the server strings for every
+family above, through the unchanged §6.3.5.1 preference order (server string →
+client bundle → humanized token). Client bundles keep these keys as **tier 2
+only** — the offline / pre-0.94-server fallback. No client deletes its bundle in
+this round: PWA offline mode and installs still on ≤0.93 depend on it, and the
+bundles remain the only source for genuine client chrome (navigation, editor
+labels, connection UI), which is out of the machine domain and is not served.
+
 ---
 
 ## 7. Implementation plan (0.91)
@@ -3416,6 +3493,22 @@ anchors it already declared):
    `strings_version` axis; the legacy PWA cup-size token `espresso`
    normalized to `espresso_cup` **server-side** (DB migration + write-path
    aliasing).
+
+8. **(v3.1, 0.94) Machine-domain strings wave** (§6.3.7) — additive within
+   `contract_version: 1`, no new mechanism and no new fingerprint input. Five
+   families move from the three client bundles to `ui_strings/`: `wizard.*`
+   (29 keys, a new `wizard` i18n domain, PWA key names and placeholders kept
+   byte-equal), `status.process.<TOKEN>.description` and
+   `status.sub_process.<TOKEN>.description` (flat keyspace beside the existing
+   bare labels), `sommelier.error.<code>` (5 LLM pre-flight codes), and
+   `sommelier.{milk,syrup,topping,liqueur,note}.<token>` (34 labels for
+   well-known suggestion values — **free-form families stay free-form**: not
+   served by `vocab/get`, unknown user text renders verbatim, §9.2.4 intact).
+   Completeness tightened for this wave only: all 29 locales complete for the
+   served keyspace (closing the observed 212 vs 185–191 gap that shipped
+   `settings.*.description` to non-English users in English), while the §6.3.3
+   sparse allowance stays in force for future additions. Client bundles are
+   demoted to the tier-2 offline / pre-0.94 fallback, not deleted.
 
 ### A.2 Design notes (0.92 adversarial round)
 

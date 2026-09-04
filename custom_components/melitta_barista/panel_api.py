@@ -239,12 +239,14 @@ def _ws_ui_contract(hass: HomeAssistant, connection, msg) -> None:
 _UI_STRINGS_DIR = pathlib.Path(__file__).parent / "ui_strings"
 
 # The served key domains (§6.3.1; `settings` and `sommelier` added by the
-# 0.93 amendment, §9.1.4/§9.2.5). Unknown requested domains are ignored;
+# 0.93 amendment, §9.1.4/§9.2.5; `wizard` — the brew-guide vocabulary — by
+# the 0.94 amendment, §6.3.7). Unknown requested domains are ignored;
 # an omitted `domains` parameter serves all of them — which is how the
 # shipped clients fetch, so their responses grow additively with new
 # domains (§5.2 rule 10; safe via unknown-key tolerance).
 _I18N_DOMAINS = frozenset({
     "status", "values", "recipes", "actions", "settings", "sommelier",
+    "wizard",
 })
 
 # Plausible locale tags only — the locale is caller input used to build
