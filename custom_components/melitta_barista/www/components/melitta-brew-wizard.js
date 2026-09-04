@@ -30,12 +30,23 @@
  *
  * Legacy rows without machine_phases fall back to a single full-recipe
  * brew step via the original brew / favorites/brew commands.
+ *
+ * Wording: every `wizard.*` string is served by the integration since
+ * 0.94 (UI Contract §6.3.7) and resolved through this component's _t() —
+ * server string first, the www/i18n/locales bundle as the offline /
+ * pre-0.94 tier-2 fallback, which is why the bundle keys stay in place.
  */
 
 import { LitElement, html, css } from "../lit-base.js";
 import { sharedStyles } from "../design-tokens.js";
 import { t } from "../i18n/index.js";
-import { displayNameFor, labelFor } from "../i18n/server-strings.js";
+import {
+  displayNameFor,
+  formatString,
+  freeFormLabel,
+  labelFor,
+  serverString,
+} from "../i18n/server-strings.js";
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_BUFFER_S = 30;
@@ -105,7 +116,32 @@ class MelittaBrewWizard extends LitElement {
     this._tickHandle = null;
   }
 
-  _t(key, params) { return t(key, this.lang || "en", params); }
+  /**
+   * Localized string with the §6.3.5 preference order: the served
+   * machine-domain string for this exact key → the panel bundle under
+   * the same key → the key itself.
+   *
+   * Every `wizard.*` key is served by the integration since 0.94
+   * (§6.3.7) under byte-identical names, so the server tier simply wins
+   * where it has an entry and keys the server never serves (`brewing.*`
+   * and friends) fall straight through to the bundle. The bundle keys
+   * stay in place as the offline / pre-0.94 fallback.
+   *
+   * Both tiers use the same placeholder names, so one `params` map feeds
+   * whichever tier wins. `serverParams` overrides individual
+   * placeholders for the server tier only, which exactly one key needs:
+   * the served `wizard.step.cup` renders the volume as "({ml})" and
+   * expects {ml} to carry its unit, while the panel bundle spells the
+   * unit itself ("(~{ml} ml)").
+   */
+  _t(key, params = null, serverParams = null) {
+    const served = serverString(key);
+    if (served === null) return t(key, this.lang || "en", params);
+    return formatString(
+      served,
+      serverParams ? { ...(params || {}), ...serverParams } : params,
+    );
+  }
 
   /**
    * Family-scoped value-token label (UI Contract §6.3.5): server string
@@ -120,11 +156,20 @@ class MelittaBrewWizard extends LitElement {
 
   // ── Step model ─────────────────────────────────────────────────────
 
-  /** Localized cup label; falls back to the raw cup_type for unknown values. */
+  /**
+   * Localized cup label (§6.3.5 chain): served `sommelier.cup_size.<token>`
+   * → the panel bundle's legacy `sommelier.cup.<token>` → the raw
+   * cup_type verbatim, because an unrecognized cup type is the user's own
+   * text and must never be humanized away.
+   */
   _cupLabel(cupType) {
     const key = `sommelier.cup.${cupType}`;
     const translated = t(key, this.lang || "en");
-    return translated === key ? cupType : translated;
+    return freeFormLabel(
+      "cup_size",
+      cupType,
+      translated === key ? null : translated,
+    );
   }
 
   /** Compile the recipe JSON into the flat ordered step list. */
@@ -146,7 +191,12 @@ class MelittaBrewWizard extends LitElement {
       steps.push({
         kind: "manual",
         synthetic: true,
-        text: this._t("wizard.step.cup", { ml: totalMl, cup: this._cupLabel(r.cup_type) }),
+        text: this._t(
+          "wizard.step.cup",
+          { ml: totalMl, cup: this._cupLabel(r.cup_type) },
+          // The served sentence carries no unit literal — {ml} brings it.
+          { ml: `${totalMl} ml` },
+        ),
       });
     }
     for (const s of pre) steps.push({ kind: "manual", step: s });

@@ -106,6 +106,12 @@ class MelittaPanel extends LitElement {
    * Failure (an older backend without the command, a transient WS error)
    * degrades to the panel bundles only — never a panel error, and never
    * anything beyond display strings (§6.3.2).
+   *
+   * The request deliberately omits `domains`: an omitted list means "all
+   * domains", so every domain the server grows — `wizard` as the 7th
+   * member in 0.94 (§6.3.7), and whatever follows it — arrives without a
+   * panel change. Never narrow this to an explicit list; a client that
+   * sends one has to remember to add "wizard" and every future domain.
    */
   async _loadServerStrings() {
     const locale = this._lang;

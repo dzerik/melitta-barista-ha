@@ -25,7 +25,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
-import { labelFor } from "../i18n/server-strings.js";
+import { freeFormLabel, labelFor } from "../i18n/server-strings.js";
 import "./melitta-confirm.js";
 
 /**
@@ -114,6 +114,20 @@ class MelittaAdditives extends LitElement {
       bundled === key ? null : bundled,
       token,
     );
+  }
+
+  /**
+   * Item label for one of the free-form suggestion families (§6.3.7):
+   * served `sommelier.<family>.<value>` when the stored value happens to
+   * be a well-known token (`oat`, `vanilla`, `chocolate`, …), otherwise
+   * the user's own product name verbatim.
+   *
+   * These tables are open by design (§9.2.4): the served labels are
+   * display sugar and never gate what may be stored, so every id, write
+   * and delete keeps using the raw value.
+   */
+  _itemLabel(family, value) {
+    return freeFormLabel(family, value);
   }
 
   /**
@@ -457,7 +471,7 @@ class MelittaAdditives extends LitElement {
             const rowClass = !inStock ? "dimmed" : "";
             return html`
             <tr class=${rowClass}>
-              <td>${r.name}</td>
+              <td title=${r.name}>${this._itemLabel(type, r.name)}</td>
               ${showsBrand ? html`<td>${r.brand || ""}</td>` : ""}
               ${showsBrand ? html`<td>${r.notes || ""}</td>` : ""}
               <td class="actions">
@@ -510,7 +524,7 @@ class MelittaAdditives extends LitElement {
               class="chip removable"
               @click=${() => this._removeFlavorNote(n)}
               title=${n}
-            >${n} <span class="chip-x">×</span></button>
+            >${this._itemLabel("note", n)} <span class="chip-x">×</span></button>
           `)}
         </div>
         <div class="chip-add">

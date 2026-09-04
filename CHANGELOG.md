@@ -2,6 +2,24 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.94.0b2] — 2026-09-04 (beta)
+
+Ships the panel half of the 0.94 wave. `0.94.0b1` contained only the server side: the integration served the new machine-domain families while the panel bundled inside it still read its own copies, so the wave's whole point — one machine voice across clients — was invisible on that artifact. Nothing was broken there (the panel fell back to its bundles, which are unchanged and stay in place), but the served strings never reached the screen. Install `0.94.0b2` rather than `0.94.0b1`.
+
+### Changed
+
+- The Home Assistant panel now reads the §6.3.7 families over `i18n/get`, with its own bundles kept as the tier-2 offline / pre-0.94-server fallback:
+  - brew guide — every `wizard.*` string resolves server-first, including the placeholder-bearing ones;
+  - status — `status.process.<TOKEN>.description` and `status.sub_process.<TOKEN>.description` render as a second line under the token label, and the sub-process token is now shown at all; a token with no served description shows the label alone, exactly as before;
+  - sommelier — LLM pre-flight and generation failures use the served `sommelier.error.<code>` hint for any code the server has a string for, not just the three the panel used to know;
+  - suggestion values — milk kinds, syrups, toppings, liqueurs and flavour notes render their served label in beans, add-ins and the wizard's cup line.
+- The panel's `i18n/get` request keeps omitting `domains`, so it received the new `wizard` domain without asking for it — and will receive whatever domain comes next.
+
+### Notes
+
+- The free-form caveat (§9.2.4) is honoured throughout: a served label applies only to a value that happens to be a well-known token. Anything the user typed renders verbatim, the raw value is what gets stored, toggled and sent back, and the untranslated original stays available as the element's `title`.
+- Visible English wording shifts where the guide's vocabulary replaces the panel's own — this is the intended effect of the round, not a regression.
+
 ## [0.94.0b1] — 2026-09-04 (beta)
 
 Machine-domain strings wave (UI Contract §6.3.7, additive within `contract_version: 1` — shipped clients keep working byte-identically).

@@ -16,7 +16,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
-import { labelFor } from "../i18n/server-strings.js";
+import { freeFormLabel, labelFor } from "../i18n/server-strings.js";
 import "./melitta-confirm.js";
 
 /**
@@ -97,6 +97,19 @@ class MelittaBeans extends LitElement {
    */
   _vocabLabel(family, token) {
     return labelFor(`sommelier.${family}.${token}`, null, token);
+  }
+
+  /**
+   * Flavour-note label (§6.3.7): served `sommelier.note.<token>` for a
+   * well-known note, otherwise the note verbatim.
+   *
+   * Flavour notes are free text (§9.2.4) — the user and the autofill LLM
+   * both write their own — so an unlabelled note is shown exactly as
+   * stored, never humanized and never dropped, and every write path
+   * keeps operating on the raw value.
+   */
+  _noteLabel(note) {
+    return freeFormLabel("note", note);
   }
 
   /**
@@ -423,7 +436,7 @@ class MelittaBeans extends LitElement {
               <td>${b.product}</td>
               <td>${this._vocabLabel("roast", b.roast)}</td>
               <td>${b.origin_country || this._vocabLabel("origin", b.origin)}</td>
-              <td>${(b.flavor_notes || []).join(", ")}</td>
+              <td>${(b.flavor_notes || []).map((n) => this._noteLabel(n)).join(", ")}</td>
               <td class="actions">
                 <button class="icon edit" @click=${() => this._openEditBean(b)}>✎</button>
                 <button class="icon del" @click=${() => this._deleteBean(b.id)}>×</button>
@@ -495,8 +508,8 @@ class MelittaBeans extends LitElement {
             <legend>${this._t("tags.title")}</legend>
             <div class="chips">
               ${(b.flavor_notes || []).map((tag) => html`
-                <span class="chip on">
-                  ${tag}
+                <span class="chip on" title=${tag}>
+                  ${this._noteLabel(tag)}
                   <button class="chip-del" @click=${() => this._removeTagFromBean(tag)}>×</button>
                 </span>
               `)}

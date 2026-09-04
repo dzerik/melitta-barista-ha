@@ -18,7 +18,12 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
-import { displayNameFor, labelFor } from "../i18n/server-strings.js";
+import {
+  displayNameFor,
+  freeFormLabel,
+  labelFor,
+  serverString,
+} from "../i18n/server-strings.js";
 import "./melitta-sommelier-favorites.js";
 import "./melitta-sommelier-history.js";
 import "./melitta-sommelier-presets.js";
@@ -181,6 +186,34 @@ class MelittaSommelier extends LitElement {
     const bundleKey = `recipes.opt.${token}`;
     const bundled = this._t(bundleKey);
     return displayNameFor(family, token, bundled === bundleKey ? null : bundled);
+  }
+
+  /**
+   * Label for a value of a free-form suggestion field (§6.3.7): served
+   * `sommelier.<family>.<value>` for a well-known token, otherwise the
+   * user's own text verbatim.
+   *
+   * Milk kinds, syrups, toppings, liqueurs and flavour notes stay free
+   * text (§9.2.4) — a served label is display sugar over an open field,
+   * never a closed vocabulary, so an unknown value is rendered as typed
+   * and the value sent back to the server is always the raw one.
+   */
+  _suggestionLabel(family, value) {
+    return freeFormLabel(family, value);
+  }
+
+  /**
+   * Localized hint for a sommelier generation error code (§6.3.7):
+   * served `sommelier.error.<code>` → the panel bundle's
+   * `sommelier.err.<code>` → null, which leaves the caller with the raw
+   * "[code] message" form.
+   */
+  _sommelierErrorHint(code) {
+    const served = serverString(`sommelier.error.${code}`);
+    if (served !== null) return served;
+    const bundleKey = `sommelier.err.${code}`;
+    const bundled = this._t(bundleKey);
+    return bundled === bundleKey ? null : bundled;
   }
 
   /**
@@ -486,10 +519,10 @@ class MelittaSommelier extends LitElement {
       // the DevTools console for deeper debugging.
       const code = e?.code || "error";
       const msg = e?.message || String(e);
-      const agentCodes = ["no_llm_agent", "no_llm_agent_selected", "llm_agent_missing"];
-      this._error = agentCodes.includes(code)
-        ? `${this._t("sommelier.err." + code)} ${msg}`
-        : `[${code}] ${msg}`;
+      // The five §6.3.7 error codes carry a served, localized hint; any
+      // other code falls through to the raw "[code] message" form.
+      const hint = this._sommelierErrorHint(code);
+      this._error = hint ? `${hint} ${msg}` : `[${code}] ${msg}`;
       // eslint-disable-next-line no-console
       console.error("[melitta-panel] generate failed:", e, "payload:", payload);
     } finally {
@@ -749,7 +782,12 @@ class MelittaSommelier extends LitElement {
     `;
   }
 
-  _renderAddinSection(title, available, selectedField) {
+  /**
+   * One add-in multi-select. `family` picks the served label family for
+   * the chip text (§6.3.7); the value toggled and sent to the backend is
+   * always the raw item, never the label.
+   */
+  _renderAddinSection(title, available, selectedField, family) {
     if (available.length === 0) {
       return html`
         <div class="field">
@@ -765,7 +803,9 @@ class MelittaSommelier extends LitElement {
         <div class="chips">
           ${available.map((item) => html`
             <button class=${selected.includes(item) ? "chip on" : "chip"}
-              @click=${() => this._toggle(selectedField, item)}>${item}</button>
+              title=${item}
+              @click=${() => this._toggle(selectedField, item)}
+            >${this._suggestionLabel(family, item)}</button>
           `)}
         </div>
       </div>
@@ -778,9 +818,9 @@ class MelittaSommelier extends LitElement {
         @toggle=${(e) => { this._showAddins = e.target.open; }}>
         <summary>${this._t("sommelier.addins_heading")}</summary>
         <div class="block-body">
-          ${this._renderAddinSection(this._t("sommelier.section_syrups"), this._availableSyrups, "_allowSyrups")}
-          ${this._renderAddinSection(this._t("sommelier.section_toppings"), this._availableToppings, "_allowToppings")}
-          ${this._renderAddinSection(this._t("sommelier.section_milk"), this._availableMilk, "_allowMilk")}
+          ${this._renderAddinSection(this._t("sommelier.section_syrups"), this._availableSyrups, "_allowSyrups", "syrup")}
+          ${this._renderAddinSection(this._t("sommelier.section_toppings"), this._availableToppings, "_allowToppings", "topping")}
+          ${this._renderAddinSection(this._t("sommelier.section_milk"), this._availableMilk, "_allowMilk", "milk")}
         </div>
       </details>
     `;
@@ -830,9 +870,11 @@ class MelittaSommelier extends LitElement {
     if (!extras || typeof extras !== "object") return "";
     const chips = [];
     if (extras.ice) chips.push("ice");
-    if (extras.syrup) chips.push(`syrup: ${extras.syrup}`);
-    if (extras.topping) chips.push(`topping: ${extras.topping}`);
-    if (extras.liqueur) chips.push(`liqueur: ${extras.liqueur}`);
+    // Values are labelled when they are well-known tokens and rendered
+    // verbatim otherwise (§6.3.7 free-form caveat).
+    if (extras.syrup) chips.push(`syrup: ${this._suggestionLabel("syrup", extras.syrup)}`);
+    if (extras.topping) chips.push(`topping: ${this._suggestionLabel("topping", extras.topping)}`);
+    if (extras.liqueur) chips.push(`liqueur: ${this._suggestionLabel("liqueur", extras.liqueur)}`);
     if (chips.length === 0 && !extras.instruction) return "";
     return html`
       <div class="addins">

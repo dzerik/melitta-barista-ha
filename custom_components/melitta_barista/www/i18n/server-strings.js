@@ -12,6 +12,13 @@
  * Keys are flat, dot-joined and byte-equal to the contract tokens they
  * describe (§6.3.1): `status.*` embeds UPPER_SNAKE, `values.*` /
  * `recipes.*` / `actions.*` embed lower_snake. Never case-fold keys.
+ *
+ * Since 0.94 the served set also covers the machine-domain families of
+ * §6.3.7 — `wizard.*` brew-guide vocabulary, `status.*.<TOKEN>.description`
+ * state descriptions, `sommelier.error.<code>` hints and the
+ * `sommelier.<milk|syrup|topping|liqueur|note>.<token>` suggestion labels.
+ * The panel bundles under www/i18n/locales keep every one of those keys as
+ * the tier-2 fallback for pre-0.94 servers and transient i18n failures.
  */
 
 let _strings = null;
@@ -68,4 +75,44 @@ export function labelFor(serverKey, bundleValue, token) {
  */
 export function displayNameFor(family, token, bundleValue = null) {
   return labelFor(`values.${family}.${token}`, bundleValue, token);
+}
+
+/**
+ * Substitute `{name}` placeholders into a server-served template.
+ *
+ * Server strings carry the same placeholder names, count and
+ * substitution semantics as their client-bundle counterparts (§6.3.7),
+ * but they never pass through the bundle resolver `t()`, so the server
+ * tier needs its own substitution pass. Missing params are left as
+ * literal `{name}` spans rather than blanked, so a wiring mistake is
+ * visible instead of silent.
+ */
+export function formatString(template, params) {
+  let value = template == null ? "" : String(template);
+  if (!params) return value;
+  for (const [key, replacement] of Object.entries(params)) {
+    value = value.replaceAll(`{${key}}`, String(replacement));
+  }
+  return value;
+}
+
+/**
+ * Label for a value of a free-form suggestion field: server string
+ * `sommelier.<family>.<value>` → optional client bundle string → the
+ * user's own text VERBATIM.
+ *
+ * The five suggestion families served since 0.94 (`milk`, `syrup`,
+ * `topping`, `liqueur`, `note`, §6.3.7) label WELL-KNOWN tokens only.
+ * Those fields stay free text by design (§9.2.4): a value the user typed
+ * has no key and MUST render exactly as typed — never humanized, never
+ * coerced to a token, never dropped. That is why this helper falls back
+ * to the raw value instead of going through humanizeToken().
+ */
+export function freeFormLabel(family, value, bundleValue = null) {
+  const raw = value == null ? "" : String(value);
+  if (!raw) return "";
+  const server = serverString(`sommelier.${family}.${raw}`);
+  if (server !== null) return server;
+  if (typeof bundleValue === "string" && bundleValue) return bundleValue;
+  return raw;
 }

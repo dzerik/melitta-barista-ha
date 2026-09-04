@@ -10,12 +10,16 @@
  *
  * Process/manipulation tokens render via server-served strings
  * (`status.process.*` / `status.manipulation.*`, UI Contract §6.3) with a
- * humanized-token fallback — never the raw UPPER_SNAKE token.
+ * humanized-token fallback — never the raw UPPER_SNAKE token. Since 0.94
+ * the server also serves one-sentence state descriptions
+ * (`status.process.<TOKEN>.description`, `status.sub_process.<TOKEN>.description`,
+ * §6.3.7); they render under the label when present and are simply absent
+ * otherwise — a missing description means "show the label alone".
  */
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
-import { labelFor } from "../i18n/server-strings.js";
+import { labelFor, serverString } from "../i18n/server-strings.js";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -117,15 +121,47 @@ class MelittaStatus extends LitElement {
     return labelFor(`status.${kind}.${token}`, null, token);
   }
 
+  /**
+   * One-sentence description of a status token (§6.3.7), or null.
+   *
+   * Server-only by design: the panel bundles carry no descriptions, and a
+   * missing `.description` key means "show the label alone", never an
+   * error — so there is nothing to fall back to and nothing to humanize.
+   */
+  _statusDescription(kind, token) {
+    return serverString(`status.${kind}.${token}.description`);
+  }
+
+  /** The served description of a token as its own line, or nothing. */
+  _renderDescription(kind, token) {
+    const description = this._statusDescription(kind, token);
+    return description
+      ? html`<span class="token-desc">${description}</span>`
+      : "";
+  }
+
   _renderStatusBlock() {
     const status = this._data?.status;
     if (!status) {
       return html`<div class="hint">${this._t("status.no_status")}</div>`;
     }
+    const subProcess =
+      status.sub_process && status.sub_process !== "NONE"
+        ? status.sub_process
+        : null;
     return html`
       ${this._renderRow(
         this._t("status.process"),
-        status.process ? this._statusToken("process", status.process) : status.process,
+        status.process
+          ? html`${this._statusToken("process", status.process)}
+              ${this._renderDescription("process", status.process)}
+              ${subProcess
+                ? html`<span class="token-sub">
+                    ${this._statusToken("sub_process", subProcess)}
+                    ${this._renderDescription("sub_process", subProcess)}
+                  </span>`
+                : ""}`
+          : status.process,
       )}
       ${status.manipulation && status.manipulation !== "NONE"
         ? this._renderRow(
@@ -260,6 +296,17 @@ class MelittaStatus extends LitElement {
       .value {
         font-weight: 500;
         word-break: break-word;
+      }
+      .token-desc,
+      .token-sub {
+        display: block;
+        font-weight: 400;
+        color: var(--secondary-text-color);
+        font-size: var(--mb-font-size-sm, 0.85rem);
+      }
+      .token-sub {
+        margin-top: 2px;
+        color: var(--primary-text-color);
       }
       .pill {
         padding: 4px 12px;
