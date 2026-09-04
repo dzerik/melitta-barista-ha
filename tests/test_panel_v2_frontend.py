@@ -80,10 +80,15 @@ def test_panel_fetches_i18n_ws_command():
 
 
 def test_panel_fetches_i18n_once_per_locale():
-    """A locale guard prevents re-fetching for an unchanged locale."""
+    """A locale guard prevents re-fetching for an unchanged locale.
+
+    The guard may carry extra conditions (an in-flight latch was added in
+    0.94), so the assertion pins the semantics — an early return while the
+    fetched locale is unchanged — rather than the exact expression.
+    """
     src = _src(_PANEL)
     assert "_i18nLocale" in src, "panel must track the fetched locale"
-    assert re.search(r"locale\s*===\s*this\._i18nLocale\)\s*return", src), (
+    assert re.search(r"locale\s*===\s*this\._i18nLocale[^\n]*\)\s*return", src), (
         "panel must skip the fetch while the locale is unchanged"
     )
 

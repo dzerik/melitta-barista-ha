@@ -115,8 +115,11 @@ class MelittaPanel extends LitElement {
    */
   async _loadServerStrings() {
     const locale = this._lang;
-    if (!this.hass || locale === this._i18nLocale) return;
-    this._i18nLocale = locale;
+    if (!this.hass || locale === this._i18nLocale || this._i18nInFlight) return;
+    // The locale is latched only on success. A dropped frame at panel open
+    // used to cost every served string for the whole session, and this wave
+    // widened that from a handful of labels to the entire machine domain.
+    this._i18nInFlight = true;
     try {
       const result = await this.hass.callWS({
         type: "melitta_barista/i18n/get",
@@ -128,10 +131,14 @@ class MelittaPanel extends LitElement {
           : null;
       setServerStrings(strings);
       this._serverStrings = strings;
+      this._i18nLocale = locale;
     } catch (e) {
-      // Graceful absence: bundle/humanized fallback for the session.
+      // Graceful absence now, retry on the next update: bundle and humanized
+      // tiers cover the gap meanwhile.
       setServerStrings(null);
       this._serverStrings = null;
+    } finally {
+      this._i18nInFlight = false;
     }
   }
 

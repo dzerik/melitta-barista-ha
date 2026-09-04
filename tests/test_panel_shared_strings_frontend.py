@@ -339,3 +339,20 @@ def test_suggestion_families_are_served() -> None:
     }
     assert all(counts.values()), f"unserved suggestion families: {counts}"
     assert sum(counts.values()) >= 34, f"suggestion label set shrank: {counts}"
+
+
+def test_panel_retries_i18n_after_transient_failure() -> None:
+    """A dropped i18n/get frame must not cost the session its served strings.
+
+    The locale is latched only after a successful fetch, so the next update
+    retries; an in-flight guard keeps the retry from stampeding.
+    """
+    src = _src(_PANEL)
+    assert "this._i18nInFlight = true;" in src
+    body = src[src.index("async _loadServerStrings()"):]
+    body = body[: body.index("\n  }\n") + 4]
+    latch = body.index("this._i18nLocale = locale;")
+    assert latch > body.index("setServerStrings(strings);"), (
+        "the locale must be latched only on the success path"
+    )
+    assert "this._i18nInFlight = false;" in body
