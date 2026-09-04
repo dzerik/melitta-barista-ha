@@ -317,6 +317,11 @@ async def _make_v10_db(db_path: str, *, profiles_ddl: str | None = _PROFILES_DDL
             "INSERT INTO settings(key, value) VALUES('schema_version', '10')"
         )
         await conn.execute(_PRESETS_DDL)
+        # A real v10 DB always carries favourites; the v12 backfill reads it,
+        # and an ALTER against a missing table stays a loud failure by design.
+        await conn.execute(
+            "CREATE TABLE favorites (id TEXT PRIMARY KEY, source_recipe_id TEXT)"
+        )
         await conn.execute(
             "CREATE TABLE user_preferences (key TEXT PRIMARY KEY, value TEXT)"
         )

@@ -153,7 +153,7 @@ async def test_legacy_v8_db_gets_machine_profile_via_alter():
             # ALTERs it — the strict migration runner withholds the stamp
             # when a statement fails for a non-idempotency reason.
             await conn.execute(
-                "CREATE TABLE generated_recipes (id TEXT PRIMARY KEY)"
+                "CREATE TABLE generated_recipes (id TEXT PRIMARY KEY, reasoning TEXT)"
             )
             await conn.commit()
 

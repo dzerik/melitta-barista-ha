@@ -96,11 +96,13 @@ async def test_migration_from_v3_preserves_data():
             # statement fails for a reason other than idempotency.
             await conn.execute(
                 "CREATE TABLE generated_recipes "
-                "(id TEXT PRIMARY KEY, component1 TEXT, component2 TEXT)"
+                "(id TEXT PRIMARY KEY, component1 TEXT, component2 TEXT,"
+                " reasoning TEXT)"
             )
             await conn.execute(
                 "CREATE TABLE favorites "
-                "(id TEXT PRIMARY KEY, component1 TEXT, component2 TEXT)"
+                "(id TEXT PRIMARY KEY, component1 TEXT, component2 TEXT,"
+                " source_recipe_id TEXT)"
             )
             await conn.execute(
                 "CREATE TABLE generation_sessions (id TEXT PRIMARY KEY)"

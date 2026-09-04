@@ -1444,6 +1444,9 @@ async def ws_favorites_add(
         "extras": recipe.get("extras"),
         "steps": recipe.get("steps"),
         "cup_type": recipe.get("cup_type"),
+        # Keep the sommelier's justification with the row the user keeps:
+        # history is prunable, a favourite is not (schema v12).
+        "reasoning": recipe.get("reasoning"),
         "source_recipe_id": recipe["id"],
         "source_bean_id": source_bean["id"] if source_bean else None,
         "machine_profile": msg.get("machine_profile"),

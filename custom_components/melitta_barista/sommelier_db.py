@@ -15,7 +15,7 @@ import aiosqlite
 
 _LOGGER = logging.getLogger("melitta_barista")
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 _VALID_RATING_TARGET_TYPES = frozenset({"generated", "favorite"})
 
@@ -127,7 +127,8 @@ CREATE TABLE IF NOT EXISTS favorites (
     brew_count          INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL,
     last_brewed_at      TEXT,
-    machine_profile     INTEGER
+    machine_profile     INTEGER,
+    reasoning           TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -300,6 +301,21 @@ ALTER TABLE generation_sessions ADD COLUMN machine_profile INTEGER;
 # (read paths normalize to "" — same default as the live path).
 MIGRATE_V9_TO_V10 = """
 ALTER TABLE generated_recipes ADD COLUMN reasoning TEXT;
+"""
+
+# v11 → v12: favourites keep the sommelier's own justification.
+# `reasoning` reached generated_recipes in v10, but favouriting a recipe
+# dropped it — the row a user keeps forever lost the one sentence saying
+# why the drink was suggested. Backfilled from the source recipe where
+# that row still exists.
+MIGRATE_V11_TO_V12 = """
+ALTER TABLE favorites ADD COLUMN reasoning TEXT;
+UPDATE favorites
+   SET reasoning = (
+       SELECT gr.reasoning FROM generated_recipes gr
+        WHERE gr.id = favorites.source_recipe_id
+   )
+ WHERE reasoning IS NULL AND source_recipe_id IS NOT NULL;
 """
 
 # v10 → v11: one-time normalization of the legacy cup-size token
@@ -499,6 +515,8 @@ class SommelierDB:
                 migrations.append((10, MIGRATE_V9_TO_V10))
             if current_version < 11:
                 migrations.append((11, MIGRATE_V10_TO_V11))
+            if current_version < 12:
+                migrations.append((12, MIGRATE_V11_TO_V12))
             for target_version, sql in migrations:
                 for stmt in sql.strip().split(";"):
                     stmt = stmt.strip()
@@ -515,11 +533,21 @@ class SommelierDB:
                             and stmt.upper().startswith("UPDATE")
                         ):
                             # Data-rewrite step (e.g. the v11 cup-size
-                            # normalization) against a table this DB never
-                            # created: vacuously complete — there are no
-                            # rows to rewrite, and a later CREATE gets the
-                            # current, legacy-free schema. Withholding the
-                            # stamp here would retry forever for nothing.
+                            # normalization, the v12 reasoning backfill)
+                            # against a table this DB never created:
+                            # vacuously complete — there are no rows to
+                            # rewrite, and a later CREATE gets the current,
+                            # legacy-free schema. Withholding the stamp here
+                            # would retry forever for nothing. A missing
+                            # COLUMN is deliberately NOT tolerated: the table
+                            # exists but is shaped unexpectedly, which is a
+                            # real schema problem worth retrying loudly
+                            # (pinned by
+                            # test_v10_to_v11_migration_stamp_withheld_on_failure).
+                            _LOGGER.debug(
+                                "Migration to v%d: skipping vacuous data "
+                                "rewrite %r (%s)", target_version, stmt, exc,
+                            )
                             continue
                         migration_failed = True
                         _LOGGER.warning(
@@ -978,6 +1006,8 @@ class SommelierDB:
         d["component2"] = json.loads(d["component2"])
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
         d["steps"] = json.loads(d["steps"]) if d.get("steps") else []
+        # Pre-v12 favourites have NULL reasoning — normalize to "".
+        d["reasoning"] = d.get("reasoning") or ""
         d["brewed"] = bool(d["brewed"])
         # Pre-v10 rows have NULL reasoning — normalize to "" like the
         # live generate reply does.
@@ -1158,8 +1188,9 @@ class SommelierDB:
             """INSERT INTO favorites
                (id, name, description, blend, component1, component2,
                 machine_phases, extras, steps, cup_type, source_recipe_id,
-                source_bean_id, brew_count, created_at, machine_profile)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                source_bean_id, brew_count, created_at, machine_profile,
+                reasoning)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
             (
                 fav_id,
                 data["name"],
@@ -1175,6 +1206,7 @@ class SommelierDB:
                 data.get("source_bean_id"),
                 now,
                 data.get("machine_profile"),
+                data.get("reasoning") or "",
             ),
         )
         await self.db.commit()
@@ -1220,6 +1252,8 @@ class SommelierDB:
         d["component2"] = json.loads(d["component2"])
         d["extras"] = json.loads(d["extras"]) if d.get("extras") else None
         d["steps"] = json.loads(d["steps"]) if d.get("steps") else []
+        # Pre-v12 favourites have NULL reasoning — normalize to "".
+        d["reasoning"] = d.get("reasoning") or ""
         return d
 
     async def async_remove_favorite(self, fav_id: str) -> bool:

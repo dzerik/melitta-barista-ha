@@ -536,12 +536,12 @@ async def test_seeder_runs_on_legacy_v7_db_upgrade():
             # migrations ALTER — the strict migration runner refuses to
             # stamp the version when a statement fails for a reason other
             # than idempotency.
-            await conn.execute("CREATE TABLE favorites (id TEXT PRIMARY KEY)")
+            await conn.execute("CREATE TABLE favorites (id TEXT PRIMARY KEY, source_recipe_id TEXT)")
             await conn.execute(
                 "CREATE TABLE generation_sessions (id TEXT PRIMARY KEY)"
             )
             await conn.execute(
-                "CREATE TABLE generated_recipes (id TEXT PRIMARY KEY)"
+                "CREATE TABLE generated_recipes (id TEXT PRIMARY KEY, reasoning TEXT)"
             )
             await conn.commit()
 

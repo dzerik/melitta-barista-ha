@@ -2,6 +2,12 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.94.0b3] — 2026-09-04 (beta)
+
+### Fixed
+
+- Favourites keep the sommelier's justification. `reasoning` reached generated recipes in 0.91, but favouriting a recipe dropped it — the row a user keeps forever lost the one sentence saying why the drink was suggested. Schema v12 adds the column and backfills it from the source recipe where that row still exists.
+
 ## [0.94.0b2] — 2026-09-04 (beta)
 
 Ships the panel half of the 0.94 wave. `0.94.0b1` contained only the server side: the integration served the new machine-domain families while the panel bundled inside it still read its own copies, so the wave's whole point — one machine voice across clients — was invisible on that artifact. Nothing was broken there (the panel fell back to its bundles, which are unchanged and stay in place), but the served strings never reached the screen. Install `0.94.0b2` rather than `0.94.0b1`.

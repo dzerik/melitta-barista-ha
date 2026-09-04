@@ -298,3 +298,36 @@ def test_why_key_exists_in_en_and_ru():
     for locale in ("en.js", "ru.js"):
         locale_src = (_LOCALES / locale).read_text(encoding="utf-8")
         assert '"sommelier.why"' in locale_src, f"{locale} must define sommelier.why"
+
+
+class TestFavoriteReasoningV12:
+    """Favourites keep the sommelier's justification (schema v12).
+
+    History is prunable; a favourite is the row a user keeps, so the one
+    sentence saying why the drink was suggested has to live there too.
+    """
+
+    async def test_favorite_stores_reasoning_from_the_recipe(self, db):
+        fav = await db.async_add_favorite({
+            "name": "Velvet Latte",
+            "description": "Milk-forward",
+            "blend": 1,
+            "component1": {"process": "coffee"},
+            "component2": {"process": "milk"},
+            "reasoning": "Your dark roast carries milk well on a cold morning.",
+        })
+        assert fav["reasoning"] == (
+            "Your dark roast carries milk well on a cold morning."
+        )
+        listed = await db.async_list_favorites()
+        assert listed[0]["reasoning"] == fav["reasoning"]
+
+    async def test_missing_reasoning_normalizes_to_empty_string(self, db):
+        fav = await db.async_add_favorite({
+            "name": "Plain",
+            "description": "No justification recorded",
+            "blend": 1,
+            "component1": {"process": "coffee"},
+            "component2": {"process": "none"},
+        })
+        assert fav["reasoning"] == ""
