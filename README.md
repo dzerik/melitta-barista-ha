@@ -573,6 +573,27 @@ The integration is built on a **three-layer abstraction** (v0.40.0+) that cleanl
 
 Adding a third Eugster OEM brand (e.g. if public RE emerges for Koenig, KitchenAid, etc.) is a matter of dropping a new file into `brands/`. See [`docs/adr/001-brand-profile-abstraction.md`](docs/adr/001-brand-profile-abstraction.md).
 
+## UI Contract (for client authors)
+
+Since v0.93.0 the integration publishes a **versioned, machine-agnostic UI
+contract**: capabilities, machine-status tokens, parameter ranges, a brew and
+maintenance action catalog, settings descriptors, the DirectKey/profile model,
+procedurally derived drink-icon specifications, and machine-domain display
+strings in all 29 languages. Clients render this data instead of hardcoding
+what a given coffee machine can do, so they work on machine families they were
+never built for.
+
+- Contract document: WebSocket `melitta_barista/ui_contract/get` (per config
+  entry, non-admin), with detection attributes on the connection sensor.
+- Machine-domain strings: `melitta_barista/i18n/get`; sommelier vocabulary:
+  `melitta_barista/vocab/get`.
+- The contract evolves additively — clients gate features on field presence
+  and fall back gracefully to older behaviour.
+
+The normative specification is [`docs/UI_CONTRACT.md`](docs/UI_CONTRACT.md).
+The Lovelace card and the PWA below are both full contract clients and are
+worth reading as reference implementations.
+
 ## Use Cases
 
 - **Smart Home Dashboard** — monitor coffee machine status, cup counters, and maintenance needs on your HA dashboard

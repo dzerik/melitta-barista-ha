@@ -2,6 +2,29 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.93.0] — 2026-09-04
+
+Consolidates the 0.92/0.93 beta line into a stable release: the UI Contract is now complete through v3, and all three clients (Home Assistant panel, Lovelace card, PWA) render machine truth served by the integration instead of their own hardcoded tables.
+
+### What this means in practice
+
+- **Machine knowledge lives on the server.** Available parameters and their ranges, brew/maintenance actions with their availability rules, the settings surface, the DirectKey category and profile model (including which categories a given machine has a physical button for) and every machine-domain display string are served as data. Clients that consume them work on machine families they have never heard of, and new brand support no longer needs a client release.
+- **Everything is additive.** The contract version stays 1: cards and apps built for the earlier contract keep working byte-identically, and any client can adopt features one at a time — each falls back to its previous behaviour independently.
+- **29 languages for machine terms.** Status, values, actions, recipes, settings and sommelier vocabulary are translated once in the integration and served to every client, with per-key English fallback.
+
+### Added
+
+- Parameter catalogs, action catalog and machine-domain i18n over WebSocket (contract v2, §6 of the specification).
+- Settings descriptors, the sommelier vocabulary endpoint and the DirectKey/profile model (contract v3, §9), plus `category` tokens on DirectKey recipe rows and `save_directkey` in the action catalog.
+- Panel: drink icons in sommelier surfaces, localized vocabulary labels, and settings rendered from the served descriptors.
+
+### Compatibility
+
+- No breaking changes. The frozen v1 surfaces (freestyle vocabularies, portion limits, the `directkey_recipes` attribute, legacy recipe labels) are unchanged and mirrored by their v2/v3 successors.
+- Companion releases: Lovelace card 2.8.0, PWA 2.0.0. Older client versions are unaffected.
+
+The complete, normative specification lives in [docs/UI_CONTRACT.md](docs/UI_CONTRACT.md).
+
 ## [0.93.0b1] — 2026-09-03 (beta)
 
 UI Contract v3 (additive within contract_version 1 — shipped clients are unaffected):
