@@ -287,8 +287,11 @@ def test_nivona_stats_for_stats_families():
     np_ = NivonaProfile()
     expected_sizes = {
         "600": 16,       # 7 recipes + 8 gauges + 105 dep
-        "700": 18,       # 9 recipes + 8 gauges + 105 dep
-        "79x": 17,       # 700 minus selector 204 (Cappuccino)
+        # 700/79x regained the 209-221 cumulative block in 0.94: the values
+        # that once looked like garbage were a session leak, not absent
+        # registers (#43).
+        "700": 31,       # 9 recipes + 13 cumulative + 8 gauges + 105 dep
+        "79x": 30,       # 700 minus selector 204 (Cappuccino)
         "900": 31,       # 22 counters + 8 gauges + 101 dep
         "900-light": 31,
         "1030": 34,      # 25 counters + 8 gauges + 101 dep (was 33, +1 for id 210 my_coffee)

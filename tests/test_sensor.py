@@ -321,3 +321,106 @@ async def test_mycoffee_sensors_not_registered_for_melitta(
     assert mycoffee_sensors == [], (
         f"Melitta must not get Nivona mycoffee sensors; got {mycoffee_sensors}"
     )
+
+
+def _mock_client_without_capabilities():
+    """A Melitta client whose family is still unknown — the machine was off
+    when Home Assistant started, so nothing has been read from it yet."""
+    client = _mock_client()
+    client.capabilities = None
+    client.connected = False
+    client.total_cups = None
+    client.cup_counters = {}
+    return client
+
+
+def _captured_connection_callbacks(client) -> list:
+    """The sensor platform's own connect hooks, by name.
+
+    Every platform registers connection callbacks on the same client; firing
+    all of them would run unrelated work (the clock sync, for one) against a
+    MagicMock. Only the sensor platform's hook is under test here.
+    """
+    return [
+        call.args[0]
+        for call in client.add_connection_callback.call_args_list
+        if getattr(call.args[0], "__qualname__", "").endswith("on_connected")
+    ]
+
+
+async def test_cup_counters_wait_for_the_first_connect(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """A machine that is off at startup leaves its family unknown, and the
+    scanner cache cannot resolve it either (localized device name, or a proxy
+    advertisement without a local_name). The cup counters used to be skipped
+    for good in that case — they only appeared if the user reloaded the entry
+    by hand once the machine was awake.
+    """
+    client = _mock_client_without_capabilities()
+    with patch(
+        "custom_components.melitta_barista.sensor.resolve_caps_from_scanner",
+        return_value=None,
+    ):
+        await _setup_integration(hass, mock_entry, client)
+
+    sensor_ids = [s.entity_id for s in hass.states.async_all("sensor")]
+    assert not any("total_cups" in eid for eid in sensor_ids)
+
+    # The machine wakes up and the connect resolves the family.
+    client.capabilities = client.brand.capabilities_for("barista_ts")
+    client.connected = True
+    for cb in _captured_connection_callbacks(client):
+        cb(True)
+    await hass.async_block_till_done()
+
+    sensor_ids = [s.entity_id for s in hass.states.async_all("sensor")]
+    assert any("total_cups" in eid for eid in sensor_ids), (
+        f"Total Cups must appear once the family is known; saw: {sensor_ids}"
+    )
+
+
+async def test_cup_counters_added_once_across_reconnects(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Reconnects fire the same callback again; the sensor must not be added
+    a second time (Home Assistant rejects a duplicate unique_id, and the
+    second attempt would take the platform down with it)."""
+    client = _mock_client_without_capabilities()
+    with patch(
+        "custom_components.melitta_barista.sensor.resolve_caps_from_scanner",
+        return_value=None,
+    ):
+        await _setup_integration(hass, mock_entry, client)
+
+    client.capabilities = client.brand.capabilities_for("barista_ts")
+    client.connected = True
+    callbacks = _captured_connection_callbacks(client)
+    for _ in range(3):
+        for cb in callbacks:
+            cb(True)
+        await hass.async_block_till_done()
+
+    total_cups = [
+        s.entity_id for s in hass.states.async_all("sensor") if "total_cups" in s.entity_id
+    ]
+    assert len(total_cups) == 1, total_cups
+
+
+async def test_disconnect_alone_does_not_add_cup_counters(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """A disconnect notification carries no new family knowledge."""
+    client = _mock_client_without_capabilities()
+    with patch(
+        "custom_components.melitta_barista.sensor.resolve_caps_from_scanner",
+        return_value=None,
+    ):
+        await _setup_integration(hass, mock_entry, client)
+
+    for cb in _captured_connection_callbacks(client):
+        cb(False)
+    await hass.async_block_till_done()
+
+    sensor_ids = [s.entity_id for s in hass.states.async_all("sensor")]
+    assert not any("total_cups" in eid for eid in sensor_ids)

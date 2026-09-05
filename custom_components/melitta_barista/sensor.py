@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import resolve_caps_from_scanner
 from .coffee_platform.contract import CoffeeMachineClient
+from .coffee_platform.domain import MachineCapabilities
 from .const import FeatureFlags, InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
@@ -95,46 +96,77 @@ async def async_setup_entry(
     if caps is None:
         caps = resolve_caps_from_scanner(hass, entry.data.get(CONF_ADDRESS, ""), client.brand)
 
-    # Legacy Melitta total-cups sensor reads HR id 150 — capability-flagged
-    # because the register doesn't exist on other brands and would surface
-    # as "unknown".
-    if caps is not None and caps.uses_legacy_total_cups_sensor:
-        entities.append(MelittaTotalCupsSensor(client, entry, name))
+    def capability_entities(resolved: MachineCapabilities) -> list:
+        """The sensors that only exist once the machine's family is known."""
+        built: list = []
 
-    # Generic capability-driven stat sensors — only for brands that
-    # expose a stats table AND don't already have a hand-tailored
-    # total-cups sensor (Melitta).
-    if (
-        caps is not None
-        and caps.stats
-        and not caps.uses_legacy_total_cups_sensor
-    ):
-        for descriptor in caps.stats:
-            entities.append(BrandStatSensor(client, entry, name, descriptor))
+        # Legacy Melitta total-cups sensor reads HR id 150 — capability-flagged
+        # because the register doesn't exist on other brands and would surface
+        # as "unknown".
+        if resolved.uses_legacy_total_cups_sensor:
+            built.append(MelittaTotalCupsSensor(client, entry, name))
 
-    # MyCoffee slot amount sensors — Nivona only. For each slot 0..N-1,
-    # register one sensor per amount param (coffee / water / milk /
-    # milk_foam) that the family's MyCoffee layout actually exposes
-    # (the 600 family for example has no ``milk_amount_offset``). The
-    # cache is populated by the post-connect bulk read in
-    # ``BleRecipesMixin.read_mycoffee_slots``; sensors stay
-    # ``unavailable`` until the first read completes.
-    # MyCoffee bulk-read sensors — only register for brands whose profile
-    # advertises a MyCoffee layout (Nivona). Melitta's mycoffee_layout
-    # returns None and the block short-circuits.
-    if caps is not None:
-        layout = client.brand.mycoffee_layout(caps.family_key)
-        if layout is not None and caps.my_coffee_slots > 0:
+        # Generic capability-driven stat sensors — only for brands that
+        # expose a stats table AND don't already have a hand-tailored
+        # total-cups sensor (Melitta).
+        elif resolved.stats:
+            for descriptor in resolved.stats:
+                built.append(BrandStatSensor(client, entry, name, descriptor))
+
+        # MyCoffee slot amount sensors — Nivona only. For each slot 0..N-1,
+        # register one sensor per amount param (coffee / water / milk /
+        # milk_foam) that the family's MyCoffee layout actually exposes
+        # (the 600 family for example has no ``milk_amount_offset``). The
+        # cache is populated by the post-connect bulk read in
+        # ``BleRecipesMixin.read_mycoffee_slots``; sensors stay
+        # ``unavailable`` until the first read completes. Melitta's
+        # ``mycoffee_layout`` returns None and the block short-circuits.
+        layout = client.brand.mycoffee_layout(resolved.family_key)
+        if layout is not None and resolved.my_coffee_slots > 0:
             from ._ble_recipes import _MYCOFFEE_AMOUNT_PARAMS  # noqa: PLC0415
-            for slot in range(caps.my_coffee_slots):
+            for slot in range(resolved.my_coffee_slots):
                 for param_key in _MYCOFFEE_AMOUNT_PARAMS:
                     if getattr(layout, f"{param_key}_offset") is None:
                         continue
-                    entities.append(
+                    built.append(
                         NivonaMyCoffeeAmountSensor(
                             client, entry, name, slot, param_key,
                         )
                     )
+        return built
+
+    if caps is not None:
+        entities.extend(capability_entities(caps))
+    else:
+        # Capabilities are unknown until the first BLE connect, and the
+        # scanner cache cannot resolve them either (a localized device name,
+        # or a proxy advertisement without a local_name). Registering nothing
+        # here used to be permanent: the cup counters simply never appeared
+        # for anyone whose machine was off when Home Assistant started, until
+        # they reloaded the entry by hand. Instead, wait for the connect that
+        # resolves the family and add them then.
+        added = False
+
+        def on_connected(connected: bool) -> None:
+            nonlocal added
+            if added or not connected:
+                return
+            resolved = client.capabilities
+            if resolved is None:
+                return
+            added = True
+            _LOGGER.debug(
+                "Capabilities resolved after connect — adding %s sensors",
+                resolved.family_key,
+            )
+            # Not removed from inside the callback: the client iterates its
+            # callback list while calling us.
+            async_add_entities(capability_entities(resolved))
+
+        client.add_connection_callback(on_connected)
+        entry.async_on_unload(
+            lambda: client.remove_connection_callback(on_connected),
+        )
 
     async_add_entities(entities)
 

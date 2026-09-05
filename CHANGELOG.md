@@ -2,6 +2,13 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.94.0b4] — 2026-09-05 (beta)
+
+### Fixed
+
+- **Cup counters appear even when the machine was off at startup.** The counter sensors are registered only once the machine's family is known, and that only happens after a BLE connect (or from the scanner cache, which cannot help when the device name is localized or the advertisement arrives through a proxy without a `local_name`). Home Assistant restarted with the machine asleep therefore skipped them for good — the entities stayed `unavailable` until someone reloaded the entry by hand, and any client reading them, the app included, had nothing to show. The platform now waits for the connect that resolves the family and adds the sensors then. The same deferral covers the Nivona per-family stat sensors and MyCoffee slot amounts.
+- **Nivona 700/79x: the 209–221 cumulative counters are back** (#43). They were dropped because their values came back scrambled — neighbouring registers returning each other's readings. On a NICR 779 they read distinct, self-consistent values that grow with use, and the scrambling turned out to be a session leak in which several clients shared one notification channel and responses were paired with the wrong requests; that was fixed in 0.93.0. Total beverages, single/double cup brews, steam and powder drinks and the maintenance counters return for both families. A machine that genuinely lacks a register leaves that one sensor unavailable, which is the honest outcome.
+
 ## [0.94.0b3] — 2026-09-04 (beta)
 
 ### Fixed

@@ -55,9 +55,15 @@ SETTINGS_79X: tuple[SettingDescriptor, ...] = tuple(
 )
 
 
-# 700 family — recipe counters 200..208 only; no 213-221 cumulative
-# counters on this hardware. Maintenance gauges universal; 105 is the
-# filter dependency.
+# 700 family — recipe counters 200..208 plus the 209-221 cumulative block
+# shared with the 900 family. These were dropped once because their values
+# came back scrambled, but that turned out to be a session leak (several
+# clients sharing one notification channel paired responses with the wrong
+# requests, fixed in 0.93.0), not absent hardware: on a NICR 779 the
+# registers read back distinct, self-consistent and growing with use (#43).
+# A family that really lacks one leaves that sensor unavailable, which is
+# the honest outcome. Maintenance gauges universal; 105 is the filter
+# dependency.
 STATS_700: tuple[StatDescriptor, ...] = (
     _count(200, "espresso", "Espresso"),
     _count(201, "cream", "Cream"),                          # "Creme" (700-proper)
@@ -68,6 +74,19 @@ STATS_700: tuple[StatDescriptor, ...] = (
     _count(206, "milk", "Milk"),
     _count(207, "hot_water", "Hot water"),
     _count(208, "my_coffee", "My coffee"),
+    _count(209, "steam_drinks", "Steam drinks"),
+    _count(210, "powder_coffee", "Powder coffee"),
+    _count(211, "single_cup", "Single cup brews"),
+    _count(212, "double_cup", "Double cup brews"),
+    _count(213, "total_beverages", "Total beverages"),
+    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
+    _count(215, "clean_frother", "Clean frother", "maintenance"),
+    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
+    _count(217, "rinse_frother", "Rinse frother", "maintenance"),
+    _count(218, "rinse_filter", "Rinse filter", "maintenance"),
+    _count(219, "filter_changes", "Filter changes", "maintenance"),
+    _count(220, "descaling", "Descaling", "maintenance"),
+    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
     _pct(600, "descale_percent", "Descaling progress"),
     _flag(601, "descale_warning", "Descaling warning"),
     _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
@@ -79,9 +98,9 @@ STATS_700: tuple[StatDescriptor, ...] = (
     _flag(105, "filter_dependency", "Filter dependency"),
 )
 
-# 79X family — like 700 but id 201 is "Kaffee" (not "Creme"),
-# selector 204 (Cappuccino) is absent, and there are no cumulative
-# counters (213-221) — recipe counters only.
+# 79X family — like 700 but id 201 is "Kaffee" (not "Creme") and
+# selector 204 (Cappuccino) is absent. Cumulative counters are the same
+# block as 700.
 STATS_79X: tuple[StatDescriptor, ...] = (
     _count(200, "espresso", "Espresso"),
     _count(201, "coffee", "Coffee"),                        # "Kaffee" on 79X
@@ -92,6 +111,19 @@ STATS_79X: tuple[StatDescriptor, ...] = (
     _count(206, "milk", "Milk"),
     _count(207, "hot_water", "Hot water"),
     _count(208, "my_coffee", "My coffee"),
+    _count(209, "steam_drinks", "Steam drinks"),
+    _count(210, "powder_coffee", "Powder coffee"),
+    _count(211, "single_cup", "Single cup brews"),
+    _count(212, "double_cup", "Double cup brews"),
+    _count(213, "total_beverages", "Total beverages"),
+    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
+    _count(215, "clean_frother", "Clean frother", "maintenance"),
+    _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
+    _count(217, "rinse_frother", "Rinse frother", "maintenance"),
+    _count(218, "rinse_filter", "Rinse filter", "maintenance"),
+    _count(219, "filter_changes", "Filter changes", "maintenance"),
+    _count(220, "descaling", "Descaling", "maintenance"),
+    _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
     _pct(600, "descale_percent", "Descaling progress"),
     _flag(601, "descale_warning", "Descaling warning"),
     _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
