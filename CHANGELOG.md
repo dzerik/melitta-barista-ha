@@ -2,6 +2,34 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.94.0] — 2026-09-05
+
+Machine wording now comes from one place, and the cup counters stop disappearing.
+
+Consolidates the `0.94.0b1`–`0.94.0b4` betas. Additive within `contract_version: 1`: every shipped client keeps working unchanged.
+
+### Added
+
+- **Machine-domain strings are served, not copied.** The panel, the Lovelace card and the app each carried their own translation of wording that describes the machine rather than the client — brew-guide vocabulary, machine-state descriptions, service-cycle sublabels, sommelier error hints and labels for well-known milk kinds, syrups, toppings, liqueurs and flavour notes. Those 84 keys now live in the integration and reach every client over `i18n/get`: `wizard.*` (29, in a new `wizard` domain), `status.process.<TOKEN>.description` (12), `status.sub_process.<TOKEN>.description` (4), `sommelier.error.<code>` (5) and `sommelier.{milk,syrup,topping,liqueur,note}.<token>` (34). Clients that omit the `domains` filter — all of them — receive the new domain automatically.
+- **All 29 locales are complete over the served keyspace** (296 keys each; English carried 212 and the rest 185–191). Strings the server genuinely serves, `settings.*.description` among them, no longer arrive in English for anyone. Placeholders are carried verbatim in every locale and pinned by tests.
+
+### Changed
+
+- The Home Assistant panel reads the served families first and keeps its own bundles as the offline / pre-0.94 fallback. Visible English wording shifts where the served vocabulary replaces the panel's own — that is the point of the round, not a regression.
+- Liqueur names use their Latin trademark form in all 29 locales; `marshmallow` uses each locale's own word for the confection. In `ru`/`uk` the brewing-temperature setting no longer collides with the machine temperature setting.
+
+### Fixed
+
+- **Cup counters appear even when the machine was off at startup.** They are registered only once the machine's family is known, and that happens on the first BLE connect — the scanner cache cannot help when the device name is localized or the advertisement arrives through a proxy without a `local_name`. A restart with the machine asleep therefore skipped them for good: the entities stayed `unavailable` until the entry was reloaded by hand, and clients reading them had nothing to show. The platform now adds them when the connect that resolves the family arrives. The same deferral covers the Nivona per-family stat sensors and MyCoffee slot amounts.
+- **Nivona 700/79x: the 209–221 cumulative counters are back** (#43). They were dropped because neighbouring registers returned each other's readings; on a NICR 779 they read distinct, self-consistent values that grow with use, and the scrambling was a session leak — several clients sharing one notification channel, responses paired with the wrong requests — fixed in 0.93.0. Total beverages, single and double cup brews, steam and powder drinks and the maintenance counters return for both families. A machine that genuinely lacks a register leaves that one sensor unavailable.
+- **Favourites keep the sommelier's justification.** `reasoning` reached generated recipes in 0.91, but favouriting dropped it — the row kept forever lost the sentence saying why the drink was suggested. Schema v12 adds the column and backfills it from the source recipe where that row still exists.
+
+### Notes
+
+- Free-form fields stay free-form (§9.2.4): the new labels are display sugar, are not served by `vocab/get`, and text a user typed renders verbatim.
+- No new fingerprint inputs. The version bump moves `strings_version`, which arms exactly one client refetch of the enlarged bundle.
+- Matching clients: Lovelace card `2.9.1`, app `2.4.1`.
+
 ## [0.94.0b4] — 2026-09-05 (beta)
 
 ### Fixed
