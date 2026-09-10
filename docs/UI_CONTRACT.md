@@ -1673,6 +1673,12 @@ Normative replacement:
   extracted brand assets (legal rule unchanged).
 * Zone I-F definition-of-done includes a local hassfest run as a regression
   check that `translations/` remained untouched-valid.
+* **`narration_strings/<locale>.json` (0.95) is deliberately NOT part of this
+  contract**: those sentences are rendered server-side into a lifecycle event's
+  `description` attribute, are served over no WS command, and are therefore
+  absent from `strings_version` and from `contract_fingerprint` — a served
+  string family would be unremovable for the life of `contract_version: 1`
+  (§5.2 rule 1) in exchange for nothing a client can use.
 
 #### 6.3.4 Token families served in 0.92, with the true source of each
 

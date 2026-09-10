@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Подія машини",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Приготування розпочалося",
+              "brew_finished": "Приготування завершено",
+              "brew_cancelled": "Приготування скасовано",
+              "prompt_raised": "З'явився запит",
+              "prompt_cleared": "Запит знято",
+              "maintenance_finished": "Обслуговування завершено"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Приготування розпочалося",
+      "brew_finished": "Приготування завершено",
+      "brew_cancelled": "Приготування скасовано",
+      "prompt_raised": "З'явився запит",
+      "prompt_cleared": "Запит знято",
+      "maintenance_finished": "Обслуговування завершено"
     }
   },
   "exceptions": {

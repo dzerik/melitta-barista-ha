@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Maschinenereignis",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Brühvorgang gestartet",
+              "brew_finished": "Brühvorgang beendet",
+              "brew_cancelled": "Brühvorgang abgebrochen",
+              "prompt_raised": "Aufforderung erschienen",
+              "prompt_cleared": "Aufforderung erledigt",
+              "maintenance_finished": "Wartung abgeschlossen"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Brühvorgang gestartet",
+      "brew_finished": "Brühvorgang beendet",
+      "brew_cancelled": "Brühvorgang abgebrochen",
+      "prompt_raised": "Aufforderung erschienen",
+      "prompt_cleared": "Aufforderung erledigt",
+      "maintenance_finished": "Wartung abgeschlossen"
     }
   },
   "exceptions": {

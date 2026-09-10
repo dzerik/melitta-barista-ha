@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from bleak.exc import BleakError
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -1319,3 +1320,277 @@ def test_heavy_modules_imported_at_module_level():
                 top_level_relative_imports.add(node.module)
     assert "sommelier_api" in top_level_relative_imports
     assert "panel_api" in top_level_relative_imports
+
+
+# ---------------------------------------------------------------------------
+# Narration string preload (spec §2.7 / §4.7)
+#
+# Two asset families, deliberately kept apart:
+#   * `ui_strings/`        — the SERVED bundle; the renderer borrows
+#                            `recipes.name.*` and `status.manipulation.*`.
+#   * `narration_strings/` — UNSERVED; no WS command, no `strings_version`,
+#                            no `contract_fingerprint` input.
+# Both are warmed at setup so the `event` entity can render a sentence from a
+# BLE callback without touching the filesystem.
+# ---------------------------------------------------------------------------
+
+NARRATION_MODULE = "custom_components.melitta_barista.narration"
+
+
+def _stub_narration_module(resolved="de", locale_map=None, en_map=None, calls=None):
+    """Build an importable stand-in for `.narration` with a recording loader.
+
+    W5 owns the preload plumbing but not `narration.py` itself, and these tests
+    must pin the plumbing whether or not the real module is present. Injecting
+    the stub into `sys.modules` also keeps the assertions independent of the
+    real loader's future resolution behaviour.
+    """
+    import types
+
+    module = types.ModuleType(NARRATION_MODULE)
+
+    def load_narration_strings(language):
+        if calls is not None:
+            calls.append(language)
+        return (
+            resolved,
+            dict(locale_map if locale_map is not None else {"narration.two_cups": "zwei Tassen"}),
+            dict(en_map if en_map is not None else {"narration.two_cups": "two cups"}),
+        )
+
+    module.load_narration_strings = load_narration_strings
+    return module
+
+
+async def _setup_with_language(hass, mock_entry, language, narration_module=None):
+    """Set up the entry with a chosen HA language, optionally stubbing narration."""
+    import contextlib
+    import sys
+
+    hass.config.language = language
+    mock_entry.add_to_hass(hass)
+    with contextlib.ExitStack() as stack:
+        for patcher in _setup_patches():
+            stack.enter_context(patcher)
+        if narration_module is not None:
+            stack.enter_context(
+                patch.dict(sys.modules, {NARRATION_MODULE: narration_module})
+            )
+        assert await hass.config_entries.async_setup(mock_entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_setup_preloads_ui_strings_for_en_and_the_ha_language(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Setup warms the shared i18n cache for English and the HA language."""
+    await _setup_with_language(hass, mock_entry, "de")
+
+    domain_data = hass.data[DOMAIN]
+    assert domain_data["ui_strings_resolution"]["en"] == "en"
+    assert domain_data["ui_strings_resolution"]["de"] == "de"
+    # the merged map is the en-overlaid one the renderer needs
+    assert "recipes.name.cappuccino" in domain_data["ui_strings_cache"]["de"]
+    assert "status.manipulation.FILL_WATER" in domain_data["ui_strings_cache"]["de"]
+
+
+async def test_preload_populates_the_very_cache_the_ws_handler_uses(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """`get_cached_ui_strings` hands back the identical object `i18n/get` serves."""
+    from custom_components.melitta_barista import panel_api
+
+    await _setup_with_language(hass, mock_entry, "de")
+
+    cached = panel_api.get_cached_ui_strings(hass, "de")
+    assert cached is hass.data[DOMAIN]["ui_strings_cache"]["de"]
+
+
+async def test_get_cached_ui_strings_is_none_on_a_cold_cache(
+    hass: HomeAssistant,
+) -> None:
+    """A cold cache is `None`, never an exception and never a lazy file read."""
+    from custom_components.melitta_barista import panel_api
+
+    assert panel_api.get_cached_ui_strings(hass, "de") is None
+    hass.data[DOMAIN] = {"ui_strings_resolution": {}, "ui_strings_cache": {}}
+    assert panel_api.get_cached_ui_strings(hass, "de") is None
+
+
+async def test_preload_reads_each_locale_from_disk_exactly_once(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """A warm cache short-circuits: no executor hop, no second file read."""
+    from custom_components.melitta_barista import panel_api
+
+    real = panel_api._load_ui_strings
+    seen: list[str] = []
+
+    def _counting(locale):
+        seen.append(locale)
+        return real(locale)
+
+    with patch.object(panel_api, "_load_ui_strings", _counting):
+        await _setup_with_language(hass, mock_entry, "de")
+        assert sorted(seen) == ["de", "en"]
+
+        assert await panel_api.async_preload_ui_strings(hass, "de") == "de"
+        assert await panel_api.async_preload_ui_strings(hass, "en") == "en"
+        assert sorted(seen) == ["de", "en"]
+
+
+async def test_preload_resolves_a_regional_tag_to_its_base_language(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """`de-DE` resolves to `de`; the requested spelling still finds the map."""
+    from custom_components.melitta_barista import panel_api
+
+    await _setup_with_language(hass, mock_entry, "de-DE")
+
+    assert hass.data[DOMAIN]["ui_strings_resolution"]["de-DE"] == "de"
+    assert (
+        panel_api.get_cached_ui_strings(hass, "de-DE")
+        is hass.data[DOMAIN]["ui_strings_cache"]["de"]
+    )
+
+
+async def test_setup_stashes_the_three_narration_maps(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """The resolved locale plus the raw locale/en maps land in `hass.data`."""
+    calls: list[str] = []
+    await _setup_with_language(
+        hass, mock_entry, "de", _stub_narration_module(calls=calls)
+    )
+
+    assert calls == ["de"]
+    domain_data = hass.data[DOMAIN]
+    assert domain_data["narration_locale"] == "de"
+    assert domain_data["narration_strings"] == {"narration.two_cups": "zwei Tassen"}
+    assert domain_data["narration_strings_en"] == {"narration.two_cups": "two cups"}
+
+
+async def test_narration_preload_failure_never_breaks_setup(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """A broken loader costs the sentence, not the config entry."""
+    import types
+
+    broken = types.ModuleType(NARRATION_MODULE)
+
+    def _boom(language):
+        raise OSError("narration assets unreadable")
+
+    broken.load_narration_strings = _boom
+
+    await _setup_with_language(hass, mock_entry, "de", broken)
+
+    assert mock_entry.state is ConfigEntryState.LOADED
+    assert "narration_locale" not in hass.data[DOMAIN]
+    assert "narration_strings" not in hass.data[DOMAIN]
+    assert "narration_strings_en" not in hass.data[DOMAIN]
+    # the ui_strings half still succeeded and is still usable
+    assert "en" in hass.data[DOMAIN]["ui_strings_cache"]
+
+
+async def test_language_change_repreloads_both_string_sources(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """`core_config_updated` with a new language re-warms both families."""
+    import sys
+
+    calls: list[str] = []
+    module = _stub_narration_module(resolved="de", calls=calls)
+    await _setup_with_language(hass, mock_entry, "de", module)
+    assert calls == ["de"]
+
+    module.load_narration_strings = _stub_narration_module(
+        resolved="ru",
+        locale_map={"narration.two_cups": "две чашки"},
+        calls=calls,
+    ).load_narration_strings
+
+    with patch.dict(sys.modules, {NARRATION_MODULE: module}):
+        await hass.config.async_update(language="ru")
+        await hass.async_block_till_done()
+
+    assert calls == ["de", "ru"]
+    assert hass.data[DOMAIN]["narration_locale"] == "ru"
+    assert hass.data[DOMAIN]["narration_strings"] == {"narration.two_cups": "две чашки"}
+    assert "ru" in hass.data[DOMAIN]["ui_strings_cache"]
+
+
+async def test_unrelated_core_config_update_does_not_repreload(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """The event carries no payload, so the listener compares the language itself."""
+    import sys
+
+    calls: list[str] = []
+    module = _stub_narration_module(calls=calls)
+    await _setup_with_language(hass, mock_entry, "de", module)
+    assert calls == ["de"]
+
+    with patch.dict(sys.modules, {NARRATION_MODULE: module}):
+        hass.bus.async_fire(EVENT_CORE_CONFIG_UPDATE)
+        await hass.async_block_till_done()
+        await hass.config.async_update(currency="EUR")
+        await hass.async_block_till_done()
+
+    assert calls == ["de"]
+
+
+async def test_language_change_listener_is_removed_on_unload(
+    hass: HomeAssistant, mock_entry: MockConfigEntry
+) -> None:
+    """Unloading the entry drops the listener; a later change re-preloads nothing."""
+    import sys
+
+    calls: list[str] = []
+    module = _stub_narration_module(calls=calls)
+    await _setup_with_language(hass, mock_entry, "de", module)
+
+    assert await hass.config_entries.async_unload(mock_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch.dict(sys.modules, {NARRATION_MODULE: module}):
+        await hass.config.async_update(language="ru")
+        await hass.async_block_till_done()
+
+    assert calls == ["de"]
+
+
+def test_narration_en_asset_carries_exactly_the_mandatory_keys() -> None:
+    """`narration_strings/en.json` is a flat 63-key map, canonically formatted.
+
+    63 = the 41 mandatory sentence keys plus the 22 optional
+    `narration.drink.*` spoken names (M18), which only `en` and the six
+    non-Latin-script locales carry. The exhaustive key derivation lives with the
+    renderer's own asset tests; this is the shape/count guard that travels with
+    the file W5 authored.
+    """
+    import json
+    from pathlib import Path
+
+    import custom_components.melitta_barista as init_module
+
+    path = Path(init_module.__file__).parent / "narration_strings" / "en.json"
+    raw = path.read_text(encoding="utf-8")
+    data = json.loads(raw)
+
+    assert isinstance(data, dict)
+    assert len(data) == 63
+    assert all(key.startswith("narration.") for key in data)
+    assert all(isinstance(value, str) and value.strip() for value in data.values())
+    # same canonical dump as ui_strings/, so a re-sort is never a diff
+    assert raw == json.dumps(
+        data, ensure_ascii=False, indent=2, sort_keys=True
+    ) + "\n"
+
+
+def test_narration_strings_are_not_served_over_the_i18n_endpoint() -> None:
+    """Ruling M1: narration is server-side only — never an `i18n/get` domain."""
+    from custom_components.melitta_barista import panel_api
+
+    assert "narration" not in panel_api._I18N_DOMAINS
+    assert len(panel_api._I18N_DOMAINS) == 7

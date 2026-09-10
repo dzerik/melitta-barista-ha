@@ -11,6 +11,7 @@ Verifies the new optional metadata columns (`producer_id`, `variant`,
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -25,10 +26,16 @@ from custom_components.melitta_barista import panel_api
 
 
 class _DbShim:
-    """Minimal stand-in for SommelierDB exposing `._db` for raw aiosqlite access."""
+    """Minimal stand-in for SommelierDB exposing `._db` for raw aiosqlite access.
+
+    `_lock` is part of that contract too: `panel_api` serialises every raw
+    write on it so a `commit()` cannot land inside the backup importer's open
+    transaction.
+    """
 
     def __init__(self, conn: aiosqlite.Connection) -> None:
         self._db = conn
+        self._lock = asyncio.Lock()
 
 
 @pytest.fixture

@@ -13,6 +13,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
+from . import sommelier_backup
 from .const import (
     AROMA_MAP,
     DOMAIN,
@@ -517,6 +518,12 @@ def async_register_websocket_handlers(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_profiles_activate)
     websocket_api.async_register_command(hass, ws_recipe_rate)
     websocket_api.async_register_command(hass, ws_recipe_unrate)
+    websocket_api.async_register_command(hass, ws_config_export)
+    websocket_api.async_register_command(hass, ws_config_import)
+    websocket_api.async_register_command(hass, ws_snapshots_list)
+    websocket_api.async_register_command(hass, ws_snapshots_get)
+    websocket_api.async_register_command(hass, ws_snapshots_restore)
+    websocket_api.async_register_command(hass, ws_snapshots_delete)
 
 
 # ── Beans ─────────────────────────────────────────────────────────────
@@ -1222,6 +1229,16 @@ async def ws_brew(
         )
         return
 
+    # Annotate before the next await: the BLE layer staged a freestyle record
+    # when the machine ACKed, and the lifecycle detector pops it as soon as the
+    # first PRODUCT frame lands. A whole-recipe brew is one phase of one.
+    client.annotate_brew_intent(
+        recipe_source="sommelier",
+        recipe_name=recipe.get("name", "Sommelier"),
+        phase_index=0,
+        phase_total=1,
+    )
+
     await db.async_mark_recipe_brewed(msg["recipe_id"])
     _send_versioned(connection, msg["id"], {})
 
@@ -1339,6 +1356,16 @@ async def ws_brew_phase(
             "disconnected). Check the machine and try again.",
         )
         return
+
+    # Annotate before the next await (see ws_brew). `phase_total` is what makes
+    # the terminal event's `final` flag meaningful: only the last phase of a
+    # multi-phase drink finishes the drink.
+    client.annotate_brew_intent(
+        recipe_source="sommelier",
+        recipe_name=row.get("name", "Sommelier"),
+        phase_index=phase_index,
+        phase_total=phase_count,
+    )
 
     if phase_index == phase_count - 1:
         if has_recipe:
@@ -1569,6 +1596,14 @@ async def ws_favorites_brew(
             "disconnected). Check the machine and try again.",
         )
         return
+
+    # Annotate before the next await (see ws_brew).
+    client.annotate_brew_intent(
+        recipe_source="sommelier",
+        recipe_name=fav.get("name", "Sommelier"),
+        phase_index=0,
+        phase_total=1,
+    )
 
     await db.async_increment_favorite_brew(msg["favorite_id"])
     _send_versioned(connection, msg["id"], {})
@@ -1834,6 +1869,494 @@ async def ws_settings_set(
     db = await _async_get_db(hass)
     await db.async_set_setting(msg["key"], msg["value"])
     _send_versioned(connection, msg["id"], {})
+
+
+# ── Sommelier configuration backup / restore ──────────────────────────
+#
+# Six admin-only commands around `sommelier_backup`: export a bundle, apply
+# one as a full replace, and manage the server-side snapshot folder that is
+# both the automatic pre-import rollback store and the documented escape hatch
+# for bundles too large for the 4 MiB inbound WS frame.
+
+
+def _backup_error_code(exc: Exception) -> str | None:
+    """Map a `sommelier_backup` exception to its WS error code.
+
+    Returns None for anything that is not a declared backup failure, so the
+    caller can fall back to its own generic code (`export_failed` /
+    `import_failed`) and log the traceback.
+    """
+    return {
+        sommelier_backup.BackupBusyError: "db_busy",
+        sommelier_backup.UnsupportedFormatError: "unsupported_format",
+        sommelier_backup.UnsupportedDbSchemaError: "unsupported_db_schema",
+        sommelier_backup.InvalidExportError: "invalid_export",
+        sommelier_backup.ImportTooLargeError: "import_too_large",
+        sommelier_backup.InvalidSnapshotNameError: "invalid_snapshot_name",
+        sommelier_backup.SnapshotNotFoundError: "snapshot_not_found",
+        sommelier_backup.SnapshotFileTooLargeError: "snapshot_file_too_large",
+    }.get(type(exc))
+
+
+def _backup_integration_version(hass: HomeAssistant) -> str:
+    """Read the manifest version stashed at setup, for the bundle envelope.
+
+    Informational only — nothing validates it on ingest — so an install where
+    setup has not run yet simply exports "unknown" rather than paying for a
+    loader round-trip here.
+    """
+    return (hass.data.get(DOMAIN) or {}).get("ui_strings_version") or "unknown"
+
+
+def _backups_dir(hass: HomeAssistant) -> str:
+    """Absolute path of the snapshot folder under `<config>`."""
+    return hass.config.path(sommelier_backup.SNAPSHOT_DIR_NAME)
+
+
+def _bundle_size_bytes(bundle: dict[str, Any]) -> int:
+    """Serialized size of a bundle, so the panel can warn before re-importing."""
+    return len(
+        json.dumps(bundle, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
+    )
+
+
+def _filter_install_specific(
+    hass: HomeAssistant, bundle: dict[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
+    """Drop install-specific values whose entity does not exist here.
+
+    Only values that look like an entity of the right domain are checked
+    against the state machine, because that check can only ever *dis*prove an
+    entity id. Two `llm_agent_id` values are valid without being entity ids —
+    the "homeassistant" sentinel (HA's built-in agent) and the empty string
+    (HA default) — and so is any non-`conversation.` agent id, e.g.
+    `smartchain.*`: `panel_api._check_llm_agent` documents those as
+    unverifiable and trusts them, and this must agree with it or a bundle
+    would lose an agent the running install accepts.
+
+    Returns the values to write and the logical names that were dropped, which
+    the result reports as `skipped_install_specific`. A dropped name is NOT a
+    deletion: the applier falls back to the value this install already has.
+    """
+    raw = bundle.get("install_specific") or {}
+    checked_domain = {"llm_agent_id": "conversation.", "weather_entity": "weather."}
+    kept: dict[str, Any] = {}
+    skipped: list[str] = []
+    for logical in sommelier_backup._INSTALL_SPECIFIC:
+        value = raw.get(logical)
+        if value is None:
+            continue
+        value = str(value)
+        exempt = (
+            logical == "llm_agent_id"
+            and value in sommelier_backup.INSTALL_SPECIFIC_AGENT_SENTINELS
+        )
+        prefix = checked_domain.get(logical, "")
+        checkable = bool(prefix) and value.startswith(prefix)
+        if exempt or not checkable or hass.states.get(value) is not None:
+            kept[logical] = value
+        else:
+            skipped.append(logical)
+    return kept, skipped
+
+
+async def _async_take_snapshot(
+    hass: HomeAssistant, db: Any, *, protect: str | None = None
+) -> str:
+    """Write a full pre-import snapshot bundle and prune the folder.
+
+    Always includes history and the install-specific values: it is a local
+    rollback artifact, so nothing may be lost from it. The one exception is an
+    install whose history alone puts the bundle over the row cap a restore
+    enforces — there the history is dropped so the snapshot stays *restorable*,
+    because an undo artifact its own Restore button refuses is no undo at all.
+    If even the configuration is over the cap the import is refused before the
+    DB is touched.
+
+    `protect` names a snapshot the prune must spare — the restore path passes
+    the file it is restoring from. A pruning failure is logged and swallowed;
+    the snapshot itself is what the import depends on.
+    """
+    bundle = await sommelier_backup.async_build_export(
+        db,
+        include_history=True,
+        integration_version=_backup_integration_version(hass),
+    )
+    rows = sommelier_backup.count_bundle_rows(bundle)
+    if rows > sommelier_backup.MAX_IMPORT_ROWS:
+        _LOGGER.warning(
+            "The Sommelier pre-import backup carries %s rows, over the %s a "
+            "restore can apply; writing it without the generation history so "
+            "it stays restorable",
+            rows,
+            sommelier_backup.MAX_IMPORT_ROWS,
+        )
+        sommelier_backup.drop_bundle_history(bundle)
+        rows = sommelier_backup.count_bundle_rows(bundle)
+        if rows > sommelier_backup.MAX_IMPORT_ROWS:
+            raise sommelier_backup.ImportTooLargeError(
+                f"This install's Sommelier configuration is {rows} rows, over "
+                f"the {sommelier_backup.MAX_IMPORT_ROWS} a restore can apply; "
+                "the pre-import backup would not be restorable"
+            )
+    directory = _backups_dir(hass)
+    name = await hass.async_add_executor_job(
+        sommelier_backup.write_snapshot, directory, bundle
+    )
+    try:
+        await hass.async_add_executor_job(
+            sommelier_backup.prune_snapshots,
+            directory,
+            sommelier_backup.SNAPSHOT_RETENTION,
+            protect,
+        )
+    except Exception as exc:  # noqa: BLE001 — pruning is best-effort
+        _LOGGER.warning("Could not prune Sommelier snapshots: %s", exc)
+    return name
+
+
+async def _async_run_import(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    bundle: dict[str, Any],
+    *,
+    include_history: bool,
+    include_install_specific: bool,
+    take_snapshot: bool,
+    protect_snapshot: str | None = None,
+) -> None:
+    """Shared body of `config/import` and `snapshots/restore`.
+
+    Validates, takes the pre-import snapshot (a failure here aborts before the
+    DB is touched; `protect_snapshot` keeps retention from pruning the file a
+    restore is reading from), applies the replace in one transaction, then
+    fires
+    `melitta_barista_sommelier_imported` on the bus so a future client can
+    invalidate its caches. Panel reload remains the UX for now.
+    """
+    from .panel_api import _async_get_db  # noqa: PLC0415 — cycle avoidance
+
+    if sommelier_backup._BACKUP_LOCK.locked():
+        connection.send_error(
+            msg["id"], "db_busy", "Another backup operation is already running"
+        )
+        return
+
+    try:
+        sommelier_backup.validate_bundle(bundle)
+    except sommelier_backup.BackupError as exc:
+        connection.send_error(
+            msg["id"], _backup_error_code(exc) or "invalid_export", str(exc)
+        )
+        return
+
+    db = await _async_get_db(hass)
+
+    skipped_install_specific: list[str] = []
+    install_specific: dict[str, Any] | None = None
+    if include_install_specific:
+        install_specific, skipped_install_specific = _filter_install_specific(
+            hass, bundle
+        )
+
+    snapshot_name: str | None = None
+    if take_snapshot:
+        try:
+            snapshot_name = await _async_take_snapshot(
+                hass, db, protect=protect_snapshot
+            )
+        except sommelier_backup.BackupBusyError as exc:
+            connection.send_error(msg["id"], "db_busy", str(exc))
+            return
+        except sommelier_backup.BackupError as exc:
+            # A snapshot that would be too big to restore, most likely; the
+            # declared code says which, and the DB is still untouched.
+            connection.send_error(
+                msg["id"], _backup_error_code(exc) or "snapshot_failed", str(exc)
+            )
+            return
+        except Exception as exc:  # noqa: BLE001 — surfaced verbatim in the panel
+            _LOGGER.exception("Sommelier pre-import snapshot failed")
+            connection.send_error(
+                msg["id"],
+                "snapshot_failed",
+                f"Could not write the pre-import backup: {exc}",
+            )
+            return
+
+    try:
+        summary = await sommelier_backup.async_apply_import(
+            db,
+            bundle,
+            include_history=include_history,
+            include_install_specific=include_install_specific,
+            install_specific=install_specific,
+        )
+    except sommelier_backup.BackupError as exc:
+        connection.send_error(
+            msg["id"], _backup_error_code(exc) or "import_failed", str(exc)
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 — rolled back inside
+        _LOGGER.exception("Sommelier import failed")
+        connection.send_error(msg["id"], "import_failed", str(exc))
+        return
+
+    hass.bus.async_fire(
+        f"{DOMAIN}_sommelier_imported",
+        {
+            "snapshot": snapshot_name,
+            "history_cleared": summary["history_cleared"],
+            "include_history": include_history,
+        },
+    )
+    _send_versioned(
+        connection,
+        msg["id"],
+        {
+            "imported": summary["imported"],
+            "skipped": summary["skipped"],
+            "dropped_columns": summary["dropped_columns"],
+            "skipped_install_specific": skipped_install_specific,
+            "history_cleared": summary["history_cleared"],
+            "snapshot": snapshot_name,
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/config/export",
+        vol.Optional("include_history", default=False): cv.boolean,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_config_export(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Export the Sommelier configuration as a self-describing JSON bundle.
+
+    Reads through the shared DB connection inside one deferred transaction, so
+    the bundle is coherent with everything else this process can see. Goes
+    through the *panel* DB getter on purpose: only that one bootstraps the five
+    panel-owned tables, so an export taken before any panel tab was opened
+    still carries the Additives/Producers catalogue and the custom prompts.
+    """
+    from .panel_api import _async_get_db  # noqa: PLC0415 — cycle avoidance
+
+    db = await _async_get_db(hass)
+    try:
+        bundle = await sommelier_backup.async_build_export(
+            db,
+            include_history=msg["include_history"],
+            integration_version=_backup_integration_version(hass),
+        )
+    except sommelier_backup.BackupError as exc:
+        connection.send_error(
+            msg["id"], _backup_error_code(exc) or "export_failed", str(exc)
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 — surfaced verbatim in the panel
+        _LOGGER.exception("Sommelier export failed")
+        connection.send_error(msg["id"], "export_failed", str(exc))
+        return
+    _send_versioned(
+        connection,
+        msg["id"],
+        {"export": bundle, "size_bytes": _bundle_size_bytes(bundle)},
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/config/import",
+        vol.Required("export"): dict,
+        vol.Optional("include_history", default=False): cv.boolean,
+        vol.Optional("include_install_specific", default=True): cv.boolean,
+        vol.Optional("snapshot", default=True): cv.boolean,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_config_import(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Replace the Sommelier configuration from an export bundle.
+
+    Full replace is the only mode. `include_history` decides whether the
+    bundle's generation history is written back — the local history is cleared
+    either way, because a foreign configuration sitting on top of the previous
+    install's history is not a state anyone asked for.
+    `include_install_specific` false PRESERVES this install's own LLM agent and
+    weather entity rather than dropping them. `snapshot` false is the explicit
+    override for tests; the panel never sends it.
+    """
+    await _async_run_import(
+        hass,
+        connection,
+        msg,
+        msg["export"],
+        include_history=msg["include_history"],
+        include_install_specific=msg["include_install_specific"],
+        take_snapshot=msg["snapshot"],
+    )
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "melitta_barista/sommelier/config/snapshots/list"}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_snapshots_list(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """List the snapshot bundles on disk, newest first.
+
+    Metadata comes from `os.stat` alone — the files are never parsed here, so
+    one corrupt or oversized bundle cannot break the panel's Backup section.
+    A missing folder is an empty list, not an error.
+    """
+    try:
+        snapshots = await hass.async_add_executor_job(
+            sommelier_backup.list_snapshots, _backups_dir(hass)
+        )
+    except Exception as exc:  # noqa: BLE001 — surfaced verbatim in the panel
+        _LOGGER.exception("Listing Sommelier snapshots failed")
+        connection.send_error(msg["id"], "export_failed", str(exc))
+        return
+    _send_versioned(connection, msg["id"], {"snapshots": snapshots})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "melitta_barista/sommelier/config/snapshots/get",
+        vol.Required("name"): cv.string,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_snapshots_get(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return one snapshot bundle, so the browser can offer it as a download."""
+    try:
+        bundle = await hass.async_add_executor_job(
+            sommelier_backup.read_snapshot, _backups_dir(hass), msg["name"]
+        )
+    except sommelier_backup.BackupError as exc:
+        connection.send_error(
+            msg["id"], _backup_error_code(exc) or "export_failed", str(exc)
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 — surfaced verbatim in the panel
+        _LOGGER.exception("Reading Sommelier snapshot failed")
+        connection.send_error(msg["id"], "export_failed", str(exc))
+        return
+    _send_versioned(
+        connection,
+        msg["id"],
+        {"export": bundle, "size_bytes": _bundle_size_bytes(bundle)},
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): (
+            "melitta_barista/sommelier/config/snapshots/restore"
+        ),
+        vol.Required("name"): cv.string,
+        vol.Optional("include_history", default=True): cv.boolean,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_snapshots_restore(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Restore a snapshot bundle read server-side.
+
+    This is the escape hatch for bundles too large to travel inbound over the
+    WebSocket: the file is read and parsed in an executor, never uploaded.
+    A snapshot is this install's own state, so history and the install-specific
+    values are restored by default. The snapshot being restored is protected
+    from the retention prune that follows the pre-restore snapshot: using a
+    rollback point must not delete it.
+    """
+    try:
+        bundle = await hass.async_add_executor_job(
+            sommelier_backup.read_snapshot, _backups_dir(hass), msg["name"]
+        )
+    except sommelier_backup.BackupError as exc:
+        connection.send_error(
+            msg["id"], _backup_error_code(exc) or "import_failed", str(exc)
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 — surfaced verbatim in the panel
+        _LOGGER.exception("Reading Sommelier snapshot failed")
+        connection.send_error(msg["id"], "import_failed", str(exc))
+        return
+
+    await _async_run_import(
+        hass,
+        connection,
+        msg,
+        bundle,
+        include_history=msg["include_history"],
+        include_install_specific=True,
+        take_snapshot=True,
+        protect_snapshot=msg["name"],
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): (
+            "melitta_barista/sommelier/config/snapshots/delete"
+        ),
+        vol.Required("name"): cv.string,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_snapshots_delete(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete exactly one snapshot file.
+
+    Retention prunes only the automatic `pre-import-*` files, so without this
+    a hand-kept or hand-dropped bundle would accumulate forever with no way to
+    remove it from the UI.
+    """
+    try:
+        await hass.async_add_executor_job(
+            sommelier_backup.delete_snapshot, _backups_dir(hass), msg["name"]
+        )
+    except sommelier_backup.BackupError as exc:
+        connection.send_error(
+            msg["id"], _backup_error_code(exc) or "delete_failed", str(exc)
+        )
+        return
+    except Exception as exc:  # noqa: BLE001 — surfaced verbatim in the panel
+        _LOGGER.exception("Deleting Sommelier snapshot failed")
+        connection.send_error(msg["id"], "delete_failed", str(exc))
+        return
+    _send_versioned(connection, msg["id"], {"deleted": True})
 
 
 # ── Extras ───────────────────────────────────────────────────────────

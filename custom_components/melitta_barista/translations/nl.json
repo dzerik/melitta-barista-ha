@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Machinegebeurtenis",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Zetten gestart",
+              "brew_finished": "Zetten voltooid",
+              "brew_cancelled": "Zetten geannuleerd",
+              "prompt_raised": "Melding actief",
+              "prompt_cleared": "Melding opgelost",
+              "maintenance_finished": "Onderhoud voltooid"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Zetten gestart",
+      "brew_finished": "Zetten voltooid",
+      "brew_cancelled": "Zetten geannuleerd",
+      "prompt_raised": "Melding actief",
+      "prompt_cleared": "Melding opgelost",
+      "maintenance_finished": "Onderhoud voltooid"
     }
   },
   "exceptions": {

@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Masina sündmus",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Valmistamine algas",
+              "brew_finished": "Valmistamine lõppes",
+              "brew_cancelled": "Valmistamine tühistati",
+              "prompt_raised": "Ilmus teade",
+              "prompt_cleared": "Teade lahendatud",
+              "maintenance_finished": "Hooldus lõppes"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Valmistamine algas",
+      "brew_finished": "Valmistamine lõppes",
+      "brew_cancelled": "Valmistamine tühistati",
+      "prompt_raised": "Ilmus teade",
+      "prompt_cleared": "Teade lahendatud",
+      "maintenance_finished": "Hooldus lõppes"
     }
   },
   "exceptions": {

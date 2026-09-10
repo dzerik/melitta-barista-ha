@@ -88,6 +88,11 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
     assert set(result.keys()) == {
         "entry", "device", "status", "counters", "profiles", "options",
         "ble_trace", "domain_entries", "recovery", "bluetooth_affinity",
+        # Additive block for the server-side narration path. The set
+        # comparison stays exhaustive on purpose: diagnostics is the
+        # maintainer's primary lens on a field install, and a section that
+        # appears or vanishes unnoticed is exactly what this pins.
+        "narration",
     }
 
     # Entry section
@@ -411,3 +416,154 @@ async def test_diagnostics_recovery_block(hass: HomeAssistant) -> None:
     assert rec["bond"]["state"] == "suspect"
     assert rec["bond"]["auth_fail_cycles"] == 1
     assert rec["bond"]["history"], "bond_ops audit trail must not be empty"
+
+
+# ---------------------------------------------------------------------------
+# Narration block (§5.4 / ruling M11)
+#
+# This is the maintainer's lens on the two questions a narration bug report
+# actually asks: "the event has no `description`" (a cold or wrong-locale
+# string cache) and "no event fired at all" (the detector's latches). It must
+# therefore survive every degenerate state, and it must never carry
+# user-authored free text.
+# ---------------------------------------------------------------------------
+
+
+async def test_diagnostics_narration_block_on_a_cold_install(
+    hass: HomeAssistant,
+) -> None:
+    """With nothing stashed, the block reports absence rather than raising.
+
+    This is the shape a bug report has when the preload failed: the section is
+    present (so its absence in a real download means something else), and every
+    field says "nothing here" instead of blowing up the download.
+    """
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client)
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    narration = result["narration"]
+    assert narration["locale"] is None
+    assert narration["narration_keys"] is None
+    assert narration["ui_strings_resolution"] == {}
+    assert narration["ui_strings_cached_locales"] == []
+    assert narration["detector"] is None
+    # A MagicMock client answers `brew_intent` with a MagicMock; the summary
+    # is isinstance-guarded precisely so a stray object cannot reach the JSON.
+    assert narration["brew_intent"] is None
+
+
+async def test_diagnostics_narration_block_reports_warm_caches(
+    hass: HomeAssistant,
+) -> None:
+    """A warm install exposes the resolved locale, key count and detector state."""
+    from custom_components.melitta_barista.event import lifecycle_detector_key
+
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client)
+    entry.add_to_hass(hass)
+
+    detector = MagicMock()
+    detector.state_snapshot.return_value = {"brewing": True, "prev_process": "PRODUCT"}
+    hass.data.setdefault(DOMAIN, {}).update({
+        "narration_locale": "de",
+        "narration_strings": {f"narration.key{i}": "x" for i in range(41)},
+        "ui_strings_resolution": {"requested": "de-DE", "resolved": "de"},
+        "ui_strings_cache": {"de": {}, "en": {}},
+        lifecycle_detector_key(entry.entry_id): detector,
+    })
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    narration = result["narration"]
+    assert narration["locale"] == "de"
+    assert narration["narration_keys"] == 41
+    assert narration["ui_strings_resolution"] == {"requested": "de-DE", "resolved": "de"}
+    assert narration["ui_strings_cached_locales"] == ["de", "en"]
+    assert narration["detector"] == {"brewing": True, "prev_process": "PRODUCT"}
+
+
+async def test_diagnostics_narration_survives_a_broken_detector(
+    hass: HomeAssistant,
+) -> None:
+    """A detector that raises or answers with junk must not break the download.
+
+    The subsystem being diagnosed is the one most likely to be broken, so the
+    block degrades to `detector: None` rather than propagating.
+    """
+    from custom_components.melitta_barista.event import lifecycle_detector_key
+
+    client = _make_mock_client()
+    entry = _make_entry(runtime_data=client)
+    entry.add_to_hass(hass)
+
+    exploding = MagicMock()
+    exploding.state_snapshot.side_effect = RuntimeError("latch is wedged")
+    hass.data.setdefault(DOMAIN, {})[
+        lifecycle_detector_key(entry.entry_id)
+    ] = exploding
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["narration"]["detector"] is None
+
+    # A non-dict snapshot is equally refused: it would otherwise put a
+    # non-serialisable object into the JSON download.
+    junk = MagicMock()
+    junk.state_snapshot.return_value = ["not", "a", "mapping"]
+    hass.data[DOMAIN][lifecycle_detector_key(entry.entry_id)] = junk
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["narration"]["detector"] is None
+
+
+async def test_diagnostics_brew_intent_reports_facts_but_redacts_names(
+    hass: HomeAssistant,
+) -> None:
+    """The staged intent is summarised without leaking user-authored text (M12).
+
+    Recipe and profile names are the two free-text fields a user can put
+    anything into, so they are reported as booleans. The whole block is
+    serialised and searched here rather than asserting field by field: a future
+    field that quietly carries a name through would pass a narrower test.
+    """
+    import json
+    from time import monotonic
+
+    from custom_components.melitta_barista.lifecycle import BrewIntent
+
+    intent = BrewIntent(
+        noted_at=monotonic(),
+        recipe_source="sommelier",
+        recipe_key="cappuccino",
+        recipe_name="Anna's secret nightcap",
+        profile=2,
+        profile_name="Anna",
+        two_cups=True,
+        slot=3,
+        components=({"component": "milk"}, {"component": "coffee"}),
+        ha_cancelled=False,
+    )
+    client = _make_mock_client()
+    type(client).brew_intent = PropertyMock(return_value=intent)
+    entry = _make_entry(runtime_data=client)
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    summary = result["narration"]["brew_intent"]
+    assert summary["recipe_source"] == "sommelier"
+    assert summary["recipe_key"] == "cappuccino"
+    assert summary["profile"] == 2
+    assert summary["two_cups"] is True
+    assert summary["slot"] == 3
+    assert summary["component_count"] == 2
+    assert summary["ha_cancelled"] is False
+    assert summary["age_s"] < 5.0
+    # The names are present as facts, absent as strings.
+    assert summary["has_recipe_name"] is True
+    assert summary["has_profile_name"] is True
+    blob = json.dumps(result["narration"])
+    assert "Anna" not in blob
+    assert "nightcap" not in blob

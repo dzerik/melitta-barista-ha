@@ -1,8 +1,8 @@
 # Melitta Barista — WebSocket API reference
 
-**API version:** 1.0
-**Integration version:** 0.66.0
-**Last reviewed:** 2026-05-26
+**API version:** 1.1
+**Integration version:** 0.95.0
+**Last reviewed:** 2026-09-10
 
 This document is the canonical contract for the integration's WebSocket
 surface. Bumping `api_version` requires updating this doc.
@@ -81,6 +81,8 @@ The following sections group endpoints by their `melitta_barista/<namespace>/...
 - [`sommelier/settings/*`](#sommelier-settings) — sommelier-wide settings
 - [`sommelier/preferences/*`](#sommelier-preferences) — user preferences
 - [`sommelier/profiles/*`](#sommelier-profiles) — user profile templates
+- [`sommelier/config/*`](#sommelier-configuration-backup) — configuration
+  export / replace-import / snapshots
 
 ---
 
@@ -1920,6 +1922,282 @@ One profile may be "active" at a time and feeds defaults into
 
 **Notes**
 - Deactivates all other profiles atomically (DB-level constraint).
+
+---
+
+## Sommelier — configuration backup
+
+Export the whole Sommelier configuration as one self-describing JSON bundle,
+and replace it from such a bundle. Added in **0.95.0**; the additive endpoints
+are what took `api_version` from `1.0` to `1.1`.
+
+Implemented in `sommelier_api.py` (`ws_config_export`, `ws_config_import`,
+`ws_snapshots_list`, `ws_snapshots_get`, `ws_snapshots_restore`,
+`ws_snapshots_delete`); the pure builder / applier lives in
+`sommelier_backup.py`.
+
+**Every endpoint here is `require_admin` + `async_response`**, replies through
+the usual `schema_version` envelope, and reads and writes through the **shared
+`SommelierDB` connection** — an export runs inside one `BEGIN DEFERRED`, an
+import inside one `BEGIN IMMEDIATE`. There is no second connection and no
+read-only URI, so a bundle is always coherent with what the rest of the process
+can see, and a failed import leaves the database exactly as it was.
+
+Export and import are mutually exclusive and **never queue**: a call that finds
+another backup operation in flight fails immediately with `db_busy`.
+
+### Bundle envelope
+
+```json
+{
+  "format": "melitta_barista.sommelier_export",
+  "format_version": 1,
+  "integration_version": "0.95.0",
+  "db_schema_version": 12,
+  "exported_at": "2026-09-10T09:41:07.123456+00:00",
+  "include_history": false,
+  "counts": { "coffee_beans": 4, "favorites": 17 },
+  "install_specific": {
+    "llm_agent_id": "conversation.local_llama",
+    "weather_entity": "weather.home"
+  },
+  "tables": { "coffee_beans": [], "settings": [] },
+  "history": { "generation_sessions": [], "generated_recipes": [], "recipe_ratings": [] }
+}
+```
+
+- `tables` — always present, always fully replaced on import: `coffee_beans`,
+  `hoppers`, `milk_config`, `user_extras`, `user_preferences`,
+  `sommelier_profiles`, `favorites`, `settings` (filtered to
+  `VALID_SETTING_KEYS`), `recipe_ratings` (`target_type='favorite'` only),
+  `sommelier_presets` (`is_system = 0` only), plus the five panel-owned tables
+  `producers`, `syrups`, `toppings`, `flavor_tags`, `panel_prompts`.
+- `history` — present only when the export asked for it:
+  `generation_sessions`, `generated_recipes`, `recipe_ratings`
+  (`target_type='generated'` only).
+- `install_specific` — the two cells that describe *this* installation rather
+  than the configuration, hoisted out of the row arrays so they can be applied
+  (or deliberately not applied) as a unit: `settings.llm_agent_id` and
+  `user_preferences.weather_entity`.
+- `counts` — UI metadata; the importer never trusts it.
+- Never exported and never imported: the whole `machine_capabilities` table
+  (its PK is this install's config-entry id, and it is re-probed on connect),
+  the `settings` row `schema_version`, any `settings` key outside
+  `VALID_SETTING_KEYS`, any `user_preferences` key outside
+  `VALID_PREFERENCE_KEYS`, and `sommelier_presets` rows with `is_system = 1`
+  (they are re-seeded after every import).
+
+Every cell must be a JSON scalar; `true`/`false` is coerced to `1`/`0` on
+insert. The importer intersects the bundle's columns with the live table's
+columns, so column drift in either direction survives and is reported in
+`dropped_columns`. Rows are exported `ORDER BY` each table's primary key, so
+two exports of an unchanged database differ only in `exported_at`.
+
+**Privacy:** no credential is stored in this database. The bundle does carry
+household names (`sommelier_profiles.name`, `favorites.name`), dietary
+preferences, free text in `panel_prompts.template` and — with history —
+`generation_sessions.weather_context`.
+
+### Shared error codes
+
+| Code | Meaning |
+|---|---|
+| `db_busy` | Another export or import is already running. |
+| `unsupported_format` | Not a Sommelier export, or a newer `format_version`. |
+| `unsupported_db_schema` | Bundle came from a newer Sommelier DB schema. |
+| `invalid_export` | Structurally malformed bundle (no `tables` section or one naming no known table, bad section, non-scalar cell, non-object `install_specific`, unparseable snapshot). |
+| `import_too_large` | More than 200 000 rows in one bundle — or this install's own pre-import snapshot would be, in which case the import is refused before the DB is touched. |
+| `snapshot_failed` | The pre-import snapshot could not be written; the import was aborted before touching the DB. |
+| `invalid_snapshot_name` | Name is not `*.json`, or does not resolve to a file directly inside the backups folder. |
+| `snapshot_not_found` | No such file in the backups folder. |
+| `snapshot_file_too_large` | Snapshot file on disk exceeds 64 MB. |
+| `export_failed` / `import_failed` / `delete_failed` | Generic fallbacks; the traceback is logged. |
+
+Error messages are shown verbatim in the panel.
+
+### `melitta_barista/sommelier/config/export`
+
+| | |
+|---|---|
+| **Decorators** | `require_admin`, `async_response` |
+| **Stability** | stable |
+| **Introduced** | 0.95.0 |
+
+**Inputs**
+- `include_history: bool` (optional, default `false`) — add the `history`
+  section.
+
+**Response**
+```json
+{ "schema_version": 1, "export": { "format": "melitta_barista.sommelier_export" }, "size_bytes": 40213 }
+```
+
+**Notes**
+- Obtains the DB through `panel_api._async_get_db`, which bootstraps the five
+  panel-owned tables — an export taken before any panel tab was ever opened
+  still carries the additives / producers catalogue and the prompt templates.
+- A table that does not exist on this install exports as an empty array, so the
+  envelope shape is stable.
+
+### `melitta_barista/sommelier/config/import`
+
+| | |
+|---|---|
+| **Decorators** | `require_admin`, `async_response` |
+| **Stability** | stable |
+| **Introduced** | 0.95.0 |
+
+**Inputs**
+- `export: dict` (required) — the bundle.
+- `include_history: bool` (optional, default `false`) — write the bundle's
+  history back. **The local history is cleared either way.**
+- `include_install_specific: bool` (optional, default `true`) — take
+  `llm_agent_id` and `weather_entity` from the bundle. When `false`, the
+  receiving install's **own** two values are read before the delete phase and
+  written back after the insert phase: the flag protects the local install, it
+  never erases it.
+- `snapshot: bool` (optional, default `true`) — take the pre-import snapshot.
+  `false` is an explicit test override; the panel never sends it.
+
+**Response**
+```json
+{
+  "schema_version": 1,
+  "imported": { "coffee_beans": 4 },
+  "skipped": { "machine_capabilities": 1 },
+  "dropped_columns": { "favorites": ["some_future_column"] },
+  "skipped_install_specific": ["weather_entity"],
+  "history_cleared": 37,
+  "snapshot": "pre-import-20260910T094107Z.json"
+}
+```
+
+**Notes**
+- Full replace is the only mode. Validation, the snapshot and the entity checks
+  all run before the transaction opens; the delete + insert + normalisation then
+  run inside a single `BEGIN IMMEDIATE` with `PRAGMA defer_foreign_keys`, and
+  roll back as a unit on any error.
+- `skipped_install_specific` lists the logical names whose value named an entity
+  that does not exist here. Only values that look like an entity of the right
+  domain are checked at all: the `llm_agent_id` values `"homeassistant"` (the
+  built-in agent sentinel), `""` (HA default) and any non-`conversation.` agent
+  id (e.g. `smartchain.*`, which `panel_api._check_llm_agent` also trusts) are
+  exempt. A skipped name is **not** a deletion — the applier writes this
+  install's existing value back, as it does for any install-specific value the
+  bundle does not carry.
+- `settings` is written key-by-key through `VALID_SETTING_KEYS`,
+  `user_preferences` through `VALID_PREFERENCE_KEYS`; the `schema_version` row
+  is neither read nor written.
+- The four built-in system presets are re-seeded after COMMIT.
+- On success the handler fires the HA bus event
+  **`melitta_barista_sommelier_imported`** with
+  `{snapshot, history_cleared, include_history}`. No client consumes it yet; it
+  exists so a future client can invalidate its caches. Panel reload remains the
+  UX.
+
+### `melitta_barista/sommelier/config/snapshots/list`
+
+| | |
+|---|---|
+| **Decorators** | `require_admin`, `async_response` |
+| **Stability** | stable |
+| **Introduced** | 0.95.0 |
+
+**Inputs**
+- none
+
+**Response**
+```json
+{
+  "schema_version": 1,
+  "snapshots": [
+    { "name": "pre-import-20260910T094107Z.json",
+      "created_at": "2026-09-10T09:41:07+00:00",
+      "size_bytes": 40213,
+      "source": "auto" }
+  ]
+}
+```
+
+**Notes**
+- Newest first. Metadata comes from `os.stat` alone — the files are never
+  parsed here, so one corrupt or oversized bundle cannot break the panel's
+  Backup section.
+- `source` is `"auto"` for the automatic `pre-import-*` files and `"manual"`
+  for anything the user dropped in or renamed. Only `auto` files are pruned
+  (the newest 5 are kept).
+- A missing backups folder is an empty list, not an error.
+
+### `melitta_barista/sommelier/config/snapshots/get`
+
+| | |
+|---|---|
+| **Decorators** | `require_admin`, `async_response` |
+| **Stability** | stable |
+| **Introduced** | 0.95.0 |
+
+**Inputs**
+- `name: str` (required) — file name inside the backups folder.
+
+**Response**
+- Same shape as `config/export`: `{schema_version, export, size_bytes}`.
+
+**Notes**
+- Exists so the browser can offer an existing snapshot as a download without
+  re-exporting.
+
+### `melitta_barista/sommelier/config/snapshots/restore`
+
+| | |
+|---|---|
+| **Decorators** | `require_admin`, `async_response` |
+| **Stability** | stable |
+| **Introduced** | 0.95.0 |
+
+**Inputs**
+- `name: str` (required)
+- `include_history: bool` (optional, default `true`)
+
+**Response**
+- Same shape as `config/import`.
+
+**Notes**
+- The file is read and parsed **server-side in an executor**, never uploaded.
+  This is the documented escape hatch for bundles too large for the inbound
+  WebSocket frame (HA leaves aiohttp's 4 MiB default in place, and an oversized
+  inbound frame kills the connection instead of returning an error — the panel
+  therefore refuses anything over 3 MB).
+- A snapshot is this install's own state, so history and the install-specific
+  values are restored by default (`include_install_specific` is forced true).
+- Restoring also takes a fresh pre-import snapshot first. The file being
+  restored is exempt from the retention prune that follows, so using a rollback
+  point never deletes it.
+
+### `melitta_barista/sommelier/config/snapshots/delete`
+
+| | |
+|---|---|
+| **Decorators** | `require_admin`, `async_response` |
+| **Stability** | stable |
+| **Introduced** | 0.95.0 |
+
+**Inputs**
+- `name: str` (required)
+
+**Response**
+```json
+{ "schema_version": 1, "deleted": true }
+```
+
+**Notes**
+- Unlinks exactly one validated name in an executor. The safety check is
+  containment: the name must end in `.json` and resolve to a file whose parent
+  **is** the backups folder, which rejects `../`, absolute paths,
+  subdirectories and symlinks out of the folder alike. There is deliberately no
+  charset rule on top — the folder is a documented drop point, so a browser's
+  `melitta-sommelier-2026-09-10 (1).json` has to stay listable *and* usable.
+- Retention prunes only the automatic `pre-import-*` files, so this is the only
+  way to remove a hand-kept or hand-dropped snapshot from the UI.
 
 ---
 

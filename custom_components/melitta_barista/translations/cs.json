@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Událost kávovaru",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Příprava zahájena",
+              "brew_finished": "Příprava dokončena",
+              "brew_cancelled": "Příprava zrušena",
+              "prompt_raised": "Objevila se výzva",
+              "prompt_cleared": "Výzva vyřešena",
+              "maintenance_finished": "Údržba dokončena"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Příprava zahájena",
+      "brew_finished": "Příprava dokončena",
+      "brew_cancelled": "Příprava zrušena",
+      "prompt_raised": "Objevila se výzva",
+      "prompt_cleared": "Výzva vyřešena",
+      "maintenance_finished": "Údržba dokončena"
     }
   },
   "exceptions": {

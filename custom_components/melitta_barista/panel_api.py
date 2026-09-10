@@ -16,6 +16,7 @@ import pathlib
 import re
 import time
 from collections import deque
+from collections.abc import Mapping
 from typing import Any, Literal
 
 import voluptuous as vol
@@ -361,6 +362,77 @@ async def _ws_i18n_get(hass: HomeAssistant, connection, msg) -> None:
     })
 
 
+# ── ui_strings preload — the server-side render path ─────────────────────
+#
+# The two helpers below are the ONLY sanctioned way for non-WS code to read
+# machine-domain display strings. They are purely additive: `_load_ui_strings`
+# and `_ws_i18n_get` above are untouched, and the maps they populate are the
+# very same `hass.data[DOMAIN]` caches the WS handler uses, so a preload also
+# warms the endpoint for free.
+#
+# Why they exist: the `event` platform renders its narration `description`
+# server-side, inside a BLE status callback. That path may not block, and
+# `_load_ui_strings` is blocking file I/O. So the map is read once per locale
+# at setup (executor) and afterwards reached by pure dict lookups.
+
+
+async def async_preload_ui_strings(
+    hass: HomeAssistant, requested_locale: str
+) -> str:
+    """Warm the ui_strings cache for one locale on the executor; return the resolved tag.
+
+    Does exactly what `_ws_i18n_get` does on a cache miss, so the two share
+    one cache and one resolution table. Cheap and idempotent on a hit — no
+    executor hop, no file read — which is what makes it safe to call again
+    from the `core_config_updated` listener.
+
+    Keying, spelled out because it is easy to get backwards: the
+    `ui_strings_resolution` map goes **requested → resolved** tag, and
+    `ui_strings_cache` is keyed by the **resolved** tag. Two spellings of the
+    same locale (`de`, `de-DE`) therefore share one merged map.
+    """
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    cache: dict[str, dict[str, str]] = domain_data.setdefault(
+        "ui_strings_cache", {}
+    )
+    resolution: dict[str, str] = domain_data.setdefault(
+        "ui_strings_resolution", {}
+    )
+
+    resolved = resolution.get(requested_locale)
+    if resolved is not None and resolved in cache:
+        return resolved
+
+    resolved, merged = await hass.async_add_executor_job(
+        _load_ui_strings, requested_locale
+    )
+    resolution[requested_locale] = resolved
+    cache[resolved] = merged
+    return resolved
+
+
+@callback
+def get_cached_ui_strings(
+    hass: HomeAssistant, requested_locale: str
+) -> Mapping[str, str] | None:
+    """Return the already-merged ui_strings map for a locale, or None if cold.
+
+    Two dict lookups and no I/O, so it is safe on the event loop and inside a
+    BLE callback. Returns the en-overlaid merged map (§6.3.3), which is what
+    the narration renderer wants for `recipes.name.*` / `status.manipulation.*`
+    lookups. A `None` means nobody preloaded this locale — callers must treat
+    that as "no narration", never as an error, and never fall back to reading
+    the asset themselves.
+    """
+    domain_data = hass.data.get(DOMAIN) or {}
+    resolution = domain_data.get("ui_strings_resolution") or {}
+    resolved = resolution.get(requested_locale)
+    if resolved is None:
+        return None
+    cache = domain_data.get("ui_strings_cache") or {}
+    return cache.get(resolved)
+
+
 # ── /vocab — sommelier enum vocabulary (docs/UI_CONTRACT.md §9.2) ────────
 
 
@@ -585,10 +657,22 @@ async def _ensure_panel_schema(db) -> None:
 
     Also runs idempotent column migrations for legacy DBs that pre-date the
     `available` flag on the additive tables (P4a).
+
+    Runs under the DB's own lock (see `_write_lock`). It is reached from
+    `_async_get_db`, i.e. from EVERY panel request including the read-only
+    ones, and both `executescript` and the trailing `commit()` end whatever
+    transaction is open on the shared connection — which, during a
+    `sommelier_backup` replace-import, is that import's.
     """
     db_handle = db._db
     if db_handle is None:
         return
+    async with _write_lock(db):
+        await _ensure_panel_schema_locked(db_handle)
+
+
+async def _ensure_panel_schema_locked(db_handle) -> None:
+    """Body of `_ensure_panel_schema`, with the DB lock already held."""
     await db_handle.executescript("""
         CREATE TABLE IF NOT EXISTS producers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -681,6 +765,30 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# ── raw-SQL write serialisation ─────────────────────────────────────────
+#
+# The panel owns five tables (producers, syrups, toppings, flavor_tags,
+# panel_prompts) that `SommelierDB` has no methods for, so the handlers below
+# reach through to `db._db` directly. Every one of those that WRITES has to
+# take the DB's own lock: `sommelier_backup` runs its replace-import as one
+# explicit transaction on that very connection, and an unlocked
+# `execute(...) + commit()` landing at any `await` inside it COMMITs the
+# import half-applied — after which the importer's rollback can only undo the
+# tail, leaving a permanently half-replaced configuration.
+
+
+def _write_lock(db):
+    """The shared connection's write lock, for this module's raw `db._db` writes.
+
+    `SommelierDB._lock` guards its own destructive methods; a raw write that
+    skips it is invisible to the backup importer's transaction (see the
+    `sommelier_backup` module docstring). Reads are deliberately not gated:
+    they cannot commit anything, and serialising them would put every panel
+    list behind a long import.
+    """
+    return db._lock
+
+
 # producers ----------------------------------------------------------------
 
 
@@ -714,11 +822,12 @@ async def _ws_producers_add(hass, connection, msg):
     """Insert a producer row and return its new id."""
     db = await _async_get_db(hass)
     try:
-        cursor = await db._db.execute(
-            "INSERT INTO producers (name, country, website, notes, created_at) VALUES (?, ?, ?, ?, ?)",
-            (msg["name"], msg.get("country"), msg.get("website"), msg.get("notes"), _now_iso()),
-        )
-        await db._db.commit()
+        async with _write_lock(db):
+            cursor = await db._db.execute(
+                "INSERT INTO producers (name, country, website, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                (msg["name"], msg.get("country"), msg.get("website"), msg.get("notes"), _now_iso()),
+            )
+            await db._db.commit()
         _send_versioned(connection, msg["id"], {"id": cursor.lastrowid})
     except Exception:
         _LOGGER.exception("producers/add failed")
@@ -749,11 +858,12 @@ async def _ws_producers_update(hass, connection, msg):
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     # Column names come from a whitelist literal on line 425; values
     # are bound via `?` placeholders — no user-controlled SQL fragment.
-    await db._db.execute(
-        f"UPDATE producers SET {set_clause} WHERE id = ?",  # nosec B608
-        (*fields.values(), msg["producer_id"]),
-    )
-    await db._db.commit()
+    async with _write_lock(db):
+        await db._db.execute(
+            f"UPDATE producers SET {set_clause} WHERE id = ?",  # nosec B608
+            (*fields.values(), msg["producer_id"]),
+        )
+        await db._db.commit()
     _send_versioned(connection, msg["id"], {"updated": True})
 
 
@@ -766,8 +876,9 @@ async def _ws_producers_update(hass, connection, msg):
 async def _ws_producers_delete(hass, connection, msg):
     """Remove a producer row by `producer_id`."""
     db = await _async_get_db(hass)
-    await db._db.execute("DELETE FROM producers WHERE id = ?", (msg["producer_id"],))
-    await db._db.commit()
+    async with _write_lock(db):
+        await db._db.execute("DELETE FROM producers WHERE id = ?", (msg["producer_id"],))
+        await db._db.commit()
     _send_versioned(connection, msg["id"], {"deleted": True})
 
 
@@ -1291,24 +1402,25 @@ def _make_additive_handlers(table: str):
         db = await _async_get_db(hass)
         flavor_notes = msg.get("flavor_notes")
         attributes = msg.get("attributes")
-        cursor = await db._db.execute(
-            f"INSERT INTO {table} "  # nosec B608
-            "(name, brand, notes, created_at, producer_id, variant, "
-            "flavor_notes, composition, attributes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                msg["name"],
-                msg.get("brand"),
-                msg.get("notes"),
-                _now_iso(),
-                msg.get("producer_id"),
-                msg.get("variant"),
-                _json.dumps(flavor_notes) if flavor_notes is not None else None,
-                msg.get("composition"),
-                _json.dumps(attributes) if attributes is not None else None,
-            ),
-        )
-        await db._db.commit()
+        async with _write_lock(db):
+            cursor = await db._db.execute(
+                f"INSERT INTO {table} "  # nosec B608
+                "(name, brand, notes, created_at, producer_id, variant, "
+                "flavor_notes, composition, attributes) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    msg["name"],
+                    msg.get("brand"),
+                    msg.get("notes"),
+                    _now_iso(),
+                    msg.get("producer_id"),
+                    msg.get("variant"),
+                    _json.dumps(flavor_notes) if flavor_notes is not None else None,
+                    msg.get("composition"),
+                    _json.dumps(attributes) if attributes is not None else None,
+                ),
+            )
+            await db._db.commit()
         _send_versioned(connection, msg["id"], {"id": cursor.lastrowid})
 
     @websocket_api.websocket_command({
@@ -1321,8 +1433,9 @@ def _make_additive_handlers(table: str):
     async def _ws_delete(hass, connection, msg):
         """Delete an additive row by `additive_id`."""
         db = await _async_get_db(hass)
-        await db._db.execute(f"DELETE FROM {table} WHERE id = ?", (msg["additive_id"],))  # nosec B608
-        await db._db.commit()
+        async with _write_lock(db):
+            await db._db.execute(f"DELETE FROM {table} WHERE id = ?", (msg["additive_id"],))  # nosec B608
+            await db._db.commit()
         _send_versioned(connection, msg["id"], {"deleted": True})
 
     return _ws_list, _ws_add, _ws_delete
@@ -1388,11 +1501,12 @@ def _make_additive_update_handler(table: str):
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         # Column names come from a whitelist literal above; `table`
         # is a closure-captured literal — no user SQL fragment.
-        await db._db.execute(
-            f"UPDATE {table} SET {set_clause} WHERE id = ?",  # nosec B608
-            (*fields.values(), msg["additive_id"]),
-        )
-        await db._db.commit()
+        async with _write_lock(db):
+            await db._db.execute(
+                f"UPDATE {table} SET {set_clause} WHERE id = ?",  # nosec B608
+                (*fields.values(), msg["additive_id"]),
+            )
+            await db._db.commit()
         _send_versioned(connection, msg["id"], {"updated": True})
 
     return _ws_update
@@ -1430,11 +1544,12 @@ def _make_additive_set_available_handler(table: str):
             connection.send_error(msg["id"], "not_found", "Additive not found")
             return
         flag = 1 if msg["available"] else 0
-        await db._db.execute(
-            f"UPDATE {table} SET available = ? WHERE id = ?",  # nosec B608
-            (flag, msg["additive_id"]),
-        )
-        await db._db.commit()
+        async with _write_lock(db):
+            await db._db.execute(
+                f"UPDATE {table} SET available = ? WHERE id = ?",  # nosec B608
+                (flag, msg["additive_id"]),
+            )
+            await db._db.commit()
         _send_versioned(connection, msg["id"], {"updated": True})
 
     return _ws_set_available
@@ -1485,11 +1600,12 @@ async def _ws_tags_add(hass, connection, msg):
         connection.send_error(msg["id"], "empty", "Tag name is empty")
         return
     db = await _async_get_db(hass)
-    await db._db.execute(
-        "INSERT OR IGNORE INTO flavor_tags (name, created_at) VALUES (?, ?)",
-        (name, _now_iso()),
-    )
-    await db._db.commit()
+    async with _write_lock(db):
+        await db._db.execute(
+            "INSERT OR IGNORE INTO flavor_tags (name, created_at) VALUES (?, ?)",
+            (name, _now_iso()),
+        )
+        await db._db.commit()
     _send_versioned(connection, msg["id"], {"name": name})
 
 
@@ -1502,8 +1618,9 @@ async def _ws_tags_add(hass, connection, msg):
 async def _ws_tags_delete(hass, connection, msg):
     """Remove an explicit flavor tag (beans referencing it keep the tag string)."""
     db = await _async_get_db(hass)
-    await db._db.execute("DELETE FROM flavor_tags WHERE name = ?", (msg["name"],))
-    await db._db.commit()
+    async with _write_lock(db):
+        await db._db.execute("DELETE FROM flavor_tags WHERE name = ?", (msg["name"],))
+        await db._db.commit()
     _send_versioned(connection, msg["id"], {"deleted": True})
 
 
@@ -1863,13 +1980,14 @@ async def _ws_prompts_save(hass, connection, msg):
         connection.send_error(msg["id"], "unknown_slot", f"Unknown prompt {msg['slot']}")
         return
     db = await _async_get_db(hass)
-    await db._db.execute(
-        """INSERT INTO panel_prompts (slot, template, updated_at) VALUES (?, ?, ?)
-           ON CONFLICT(slot) DO UPDATE SET template = excluded.template,
-                                           updated_at = excluded.updated_at""",
-        (msg["slot"], msg["template"], _now_iso()),
-    )
-    await db._db.commit()
+    async with _write_lock(db):
+        await db._db.execute(
+            """INSERT INTO panel_prompts (slot, template, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(slot) DO UPDATE SET template = excluded.template,
+                                               updated_at = excluded.updated_at""",
+            (msg["slot"], msg["template"], _now_iso()),
+        )
+        await db._db.commit()
     _send_versioned(connection, msg["id"], {"saved": True})
 
 
@@ -2011,8 +2129,9 @@ async def _ws_prompts_preview(hass, connection, msg):
 async def _ws_prompts_reset(hass, connection, msg):
     """Drop a slot override so the bundled default takes over again."""
     db = await _async_get_db(hass)
-    await db._db.execute("DELETE FROM panel_prompts WHERE slot = ?", (msg["slot"],))
-    await db._db.commit()
+    async with _write_lock(db):
+        await db._db.execute("DELETE FROM panel_prompts WHERE slot = ?", (msg["slot"],))
+        await db._db.commit()
     _send_versioned(connection, msg["id"], {"reset": True})
 
 

@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Събитие на машината",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Приготвянето започна",
+              "brew_finished": "Приготвянето завърши",
+              "brew_cancelled": "Приготвянето е отменено",
+              "prompt_raised": "Появи се подкана",
+              "prompt_cleared": "Подканата е изчистена",
+              "maintenance_finished": "Поддръжката завърши"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Приготвянето започна",
+      "brew_finished": "Приготвянето завърши",
+      "brew_cancelled": "Приготвянето е отменено",
+      "prompt_raised": "Появи се подкана",
+      "prompt_cleared": "Подканата е изчистена",
+      "maintenance_finished": "Поддръжката завърши"
     }
   },
   "exceptions": {

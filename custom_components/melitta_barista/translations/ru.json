@@ -501,6 +501,33 @@
       "clock": {
         "name": "Часы"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Событие машины",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Приготовление началось",
+              "brew_finished": "Приготовление завершено",
+              "brew_cancelled": "Приготовление отменено",
+              "prompt_raised": "Появился запрос",
+              "prompt_cleared": "Запрос снят",
+              "maintenance_finished": "Обслуживание завершено"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Приготовление началось",
+      "brew_finished": "Приготовление завершено",
+      "brew_cancelled": "Приготовление отменено",
+      "prompt_raised": "Появился запрос",
+      "prompt_cleared": "Запрос снят",
+      "maintenance_finished": "Обслуживание завершено"
     }
   },
   "exceptions": {

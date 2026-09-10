@@ -1,6 +1,6 @@
 # Eugster/EFLibrary BLE Protocol — Melitta Barista & Nivona
 
-Reverse-engineered BLE protocol shared by Melitta Barista T/TS Smart
+BLE protocol shared by Melitta Barista T/TS Smart
 and Nivona NICR/NIVO 8xxx coffee machines. Both brands ship the same
 Eugster/Frismag OEM BLE stack (service `AD00`, encrypted frames,
 HU handshake). Per-brand specifics are limited to the RC4 runtime key,

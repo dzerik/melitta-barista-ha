@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Eveniment al aparatului",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Preparare începută",
+              "brew_finished": "Preparare finalizată",
+              "brew_cancelled": "Preparare anulată",
+              "prompt_raised": "Prompt activ",
+              "prompt_cleared": "Prompt rezolvat",
+              "maintenance_finished": "Întreținere finalizată"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Preparare începută",
+      "brew_finished": "Preparare finalizată",
+      "brew_cancelled": "Preparare anulată",
+      "prompt_raised": "Prompt activ",
+      "prompt_cleared": "Prompt rezolvat",
+      "maintenance_finished": "Întreținere finalizată"
     }
   },
   "exceptions": {

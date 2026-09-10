@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Machine event",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Brew started",
+              "brew_finished": "Brew finished",
+              "brew_cancelled": "Brew cancelled",
+              "prompt_raised": "Attention needed",
+              "prompt_cleared": "Attention cleared",
+              "maintenance_finished": "Maintenance finished"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Brew started",
+      "brew_finished": "Brew finished",
+      "brew_cancelled": "Brew cancelled",
+      "prompt_raised": "Attention needed",
+      "prompt_cleared": "Attention cleared",
+      "maintenance_finished": "Maintenance finished"
     }
   },
   "exceptions": {

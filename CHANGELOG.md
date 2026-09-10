@@ -2,6 +2,31 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.0b1] — 2026-09-10 (beta)
+
+The machine now says what it just did, in your language, and the sommelier's configuration can leave the house.
+
+### Added
+
+- **Machine lifecycle events.** A new `event` entity turns the stream of BLE status frames into six discrete events — `brew_started`, `brew_finished`, `brew_cancelled`, `prompt_raised`, `prompt_cleared` and `maintenance_finished` — each carrying a structured payload: what was brewed, from which recipe and profile, its components and volumes, how it ended. The detector lives in its own dependency-free module and is covered by unit tests that do not need a machine.
+- **Device triggers.** The same six events appear in the automation editor under the coffee machine's device, so an automation can be built without writing a template. Triggers are routed through the Home Assistant bus rather than through entity state, so two identical brews in a row both fire, and a restored last event is never replayed after a restart or a reload.
+- **A finished sentence for every event.** Each event carries `description`: one localized sentence, rendered on the server in Home Assistant's language, ready to hand to `tts.speak` — «Сварено: капучино — 40 мл кофе, 160 мл горячего молока, высокой интенсивности, профиль Anna.» It is assembled from whole-sentence templates per language rather than by joining words, so cases, agreement and word order are the translator's to decide. All 29 languages are complete. Where a language is written in a non-Latin script, drink names get a spoken form of their own — Russian says «капучино» while every picker button in the UI keeps the Latin `Cappuccino`, because a Cyrillic or Greek voice should never be handed a Latin token to spell out.
+- **Voice-assistant recipes in the README** for a generic `tts` entity, for Sber / Salut speakers via `sberhome.tts_send` (and `sberhome.ttc_send` when the speaker should act rather than announce), and for Yandex Station.
+- **Sommelier configuration export and import.** Six WebSocket commands and a Backup & restore section in the panel's System tab. Export writes a single JSON file — beans, hoppers, milk, extras, preferences, profiles, favourites, ratings and presets — with generation history included only if asked. Import replaces the configuration wholesale, after taking an automatic snapshot of what was there; snapshots can be listed, downloaded, restored and deleted. Both the export read and the import write run in one explicit transaction on the connection the integration already holds.
+- **Diagnostics** gained a `narration` block: the resolved language, the string-cache size, the detector's latch state and a name-redacted summary of the staged brew, degrading to nulls rather than raising on a cold install.
+
+### Changed
+
+- Sommelier API version is now `1.1`; `docs/SOMMELIER_API.md` documents the new endpoints.
+- The README's automation examples were rewritten onto the new events — the previous ones triggered on sensor states that no longer exist.
+- The documented Home Assistant floor is corrected to **2024.7**. The integration has required `ConfigEntry.runtime_data` and the async static-path API since well before this release, while the README still claimed 2024.1; nothing in this release raises the requirement.
+
+### Notes
+
+- **No contract change.** The narration strings are deliberately not served over `i18n/get`, are absent from `strings_version` and do not enter `contract_fingerprint` — a served string family cannot be withdrawn for the life of `contract_version: 1`, and these are rendered on the server. Clients are unchanged: Lovelace card `2.11.0`, app `3.1.3`, neither needs an update.
+- On Nivona, `maintenance_finished` and a cancel attributed to a power-off cannot occur: that family's status table reports only ready and product.
+- An import fires `melitta_barista_sommelier_imported` on the bus. No client consumes it yet; the panel reloads the page.
+
 ## [0.94.0] — 2026-09-05
 
 Machine wording now comes from one place, and the cup counters stop disappearing.
@@ -2264,8 +2289,8 @@ multi-brand device-registry rendering.
 - Nivona-specific HU verifier with the upstream 256-byte S-box and
   `+0x5D`/`+0xA7` fold offsets — independently validated against the
   published `seed FA 48 D1 7B → verifier 7E 6E` vector.
-- Runtime RC4 stream key `NIV_060616_V10_1*9#3!4$6+4res-?3` (recovered
-  from `de.nivona.mobileapp` 3.8.6 in upstream RE).
+- Runtime RC4 stream key `NIV_060616_V10_1*9#3!4$6+4res-?3` (the fixed
+  per-brand runtime key, identical across the Nivona range).
 
 ### Changed
 
