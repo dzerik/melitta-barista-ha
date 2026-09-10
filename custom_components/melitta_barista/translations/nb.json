@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Maskinhendelse",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Brygging startet",
+              "brew_finished": "Brygging fullført",
+              "brew_cancelled": "Brygging avbrutt",
+              "prompt_raised": "Varsel vist",
+              "prompt_cleared": "Varsel fjernet",
+              "maintenance_finished": "Vedlikehold fullført"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Brygging startet",
+      "brew_finished": "Brygging fullført",
+      "brew_cancelled": "Brygging avbrutt",
+      "prompt_raised": "Varsel vist",
+      "prompt_cleared": "Varsel fjernet",
+      "maintenance_finished": "Vedlikehold fullført"
     }
   },
   "exceptions": {

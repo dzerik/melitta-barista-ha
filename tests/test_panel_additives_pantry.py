@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -48,6 +49,9 @@ class _DbShim:
 
     def __init__(self, conn: aiosqlite.Connection) -> None:
         self._db = conn
+        # `panel_api` serialises its raw writes on this lock, so the shim has
+        # to carry one exactly like SommelierDB does.
+        self._lock = asyncio.Lock()
 
     async def async_set_extra_available(
         self, category: str, item: str, available: bool

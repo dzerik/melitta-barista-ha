@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Maskinhændelse",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Brygning startet",
+              "brew_finished": "Brygning færdig",
+              "brew_cancelled": "Brygning annulleret",
+              "prompt_raised": "Prompt vist",
+              "prompt_cleared": "Prompt ryddet",
+              "maintenance_finished": "Vedligeholdelse færdig"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Brygning startet",
+      "brew_finished": "Brygning færdig",
+      "brew_cancelled": "Brygning annulleret",
+      "prompt_raised": "Prompt vist",
+      "prompt_cleared": "Prompt ryddet",
+      "maintenance_finished": "Vedligeholdelse færdig"
     }
   },
   "exceptions": {

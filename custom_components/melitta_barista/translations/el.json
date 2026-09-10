@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Συμβάν μηχανής",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Η παρασκευή ξεκίνησε",
+              "brew_finished": "Η παρασκευή ολοκληρώθηκε",
+              "brew_cancelled": "Η παρασκευή ακυρώθηκε",
+              "prompt_raised": "Εμφανίστηκε ειδοποίηση",
+              "prompt_cleared": "Η ειδοποίηση αποσύρθηκε",
+              "maintenance_finished": "Η συντήρηση ολοκληρώθηκε"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Η παρασκευή ξεκίνησε",
+      "brew_finished": "Η παρασκευή ολοκληρώθηκε",
+      "brew_cancelled": "Η παρασκευή ακυρώθηκε",
+      "prompt_raised": "Εμφανίστηκε ειδοποίηση",
+      "prompt_cleared": "Η ειδοποίηση αποσύρθηκε",
+      "maintenance_finished": "Η συντήρηση ολοκληρώθηκε"
     }
   },
   "exceptions": {

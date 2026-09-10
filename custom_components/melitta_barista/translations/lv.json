@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Automāta notikums",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Gatavošana sākta",
+              "brew_finished": "Gatavošana pabeigta",
+              "brew_cancelled": "Gatavošana atcelta",
+              "prompt_raised": "Parādījās paziņojums",
+              "prompt_cleared": "Paziņojums novērsts",
+              "maintenance_finished": "Apkope pabeigta"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Gatavošana sākta",
+      "brew_finished": "Gatavošana pabeigta",
+      "brew_cancelled": "Gatavošana atcelta",
+      "prompt_raised": "Parādījās paziņojums",
+      "prompt_cleared": "Paziņojums novērsts",
+      "maintenance_finished": "Apkope pabeigta"
     }
   },
   "exceptions": {

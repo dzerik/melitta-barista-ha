@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Aparato įvykis",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Ruošimas pradėtas",
+              "brew_finished": "Ruošimas baigtas",
+              "brew_cancelled": "Ruošimas atšauktas",
+              "prompt_raised": "Pasirodė raginimas",
+              "prompt_cleared": "Raginimas pašalintas",
+              "maintenance_finished": "Priežiūra baigta"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Ruošimas pradėtas",
+      "brew_finished": "Ruošimas baigtas",
+      "brew_cancelled": "Ruošimas atšauktas",
+      "prompt_raised": "Pasirodė raginimas",
+      "prompt_cleared": "Raginimas pašalintas",
+      "maintenance_finished": "Priežiūra baigta"
     }
   },
   "exceptions": {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from bleak.exc import BleakError
 
@@ -29,6 +29,38 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger("melitta_barista")
 
 
+def _directkey_name_key(category: DirectKeyCategory) -> str | None:
+    """Authored ``recipes.name.*`` key for a DirectKey category, or None.
+
+    The table lives in ``narration`` so there is exactly one owner of it;
+    it is not derivable from the category token, because DirectKey MILK is
+    the drink authored as ``warm_milk`` and WATER is ``hot_water`` (and
+    ``recipes.name.milk`` is a different drink, so guessing would name the
+    wrong one). Import failures degrade to "key unknown" rather than
+    surfacing from a brew that has already started.
+    """
+    try:
+        from .narration import DIRECTKEY_NAME_KEYS
+    except ImportError:  # narration is not needed to brew
+        return None
+    return DIRECTKEY_NAME_KEYS.get(category.name.lower())
+
+
+def _nivona_descriptor(caps: Any, recipe_selector: int) -> Any | None:
+    """The capability descriptor for a Nivona selector, or None.
+
+    Tolerant by design: the lookup only decorates a brew record, so a brand
+    profile without a recipe catalogue must cost the drink's name, not the
+    drink.
+    """
+    try:
+        return next(
+            (r for r in caps.recipes if r.recipe_id == recipe_selector), None,
+        )
+    except Exception:  # noqa: BLE001 - no catalogue, no name
+        return None
+
+
 class BleCommandsMixin(_MixinBase):
     """Mixin providing brew and maintenance commands."""
 
@@ -39,6 +71,38 @@ class BleCommandsMixin(_MixinBase):
         caps = getattr(self, "_capabilities", None)
         tolerated = caps.tolerated_brew_manipulations if caps else ()
         return self._status.is_ready_for_brew(tolerated)
+
+    def _record_brew_intent(
+        self,
+        *,
+        components: tuple[RecipeComponent | None, ...] | None = None,
+        **facts: Any,
+    ) -> None:
+        """Stage what HA knows about the brew the machine has just ACKed.
+
+        Best-effort on purpose. The record only decorates a lifecycle event
+        that fires later; by the time this runs the machine has accepted the
+        start command, so nothing here may be allowed to surface as a brew
+        failure. ``components`` takes raw protocol components and is tokenised
+        here, because the staged record must stay JSON-serialisable and must
+        never carry the raw portion byte (units of 5 ml).
+        """
+        try:
+            from .lifecycle import BrewIntent, now_monotonic
+            from .ui_contract import component_to_tokens
+
+            tokens = None
+            if components:
+                tokens = [
+                    component_to_tokens(component)
+                    for component in components
+                    if component is not None
+                ]
+            self._note_brew_intent(
+                BrewIntent(noted_at=now_monotonic(), components=tokens, **facts),
+            )
+        except Exception:  # noqa: BLE001 - bookkeeping must never fail a brew
+            _LOGGER.debug("Could not record the brew intent", exc_info=True)
 
     async def brew_recipe(
         self, recipe_id: RecipeId, *, two_cups: bool = False,
@@ -90,10 +154,24 @@ class BleCommandsMixin(_MixinBase):
 
                 await asyncio.sleep(0.2)
 
-                return await self._protocol.start_process(
+                ok = await self._protocol.start_process(
                     self._write_ble, MachineProcess.PRODUCT,
                     two_cups=two_cups,
                 )
+                if ok:
+                    from .ui_contract import MELITTA_RECIPE_NAME_KEYS
+
+                    self._record_brew_intent(
+                        recipe_source="base",
+                        # RECIPE_NAMES.get, not the `name` written to the
+                        # machine: that one falls back to str(recipe_id), and
+                        # a bare number is not a drink name.
+                        recipe_key=MELITTA_RECIPE_NAME_KEYS.get(int(recipe_id)),
+                        recipe_name=RECIPE_NAMES.get(recipe_id),
+                        two_cups=two_cups,
+                        components=(recipe.component1, recipe.component2),
+                    )
+                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
@@ -194,11 +272,24 @@ class BleCommandsMixin(_MixinBase):
                     hasattr(self._brand, "is_chilled_selector")
                     and self._brand.is_chilled_selector(recipe_selector)
                 )
-                return await self._protocol.start_process_nivona(
+                ok = await self._protocol.start_process_nivona(
                     self._write_ble, recipe_selector, brew_mode,
                     use_temp_recipe=wrote_temp,
                     chilled=is_chilled,
                 )
+                if ok:
+                    # This path brews from a selector plus temp-register
+                    # overrides, never from RecipeComponents, so the record
+                    # carries no components and no volume — an honest gap
+                    # rather than a reconstructed guess.
+                    descriptor = _nivona_descriptor(caps, recipe_selector)
+                    self._record_brew_intent(
+                        recipe_source="nivona",
+                        recipe_key=(descriptor.name_key or None) if descriptor else None,
+                        recipe_name=(descriptor.name or None) if descriptor else None,
+                        two_cups=bool((overrides or {}).get("two_cups")),
+                    )
+                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
@@ -234,11 +325,17 @@ class BleCommandsMixin(_MixinBase):
         async with self._brew_lock:
             self._stop_polling()
             try:
-                return await self._protocol.start_process_nivona(
+                ok = await self._protocol.start_process_nivona(
                     self._write_ble, selector, brew_mode,
                     use_temp_recipe=False,
                     chilled=False,
                 )
+                if ok:
+                    # The slot's recipe lives on the machine and is never read
+                    # back here, so the slot number is genuinely all HA knows:
+                    # no name, no components, no volume.
+                    self._record_brew_intent(recipe_source="mycoffee", slot=slot)
+                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
@@ -305,10 +402,21 @@ class BleCommandsMixin(_MixinBase):
 
                 await asyncio.sleep(0.2)
 
-                return await self._protocol.start_process(
+                ok = await self._protocol.start_process(
                     self._write_ble, MachineProcess.PRODUCT,
                     two_cups=two_cups,
                 )
+                if ok:
+                    self._record_brew_intent(
+                        recipe_source="directkey",
+                        recipe_key=_directkey_name_key(category),
+                        recipe_name=name,
+                        profile=self.active_profile,
+                        profile_name=self._profile_names.get(self.active_profile),
+                        two_cups=two_cups,
+                        components=(recipe.component1, recipe.component2),
+                    )
+                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
@@ -366,17 +474,45 @@ class BleCommandsMixin(_MixinBase):
 
                 await asyncio.sleep(0.2)
 
-                return await self._protocol.start_process(
+                ok = await self._protocol.start_process(
                     self._write_ble, MachineProcess.PRODUCT, two_cups=two_cups,
                 )
+                if ok:
+                    # No recipe_key: a freestyle drink is composed on the fly
+                    # and has no authored name key.
+                    self._record_brew_intent(
+                        recipe_source="freestyle",
+                        recipe_name=name,
+                        two_cups=two_cups,
+                        components=(component1, component2),
+                    )
+                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
 
     async def cancel_process(self, process: MachineProcess = MachineProcess.PRODUCT) -> bool:
+        """Ask the machine to stop ``process``; record that HA cancelled the brew.
+
+        The machine reports a cancel the same way whoever pressed the button
+        did, so a brew that HA stopped is only distinguishable from one the
+        user stopped at the machine by what is recorded here. Only a PRODUCT
+        cancel is recorded — cancelling a maintenance procedure says nothing
+        about the drink.
+
+        Two records, because a cancel can land on either side of the PRODUCT
+        edge: `annotate_brew_intent` covers the narrow window in which the
+        brew is ACKed but the machine has not reported PRODUCT yet, and
+        `_note_ha_cancel` covers the normal case, where the detector already
+        holds its captured copy of the record and the stage is empty.
+        """
         if not self.connected:
             return False
-        return await self._protocol.cancel_process(self._write_ble, process)
+        ok = await self._protocol.cancel_process(self._write_ble, process)
+        if ok and process == MachineProcess.PRODUCT:
+            self.annotate_brew_intent(ha_cancelled=True)
+            self._note_ha_cancel()
+        return ok
 
     async def cancel_brewing(self) -> bool:
         return await self.cancel_process(MachineProcess.PRODUCT)

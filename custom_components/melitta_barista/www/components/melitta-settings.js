@@ -12,10 +12,41 @@
  *   empty / identical template falls back to the default. The list of slots
  *   comes from `melitta_barista/prompts/list` so this UI auto-grows when new
  *   slots are introduced.
+ *
+ * - Backup & restore: export the whole Sommelier configuration as one JSON
+ *   bundle, import one back (a full REPLACE, behind a destructive confirm),
+ *   and manage the pre-import snapshots the server writes before every
+ *   replace. It lives here rather than in a 5th subtab so the System tab's
+ *   shell, its preload list and its subtab labels stay untouched.
  */
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import "./melitta-confirm.js";
+
+/**
+ * Largest bundle the import command accepts inline over the WebSocket,
+ * mirroring `sommelier_backup.MAX_INLINE_IMPORT_BYTES` (3 MiB).
+ *
+ * Checked in the browser so an oversized file yields a localized hint that
+ * names the way out (restore it from the snapshot list, which the server
+ * reads off disk) instead of a raw transport error.
+ *
+ * It caps the *compact* JSON that `hass.callWS` puts on the wire — the same
+ * number the export and snapshot rows report — not the bytes a file happens
+ * to occupy on disk, so whitespace in a picked file never decides it.
+ */
+const MAX_INLINE_IMPORT_BYTES = 3 * 1024 * 1024;
+
+/**
+ * Ceiling on the raw file the picker will read into memory at all.
+ *
+ * The transport cap above can only be applied after parsing, so this loose
+ * second ceiling exists purely to keep a wildly wrong pick (a video, a
+ * database) from being slurped into the tab. Any real bundle whose compact
+ * form fits in 3 MiB stays far below it even when pretty-printed by hand.
+ */
+const MAX_PICKED_FILE_BYTES = 32 * 1024 * 1024;
 
 class MelittaSettings extends LitElement {
   static get properties() {
@@ -34,6 +65,12 @@ class MelittaSettings extends LitElement {
       _previewSlot: { type: String },
       _previewText: { type: String },
       _previewLoading: { type: Boolean },
+      _backupBusy: { type: Boolean },
+      _includeHistory: { type: Boolean },
+      _includeInstallSpecific: { type: Boolean },
+      _snapshots: { type: Array },
+      _snapshotsError: { type: String },
+      _exportSize: { type: Number },
     };
   }
 
@@ -50,6 +87,14 @@ class MelittaSettings extends LitElement {
     this._previewSlot = "";
     this._previewText = "";
     this._previewLoading = false;
+    this._backupBusy = false;
+    this._includeHistory = false;
+    // Default ON, matching the import command's own default: a bundle moved
+    // between installations normally carries the agent it was built against.
+    this._includeInstallSpecific = true;
+    this._snapshots = [];
+    this._snapshotsError = "";
+    this._exportSize = 0;
   }
 
   async _openPreview(slot) {
@@ -81,6 +126,8 @@ class MelittaSettings extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._loadAll();
+    // Deliberately NOT part of _loadAll(): see _loadSnapshots().
+    this._loadSnapshots();
   }
 
   async _loadAll() {
@@ -188,6 +235,352 @@ class MelittaSettings extends LitElement {
     this._drafts = { ...this._drafts, [slot]: value };
   }
 
+  // ── Backup & restore ───────────────────────────────────────────────
+
+  /**
+   * Refresh the snapshot list in its OWN try/catch.
+   *
+   * It never assigns `this._error`: a fresh install simply has no backups
+   * directory yet, and that entirely normal case must not paint the whole
+   * Settings subtab with the failure banner. Any failure degrades to an
+   * empty list plus a local hint rendered next to the list itself.
+   */
+  async _loadSnapshots() {
+    try {
+      const res = await this.hass.callWS({
+        type: "melitta_barista/sommelier/config/snapshots/list",
+      });
+      this._snapshots = res.snapshots || [];
+      this._snapshotsError = "";
+    } catch (e) {
+      this._snapshots = [];
+      this._snapshotsError = this._t("backup.snapshots_unavailable");
+    }
+  }
+
+  /** Byte count as a short human-readable size for the export / snapshot rows. */
+  _fmtSize(bytes) {
+    const n = Number(bytes) || 0;
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  /** A snapshot's ISO `created_at` in the browser's own locale, or verbatim. */
+  _fmtDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
+  }
+
+  /**
+   * Hand a bundle to the browser as a downloaded JSON file.
+   *
+   * The panel is registered with `embed_iframe: False`, so this runs in the
+   * main HA document where Blob URLs and `<a download>` behave; the anchor is
+   * appended to the document because Firefox ignores a click on a detached one.
+   *
+   * Written compactly, exactly as the server serializes bundles: the file on
+   * disk then weighs what the export and snapshot rows say it weighs, and a
+   * bundle that was small enough to export is small enough to import back.
+   */
+  _downloadJson(bundle, filename) {
+    const blob = new Blob([JSON.stringify(bundle)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /**
+   * Open <melitta-confirm> and await the user's decision.
+   *
+   * Lazy-creates the dialog inside this component's shadow root — the same
+   * pattern as melitta-beans.js — so nothing is rendered until something asks.
+   */
+  async _confirm({ title, message, confirmLabel, destructive }) {
+    let dialog = this.renderRoot.querySelector("melitta-confirm");
+    if (!dialog) {
+      dialog = document.createElement("melitta-confirm");
+      this.renderRoot.appendChild(dialog);
+    }
+    return dialog.ask({
+      title,
+      message,
+      confirmLabel,
+      cancelLabel: this._t("common.cancel"),
+      destructive: Boolean(destructive),
+    });
+  }
+
+  /** Total rows written by an import, summed over the per-table counts. */
+  _totalImported(result) {
+    const counts = (result || {}).imported || {};
+    return Object.values(counts).reduce((sum, n) => sum + (Number(n) || 0), 0);
+  }
+
+  /**
+   * Build the bundle server-side and hand it to the browser as a download.
+   *
+   * The reported size is kept so an export too big to come back in through
+   * this page can say so instead of failing on the next import attempt.
+   */
+  async _exportConfig() {
+    this._info = "";
+    this._error = "";
+    this._exportSize = 0;
+    this._backupBusy = true;
+    try {
+      const result = await this.hass.callWS({
+        type: "melitta_barista/sommelier/config/export",
+        include_history: this._includeHistory,
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      this._downloadJson(result.export, `melitta-sommelier-${stamp}.json`);
+      this._exportSize = result.size_bytes || 0;
+      this._info = this._t("backup.export_done");
+    } catch (e) {
+      this._error = e.message || String(e);
+    } finally {
+      this._backupBusy = false;
+    }
+  }
+
+  /** Byte length of a bundle as `hass.callWS` will actually serialize it. */
+  _payloadBytes(bundle) {
+    return new TextEncoder().encode(JSON.stringify(bundle)).length;
+  }
+
+  /**
+   * Handle a picked file: parse it here, confirm, then replace and reload.
+   *
+   * The input value is cleared straight away — without that, re-picking the
+   * same file after a cancelled confirm fires no `change` event at all. The
+   * JSON is parsed in the browser so a wrong file is rejected before anything
+   * server-side is touched, and the page is reloaded on success because every
+   * already-mounted tab is stale once the configuration has been replaced.
+   *
+   * The size guard is applied to the re-serialized compact payload rather than
+   * to `file.size`: indentation in the file never reaches the WebSocket, and
+   * measuring the file instead used to refuse bundles this page had just
+   * exported at a size the transport carries fine.
+   */
+  async _onImportFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    this._info = "";
+    this._error = "";
+    if (file.size > MAX_PICKED_FILE_BYTES) {
+      this._error = this._t("backup.import_too_large");
+      return;
+    }
+    let bundle;
+    try {
+      bundle = JSON.parse(await file.text());
+    } catch (err) {
+      this._error = this._t("backup.import_parse_failed");
+      return;
+    }
+    if (this._payloadBytes(bundle) > MAX_INLINE_IMPORT_BYTES) {
+      this._error = this._t("backup.import_too_large");
+      return;
+    }
+    const ok = await this._confirm({
+      title: this._t("confirm.import.title"),
+      message: this._t("confirm.import.message", { file: file.name }),
+      confirmLabel: this._t("confirm.import.confirm"),
+      destructive: true,
+    });
+    if (!ok) return;
+    this._backupBusy = true;
+    try {
+      const res = await this.hass.callWS({
+        type: "melitta_barista/sommelier/config/import",
+        export: bundle,
+        include_history: this._includeHistory,
+        include_install_specific: this._includeInstallSpecific,
+      });
+      this._info = this._t("backup.import_done", {
+        count: this._totalImported(res),
+      });
+      window.location.reload();
+    } catch (err) {
+      this._error = err.message || String(err);
+    } finally {
+      this._backupBusy = false;
+    }
+  }
+
+  /** Download one snapshot; the server reads and parses it, never the browser. */
+  async _downloadSnapshot(snap) {
+    this._info = "";
+    this._error = "";
+    this._backupBusy = true;
+    try {
+      const res = await this.hass.callWS({
+        type: "melitta_barista/sommelier/config/snapshots/get",
+        name: snap.name,
+      });
+      this._downloadJson(res.export, snap.name);
+    } catch (e) {
+      this._error = e.message || String(e);
+    } finally {
+      this._backupBusy = false;
+    }
+  }
+
+  /**
+   * Restore a snapshot server-side.
+   *
+   * Just as destructive as an import — it is a full replace as well — so it
+   * goes through the same confirm and the same reload. The bundle is never
+   * uploaded: only its name travels, which is also how a snapshot too large
+   * to travel inbound is still restorable.
+   */
+  async _restoreSnapshot(snap) {
+    this._info = "";
+    this._error = "";
+    const ok = await this._confirm({
+      title: this._t("confirm.restore.title"),
+      message: this._t("confirm.restore.message", { name: snap.name }),
+      confirmLabel: this._t("backup.snapshot_restore"),
+      destructive: true,
+    });
+    if (!ok) return;
+    this._backupBusy = true;
+    try {
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/config/snapshots/restore",
+        name: snap.name,
+      });
+      this._info = this._t("backup.restore_done");
+      window.location.reload();
+    } catch (e) {
+      this._error = e.message || String(e);
+    } finally {
+      this._backupBusy = false;
+    }
+  }
+
+  /**
+   * Delete one snapshot file.
+   *
+   * Retention prunes only the automatic pre-import snapshots, so this is the
+   * only way to get rid of a kept one. Nothing but the file changes, so the
+   * list is refreshed in place — no page reload.
+   */
+  async _deleteSnapshot(snap) {
+    this._info = "";
+    this._error = "";
+    const ok = await this._confirm({
+      title: this._t("confirm.snapshot_delete.title"),
+      message: this._t("confirm.snapshot_delete.message", { name: snap.name }),
+      confirmLabel: this._t("backup.snapshot_delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    this._backupBusy = true;
+    try {
+      await this.hass.callWS({
+        type: "melitta_barista/sommelier/config/snapshots/delete",
+        name: snap.name,
+      });
+      this._info = this._t("backup.delete_done");
+      await this._loadSnapshots();
+    } catch (e) {
+      this._error = e.message || String(e);
+    } finally {
+      this._backupBusy = false;
+    }
+  }
+
+  /** The Backup & restore block, rendered at the end of the Settings card. */
+  _renderBackup() {
+    return html`
+      <h3>${this._t("backup.title")}</h3>
+      <p class="help">${this._t("backup.help")}</p>
+      <p class="help privacy">${this._t("backup.privacy_note")}</p>
+
+      <label class="toggle">
+        <input type="checkbox"
+          ?disabled=${this._backupBusy}
+          .checked=${this._includeHistory}
+          @change=${(e) => { this._includeHistory = e.target.checked; }} />
+        ${this._t("backup.include_history")}
+      </label>
+      <p class="help">${this._t("backup.include_history_help")}</p>
+
+      <label class="toggle">
+        <input type="checkbox"
+          ?disabled=${this._backupBusy}
+          .checked=${this._includeInstallSpecific}
+          @change=${(e) => { this._includeInstallSpecific = e.target.checked; }} />
+        ${this._t("backup.include_install_specific")}
+      </label>
+      <p class="help">${this._t("backup.include_install_specific_help")}</p>
+
+      ${this._exportSize > MAX_INLINE_IMPORT_BYTES
+        ? html`<div class="hint">${this._t("backup.export_large")}</div>`
+        : ""}
+
+      <div class="form-actions">
+        <input type="file" class="import-file" accept="application/json,.json" hidden
+          @change=${(e) => this._onImportFile(e)} />
+        <button class="ghost" ?disabled=${this._backupBusy}
+          @click=${() => this.renderRoot.querySelector("input.import-file").click()}>
+          ${this._t("backup.import")}
+        </button>
+        <button class="primary" ?disabled=${this._backupBusy}
+          @click=${() => this._exportConfig()}>
+          ${this._t("backup.export")}
+        </button>
+      </div>
+
+      <h3>${this._t("backup.snapshots")}</h3>
+      <p class="help">${this._t("backup.snapshots_help")}</p>
+      ${this._snapshotsError
+        ? html`<div class="hint">${this._snapshotsError}</div>`
+        : this._snapshots.length === 0
+          ? html`<div class="hint">${this._t("backup.snapshots_empty")}</div>`
+          : this._snapshots.map((s) => html`
+            <div class="snapshot">
+              <div class="snap-meta">
+                <code>${s.name}</code>
+                <span class="badge">
+                  ${this._t(s.source === "auto"
+                    ? "backup.snapshot_auto"
+                    : "backup.snapshot_manual")}
+                </span>
+                <span class="snap-sub">
+                  ${this._fmtDate(s.created_at)} · ${this._fmtSize(s.size_bytes)}
+                </span>
+              </div>
+              <div class="snap-actions">
+                <button class="ghost" ?disabled=${this._backupBusy}
+                  @click=${() => this._downloadSnapshot(s)}>
+                  ${this._t("backup.snapshot_download")}
+                </button>
+                <button class="ghost" ?disabled=${this._backupBusy}
+                  @click=${() => this._restoreSnapshot(s)}>
+                  ${this._t("backup.snapshot_restore")}
+                </button>
+                <button class="ghost danger" ?disabled=${this._backupBusy}
+                  @click=${() => this._deleteSnapshot(s)}>
+                  ${this._t("backup.snapshot_delete")}
+                </button>
+              </div>
+            </div>
+          `)}
+    `;
+  }
+
   render() {
     return html`
       <section class="card">
@@ -288,6 +681,8 @@ class MelittaSettings extends LitElement {
               ` : ""}
             </details>
           `)}
+
+        ${this._renderBackup()}
       </section>
     `;
   }
@@ -485,6 +880,47 @@ class MelittaSettings extends LitElement {
         font-size: 13px;
       }
       .hint { color: var(--secondary-text-color); padding: 8px 0; }
+      button.danger {
+        color: var(--error-color);
+        border-color: var(--error-color);
+      }
+      p.help.privacy { font-style: italic; }
+      .snapshot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 4px;
+      }
+      .snap-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 8px;
+        min-width: 0;
+      }
+      .snap-meta code {
+        font-family: var(--code-font-family, monospace);
+        font-size: 12px;
+        word-break: break-all;
+      }
+      .snap-sub {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .snap-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .snap-actions button {
+        font-size: 12px;
+        padding: 4px 10px;
+      }
     `;
   }
 }

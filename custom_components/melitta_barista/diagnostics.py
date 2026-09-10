@@ -10,6 +10,8 @@ from homeassistant.core import HomeAssistant
 from .bond_state import BondStateMachine
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import DOMAIN
+from .event import lifecycle_detector_key
+from .lifecycle import BrewIntent
 
 
 def _redact_address(address: str) -> str:
@@ -46,6 +48,80 @@ def _redact_unique_id(unique_id: str | None) -> str | None:
         f"{unique_id[:4]}******{unique_id[-2:]}"
         if len(unique_id) == 12 else "redacted"
     )
+
+
+def _brew_intent_summary(client: CoffeeMachineClient) -> dict[str, Any] | None:
+    """Summarise the staged `BrewIntent` without leaking user-authored text.
+
+    A staged intent is the answer to "why did the brew event say
+    `source: machine`" — the two usual causes are nothing staged at all and an
+    intent older than the correlation TTL, and both are visible here. Recipe
+    and profile names are reported as booleans, never as strings: presence is
+    the whole diagnostic value, and the string itself is user-authored free
+    text this block has no reason to ship.
+
+    That is a property of this block, not a policy of the module: the download
+    still carries `profiles.names` verbatim (a profile name is what a support
+    thread refers to a slot by), so a new field here is not automatically safe
+    to add as a raw string — decide it on its own merits.
+    """
+    intent = getattr(client, "brew_intent", None)
+    if not isinstance(intent, BrewIntent):
+        return None
+    components = intent.components or ()
+    return {
+        "recipe_source": intent.recipe_source,
+        "recipe_key": intent.recipe_key,
+        "profile": intent.profile,
+        "two_cups": intent.two_cups,
+        "slot": intent.slot,
+        "component_count": len(components),
+        "age_s": round(intent.age_s(), 1),
+        "ha_cancelled": intent.ha_cancelled,
+        "has_recipe_name": bool(intent.recipe_name),
+        "has_profile_name": bool(intent.profile_name),
+    }
+
+
+def _narration_diagnostics(
+    hass: HomeAssistant, entry: ConfigEntry, client: CoffeeMachineClient,
+) -> dict[str, Any]:
+    """State of the server-side narration path and the lifecycle detector.
+
+    Everything here is `getattr`-based and never raises: this block exists so a
+    bug report answers "no `description` on the event" (cold or wrong-locale
+    string cache) and "no event at all" (the detector's latches) without a live
+    debugger, and a diagnostics download must stay possible even when one of
+    those subsystems is exactly what is broken.
+    """
+    domain_data = hass.data.get(DOMAIN) or {}
+    narration_strings = domain_data.get("narration_strings")
+    ui_strings_cache = domain_data.get("ui_strings_cache") or {}
+    detector = domain_data.get(lifecycle_detector_key(entry.entry_id))
+    snapshot = getattr(detector, "state_snapshot", None)
+    detector_state: dict[str, Any] | None = None
+    if callable(snapshot):
+        try:
+            taken = snapshot()
+        except Exception:  # noqa: BLE001 - diagnostics must stay downloadable
+            taken = None
+        # `isinstance` rather than trust: a test double stashed here would
+        # otherwise put a non-serialisable object in the JSON download.
+        detector_state = taken if isinstance(taken, dict) else None
+    return {
+        "locale": domain_data.get("narration_locale"),
+        "narration_keys": (
+            len(narration_strings) if isinstance(narration_strings, dict) else None
+        ),
+        "ui_strings_resolution": dict(
+            domain_data.get("ui_strings_resolution") or {},
+        ),
+        "ui_strings_cached_locales": sorted(
+            str(locale) for locale in ui_strings_cache
+        ),
+        "brew_intent": _brew_intent_summary(client),
+        "detector": detector_state,
+    }
 
 
 async def async_get_config_entry_diagnostics(
@@ -126,6 +202,7 @@ async def async_get_config_entry_diagnostics(
         },
         "recovery": recovery,
         "bluetooth_affinity": bluetooth_affinity,
+        "narration": _narration_diagnostics(hass, entry, client),
         "domain_entries": {
             "count": len(domain_entries),
             "entries": [

@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Događaj aparata",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Priprema je započela",
+              "brew_finished": "Priprema je završena",
+              "brew_cancelled": "Priprema je otkazana",
+              "prompt_raised": "Pojavio se upit",
+              "prompt_cleared": "Upit je riješen",
+              "maintenance_finished": "Održavanje je završeno"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Priprema je započela",
+      "brew_finished": "Priprema je završena",
+      "brew_cancelled": "Priprema je otkazana",
+      "prompt_raised": "Pojavio se upit",
+      "prompt_cleared": "Upit je riješen",
+      "maintenance_finished": "Održavanje je završeno"
     }
   },
   "exceptions": {

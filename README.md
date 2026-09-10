@@ -8,7 +8,7 @@
 [![Validate](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=hassfest%2BHACS)](https://github.com/dzerik/melitta-barista-ha/actions)
 [![License](https://img.shields.io/github/license/dzerik/melitta-barista-ha?style=flat-square)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square)](https://hacs.xyz)
-[![Home Assistant](https://img.shields.io/badge/HA-2024.1%2B-blue?style=flat-square)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/HA-2024.7%2B-blue?style=flat-square)](https://www.home-assistant.io/)
 [![BLE](https://img.shields.io/badge/BLE-Bluetooth_LE-blue?style=flat-square)](#)
 [![Brands](https://img.shields.io/badge/brands-Melitta%20%2B%20Nivona-8b5a2b?style=flat-square)](#supported-brands-and-models)
 [![Translations](https://img.shields.io/badge/translations-29_languages-blueviolet?style=flat-square)](#localization)
@@ -49,12 +49,12 @@ The brand and machine model are automatically detected from the BLE advertisemen
 
 ## Nivona (alpha) — testers wanted
 
-**Status**: the Nivona `BrandProfile` shipped in v0.41.0 is **code-complete and cryptographically validated** against the upstream reverse-engineering vectors from [mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge), but the maintainer does **not own a Nivona machine** and cannot verify live BLE interop. The release is marked pre-release on GitHub.
+**Status**: the Nivona `BrandProfile` shipped in v0.41.0 is **code-complete and cryptographically validated** against the upstream protocol vectors published by [mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge), but the maintainer does **not own a Nivona machine** and cannot verify live BLE interop. The release is marked pre-release on GitHub.
 
 **What's validated in software**:
 
 - HU handshake verifier against the published vector `FA 48 D1 7B → 7E 6E` (upstream NICR 756)
-- RC4 runtime key `NIV_060616_V10_1*9#3!4$6+4res-?3` (recovered from `de.nivona.mobileapp` 3.8.6)
+- RC4 runtime key `NIV_060616_V10_1*9#3!4$6+4res-?3` (the fixed per-brand runtime key, identical across the Nivona range)
 - 7 family capability entries with per-family brew opcode / strength levels / fluid scaling
 - Serial-prefix tokenisation for all known model codes (4-char for NIVO 8xxx, 3-char for NICR 6xx/7xx/79x/9xx)
 
@@ -90,6 +90,9 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 - **Feature capability read** (HI, v0.32.0+) — diagnostic sensor exposes machine capability bits (e.g. `IMAGE_TRANSFER`), graceful on firmwares that don't answer
 - **User profiles** (Melitta) — read and edit user profile names on the machine
 - **Cup counters** (Melitta) — total + per-recipe statistics, refreshed after each brew completion
+- **Machine lifecycle events** (v0.95.0+) — a `Machine event` entity plus six device triggers (brew started / finished / cancelled, prompt raised / cleared, maintenance finished) you can pick straight from the automation editor, each carrying a machine-readable token payload
+- **Spoken narration, rendered on the server** (v0.95.0+) — every lifecycle event arrives with a ready-made `description` sentence (*«Ready: Cappuccino — 40 ml of coffee, 160 ml of hot milk, strong.»*, *«Сварено: капучино — 40 мл кофе, 160 мл горячего молока, высокой интенсивности.»*) in all 29 languages, so a TTS or notification automation is a one-liner
+- **Sommelier backup & restore** (v0.95.0+) — export the whole Sommelier configuration as one JSON file and import it back here or onto another installation, with an automatic pre-import snapshot as the undo path
 - **BLE auto-discovery** — integration detects your Melitta or Nivona machine automatically
 - **Encrypted BLE protocol** — full Eugster EFLibrary stack (AES customer-key bootstrap + RC4 stream cipher), per-brand HU verifier tables
 - **🤖 AI Coffee Sommelier (alpha)** — full in-HA admin panel with a Sommelier tab: pick allowed syrups / toppings / milk, mood (multi-select), cup size, dietary, time-of-day-aware occasion, then generate recipes via your chosen conversation agent (OpenAI / Anthropic / Gemini / GigaChat / SmartChain / Ollama). Each recipe arrives with the full step-by-step preparation, dosages and machine-action — all in your HA UI language — and a single ★ to favourite or "Brew this" to run on the machine. See [AI Coffee Sommelier (alpha)](#ai-coffee-sommelier-alpha).
@@ -214,7 +217,11 @@ full hardware list.
 
 ## Requirements
 
-- **Home Assistant** 2024.1 or newer
+- **Home Assistant** 2024.7 or newer — the integration needs a core new enough
+  for `ConfigEntry.runtime_data` (2024.6) and the async static-path API
+  (`StaticPathConfig`, 2024.7). The automation examples below are written in
+  the modern `triggers:` / `actions:` schema, which needs 2024.10; on an older
+  core rename the blocks as noted there — the integration itself runs fine
 - **BLE transport** — one of:
   - **ESPHome BLE proxy on an ESP32** *(recommended; primary tested path —
     see above)*. The proxy sits in the machine's RF neighbourhood and
@@ -442,6 +449,93 @@ Once configured, the integration creates a device with all available entities fi
 | Profile 1-8 Name | TS | User profile names (read/write, configuration). |
 | Freestyle Name | T, TS | Custom name for the freestyle recipe. |
 
+### Events
+
+| Entity | Model | Description |
+|--------|-------|-------------|
+| Machine event | T, TS, Nivona | Fires on brew start / finish / cancel, on a machine prompt appearing or clearing, and when a maintenance cycle finishes. Carries a localized `description` sentence plus a machine-readable token payload. The same six types are pickable as **device triggers** in the automation editor. |
+
+One `Machine event` entity per machine — `event.melitta_machine_event` in the
+examples below; the real id follows your device's name. Its state is the
+timestamp of the last event; `event_type` says which one it was. The
+entity deliberately stays *available* while the machine is off, so "what did it
+last do" survives a power cycle.
+
+| Event type | Fires when |
+|---|---|
+| `brew_started` | the machine enters its brewing process |
+| `brew_finished` | brewing ends and nothing reported a cancellation |
+| `brew_cancelled` | brewing ends after a cancel (`cancel_source` says by whom) |
+| `prompt_raised` | the machine asks for something (fill water, empty trays, move cup, …) |
+| `prompt_cleared` | that request goes away |
+| `maintenance_finished` | a cleaning / descaling / filter / venting cycle ends |
+
+**Payload** — every field is *optional*: an absent fact is an absent key, never a
+fabricated default. The same payload is available on the entity's attributes and,
+for a device trigger, as `trigger.event.data`.
+
+| Key | Events | Value |
+|---|---|---|
+| `description` | all | The narrated sentence, in Home Assistant's own language. |
+| `description_key` | all | The narration string key the sentence came from. |
+| `description_language` | all | The language it is actually in (`en` when a locale is incomplete). |
+| `source` | brew_* | `ha` when Home Assistant started the brew, `machine` when someone pressed a button on the machine. |
+| `recipe_source` | brew_* | `base`, `directkey`, `mycoffee`, `freestyle`, `nivona` or `sommelier`. |
+| `recipe_key` | brew_* | Stable token for a built-in drink (`cappuccino`, …). |
+| `recipe_name` | brew_* | Display name as Home Assistant knew it. |
+| `profile` / `profile_name` | brew_* | DirectKey brews started from Home Assistant only. |
+| `two_cups` | brew_* | Double-cup brew. |
+| `slot` | brew_* | My-Coffee slot number. |
+| `components` | brew_* | List of `{process, intensity, aroma, temperature, shots, portion_ml, blend?}` dicts. `process` ∈ `coffee` / `milk` / `water`. |
+| `total_ml` | brew_* | Sum of the component volumes. |
+| `phase_index` / `phase_total` | brew_* | Which pour of a multi-phase Sommelier drink this was. |
+| `final` | brew_finished, brew_cancelled | `false` while a multi-phase Sommelier drink still has pours left. |
+| `duration_s` | brew_finished, brew_cancelled, prompt_cleared, maintenance_finished | Whole seconds. |
+| `cancel_source` | brew_cancelled | `ha`, `machine` or `power_off`. |
+| `cancel_detection` | brew_finished, brew_cancelled | `false` when the brand's firmware cannot report a machine-side cancel at all — i.e. "not cancelled" cannot be distinguished from "cannot tell". |
+| `prompt` | prompt_raised, prompt_cleared | `FILL_WATER`, `EMPTY_TRAYS`, `MOVE_CUP_TO_FROTHER`, `FLUSH_REQUIRED`, `BU_REMOVED`, `TRAYS_MISSING`, `CLOSE_POWDER_LID`, `FILL_POWDER`. |
+| `soft` | prompt_raised | The prompt is auto-confirmable (move cup, flush). |
+| `auto_confirm` | prompt_raised | The integration is about to confirm it for you — guard your announcements on `not auto_confirm`. |
+| `during_brew` | prompt_raised | The prompt appeared while a brew was running. |
+| `process` | maintenance_finished | `CLEANING`, `INTENSIVE_CLEAN`, `EASY_CLEAN`, `DESCALING`, `FILTER_INSERT`, `FILTER_REPLACE`, `FILTER_REMOVE`, `EVAPORATING`. |
+| `restored` | all (entity attributes only) | `true` only on the copy Home Assistant restored at startup; never present on the bus event — see the warning under [Entity State Trigger](#entity-state-trigger-only-if-you-need-it). |
+
+Each entity event is mirrored on the Home Assistant bus as
+`melitta_barista_event`, with `device_id`, `entity_id` and `type` added to the
+payload above. The device triggers are built on that bus event; the template
+sensor example below listens to it directly.
+
+**Recorder:** `description`, `event_type`, `source`, `recipe_source`,
+`recipe_name`, `two_cups`, `duration_s`, `final`, `cancel_source`, `prompt` and
+`process` are recorded, so the logbook and long-term history keep the readable
+story. The bulky or purely machine-facing keys (`components`, `total_ml`,
+`description_key`, `description_language`, `recipe_key`, `profile`,
+`profile_name`, `slot`, `phase_index`, `phase_total`, `restored`, `soft`,
+`auto_confirm`, `during_brew`, `cancel_detection`) are **not** recorded — they
+are always present live, and deliberately absent from the database.
+
+**Things that are by design, not bugs:**
+
+- The `description` sentence is rendered in **Home Assistant's own server-wide
+  language** (`hass.config.language`), not per user. `description_language`
+  tells you which language it actually came out in — it falls back to English
+  as a whole sentence when a locale is incomplete, never half-and-half.
+- **On Nivona**, `maintenance_finished` never fires and `cancel_source:
+  "power_off"` never occurs: that firmware reports only two process codes
+  (ready / preparing) to this integration. `cancel_detection` is `false` there,
+  so a cancelled Nivona brew is reported as `brew_finished`.
+- A prompt that is replaced by a different prompt emits `prompt_cleared` and
+  then `prompt_raised`, in that order — one event per prompt.
+- A brew shorter than the 5 s status poll interval can be missed entirely.
+- A brew still "running" after 30 minutes is dropped silently — no finish event
+  is emitted for it, because an hours-old start has no honest finish time.
+- Brews that complete while Home Assistant is disconnected from the machine
+  produce no event at all.
+- `profile` / `profile_name` appear only for DirectKey brews started from Home
+  Assistant.
+- `PRODUCT → SWITCH_OFF ⇒ cancel_source: "power_off"` is a heuristic on Melitta,
+  not something verified against hardware.
+
 ## Services
 
 The integration provides five custom services.
@@ -563,6 +657,57 @@ Configure the integration via **Settings → Devices & Services → Melitta Bari
 
 **Tracking**: see open issues tagged `sommelier` in the [issue tracker](https://github.com/dzerik/melitta-barista-ha/issues).
 
+### Backup & restore
+
+**Melitta** sidebar → **System** tab → **Settings** subtab → **Backup & restore**
+(v0.95.0+). Everything below is admin-only.
+
+**Export** downloads the whole Sommelier configuration as a single JSON file:
+beans and producers, hopper assignments, milk types, syrups and toppings, flavor
+tags, profiles, favorites, your own presets, prompt templates and the Sommelier
+settings. Tick **Include generation history** to add every generation session
+and its recipes as well.
+
+Not in the file, ever: the machine's own capabilities (they are re-probed on the
+next connect), the database schema-version row, and anything the integration
+does not recognise as a Sommelier setting. **No credentials are stored in this
+database, so none can leak through the file** — but it *does* contain household
+names (profiles, favorites), dietary preferences, your prompt templates and,
+with history, the weather recorded at generation time. Review it before sharing
+it with anyone.
+
+**Import replaces everything.** It is not a merge: the Sommelier configuration
+in the file becomes the Sommelier configuration on this install, and any bean,
+favorite or profile you have here that is not in the file is gone. Two flags
+shape it:
+
+| Flag | Effect |
+|---|---|
+| **Include generation history** | Whether the file's history is written back. Your **local history is cleared either way** — a foreign configuration sitting on top of the previous install's history is not a state anyone asked for. |
+| **Take LLM agent and weather entity from the backup** | **On by default** — untick it before importing someone else's file. Off: this installation keeps its **own** LLM agent and weather entity, and the file's values are ignored; it protects the receiving install and never clears those settings. On: the file's values are taken too — and if one of them names an entity that does not exist here, it is reported and **your own value stays**, so an import never leaves the Sommelier without an agent. |
+
+Everything happens in one database transaction: an import either lands whole or
+leaves the database exactly as it was.
+
+**Snapshots** are the undo path. Before every import — and before every restore —
+the server writes a full snapshot of the *current* configuration (history and
+all) to `<config>/melitta_barista_sommelier_backups/pre-import-<timestamp>.json`
+and lists it under **Snapshots**, where you can download, restore or delete it.
+If the snapshot cannot be written — or would be too large to restore, in which
+case it is written without the generation history — the import is aborted before
+the database is touched. The five newest automatic snapshots are kept, plus the
+one you are restoring from, which is never pruned out from under you; ones you
+drop into that folder yourself or rename are never pruned at all, and are
+removed with the **Delete** button.
+
+That folder is also the way in for a file too large to travel through the
+browser: the panel refuses an import above 3 MB (the WebSocket frame ceiling),
+but a bundle placed in the backups folder by hand is read **server-side** by
+**Restore** with no such limit.
+
+A successful import fires `melitta_barista_sommelier_imported` on the Home
+Assistant bus. Reload the panel afterwards to see the new configuration.
+
 ## Architecture
 
 The integration is built on a **three-layer abstraction** (v0.40.0+) that cleanly separates:
@@ -604,58 +749,300 @@ worth reading as reference implementations.
 
 ## Automation Examples
 
+> **Which trigger should I use?** The **device trigger** (`trigger: device`,
+> `domain: melitta_barista`) is the recommended route: it is pickable in the
+> automation editor, it fires exactly once per occurrence — including two
+> identical brews in a row — and it never replays a stale event when Home
+> Assistant restarts or the integration reloads. See
+> [Events](#events) for every type and payload key.
+>
+> The YAML below writes `!secret coffee_device_id` wherever the automation
+> editor would fill in your machine's device id for you.
+>
+> **Core version.** Every example below uses the modern automation schema
+> (`triggers:` / `conditions:` / `actions:`, with `trigger:` and `action:`
+> naming the platform and the service), which Home Assistant accepts from
+> **2024.10** onwards. On an older core, rename the blocks to the classic
+> `trigger:` / `condition:` / `action:` keys with `platform:` and `service:`
+> inside them.
+
 ### Morning Espresso
 
 ```yaml
 automation:
   - alias: "Morning Espresso at 7:00"
-    trigger:
-      - platform: time
-        at: "07:00"
-    condition:
+    triggers:
+      - trigger: time
+        at: "07:00:00"
+    conditions:
       - condition: state
         entity_id: sensor.melitta_state
-        state: "ready"
-    action:
-      - service: button.press
+        state: "Ready"
+    actions:
+      - action: button.press
         target:
           entity_id: button.melitta_brew_espresso
 ```
 
+> The state sensor's value is the human label (`Ready`, capital R — a state
+> condition compares case-sensitively). The machine-readable equivalent, stable
+> across releases, is the sensor's `process_token` attribute:
+> `{{ state_attr('sensor.melitta_state', 'process_token') == 'READY' }}`.
+
 ### Notify When Coffee is Ready
+
+`description` is already a finished sentence in your Home Assistant language, so
+there is nothing to build. The `final` guard keeps a multi-phase Sommelier drink
+quiet until its last pour.
 
 ```yaml
 automation:
   - alias: "Coffee Ready Notification"
-    trigger:
-      - platform: state
-        entity_id: sensor.melitta_activity
-        from: "extracting"
-        to: "idle"
-    action:
-      - service: notify.mobile_app
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - "{{ trigger.event.data.final | default(true) }}"
+    actions:
+      - action: notify.mobile_app_pixel
         data:
-          message: "Your coffee is ready! ☕"
+          message: "{{ trigger.event.data.description }}"
 ```
 
 ### Maintenance Reminder
 
+`prompt_raised` fires the moment the machine asks for something. Guarding on
+`auto_confirm` keeps the integration's own soft prompts (move cup, flush) from
+notifying you about something it is about to handle itself.
+
 ```yaml
 automation:
-  - alias: "Coffee Machine Maintenance Reminder"
-    trigger:
-      - platform: state
-        entity_id: sensor.melitta_action_required
-    condition:
-      - condition: not
-        conditions:
-          - condition: state
-            entity_id: sensor.melitta_action_required
-            state: "none"
-    action:
-      - service: notify.mobile_app
+  - alias: "Coffee Machine Needs Attention"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: prompt_raised
+    conditions:
+      - "{{ not trigger.event.data.auto_confirm }}"
+    actions:
+      - action: notify.mobile_app_pixel
         data:
-          message: "Coffee machine needs attention: {{ states('sensor.melitta_action_required') }}"
+          message: "{{ trigger.event.data.description }}"
+```
+
+### Descaling Finished → Stamp a Reminder
+
+`maintenance_finished` carries the procedure as a stable token in `process`, so
+you can single one out without matching on prose.
+
+```yaml
+automation:
+  - alias: "Remember the last descaling"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: maintenance_finished
+    conditions:
+      - "{{ trigger.event.data.process == 'DESCALING' }}"
+    actions:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.last_descaling
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+```
+
+### Count Milk Drinks (tokens, no prose)
+
+```yaml
+automation:
+  - alias: "Count milk drinks"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - >-
+        {{ trigger.event.data.components | default([])
+           | selectattr('process', 'eq', 'milk') | list | count > 0 }}
+    actions:
+      - action: counter.increment
+        target:
+          entity_id: counter.milk_drinks
+```
+
+> ⚠ `components` is an **unrecorded** attribute. It is always there in
+> `trigger.event.data`, but it is deliberately never written to the recorder
+> database, so it cannot be queried from long-term history.
+
+### Latch the Last Brew on a Dashboard
+
+One event entity covers the whole machine, so if you want the last brew pinned
+somewhere, latch it into a trigger-based template sensor:
+
+```yaml
+template:
+  - trigger:
+      - trigger: event
+        event_type: melitta_barista_event
+        event_data:
+          type: brew_finished
+    sensor:
+      - name: "Last coffee"
+        state: "{{ trigger.event.data.description | default('') | truncate(250, true) }}"
+        attributes:
+          recipe: "{{ trigger.event.data.recipe_name | default('') }}"
+          seconds: "{{ trigger.event.data.duration_s | default(0) }}"
+```
+
+### Entity State Trigger (only if you need it)
+
+If you must trigger on the entity instead of the device, guard on `restored` —
+otherwise the event Home Assistant restores at startup announces yesterday's
+cappuccino as it is re-added:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: event.melitta_machine_event
+    attribute: event_type
+    to: "brew_finished"
+conditions:
+  - "{{ not trigger.to_state.attributes.restored | default(false) }}"
+```
+
+> ⚠ This variant also **misses two identical events in a row** (the state
+> trigger returns early when the attribute's old and new value are equal), which
+> is exactly the normal coffee-machine case. Prefer the device trigger.
+
+## Voice assistants
+
+Every lifecycle event carries `description`: a finished sentence, rendered on
+the server in Home Assistant's own language (`hass.config.language`) — «Ready:
+Cappuccino — 40 ml of coffee, 160 ml of hot milk, strong.», «Сварено: капучино —
+40 мл кофе, 160 мл горячего молока, высокой интенсивности.», «Cappuccino ist
+fertig — 40 ml Kaffee, 160 ml heiße Milch, starke Intensität.» There is nothing
+to translate and no string to assemble in your automation: pipe it into whatever
+speaks in your kitchen.
+
+The language is server-wide, not per user; `description_language` says which
+language the sentence actually came out in. Drink names are spoken in the
+locale's own script where a spoken form exists — Russian says «капучино» even
+though every picker button in the UI keeps the Latin `Cappuccino` — so a
+Cyrillic or Greek voice is never handed a Latin token to spell out.
+
+### Generic — any TTS engine
+
+Works with Piper, Google Translate TTS, Microsoft Edge TTS, ElevenLabs — anything
+that registers a `tts` entity.
+
+```yaml
+automation:
+  - alias: "Announce the coffee"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - "{{ trigger.event.data.final | default(true) }}"
+    actions:
+      - action: tts.speak
+        target:
+          entity_id: tts.piper
+        data:
+          media_player_entity_id: media_player.kitchen
+          message: "{{ trigger.event.data.description }}"
+```
+
+### Sber / Salut speakers (SberBoom, SberPortal)
+
+Via [dzerik/ha-sberhome](https://github.com/dzerik/ha-sberhome) (domain
+`sberhome`). `sberhome.tts_send` speaks the text verbatim; `message` is required
+and supports templates, `device_ids` is an optional list of raw Sber speaker
+UUIDs — omit it and every speaker in every one of your homes says it.
+
+```yaml
+automation:
+  - alias: "Announce the coffee on Sber speakers"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - "{{ trigger.event.data.final | default(true) }}"
+    actions:
+      - action: sberhome.tts_send
+        data:
+          message: "{{ trigger.event.data.description }}"
+          device_ids:
+            - "00000000-0000-0000-0000-000000000000"   # your Sber speaker UUID
+```
+
+The same integration also exposes `sberhome.ttc_send`, with exactly the same
+fields, which hands the text to the assistant as a **command** instead of
+reading it out — use that one when you want the speaker to *do* something
+(`"поставь таймер на 5 минут"` after a descaling starts, say) rather than to
+announce something.
+
+### Yandex Alice (Yandex Station)
+
+Via [AlexxIT/YandexStation](https://github.com/AlexxIT/YandexStation):
+
+```yaml
+automation:
+  - alias: "Announce the coffee on Alice"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - "{{ trigger.event.data.final | default(true) }}"
+    actions:
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.yandex_station_kitchen
+        data:
+          media_content_type: text
+          media_content_id: "{{ trigger.event.data.description }}"
+```
+
+That integration also provides `tts.yandex_station_say`, which is an equivalent
+alternative if you prefer the `tts` surface.
+
+### Speak the prompts too
+
+The most useful announcement is usually not "your coffee is ready" but "the
+machine needs you: fill water" — same sentence field, different trigger type,
+plus a night guard and the `auto_confirm` filter:
+
+```yaml
+automation:
+  - alias: "Announce machine prompts"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: prompt_raised
+    conditions:
+      - "{{ not trigger.event.data.auto_confirm }}"
+      - condition: time
+        after: "07:00:00"
+        before: "22:00:00"
+    actions:
+      - action: tts.speak
+        target:
+          entity_id: tts.piper
+        data:
+          media_player_entity_id: media_player.kitchen
+          message: "{{ trigger.event.data.description }}"
 ```
 
 ## Removing the Integration

@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Laitteen tapahtuma",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Keittäminen alkoi",
+              "brew_finished": "Keittäminen valmis",
+              "brew_cancelled": "Keittäminen peruttiin",
+              "prompt_raised": "Kehote näkyvissä",
+              "prompt_cleared": "Kehote poistui",
+              "maintenance_finished": "Huolto valmis"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Keittäminen alkoi",
+      "brew_finished": "Keittäminen valmis",
+      "brew_cancelled": "Keittäminen peruttiin",
+      "prompt_raised": "Kehote näkyvissä",
+      "prompt_cleared": "Kehote poistui",
+      "maintenance_finished": "Huolto valmis"
     }
   },
   "exceptions": {

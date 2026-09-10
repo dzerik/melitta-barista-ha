@@ -28,7 +28,12 @@ from time import monotonic as _time_monotonic, perf_counter as _time_perf_counte
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.const import CONF_ADDRESS, CONF_NAME, Platform
+from homeassistant.const import (
+    CONF_ADDRESS,
+    CONF_NAME,
+    EVENT_CORE_CONFIG_UPDATE,
+    Platform,
+)
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.util import dt as dt_util
@@ -92,6 +97,10 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.TEXT,
     Platform.TIME,
+    # Appended LAST on purpose: existing platform tests select a client
+    # callback by its registration index, so a new platform may only ever be
+    # added at the end of this list.
+    Platform.EVENT,
 ]
 
 
@@ -1032,6 +1041,74 @@ def _make_capabilities_probe_callback(
     return _on_connect
 
 
+def _load_narration_strings(
+    language: str,
+) -> tuple[str, dict[str, str], dict[str, str]]:
+    """Import and run the narration asset loader, entirely on the executor.
+
+    Both halves belong off the event loop: `narration` is imported lazily so a
+    first-time `import_module` never runs in the loop (issue #34's lesson,
+    pinned by `test_heavy_modules_imported_at_module_level`), and the loader
+    itself does blocking file I/O. Returns `(resolved_locale, locale_map,
+    en_map)`; the locale map is raw, with no English merge, because the
+    renderer's overlay guard has to be able to see the gaps.
+    """
+    from .narration import load_narration_strings  # noqa: PLC0415
+
+    return load_narration_strings(language)
+
+
+async def _async_preload_narration_sources(
+    hass: HomeAssistant, language: str
+) -> None:
+    """Warm every string source the server-side narration renderer reads.
+
+    Two different asset families, deliberately kept apart:
+
+    * `ui_strings/` — the SERVED machine-domain bundle. The renderer only
+      borrows `recipes.name.*` (drink names) and `status.manipulation.*`
+      (prompt labels) from it. Preloading also warms the `i18n/get` cache.
+    * `narration_strings/` — the UNSERVED sentence assets. No WebSocket
+      command exposes them, they are absent from `strings_version` and
+      therefore from `contract_fingerprint`; they exist only so the
+      integration can render a spoken sentence itself.
+
+    Both are blocking file I/O, and narration is rendered inside a BLE status
+    callback that may not block — hence "once, here, on the executor". English
+    is preloaded alongside the HA language because the renderer falls back to a
+    whole English sentence rather than let one locale gap show up mid-sentence.
+
+    A failure here must never fail setup: it is logged and the three narration
+    stashes are simply left as they were (absent on a first run, so the
+    renderer returns no sentence and events still fire without a
+    `description`; stale-but-honest on a re-run, where `narration_locale`
+    still names the language those strings are actually in).
+    """
+    try:
+        await panel_api.async_preload_ui_strings(hass, "en")
+        await panel_api.async_preload_ui_strings(hass, language)
+        resolved, locale_map, en_map = await hass.async_add_executor_job(
+            _load_narration_strings, language
+        )
+    except Exception:  # noqa: BLE001 — a missing asset must not fail setup
+        _LOGGER.warning(
+            "Narration string preload failed for language %s; "
+            "machine events will fire without a spoken description",
+            language,
+            exc_info=True,
+        )
+        return
+
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    domain_data["narration_locale"] = resolved
+    domain_data["narration_strings"] = locale_map
+    domain_data["narration_strings_en"] = en_map
+    _LOGGER.debug(
+        "Narration strings preloaded: language=%s resolved=%s keys=%d",
+        language, resolved, len(locale_map),
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a coffee-machine integration from a config entry."""
     from .brands import get_profile  # noqa: PLC0415
@@ -1217,6 +1294,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # single-source precedent).
     hass.data.setdefault(DOMAIN, {})["ui_strings_version"] = (
         client.integration_version
+    )
+
+    # Server-side narration (§2.7/§4.7): warm the string caches for the HA
+    # language once, here, while we are still allowed to block on an executor
+    # — the `event` entity renders its sentence from a BLE status callback.
+    # Deliberately AFTER the `ui_strings_version` stash above (which must stay
+    # the first thing resolved, before WS registration) and before the
+    # platform forward, so the `event` platform finds warm caches.
+    preloaded_language = hass.config.language or "en"
+    await _async_preload_narration_sources(hass, preloaded_language)
+
+    async def _async_language_changed(_event: Any) -> None:
+        """Re-preload when the HA language changes without a restart.
+
+        The event's payload is not dependable — a core-config change carries
+        the changed kwargs, but startup fires it bare — so read
+        `hass.config.language` and compare it ourselves. That makes the far
+        more common changes (units, location, currency, time zone) free.
+        """
+        nonlocal preloaded_language
+        language = hass.config.language or "en"
+        if language == preloaded_language:
+            return
+        preloaded_language = language
+        await _async_preload_narration_sources(hass, language)
+
+    entry.async_on_unload(
+        hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, _async_language_changed)
     )
 
     entry.runtime_data = client

@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Evento della macchina",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Erogazione avviata",
+              "brew_finished": "Erogazione completata",
+              "brew_cancelled": "Erogazione annullata",
+              "prompt_raised": "Richiesta attiva",
+              "prompt_cleared": "Richiesta risolta",
+              "maintenance_finished": "Manutenzione completata"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Erogazione avviata",
+      "brew_finished": "Erogazione completata",
+      "brew_cancelled": "Erogazione annullata",
+      "prompt_raised": "Richiesta attiva",
+      "prompt_cleared": "Richiesta risolta",
+      "maintenance_finished": "Manutenzione completata"
     }
   },
   "exceptions": {

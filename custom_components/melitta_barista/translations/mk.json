@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Настан на апаратот",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Подготовката започна",
+              "brew_finished": "Подготовката заврши",
+              "brew_cancelled": "Подготовката е откажана",
+              "prompt_raised": "Се појави порака",
+              "prompt_cleared": "Пораката е отстранета",
+              "maintenance_finished": "Одржувањето заврши"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Подготовката започна",
+      "brew_finished": "Подготовката заврши",
+      "brew_cancelled": "Подготовката е откажана",
+      "prompt_raised": "Се појави порака",
+      "prompt_cleared": "Пораката е отстранета",
+      "maintenance_finished": "Одржувањето заврши"
     }
   },
   "exceptions": {

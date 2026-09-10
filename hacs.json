@@ -1,7 +1,7 @@
 {
   "name": "Melitta Barista Smart & Nivona",
   "render_readme": true,
-  "homeassistant": "2024.1.0",
+  "homeassistant": "2024.7.0",
   "zip_release": true,
   "filename": "melitta_barista.zip"
 }

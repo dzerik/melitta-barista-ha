@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Zdarzenie ekspresu",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Parzenie rozpoczęte",
+              "brew_finished": "Parzenie zakończone",
+              "brew_cancelled": "Parzenie anulowane",
+              "prompt_raised": "Pojawił się monit",
+              "prompt_cleared": "Monit usunięty",
+              "maintenance_finished": "Konserwacja zakończona"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Parzenie rozpoczęte",
+      "brew_finished": "Parzenie zakończone",
+      "brew_cancelled": "Parzenie anulowane",
+      "prompt_raised": "Pojawił się monit",
+      "prompt_cleared": "Monit usunięty",
+      "maintenance_finished": "Konserwacja zakończona"
     }
   },
   "exceptions": {

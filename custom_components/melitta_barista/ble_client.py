@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .brands.base import BrandProfile, MachineCapabilities
+    from .lifecycle import BrewIntent
 
 from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
@@ -388,6 +389,16 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._disconnecting = False
         self.selected_recipe: RecipeId | None = None
         self.active_profile: int = 0  # 0 = default "My Coffee"
+        # What HA knew when it last asked the machine to brew, staged by the
+        # brew commands and popped by the lifecycle detector at the PRODUCT
+        # edge. The machine reports none of this back, so this record is the
+        # only truthful source for a "what is brewing" payload.
+        self._brew_intent: "BrewIntent | None" = None
+        # An HA-initiated PRODUCT cancel waiting to be reported to the
+        # lifecycle detector. It cannot travel on `_brew_intent`: the Cancel
+        # button only becomes pressable once the machine reports PRODUCT, and
+        # that is exactly the frame at which the detector pops the record.
+        self._ha_cancel_pending: bool = False
         self._cup_counters: dict[str, int] = {}  # recipe_name -> count
         self._total_cups: int | None = None
         # MyCoffee bulk-read cache (PR E). Populated by
@@ -733,6 +744,97 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._recipe_refresh_callbacks.remove(callback)
         except ValueError:
             pass
+
+    # ── Brew intent ───────────────────────────────────────────────────
+    #
+    # Single-producer (the brew commands) / single-consumer (the lifecycle
+    # detector, via the event entity) hand-off. Deliberately not a callback
+    # list: exactly one consumer may attribute a brew, and a second reader
+    # would silently steal the record from the first.
+
+    @property
+    def brew_intent(self) -> "BrewIntent | None":
+        """The staged brew record, or None when nothing is waiting for a PRODUCT frame.
+
+        Read-only peek — reading does NOT consume. The detector peeks on every
+        status frame and pops with `take_brew_intent()` only at a brew-start
+        edge; freshness (`BrewIntent.is_fresh`) is the consumer's call, not
+        this property's.
+        """
+        return self._brew_intent
+
+    def take_brew_intent(self) -> "BrewIntent | None":
+        """Pop the staged record, leaving the stage empty.
+
+        Idempotent after the first call: a second take returns None rather
+        than the same record again, so a brew can never be attributed twice.
+        """
+        intent = self._brew_intent
+        self._brew_intent = None
+        return intent
+
+    def annotate_brew_intent(self, **fields: Any) -> None:
+        """Add facts to the staged record; a no-op when nothing is staged.
+
+        Callers that know more than the BLE layer does — the sommelier
+        wizard's phase numbers — annotate right after their brew call returns.
+        A no-op stage is normal, not an error: the brew may have been refused,
+        or the machine may have already reported PRODUCT and the detector
+        taken the record. That last case is why a cancel is *also* recorded
+        off-stage (`_note_ha_cancel`): by the time the user can press Cancel,
+        an annotation here would almost always land on an empty stage.
+        """
+        if self._brew_intent is None or not fields:
+            return
+        self._brew_intent = self._brew_intent.annotated(**fields)
+
+    def _note_brew_intent(self, intent: "BrewIntent") -> None:
+        """Stage the record for a brew the machine has just ACKed.
+
+        Overwrites any previous record unconditionally: a still-staged one
+        belongs to a brew whose PRODUCT frame never arrived, and the drink
+        actually starting now is the truthful one.
+        """
+        self._brew_intent = intent
+
+    def clear_brew_intent(self) -> None:
+        """Forget the staged record and any pending HA cancel.
+
+        Called on every disconnect. The record is only ever popped at a
+        PRODUCT edge, so a brew whose PRODUCT frame never arrived (the link
+        dropped, the machine refused mid-start, the brew fell inside a poll
+        gap) would otherwise sit on the stage until the TTL expired and be
+        inherited by whatever the user brews next at the front panel —
+        narrating somebody else's drink.
+        """
+        self._brew_intent = None
+        self._ha_cancel_pending = False
+
+    def _note_ha_cancel(self) -> None:
+        """Record that HA — not the user at the machine — stopped the brew.
+
+        Kept apart from the staged `BrewIntent` on purpose: by the time a
+        cancel is possible the machine has already reported PRODUCT and the
+        detector has popped the record, so an annotation there would be a
+        no-op. This flag survives that hand-off and is read once, by the
+        detector's caller, on the next status frame.
+        """
+        self._ha_cancel_pending = True
+
+    @property
+    def ha_cancel_pending(self) -> bool:
+        """True while an HA-initiated cancel is waiting to be reported (peek)."""
+        return self._ha_cancel_pending
+
+    def take_ha_cancel(self) -> bool:
+        """Pop the pending HA-cancel flag, leaving it cleared.
+
+        Single-consumer, like `take_brew_intent`: the flag describes one
+        cancel, and a second reader would let a later brew claim it too.
+        """
+        pending = self._ha_cancel_pending
+        self._ha_cancel_pending = False
+        return pending
 
     def set_ble_device(
         self, ble_device: BLEDevice, *, source: str | None = None,

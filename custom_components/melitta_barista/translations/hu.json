@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Gépesemény",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Főzés elindult",
+              "brew_finished": "Főzés befejeződött",
+              "brew_cancelled": "Főzés megszakítva",
+              "prompt_raised": "Üzenet megjelent",
+              "prompt_cleared": "Üzenet megszűnt",
+              "maintenance_finished": "Karbantartás befejeződött"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Főzés elindult",
+      "brew_finished": "Főzés befejeződött",
+      "brew_cancelled": "Főzés megszakítva",
+      "prompt_raised": "Üzenet megjelent",
+      "prompt_cleared": "Üzenet megszűnt",
+      "maintenance_finished": "Karbantartás befejeződött"
     }
   },
   "exceptions": {

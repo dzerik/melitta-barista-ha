@@ -501,6 +501,33 @@
       "clock": {
         "name": "Clock"
       }
+    },
+    "event": {
+      "machine_event": {
+        "name": "Догађај апарата",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "brew_started": "Припрема је почела",
+              "brew_finished": "Припрема је завршена",
+              "brew_cancelled": "Припрема је отказана",
+              "prompt_raised": "Појавио се упит",
+              "prompt_cleared": "Упит је решен",
+              "maintenance_finished": "Одржавање је завршено"
+            }
+          }
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "brew_started": "Припрема је почела",
+      "brew_finished": "Припрема је завршена",
+      "brew_cancelled": "Припрема је отказана",
+      "prompt_raised": "Појавио се упит",
+      "prompt_cleared": "Упит је решен",
+      "maintenance_finished": "Одржавање је завршено"
     }
   },
   "exceptions": {
