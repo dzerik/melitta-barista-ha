@@ -2,6 +2,14 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.0b2] — 2026-09-11 (beta)
+
+Documentation only; no code change.
+
+### Fixed
+
+- **The automation examples now say how to use them.** They are written in `configuration.yaml` form, so they open with `automation:` and a list item — which the automation editor's YAML mode rejects outright, because it wants one automation's body. A new *Before you copy anything* section says so, and explains the three things the examples previously assumed: where to find the machine's device id, how to trigger without one at all (every lifecycle event also lands on the bus as `melitta_barista_event`, and `event_data` matches on a subset), and how to fire a test event by hand so the notification path can be checked before a cup is brewed. Pinned by tests so the examples cannot drift away from their own instructions again.
+
 ## [0.95.0b1] — 2026-09-10 (beta)
 
 The machine now says what it just did, in your language, and the sommelier's configuration can leave the house.

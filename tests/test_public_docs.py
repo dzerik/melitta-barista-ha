@@ -29,7 +29,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from custom_components.melitta_barista.const import MachineProcess
+from custom_components.melitta_barista.const import DOMAIN, MachineProcess
 from custom_components.melitta_barista.narration import render
 from custom_components.melitta_barista.sensor import PROCESS_LABELS
 
@@ -256,3 +256,37 @@ def test_readme_states_the_shipped_import_flag_default():
     )
     expected = "**On by default**" if _shipped_install_specific_default() else "**Off by default**"
     assert expected in row
+
+
+# ---------------------------------------------------------------------------
+# 6. The automation examples explain how to actually use them
+# ---------------------------------------------------------------------------
+
+def test_configuration_yaml_examples_warn_about_the_ui_editor():
+    """`automation:`-wrapped examples must say they are not editor-ready.
+
+    The examples are written in `configuration.yaml` form, which is what a
+    reader pastes into the automation editor's YAML mode first — where the
+    `automation:` key is rejected outright. Shipping the wrapper without the
+    warning turns every example into a support question.
+    """
+    readme = _read(README)
+    if "\nautomation:\n" not in readme:
+        return
+    assert "extra keys not allowed" in readme, "no UI-editor warning for the wrapper"
+    assert "start at `alias:`" in readme, "the warning no longer says what to do instead"
+
+
+def test_device_id_placeholder_is_explained():
+    """A reader must be told where the placeholder device id comes from."""
+    readme = _read(README)
+    assert "!secret coffee_device_id" in readme, "no placeholder left to explain"
+    assert "/config/devices/device/" in readme, "no way to find the device id"
+
+
+def test_readme_offers_a_device_independent_trigger():
+    """The bus event is the escape hatch when a device id is inconvenient."""
+    readme = _read(README)
+    bus_event = f"{DOMAIN}_event"
+    assert bus_event in readme, "the bus event name is not documented"
+    assert "subset match" in readme, "event_data matching semantics not explained"

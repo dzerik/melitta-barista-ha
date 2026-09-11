@@ -749,22 +749,63 @@ worth reading as reference implementations.
 
 ## Automation Examples
 
-> **Which trigger should I use?** The **device trigger** (`trigger: device`,
-> `domain: melitta_barista`) is the recommended route: it is pickable in the
-> automation editor, it fires exactly once per occurrence — including two
-> identical brews in a row — and it never replays a stale event when Home
-> Assistant restarts or the integration reloads. See
-> [Events](#events) for every type and payload key.
->
-> The YAML below writes `!secret coffee_device_id` wherever the automation
-> editor would fill in your machine's device id for you.
->
-> **Core version.** Every example below uses the modern automation schema
-> (`triggers:` / `conditions:` / `actions:`, with `trigger:` and `action:`
-> naming the platform and the service), which Home Assistant accepts from
-> **2024.10** onwards. On an older core, rename the blocks to the classic
-> `trigger:` / `condition:` / `action:` keys with `platform:` and `service:`
-> inside them.
+### Before you copy anything
+
+**Where the YAML goes.** The examples are written for `configuration.yaml`, so
+each one opens with `automation:` and a list item. The automation editor's YAML
+mode expects *one automation's body* instead: drop the `automation:` key and the
+leading `-`, and start at `alias:`. Pasting a whole block into the editor fails
+with `extra keys not allowed @ data['automation']`.
+
+**Finding your machine's device id.** `!secret coffee_device_id` below stands in
+for a 32-character id. Two ways to get yours: open **Settings → Devices &
+services → Melitta Barista** and click your machine — the id is the tail of the
+URL, `/config/devices/device/<id>` — or build the trigger in the automation
+editor (**Add trigger → Device**), then switch that automation to YAML mode and
+read the id the editor filled in.
+
+**Or skip the device id entirely.** Every lifecycle event also lands on the Home
+Assistant bus as `melitta_barista_event`, carrying `device_id`, `entity_id`,
+`type` and the rest of the payload. With one machine in the house an event
+trigger is shorter, and it survives replacing the machine:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: melitta_barista_event
+    event_data:
+      type: brew_finished
+```
+
+The `event_data` match is a subset match, so you can filter on any payload key
+and still read everything else as `trigger.event.data.*` — exactly as with the
+device trigger.
+
+**Which of the two, then?** The **device trigger** is the recommended route when
+you have more than one machine or want the trigger pickable in the editor. Both
+fire exactly once per occurrence — including two identical brews in a row — and
+neither replays a stale event when Home Assistant restarts or the integration
+reloads. See [Events](#events) for every type and payload key.
+
+**Testing without brewing a cup.** Developer tools → **Events** → *Fire event*,
+event type `melitta_barista_event`, with:
+
+```yaml
+type: brew_finished
+device_id: <your device id>
+final: true
+description: "Test sentence"
+```
+
+Both trigger styles fire on that, so the notification path can be checked before
+the machine is involved. If the manual event works and a real brew does not, the
+problem is the `device_id` or the machine connection — not the automation.
+
+**Core version.** Every example below uses the modern automation schema
+(`triggers:` / `conditions:` / `actions:`, with `trigger:` and `action:` naming
+the platform and the service), which Home Assistant accepts from **2024.10**
+onwards. On an older core, rename the blocks to the classic `trigger:` /
+`condition:` / `action:` keys with `platform:` and `service:` inside them.
 
 ### Morning Espresso
 
@@ -921,6 +962,11 @@ conditions:
 > is exactly the normal coffee-machine case. Prefer the device trigger.
 
 ## Voice assistants
+
+> The examples here follow the same rules as the ones above — see
+> [Before you copy anything](#before-you-copy-anything) for pasting them into
+> the automation editor, finding your device id, or replacing the device trigger
+> with a device-independent event trigger.
 
 Every lifecycle event carries `description`: a finished sentence, rendered on
 the server in Home Assistant's own language (`hass.config.language`) — «Ready:
