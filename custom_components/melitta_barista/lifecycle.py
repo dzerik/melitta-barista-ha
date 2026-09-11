@@ -69,6 +69,14 @@ These are structural facts about the firmware's process table, not bugs. A
 Nivona user reporting "the maintenance trigger never fires" is describing
 expected behaviour.
 
+`sub_process` is the one brew fact that does *not* depend on that process table:
+Nivona's `parse_status` reads it out of the HX frame and maps it through
+`SubProcess` on every family, exactly as Melitta does. The `shape` token on
+`brew_finished` (see `classify_brew_shape`) therefore works on both brands —
+which matters most on Nivona, where an unmapped code can leave the brew latch to
+be closed by a later READY and `shape` is then the only thing describing what was
+actually made.
+
 That same two-code table is why the max-brew-age guard (R8) is mandatory: a brew
 whose end is reported with an unmapped code parses to `process=None`, which is
 not a transition, so without the guard the brew latch would survive for the
@@ -80,7 +88,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, replace
 from typing import Any, Final
 
@@ -89,6 +97,7 @@ from .coffee_platform.domain import (
     MachineProcess,
     MachineStatus,
     Manipulation,
+    SubProcess,
 )
 from .const import DOMAIN, PROMPT_MANIPULATIONS, SOFT_AUTO_CONFIRM_MANIPULATIONS
 
@@ -148,6 +157,66 @@ added to `coffee_platform.domain.MachineProcess` is classified automatically:
 everything that is not idle (READY), brewing (PRODUCT), transient (BUSY) or
 powering down (SWITCH_OFF) is a procedure the user is waiting on.
 """
+
+
+BREW_SHAPE_COFFEE: Final = "coffee"
+BREW_SHAPE_COFFEE_WITH_MILK: Final = "coffee_with_milk"
+BREW_SHAPE_MILK: Final = "milk"
+BREW_SHAPE_WATER: Final = "water"
+
+BREW_SHAPE_TOKENS: Final[tuple[str, ...]] = (
+    BREW_SHAPE_COFFEE,
+    BREW_SHAPE_COFFEE_WITH_MILK,
+    BREW_SHAPE_MILK,
+    BREW_SHAPE_WATER,
+)
+"""The four `shape` tokens a finished brew may report, in vocabulary order.
+
+`narration.py` derives its four `narration.event.brew_finished.shape.*` keys from
+this tuple, so a fifth shape can never ship without an authored sentence.
+"""
+
+SHAPE_IGNORED_SUB_PROCESSES: Final[frozenset[SubProcess]] = frozenset({
+    SubProcess.PREPARE,
+})
+"""Sub-processes that say nothing about what was made.
+
+PREPARE is the rinse/warm-up leg the machine runs around a product; it appears in
+front of a plain espresso just as it does in front of a latte macchiato, so
+letting it classify anything would only produce a shape for brews that have
+none.
+"""
+
+
+def classify_brew_shape(observed: Iterable[SubProcess]) -> str | None:
+    """Name the SHAPE of a drink from the sub-processes seen while it brewed.
+
+    The machine never reports *what* it is making — `MachineStatus` carries no
+    recipe identity at all — so a brew started at the front panel arrives with no
+    name and, before this, narrated as "your drink is ready". It does report
+    which leg of the preparation it is on, and the set of legs is enough to tell
+    a milk coffee from a cup of hot water.
+
+    Deliberately coarse, and evaluated in a fixed order: steam plus a coffee leg
+    is a milk coffee, steam alone is milk (froth or warm milk), any coffee leg
+    alone is coffee, and water on its own is hot water. GRINDING counts as a
+    coffee leg because a ground-coffee brew that is never observed mid-COFFEE
+    still ground beans; PREPARE is excluded (see `SHAPE_IGNORED_SUB_PROCESSES`).
+    Returns None when nothing usable was observed, and the caller then omits the
+    key rather than guessing — an absent fact is an absent key (§2.4).
+    """
+    seen = {item for item in observed if item not in SHAPE_IGNORED_SUB_PROCESSES}
+    steam = SubProcess.STEAM in seen
+    coffee = SubProcess.COFFEE in seen or SubProcess.GRINDING in seen
+    if steam and coffee:
+        return BREW_SHAPE_COFFEE_WITH_MILK
+    if steam:
+        return BREW_SHAPE_MILK
+    if coffee:
+        return BREW_SHAPE_COFFEE
+    if SubProcess.WATER in seen:
+        return BREW_SHAPE_WATER
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +319,7 @@ class LifecycleDetector:
         self._prev_manipulation: Manipulation | None = None
         self._brewing: bool = False
         self._brew_started_at: float | None = None
+        self._sub_processes: set[SubProcess] = set()
         self._cancel_latched: bool = False
         self._ha_cancel_latched: bool = False
         self._intent: BrewIntent | None = None
@@ -275,6 +345,7 @@ class LifecycleDetector:
         self._prev_manipulation = None
         self._brewing = False
         self._brew_started_at = None
+        self._sub_processes = set()
         self._cancel_latched = False
         self._ha_cancel_latched = False
         self._intent = None
@@ -302,6 +373,7 @@ class LifecycleDetector:
             "prev_process": self._prev_process.name if self._prev_process is not None else None,
             "brewing": self._brewing,
             "brew_started_at": self._brew_started_at,
+            "sub_processes": sorted(item.name for item in self._sub_processes),
             "cancel_latched": self._cancel_latched,
             "ha_cancel_latched": self._ha_cancel_latched,
             "has_intent": self._intent is not None,
@@ -332,9 +404,11 @@ class LifecycleDetector:
         so a consumer can tell "not cancelled" from "cannot tell".
 
         Evaluation order within a frame is fixed: the max-age guard, the cancel
-        latch, the process edges, then the manipulation edges — so a prompt
-        raised on the same frame that starts a brew reports `during_brew: True`,
-        and one raised on the frame that ends it does not.
+        latch, the process edges, the sub-process observation, then the
+        manipulation edges — so a prompt raised on the same frame that starts a
+        brew reports `during_brew: True`, one raised on the frame that ends it
+        does not, and the PRODUCT frame that opens a brew still contributes its
+        sub-process to that brew's `shape`.
         """
         if now is None:
             now = now_monotonic()
@@ -347,6 +421,7 @@ class LifecycleDetector:
         if status.process is not None:
             self._feed_process(status.process, intent=intent, now=now,
                                cancel_detection=cancel_detection, events=events)
+        self._observe_sub_process(status.sub_process)
         self._feed_manipulation(status, now=now,
                                 auto_confirm_enabled=auto_confirm_enabled, events=events)
         return events
@@ -370,6 +445,7 @@ class LifecycleDetector:
         )
         self._brewing = False
         self._brew_started_at = None
+        self._sub_processes = set()
         self._cancel_latched = False
         self._ha_cancel_latched = False
         self._intent = None
@@ -446,6 +522,7 @@ class LifecycleDetector:
         elif prev != MachineProcess.PRODUCT and process == MachineProcess.PRODUCT:
             self._brewing = True
             self._brew_started_at = now
+            self._sub_processes = set()
             self._cancel_latched = False
             self._ha_cancel_latched = False
             self._intent = self._take_intent(intent, now)
@@ -475,8 +552,16 @@ class LifecycleDetector:
     def _terminal_event(
         self, process: MachineProcess, *, now: float, cancel_detection: bool,
     ) -> LifecycleEvent:
-        """Build `brew_finished` / `brew_cancelled` and clear the brew latches."""
+        """Build `brew_finished` / `brew_cancelled` and clear the brew latches.
+
+        A classifiable `shape` is attached to `brew_finished` only. A cancelled
+        brew ran partway through its legs, so the set of sub-processes it
+        observed describes how far it got rather than what was made, and naming
+        that "coffee" would be a small lie in the one payload a user reads to
+        find out what went wrong.
+        """
         intent = self._intent
+        shape = classify_brew_shape(self._sub_processes)
         payload = self._intent_payload(intent)
         payload["duration_s"] = _duration_s(self._brew_started_at, now)
         payload["cancel_detection"] = bool(cancel_detection)
@@ -492,14 +577,37 @@ class LifecycleDetector:
 
         self._brewing = False
         self._brew_started_at = None
+        self._sub_processes = set()
         self._cancel_latched = False
         self._ha_cancel_latched = False
         self._intent = None
 
         if cancel_source is None:
+            # `shape` rides along even when the recipe name is known: it is
+            # machine-readable and cheap, and an automation may well want to
+            # branch on "was there milk in it". The narrator is the one place
+            # that treats it as a fallback (`narration._compose`).
+            if shape is not None:
+                payload["shape"] = shape
             return LifecycleEvent(EVENT_BREW_FINISHED, payload)
         payload["cancel_source"] = cancel_source
         return LifecycleEvent(EVENT_BREW_CANCELLED, payload)
+
+    # -- shape ---------------------------------------------------------------
+
+    def _observe_sub_process(self, sub_process: SubProcess | None) -> None:
+        """Accumulate the sub-processes seen while a brew is latched.
+
+        Fed from every frame, `process is None` frames included, because on
+        Nivona those are a normal part of a brew and still carry a usable
+        sub-process. Called *after* the process edges on purpose: the PRODUCT
+        frame that opens a brew contributes its own leg, while the frame that
+        closes one does not — by then the latch is down, and the sub-process
+        reported alongside READY belongs to no drink.
+        """
+        if not self._brewing or sub_process is None:
+            return
+        self._sub_processes.add(sub_process)
 
     # -- R6 ------------------------------------------------------------------
 

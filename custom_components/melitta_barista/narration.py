@@ -11,7 +11,7 @@ Why the strings are NOT part of the UI Contract
 These sentences are rendered **here, on the server**, and no client renders
 them. UI-Contract §5.2 rule 1 makes any *served* string family unremovable,
 unrenamable and un-re-meanable for the life of `contract_version 1`, so
-shipping 41 mandatory keys x 29 locales into three clients' persisted caches
+shipping 45 mandatory keys x 29 locales into three clients' persisted caches
 would buy nothing and could never be undone. They therefore live in their own
 asset directory, `narration_strings/<locale>.json`:
 
@@ -87,6 +87,7 @@ from typing import Any, Final
 
 from .const import DirectKeyCategory
 from .lifecycle import (
+    BREW_SHAPE_TOKENS,
     EVENT_BREW_CANCELLED,
     EVENT_BREW_FINISHED,
     EVENT_BREW_STARTED,
@@ -268,6 +269,18 @@ _BREW_HEADS: Final[Mapping[str, tuple[str, str, str | None, str | None]]] = {
     ),
 }
 
+NARRATION_SHAPE_PREFIX: Final = "narration.event.brew_finished.shape."
+"""Key prefix of the four shape sentences — one per `lifecycle.BREW_SHAPE_TOKENS`.
+
+They are whole sentences with no placeholders, exactly like the maintenance
+family, and they are MANDATORY in every locale: a shape sentence is the only
+thing a front-panel brew can say beyond "your drink is ready", and a locale
+missing one would fall back to precisely that."""
+
+_SHAPE_KEYS: Final[Mapping[str, str]] = {
+    token: f"{NARRATION_SHAPE_PREFIX}{token}" for token in BREW_SHAPE_TOKENS
+}
+
 _PROMPT_RAISED_KEY: Final = "narration.event.prompt_raised"
 _PROMPT_GENERIC_KEY: Final = "narration.event.prompt_raised_generic"
 _PROMPT_CLEARED_KEY: Final = "narration.event.prompt_cleared"
@@ -276,10 +289,11 @@ _MANIPULATION_NONE: Final = "NONE"
 
 
 def _derive_narration_keys() -> frozenset[str]:
-    """The 41 mandatory keys, derived from the live vocabularies."""
+    """The 45 mandatory keys, derived from the live vocabularies."""
     keys: set[str] = set()
     for variants in _BREW_HEADS.values():
         keys.update(key for key in variants if key)
+    keys.update(_SHAPE_KEYS.values())
     keys.update({_PROMPT_RAISED_KEY, _PROMPT_GENERIC_KEY, _PROMPT_CLEARED_KEY})
     for token in _MAINTENANCE_TOKENS:
         keys.add(f"narration.event.maintenance_finished.{token}")
@@ -347,7 +361,7 @@ def narration_drink_keys() -> frozenset[str]:
 
 
 def narration_all_keys() -> frozenset[str]:
-    """Everything `narration_strings/en.json` carries: 41 mandatory + 22 optional."""
+    """Everything `narration_strings/en.json` carries: 45 mandatory + 22 optional."""
     return NARRATION_KEYS | {
         f"{NARRATION_DRINK_PREFIX}{key}" for key in NARRATION_DRINK_KEYS
     }
@@ -494,6 +508,13 @@ class _Plan:
     free_name: str
     prompt_key: str | None
     complete: bool
+    shape_key: str | None = None
+    """Full key of the shape sentence a *finished* brew may fall back to, or None.
+
+    Deliberately NOT a member of `heads`: `heads` is what `render`'s overlay
+    guard requires of a locale, and a locale missing its shape sentence must
+    demote to its own `.unnamed` sentence, not switch the whole thing to
+    English."""
 
 
 def _components(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -575,7 +596,14 @@ def _phase_clause(payload: Mapping[str, Any]) -> _Clause | None:
 
 
 def _plan_brew(payload: Mapping[str, Any], kind: str) -> _Plan:
-    """Plan a brew sentence: the drink, then the detail clauses in SLOT_ORDER."""
+    """Plan a brew sentence: the drink, then the detail clauses in SLOT_ORDER.
+
+    `shape` is planned for `brew_finished` alone, and only as a *head* candidate:
+    the detector puts the token in the payload whenever it could classify the
+    brew — a named drink included — but a sentence that said both would read
+    "Ready: cappuccino — a milk coffee", which is redundant and sounds broken.
+    `_compose` therefore consults it only when there is no drink name to speak.
+    """
     named, unnamed, named_detail, unnamed_detail = _BREW_HEADS[kind]
     heads = tuple(key for key in (named, unnamed, named_detail, unnamed_detail) if key)
     complete = True
@@ -619,6 +647,13 @@ def _plan_brew(payload: Mapping[str, Any], kind: str) -> _Plan:
             clauses = clauses[:NARRATION_MAX_CLAUSES]
             complete = False
 
+    shape = payload.get("shape")
+    shape_key = (
+        _SHAPE_KEYS.get(shape)
+        if kind == EVENT_BREW_FINISHED and isinstance(shape, str)
+        else None
+    )
+
     recipe_key = payload.get("recipe_key")
     name_keys: list[str] = []
     if isinstance(recipe_key, str) and recipe_key:
@@ -635,6 +670,7 @@ def _plan_brew(payload: Mapping[str, Any], kind: str) -> _Plan:
         free_name=_speakable(payload.get("recipe_name")),
         prompt_key=None,
         complete=complete,
+        shape_key=shape_key,
     )
 
 
@@ -679,6 +715,14 @@ def _plan(payload: Mapping[str, Any], kind: str) -> _Plan | None:
 # ---------------------------------------------------------------------------
 # Composition — one pass per language
 # ---------------------------------------------------------------------------
+
+def _template(strings: Mapping[str, str], key: str) -> str | None:
+    """The string at `key`, or None when it is absent, not a string, or blank."""
+    value = strings.get(key)
+    if isinstance(value, str) and value.strip():
+        return value
+    return None
+
 
 def _resolve_drink(
     plan: _Plan,
@@ -785,6 +829,18 @@ def _compose(
             head_key = named
         elif detail and unnamed_detail:
             head_key = unnamed_detail
+        elif plan.shape_key is not None:
+            # Nothing is known about the drink but its shape — the front-panel
+            # case. Resolved per key against THIS language's map rather than
+            # through the overlay guard: a locale that is missing the sentence
+            # keeps speaking its own language and says `.unnamed`, which is
+            # exactly what it said before shapes existed.
+            if _template(strings, plan.shape_key) is not None:
+                head_key = plan.shape_key
+            else:
+                head_key = unnamed
+                missing.append(plan.shape_key)
+                complete = False
         else:
             head_key = unnamed
     elif plan.kind == EVENT_PROMPT_RAISED:
@@ -796,8 +852,8 @@ def _compose(
     else:
         head_key = plan.heads[0]
 
-    template = strings.get(head_key)
-    if not isinstance(template, str) or not template.strip():
+    template = _template(strings, head_key)
+    if template is None:
         return NO_NARRATION
 
     text = _MULTI_SPACE.sub(" ", substitute(template, values)).strip()
@@ -865,7 +921,10 @@ def render(
        the sentence to English — a locale without it simply speaks the Latin
        name it already shows in the UI;
     4. a drink that is not a built-in -> the sanitised free-text name; empty
-       demotes to the `.unnamed` head;
+       demotes to the `.unnamed` head — or, on a `brew_finished` whose payload
+       carries a `shape`, to that shape's own sentence, which is looked up per
+       key in the language being rendered and demotes to `.unnamed` in that same
+       language when it is missing, never to English;
     5. an unknown value token -> that one clause is dropped, `complete=False`;
     6. a template that renders blank or keeps a literal brace -> one English
        retry;

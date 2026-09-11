@@ -25,6 +25,7 @@ from custom_components.melitta_barista.const import (
 from custom_components.melitta_barista.lifecycle import (
     BREW_INTENT_TTL_S,
     BREW_MAX_DURATION_S,
+    BREW_SHAPE_TOKENS,
     EVENT_BREW_CANCELLED,
     EVENT_BREW_FINISHED,
     EVENT_BREW_STARTED,
@@ -37,6 +38,7 @@ from custom_components.melitta_barista.lifecycle import (
     BrewIntent,
     LifecycleDetector,
     LifecycleEvent,
+    classify_brew_shape,
     now_monotonic,
 )
 
@@ -237,6 +239,7 @@ class TestFrameBookkeeping:
             "prev_process": None,
             "brewing": False,
             "brew_started_at": None,
+            "sub_processes": [],
             "cancel_latched": False,
             "ha_cancel_latched": False,
             "has_intent": False,
@@ -868,6 +871,188 @@ class TestMaintenance:
             EVENT_MAINTENANCE_FINISHED,
         ]
 
+
+# ---------------------------------------------------------------------------
+# Brew shape — what the sub-process legs say about the drink
+# ---------------------------------------------------------------------------
+
+class TestBrewShape:
+    """The `shape` token on `brew_finished` (sub_process accumulation).
+
+    The machine never reports what it is MAKING, so a brew started at the front
+    panel has no name at all. The legs it runs through do say whether there was
+    coffee, milk or only water in it, and that is what `shape` carries.
+    """
+
+    def _finish(
+        self,
+        legs,
+        *,
+        intent: BrewIntent | None = None,
+        info: InfoMessage = InfoMessage(0),
+        terminal: MachineProcess = MachineProcess.READY,
+    ) -> LifecycleEvent:
+        """Run one whole brew, one PRODUCT frame per leg, and return its end."""
+        detector = _detector()
+        first = legs[0] if legs else None
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=first),
+                      intent=intent, now=101.0)
+        for offset, leg in enumerate(legs[1:], start=2):
+            assert detector.feed(
+                _status(MachineProcess.PRODUCT, sub_process=leg), now=100.0 + offset,
+            ) == []
+        events = detector.feed(_status(terminal, info=info), now=150.0)
+        assert len(events) == 1
+        return events[0]
+
+    # -- the classifier itself, as a truth table -----------------------------
+
+    @pytest.mark.parametrize("legs, expected", [
+        ((SubProcess.COFFEE,), "coffee"),
+        ((SubProcess.GRINDING,), "coffee"),
+        ((SubProcess.GRINDING, SubProcess.COFFEE), "coffee"),
+        ((SubProcess.STEAM,), "milk"),
+        ((SubProcess.STEAM, SubProcess.COFFEE), "coffee_with_milk"),
+        ((SubProcess.COFFEE, SubProcess.STEAM), "coffee_with_milk"),
+        ((SubProcess.GRINDING, SubProcess.STEAM), "coffee_with_milk"),
+        ((SubProcess.WATER,), "water"),
+        # An americano grinds, brews and tops up with water: still coffee.
+        ((SubProcess.COFFEE, SubProcess.WATER), "coffee"),
+        # Water alongside steam is the frother's own rinse water, not a drink.
+        ((SubProcess.WATER, SubProcess.STEAM), "milk"),
+        ((), None),
+    ])
+    def test_classification_truth_table(self, legs, expected):
+        assert classify_brew_shape(legs) == expected
+
+    @pytest.mark.parametrize("legs, expected", [
+        ((SubProcess.PREPARE,), None),
+        ((SubProcess.PREPARE, SubProcess.WATER), "water"),
+        ((SubProcess.PREPARE, SubProcess.COFFEE), "coffee"),
+        ((SubProcess.PREPARE, SubProcess.STEAM), "milk"),
+    ])
+    def test_prepare_is_noise_and_classifies_nothing(self, legs, expected):
+        """PREPARE is the rinse leg every product runs, so it says nothing."""
+        assert classify_brew_shape(legs) == expected
+
+    def test_every_classifier_output_is_in_the_vocabulary(self):
+        """A token the narrator has no sentence for must be unreachable."""
+        for legs in (
+            (SubProcess.COFFEE,), (SubProcess.GRINDING,), (SubProcess.STEAM,),
+            (SubProcess.WATER,), (SubProcess.STEAM, SubProcess.COFFEE),
+        ):
+            assert classify_brew_shape(legs) in BREW_SHAPE_TOKENS
+
+    # -- the detector --------------------------------------------------------
+
+    def test_a_front_panel_brew_reports_its_shape_and_nothing_else(self):
+        event = self._finish((SubProcess.GRINDING, SubProcess.COFFEE, SubProcess.STEAM))
+        assert event.type == EVENT_BREW_FINISHED
+        assert event.payload["source"] == "machine"
+        assert event.payload["shape"] == "coffee_with_milk"
+        assert "recipe_name" not in event.payload
+
+    def test_shape_rides_along_even_when_the_recipe_is_known(self):
+        """It is machine-readable information; only the NARRATION hides it."""
+        event = self._finish(
+            (SubProcess.COFFEE, SubProcess.STEAM),
+            intent=_intent(recipe_source="directkey", recipe_key="cappuccino",
+                           recipe_name="Cappuccino"),
+        )
+        assert event.payload["recipe_name"] == "Cappuccino"
+        assert event.payload["shape"] == "coffee_with_milk"
+
+    def test_an_unclassifiable_brew_has_no_shape_key_at_all(self):
+        """An absent fact is an absent key — never a default."""
+        assert "shape" not in self._finish(()).payload
+        assert "shape" not in self._finish((SubProcess.PREPARE,)).payload
+
+    def test_brew_started_never_carries_a_shape(self):
+        """Nothing has been observed yet when the brew starts."""
+        detector = _detector()
+        started = _only(
+            detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.COFFEE),
+                          now=101.0),
+            EVENT_BREW_STARTED,
+        )
+        assert "shape" not in started.payload
+
+    def test_a_cancelled_brew_never_carries_a_shape(self):
+        """The legs say how far it got, not what was made — scope stays tight."""
+        event = self._finish(
+            (SubProcess.COFFEE,), info=InfoMessage.PREPARATION_CANCELLED,
+        )
+        assert event.type == EVENT_BREW_CANCELLED
+        assert "shape" not in event.payload
+
+    def test_the_terminal_frames_own_sub_process_is_not_counted(self):
+        """READY's sub-process belongs to no drink — the latch is already down."""
+        detector = _detector()
+        detector.feed(_status(MachineProcess.PRODUCT), now=101.0)
+        event = _only(
+            detector.feed(_status(MachineProcess.READY, sub_process=SubProcess.STEAM),
+                          now=110.0),
+            EVENT_BREW_FINISHED,
+        )
+        assert "shape" not in event.payload
+
+    def test_legs_seen_on_an_unknown_process_frame_still_count(self):
+        """The Nivona case: an unmapped process code still carries a sub-process."""
+        detector = _detector()
+        detector.feed(_status(MachineProcess.PRODUCT), now=101.0)
+        assert detector.feed(_status(None, sub_process=SubProcess.STEAM), now=102.0) == []
+        event = _only(detector.feed(_status(MachineProcess.READY), now=110.0),
+                      EVENT_BREW_FINISHED)
+        assert event.payload["shape"] == "milk"
+
+    def test_legs_never_leak_from_one_brew_into_the_next(self):
+        detector = _detector()
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.STEAM),
+                      now=101.0)
+        first = _only(detector.feed(_status(MachineProcess.READY), now=110.0),
+                      EVENT_BREW_FINISHED)
+        assert first.payload["shape"] == "milk"
+
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.COFFEE),
+                      now=120.0)
+        second = _only(detector.feed(_status(MachineProcess.READY), now=130.0),
+                       EVENT_BREW_FINISHED)
+        assert second.payload["shape"] == "coffee"
+
+    def test_a_disconnect_reset_drops_the_observed_legs(self):
+        """R2: nothing observed before a disconnect may describe a later brew."""
+        detector = _detector()
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.STEAM),
+                      now=101.0)
+        detector.reset()
+        assert detector.state_snapshot()["sub_processes"] == []
+
+        detector.feed(_status(MachineProcess.READY), now=200.0)
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.COFFEE),
+                      now=201.0)
+        event = _only(detector.feed(_status(MachineProcess.READY), now=210.0),
+                      EVENT_BREW_FINISHED)
+        assert event.payload["shape"] == "coffee"
+
+    def test_an_expired_brew_latch_drops_the_observed_legs(self):
+        """R8: the silently dropped brew must not lend its legs to the next one."""
+        detector = _detector()
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.STEAM),
+                      now=101.0)
+        assert detector.feed(
+            _status(MachineProcess.PRODUCT), now=101.0 + BREW_MAX_DURATION_S + 1.0,
+        ) == []
+        assert detector.state_snapshot()["sub_processes"] == []
+
+    def test_state_snapshot_reports_the_legs_seen_so_far(self):
+        detector = _detector()
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.GRINDING),
+                      now=101.0)
+        detector.feed(_status(MachineProcess.PRODUCT, sub_process=SubProcess.COFFEE),
+                      now=102.0)
+        snapshot = detector.state_snapshot()
+        assert snapshot["sub_processes"] == ["COFFEE", "GRINDING"]
+        json.dumps(snapshot)
 
 # ---------------------------------------------------------------------------
 # Cross-cutting invariants

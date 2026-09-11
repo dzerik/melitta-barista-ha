@@ -581,6 +581,129 @@ def test_unknown_maintenance_process_says_nothing():
         narration.NO_NARRATION
 
 
+
+
+# ---------------------------------------------------------------------------
+# Shape — the fallback identity of a front-panel brew
+# ---------------------------------------------------------------------------
+
+SHAPE_PREFIX = "narration.event.brew_finished.shape."
+
+
+@pytest.mark.parametrize("token, sentence", [
+    ("coffee", "Your coffee is ready."),
+    ("coffee_with_milk", "Your milk coffee is ready."),
+    ("milk", "Your milk is ready."),
+    ("water", "Your hot water is ready."),
+])
+def test_each_shape_replaces_the_unnamed_sentence(token, sentence):
+    """The front-panel case: no name was staged, but the legs said this much."""
+    result = _render({"source": "machine", "shape": token}, "brew_finished")
+    assert result.text == sentence
+    assert result.key == f"{SHAPE_PREFIX}{token}"
+    assert result.complete is True
+
+
+def test_the_four_shape_sentences_are_distinct():
+    """Four meanings, four sentences — a shared one would lose the distinction."""
+    spoken = {
+        token: _render({"shape": token}, "brew_finished").text
+        for token in ("coffee", "coffee_with_milk", "milk", "water")
+    }
+    assert len(set(spoken.values())) == 4
+    assert all(text and text.endswith(".") for text in spoken.values())
+
+
+def test_a_known_drink_name_wins_and_the_shape_stays_unspoken():
+    """"Ready: Cappuccino - a milk coffee" is redundant and sounds broken."""
+    payload = {**CAPPUCCINO, "shape": "coffee_with_milk"}
+    result = _render(payload, "brew_finished")
+    assert result.text == (
+        "Ready: Cappuccino — 100 ml of coffee, 150 ml of hot milk, strong, "
+        "profile Anna."
+    )
+    assert result.key == "narration.event.brew_finished.named_detail"
+    assert "milk coffee" not in result.text
+
+
+def test_a_bare_name_with_no_detail_still_beats_the_shape():
+    result = _render({"recipe_key": "espresso", "shape": "coffee"}, "brew_finished")
+    assert result.key == "narration.event.brew_finished.named"
+    assert result.text == "Ready: Espresso."
+
+
+def test_a_composition_the_payload_states_outright_beats_the_shape():
+    """`.unnamed_detail` says more than a shape token ever can, so it wins.
+
+    Unreachable from the front panel — a brew with components was staged by
+    Home Assistant — but pinned so the ladder stays explicit.
+    """
+    payload = {"shape": "coffee", "components": [{"process": "coffee", "portion_ml": 40}]}
+    result = _render(payload, "brew_finished")
+    assert result.key == "narration.event.brew_finished.unnamed_detail"
+    assert result.text == "Your drink is ready: 40 ml of coffee."
+
+
+def test_neither_a_name_nor_a_shape_keeps_the_unnamed_sentence():
+    """The pre-shape behaviour, unchanged, for a brew nothing could classify."""
+    result = _render({"source": "machine"}, "brew_finished")
+    assert result.key == "narration.event.brew_finished.unnamed"
+    assert result.text == "Your drink is ready."
+
+
+@pytest.mark.parametrize("shape", ["latte", "", "COFFEE", 7, None, True])
+def test_an_unknown_shape_token_is_not_templated_into_a_sentence(shape):
+    result = _render({"source": "machine", "shape": shape}, "brew_finished")
+    assert result.key == "narration.event.brew_finished.unnamed"
+    assert result.text == "Your drink is ready."
+
+
+@pytest.mark.parametrize("kind", ["brew_started", "brew_cancelled"])
+def test_shape_is_never_spoken_on_a_start_or_a_cancellation(kind):
+    """The detector emits it on `brew_finished` alone; the narrator agrees."""
+    result = _render({"source": "machine", "shape": "coffee"}, kind)
+    assert result.key == f"narration.event.{kind}.unnamed"
+
+
+def test_a_locale_carrying_the_shape_speaks_it_in_its_own_language():
+    ru = {**_narration("ru"), f"{SHAPE_PREFIX}water": "Горячая вода готова."}
+    result = _render({"source": "machine", "shape": "water"}, "brew_finished", "ru",
+                     narration_map=ru)
+    assert result.text == "Горячая вода готова."
+    assert result.language == "ru"
+    assert result.key == f"{SHAPE_PREFIX}water"
+
+
+def test_a_missing_shape_key_degrades_to_the_locale_unnamed_sentence():
+    """Level 4, not level 2: the sentence must NOT switch to English for this.
+
+    A shape sentence is a nicety on top of `.unnamed`; losing it costs one word
+    of information. Sending the whole sentence to English would cost the
+    listener their language, which is the worse outcome — so the shape key is
+    resolved per key, like the spoken drink name, and never joins the overlay
+    guard's planned set.
+    """
+    without = {
+        key: value for key, value in _narration("ru").items()
+        if not key.startswith(SHAPE_PREFIX)
+    }
+    result = _render({"source": "machine", "shape": "milk"}, "brew_finished", "ru",
+                     narration_map=without)
+    assert result.text == "Напиток готов."
+    assert result.key == "narration.event.brew_finished.unnamed"
+    assert result.language == "ru"
+    # Reported rather than swallowed: something the payload knew went unsaid.
+    assert result.complete is False
+    assert f"{SHAPE_PREFIX}milk" in result.missing_keys
+
+
+def test_the_shape_family_is_mandatory_in_the_keyspace():
+    """Unlike `narration.drink.*`, these four are not an optional family."""
+    from custom_components.melitta_barista.lifecycle import BREW_SHAPE_TOKENS
+
+    assert {f"{SHAPE_PREFIX}{token}" for token in BREW_SHAPE_TOKENS} <= narration_keys()
+
+
 # ---------------------------------------------------------------------------
 # The fallback chain
 # ---------------------------------------------------------------------------
@@ -667,7 +790,7 @@ def test_render_never_raises_on_a_hostile_template(template):
     {"recipe_key": 5, "recipe_name": object()},
     {"profile_name": 42, "two_cups": "yes"},
     {"phase_index": "1", "phase_total": True},
-    {"prompt": 3}, {"process": None},
+    {"prompt": 3}, {"process": None}, {"shape": 7}, {"shape": "nope"},
     {"components": [{"process": "coffee", "portion_ml": float("inf")}]},
 ])
 def test_render_never_raises_on_a_hostile_payload(payload):

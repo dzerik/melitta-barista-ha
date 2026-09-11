@@ -1561,9 +1561,10 @@ async def test_language_change_listener_is_removed_on_unload(
 
 
 def test_narration_en_asset_carries_exactly_the_mandatory_keys() -> None:
-    """`narration_strings/en.json` is a flat 63-key map, canonically formatted.
+    """`narration_strings/en.json` is a flat 67-key map, canonically formatted.
 
-    63 = the 41 mandatory sentence keys plus the 22 optional
+    67 = the 45 mandatory sentence keys (41 + the four
+    `narration.event.brew_finished.shape.*` sentences) plus the 22 optional
     `narration.drink.*` spoken names (M18), which only `en` and the six
     non-Latin-script locales carry. The exhaustive key derivation lives with the
     renderer's own asset tests; this is the shape/count guard that travels with
@@ -1579,7 +1580,7 @@ def test_narration_en_asset_carries_exactly_the_mandatory_keys() -> None:
     data = json.loads(raw)
 
     assert isinstance(data, dict)
-    assert len(data) == 63
+    assert len(data) == 67
     assert all(key.startswith("narration.") for key in data)
     assert all(isinstance(value, str) and value.strip() for value in data.values())
     # same canonical dump as ui_strings/, so a re-sort is never a diff

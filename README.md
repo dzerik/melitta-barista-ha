@@ -488,6 +488,7 @@ for a device trigger, as `trigger.event.data`.
 | `slot` | brew_* | My-Coffee slot number. |
 | `components` | brew_* | List of `{process, intensity, aroma, temperature, shots, portion_ml, blend?}` dicts. `process` ∈ `coffee` / `milk` / `water`. |
 | `total_ml` | brew_* | Sum of the component volumes. |
+| `shape` | brew_finished | What the machine actually made, from the preparation legs it ran: `coffee`, `coffee_with_milk`, `milk` or `water`. Absent when nothing classifiable was observed. Present even when the drink's name is known — but *spoken* only when it is not, which is exactly the front-panel case (see below). |
 | `phase_index` / `phase_total` | brew_* | Which pour of a multi-phase Sommelier drink this was. |
 | `final` | brew_finished, brew_cancelled | `false` while a multi-phase Sommelier drink still has pours left. |
 | `duration_s` | brew_finished, brew_cancelled, prompt_cleared, maintenance_finished | Whole seconds. |
@@ -506,10 +507,10 @@ payload above. The device triggers are built on that bus event; the template
 sensor example below listens to it directly.
 
 **Recorder:** `description`, `event_type`, `source`, `recipe_source`,
-`recipe_name`, `two_cups`, `duration_s`, `final`, `cancel_source`, `prompt` and
-`process` are recorded, so the logbook and long-term history keep the readable
-story. The bulky or purely machine-facing keys (`components`, `total_ml`,
-`description_key`, `description_language`, `recipe_key`, `profile`,
+`recipe_name`, `two_cups`, `duration_s`, `final`, `cancel_source`, `prompt`,
+`process` and `shape` are recorded, so the logbook and long-term history keep
+the readable story. The bulky or purely machine-facing keys (`components`,
+`total_ml`, `description_key`, `description_language`, `recipe_key`, `profile`,
 `profile_name`, `slot`, `phase_index`, `phase_total`, `restored`, `soft`,
 `auto_confirm`, `during_brew`, `cancel_detection`) are **not** recorded — they
 are always present live, and deliberately absent from the database.
@@ -531,6 +532,14 @@ are always present live, and deliberately absent from the database.
   is emitted for it, because an hours-old start has no honest finish time.
 - Brews that complete while Home Assistant is disconnected from the machine
   produce no event at all.
+- A brew started on the machine's **front panel** carries no recipe identity at
+  all: the machine reports what it is *doing*, never what it is *making*, and
+  Home Assistant staged no intent it could be correlated with. Such a brew is
+  reported as `source: "machine"` with no `recipe_name`, and the narrated
+  sentence is the one the `shape` token produces — "Your milk coffee is ready."
+  rather than the bare "Your drink is ready." A brew Home Assistant started
+  still carries `shape` in its payload, but its sentence names the drink and
+  leaves the shape unsaid.
 - `profile` / `profile_name` appear only for DirectKey brews started from Home
   Assistant.
 - `PRODUCT → SWITCH_OFF ⇒ cancel_source: "power_off"` is a heuristic on Melitta,

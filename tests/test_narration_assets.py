@@ -7,7 +7,7 @@ one of the ui_strings asset tests covers these 29 files. If an assertion here
 ever has to move into the ui_strings test module, narration has leaked into the
 served bundle — fix the leak, do not move the assertion (§4.0 point 5).
 
-The completeness rule is stricter here than for `ui_strings/`: for the 41
+The completeness rule is stricter here than for `ui_strings/`: for the 45
 mandatory keys there is no sparse allowance. A missing one does not fall back
 per key; it makes the renderer emit the **whole** sentence in English (§4.6's
 overlay guard), so a sparse narration locale is a locale that silently stops
@@ -80,16 +80,18 @@ CLAUSE_PREFIXES = (
     "narration.two_cups", "narration.profile", "narration.phase",
 )
 
-# §4.2 family sizes: 19 + 6 + 5 + 1 + 2 + 3 + 2 + 1 + 1 + 1 = 41 mandatory,
-# plus the 22 optional `narration.drink.*` = 63 keys in en.json. The `event` row
+# §4.2 family sizes: 23 + 6 + 5 + 1 + 2 + 3 + 2 + 1 + 1 + 1 = 45 mandatory,
+# plus the 22 optional `narration.drink.*` = 67 keys in en.json. The `event` row
 # is the loud-CI-failure guard: a new `MachineProcess` member means a new
-# maintenance sentence nobody has authored yet.
-MANDATORY_TOTAL = 41
+# maintenance sentence nobody has authored yet, and a new
+# `lifecycle.BREW_SHAPE_TOKENS` member means a new shape sentence. It went
+# 19 -> 23 when the four `brew_finished.shape.*` sentences landed.
+MANDATORY_TOTAL = 45
 DRINK_TOTAL = 22
 EN_TOTAL = MANDATORY_TOTAL + DRINK_TOTAL
 
 FAMILY_COUNTS = {
-    "narration.event.": 19,
+    "narration.event.": 23,
     "narration.drink.": DRINK_TOTAL,
     "narration.component.": 6,
     "narration.intensity.": 5,
@@ -125,6 +127,12 @@ EXPECTED_PLACEHOLDERS: dict[str, frozenset[str]] = {
     "narration.event.maintenance_finished.FILTER_REPLACE": frozenset(),
     "narration.event.maintenance_finished.FILTER_REMOVE": frozenset(),
     "narration.event.maintenance_finished.EVAPORATING": frozenset(),
+    # Shape sentences: whole sentences, no placeholders — there is nothing to
+    # substitute, the token IS the meaning.
+    "narration.event.brew_finished.shape.coffee": frozenset(),
+    "narration.event.brew_finished.shape.coffee_with_milk": frozenset(),
+    "narration.event.brew_finished.shape.milk": frozenset(),
+    "narration.event.brew_finished.shape.water": frozenset(),
     "narration.component.coffee.with_amount": frozenset({"{volume}"}),
     "narration.component.coffee.plain": frozenset(),
     "narration.component.milk.with_amount": frozenset({"{volume}"}),
@@ -205,7 +213,7 @@ def test_en_is_flat_string_map(en_narration):
 
 
 def test_en_is_exactly_the_derived_keyspace(en_narration):
-    """en.json == 41 mandatory + 22 optional drink names, no orphans either way."""
+    """en.json == 45 mandatory + 22 optional drink names, no orphans either way."""
     assert set(en_narration) == narration_all_keys()
     assert len(en_narration) == EN_TOTAL
 
@@ -250,9 +258,26 @@ def test_maintenance_sentences_cover_the_live_process_table():
     assert len(expected) == 8
 
 
+def test_shape_sentences_cover_the_live_shape_vocabulary():
+    """A fifth `BREW_SHAPE_TOKENS` member must fail CI, not narrate nothing.
+
+    The detector classifies; the narrator has to have an authored sentence for
+    every class it can produce. Derived from the live tuple on both sides, so
+    the two can never drift apart silently.
+    """
+    from custom_components.melitta_barista.lifecycle import BREW_SHAPE_TOKENS
+
+    expected = {
+        f"narration.event.brew_finished.shape.{token}"
+        for token in BREW_SHAPE_TOKENS
+    }
+    assert expected <= narration_keys()
+    assert len(expected) == 4
+
+
 @pytest.mark.parametrize("locale", NON_EN_LOCALES)
 def test_locale_is_complete_and_invents_nothing(locale, en_narration):
-    """All 41 mandatory keys in all 28 non-English locales, and no orphans.
+    """All 45 mandatory keys in all 28 non-English locales, and no orphans.
 
     Unlike the served bundle there is no per-key English overlay for these: one
     missing key sends the *whole* sentence to English (§4.6 fallback level 2),

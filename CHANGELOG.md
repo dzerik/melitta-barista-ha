@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.0b3] — 2026-09-11 (beta)
+
+A brew started on the machine itself now says something useful.
+
+### Added
+
+- **The shape of a hand-started brew.** A brew begun on the machine's own front panel carries no recipe identity — the status frame reports what the machine is doing, never which drink it was asked for — so `brew_finished` could only say "Your drink is ready." The detector now accumulates the sub-processes it observes while brewing (grinding, coffee, steam, water) and classifies them into a `shape` token: `coffee`, `coffee_with_milk`, `milk` or `water`. The narrated sentence becomes «Кофе с молоком готов.» instead of «Напиток готов.», in all 29 languages. The token is attached to every `brew_finished` payload that can be classified, including brews Home Assistant started itself, because it is machine-readable information an automation may want; it is only *spoken* when the drink's name is unknown, so a named brew never narrates a redundant description of itself.
+
+### Notes
+
+- `shape` works on Nivona as well as Melitta. That family's process table maps only two codes, but its sub-process byte is parsed on every family, so the shape is the one brew fact that does not depend on the process table.
+- The four classifications were exercised through the real detector with synthetic status frames, not yet against a hand-started brew on a physical machine.
+
 ## [0.95.0b2] — 2026-09-11 (beta)
 
 Documentation only; no code change.

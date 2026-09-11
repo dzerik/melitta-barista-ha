@@ -858,8 +858,9 @@ async def test_diagnostics_reports_the_staged_intent_without_free_text(
     block = result["narration"]
 
     assert block["locale"] == "en"
-    # 41 mandatory sentence keys + the 22 optional spoken drink names (M18).
-    assert block["narration_keys"] == 63
+    # 45 mandatory sentence keys (41 + the four shape sentences) + the 22
+    # optional spoken drink names (M18).
+    assert block["narration_keys"] == 67
     assert block["ui_strings_resolution"]["en"] == "en"
     assert "en" in block["ui_strings_cached_locales"]
     assert block["brew_intent"]["recipe_source"] == "directkey"

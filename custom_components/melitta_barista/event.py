@@ -124,8 +124,9 @@ class MelittaMachineEvent(MelittaDeviceMixin, EventEntity):
     # _unrecorded_attributes" lesson must not be misapplied to it. Recorded
     # alongside it: `event_type` (core), `source`, `recipe_source`,
     # `recipe_name`, `two_cups`, `duration_s`, `final`, `cancel_source`,
-    # `prompt`, `process`. Everything else — bulky, structured or
-    # machine-facing — is listed below.
+    # `prompt`, `process`, `shape`. `shape` is a short token and the ONLY
+    # identity a front-panel brew ever has, so history keeps it. Everything
+    # else — bulky, structured or machine-facing — is listed below.
     _unrecorded_attributes = frozenset({
         "components",
         "total_ml",
