@@ -290,3 +290,17 @@ def test_readme_offers_a_device_independent_trigger():
     bus_event = f"{DOMAIN}_event"
     assert bus_event in readme, "the bus event name is not documented"
     assert "subset match" in readme, "event_data matching semantics not explained"
+
+
+def test_readme_documents_every_brew_shape():
+    """A new shape token must reach the README, not just the payload.
+
+    `shape` is the only description a front-panel brew gets, and the README is
+    where a reader learns which values to branch on. Adding a fifth token
+    without documenting it would leave an automation silently unmatched.
+    """
+    from custom_components.melitta_barista.lifecycle import BREW_SHAPE_TOKENS
+
+    readme = _read(README)
+    for token in BREW_SHAPE_TOKENS:
+        assert f"`{token}`" in readme, f"shape token {token} is undocumented"

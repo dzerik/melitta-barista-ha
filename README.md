@@ -861,6 +861,65 @@ automation:
           message: "{{ trigger.event.data.description }}"
 ```
 
+### Count Milk Drinks Between Cleans
+
+`shape` is a stable token, not prose, so it can be branched on. This is the
+front-panel case put to work: nobody told Home Assistant what was made, but the
+machine ran a steam leg, so it was a milk drink and the milk system has another
+round on it.
+
+```yaml
+automation:
+  - alias: "Count Milk Drinks"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - "{{ trigger.event.data.shape in ['coffee_with_milk', 'milk'] }}"
+      - "{{ trigger.event.data.final | default(true) }}"
+    actions:
+      - action: counter.increment
+        target:
+          entity_id: counter.milk_drinks_since_clean
+```
+
+> Pair it with a second automation that resets the counter on
+> `maintenance_finished` when `{{ trigger.event.data.process == 'INTENSIVE_CLEAN' }}`,
+> and a threshold automation that suggests the cycle. The `final` guard keeps a
+> multi-phase Sommelier drink from counting twice.
+
+### Announce a Hand-Started Brew Elsewhere in the House
+
+`source` says who started the brew: `machine` when someone used the front panel,
+`ha` when Home Assistant sent the command. The person standing at the machine
+already knows; the rest of the house does not.
+
+```yaml
+automation:
+  - alias: "Someone Made Coffee"
+    triggers:
+      - trigger: device
+        domain: melitta_barista
+        device_id: !secret coffee_device_id
+        type: brew_finished
+    conditions:
+      - "{{ trigger.event.data.source == 'machine' }}"
+    actions:
+      - action: tts.speak
+        target:
+          entity_id: tts.piper
+        data:
+          media_player_entity_id: media_player.office
+          message: "{{ trigger.event.data.description }}"
+```
+
+> Nothing named the drink here, so `description` is exactly the sentence `shape`
+> produced — «Кофе с молоком готов.» rather than the flat «Напиток готов.» it
+> would have been before. A brew Home Assistant started takes the other branch of
+> that ladder and names the drink instead.
+
 ### Maintenance Reminder
 
 `prompt_raised` fires the moment the machine asks for something. Guarding on

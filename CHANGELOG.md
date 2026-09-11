@@ -2,6 +2,35 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.0] — 2026-09-11
+
+The machine tells you what it just did, in your language — and the sommelier's configuration can finally leave the house.
+
+Consolidates the `0.95.0b1`–`0.95.0b3` betas. No contract change: every shipped client keeps working unchanged, and none needs an update.
+
+### Added
+
+- **Machine lifecycle events.** A new `event` entity turns the stream of BLE status frames into six discrete events — `brew_started`, `brew_finished`, `brew_cancelled`, `prompt_raised`, `prompt_cleared` and `maintenance_finished` — each carrying a structured payload: what was brewed, from which recipe and profile, its components and volumes, how it ended. The detector is a dependency-free module with its own unit tests, so its behaviour is pinned without a machine in the loop.
+- **Device triggers.** The same six events are pickable in the automation editor under the coffee machine's device. They are routed through the Home Assistant bus rather than through entity state, so two identical brews in a row both fire, and a restored last event is never replayed after a restart or a reload.
+- **A finished sentence for every event.** Each event carries `description`: one localized sentence, rendered on the server in Home Assistant's language, ready to hand to `tts.speak` — «Сварено: капучино — 40 мл кофе, 160 мл горячего молока, высокой интенсивности, профиль Anna.» It is assembled from whole-sentence templates per language rather than by joining words, so case, agreement and word order stay the translator's decision. All 29 languages are complete. In the six written in a non-Latin script, drink names carry a spoken form of their own — Russian says «капучино» while every picker button keeps the Latin `Cappuccino`, because a Cyrillic or Greek voice should not be handed a Latin token to spell out.
+- **The shape of a hand-started brew.** A brew begun on the machine's front panel carries no recipe identity — the status frame reports what the machine is doing, never which drink it was asked for. The detector now classifies the preparation legs it observed into a `shape` token (`coffee`, `coffee_with_milk`, `milk`, `water`), so that brew narrates as «Кофе с молоком готов.» instead of «Напиток готов.» The token rides on every classifiable `brew_finished` payload, including brews Home Assistant started itself, because an automation may want to branch on it; it is only *spoken* when the drink's name is unknown.
+- **Voice-assistant recipes in the README** for a generic `tts` entity, for Sber / Salut speakers via `sberhome.tts_send` (and `sberhome.ttc_send` when the speaker should act rather than announce), and for Yandex Station — plus automation examples for the new events and for branching on `shape` and `source`.
+- **Sommelier configuration export and import.** Six WebSocket commands and a Backup & restore section in the panel's System tab. Export writes a single JSON file — beans, hoppers, milk, extras, preferences, profiles, favourites, ratings and presets — with generation history included only on request. Import replaces the configuration wholesale after snapshotting what was there; snapshots can be listed, downloaded, restored and deleted. Both directions run in one explicit transaction on the connection the integration already holds.
+- **Diagnostics** gained a `narration` block: resolved language, string-cache size, detector latch state and a name-redacted summary of the staged brew, degrading to nulls rather than raising on a cold install.
+
+### Changed
+
+- Sommelier API version is now `1.1`; `docs/SOMMELIER_API.md` documents the new endpoints.
+- The README's automation examples were rewritten onto the new events — the previous ones triggered on sensor states that no longer exist — and a *Before you copy anything* section explains where the YAML goes, how to find the machine's device id, how to trigger without one, and how to fire a test event by hand.
+- The documented Home Assistant floor is corrected to **2024.7**. The integration has required `ConfigEntry.runtime_data` and the async static-path API since well before this release, while the README still claimed 2024.1; nothing in this release raises the requirement.
+
+### Notes
+
+- **No contract change.** The narration strings are deliberately not served over `i18n/get`, are absent from `strings_version` and do not enter `contract_fingerprint` — a served string family cannot be withdrawn for the life of `contract_version: 1`, and these are rendered on the server.
+- `shape` works on Nivona as well as Melitta: that family's process table maps only two codes, but its sub-process byte is parsed on every family, so the shape is the one brew fact that does not depend on the process table. `maintenance_finished` and a cancel attributed to a power-off remain structurally impossible there.
+- An import fires `melitta_barista_sommelier_imported` on the bus. No client consumes it yet; the panel reloads the page.
+- Matching clients: Lovelace card `2.11.0`, app `3.1.3` — both unchanged, neither needs an update.
+
 ## [0.95.0b3] — 2026-09-11 (beta)
 
 A brew started on the machine itself now says something useful.
