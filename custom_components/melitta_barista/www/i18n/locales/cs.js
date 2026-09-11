@@ -67,7 +67,7 @@ export default {
   "diag.no_frames": "Zatím nejsou zaznamenány žádné rámce.",
   "diag.address": "BLE adresa",
   "diag.brand": "Značka",
-  "diag.proxy": "Transport",
+  "diag.proxy": "Způsob připojení",
   "diag.proxy_local": "Lokální adaptér BlueZ",
   "diag.proxy_remote": "ESPHome BLE proxy",
   "diag.poll_interval": "Interval dotazování",
@@ -428,10 +428,10 @@ export default {
 
   // Backup & restore (System -> Settings subtab).
   "backup.title": "Záloha a obnovení",
-  "backup.help": "Vyexportujte celou konfiguraci Sommeliera — zrna, zásobníky, druhy mléka, přísady, výrobce, profily, oblíbené, předvolby a šablony promptů — do jednoho souboru JSON a naimportujte ji zpět zde nebo na jiné instalaci.",
+  "backup.help": "Vyexportujte celou konfiguraci Sommeliéra — zrna, zásobníky, druhy mléka, přísady, výrobce, profily, oblíbené, předvolby a šablony promptů — do jednoho souboru JSON a naimportujte ji zpět zde nebo na jiné instalaci.",
   "backup.privacy_note": "Export obsahuje názvy vašich profilů, dietní preference, šablony promptů a — s historií — počasí zaznamenané v okamžiku generování; před sdílením si jej projděte.",
   "backup.include_history": "Zahrnout historii generování",
-  "backup.include_history_help": "Přidá do souboru všechny relace Sommeliera i jejich recepty. Import místní historii vymaže tak jako tak, ať už ji soubor obsahuje, nebo ne.",
+  "backup.include_history_help": "Přidá do souboru všechny relace Sommeliéra i jejich recepty. Import místní historii vymaže tak jako tak, ať už ji soubor obsahuje, nebo ne.",
   "backup.include_install_specific": "Převzít AI agenta a entitu počasí ze zálohy",
   "backup.include_install_specific_help": "Vypnuto: zachová se vlastní AI agent a entita počasí této instalace, hodnoty ze zálohy se ignorují. Zapnuto: převezmou se i ty ze zálohy.",
   "backup.export": "Exportovat…",
@@ -453,11 +453,11 @@ export default {
   "backup.restore_done": "Snímek obnoven.",
   "backup.delete_done": "Snímek smazán.",
 
-  "confirm.import.title": "Nahradit konfiguraci Sommeliera?",
-  "confirm.import.message": "Tímto se nahradí VŠECHNA data Sommeliera — zrna, zásobníky, druhy mléka, přísady, výrobci, profily, oblíbené, předvolby a šablony promptů — obsahem souboru «{file}». Vaše historie generování bude vymazána. Nejprve se uloží snímek aktuální konfigurace, takže to můžete vzít zpět ze seznamu snímků níže.",
+  "confirm.import.title": "Nahradit konfiguraci Sommeliéra?",
+  "confirm.import.message": "Tímto se nahradí VŠECHNA data Sommeliéra — zrna, zásobníky, druhy mléka, přísady, výrobce, profily, oblíbené, předvolby a šablony promptů — obsahem souboru «{file}». Vaše historie generování bude vymazána. Nejprve se uloží snímek aktuální konfigurace, takže to můžete vzít zpět ze seznamu snímků níže.",
   "confirm.import.confirm": "Nahradit vše",
   "confirm.restore.title": "Obnovit tento snímek?",
-  "confirm.restore.message": "Tímto se nahradí VŠECHNA data Sommeliera obsahem snímku «{name}». Nejprve se uloží snímek aktuální konfigurace.",
+  "confirm.restore.message": "Tímto se nahradí VŠECHNA data Sommeliéra obsahem snímku «{name}». Nejprve se uloží snímek aktuální konfigurace.",
   "confirm.snapshot_delete.title": "Smazat tento snímek?",
   "confirm.snapshot_delete.message": "Soubor «{name}» bude odstraněn z disku. Tuto akci nelze vrátit zpět.",
 };

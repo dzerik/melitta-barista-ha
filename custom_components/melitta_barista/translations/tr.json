@@ -18,7 +18,7 @@
       },
       "bluetooth_confirm": {
         "title": "Cihazı onayla",
-        "description": "Kahve makinesi bulundu:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Reklam:** {name}\n- **MAC:** {address}\n\nKurmak ister misiniz?"
+        "description": "Kahve makinesi bulundu:\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Duyuru:** {name}\n- **MAC:** {address}\n\nKurmak ister misiniz?"
       },
       "brand": {
         "title": "Marka seçimi",
@@ -29,13 +29,13 @@
       },
       "pair": {
         "title": "Eşleştir {brand} {model}",
-        "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsüne bakın) ve Gönder'e basın.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Reklam:** {name}\n- **MAC:** {address}"
+        "description": "Kahve makinenizde Bluetooth eşleştirme modunu etkinleştirin (ayarlar menüsüne bakın) ve Gönder'e basın.\n\n- **Marka:** {brand}\n- **Model:** {model}\n- **Duyuru:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Kahve makinesini yeniden yapılandır",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC adresi",
+          "name": "Cihaz adı"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Temel Ayarlar",
           "advanced": "Gelişmiş Ayarlar",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Bağlantıyı onar (hafif)",
+          "full_pair": "Yeniden eşleştirmeyi zorla (tam)",
           "bluetooth_source": "Bluetooth adaptörü"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Yeniden bağlanma maks. gecikme (saniye)",
           "max_consecutive_errors": "Bağlantı kesilmeden önce sorgulama hataları",
           "frame_timeout": "BLE çerçeve zaman aşımı (saniye)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Basit istemleri otomatik onayla"
         },
         "data_description": {
           "poll_interval": "Makinenin durum güncellemeleri için ne sıklıkta sorgulanacağı (varsayılan: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Yeniden bağlanma denemeleri arasındaki maksimum gecikme (varsayılan: 300s)",
           "max_consecutive_errors": "Zorla bağlantı kesilmeden önceki ardışık sorgulama hatası sayısı (varsayılan: 3)",
           "frame_timeout": "BLE çerçeve gönderme/alma zaman aşımı (varsayılan: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Basit istemleri (fincanı taşıyın, durulama) otomatik olarak onaylar. Donanımla ilgili istemler (su doldurma, tepsileri boşaltma) yine elle onay gerektirir."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Eşleştirme zaman aşımı (saniye)",
           "recipe_retries": "Tarif okuma/yazma denemeleri",
           "initial_connect_delay": "İlk bağlantı gecikmesi (saniye)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Makine saatini otomatik eşitle",
+          "auto_sync_drift_minutes": "Otomatik eşitleme sapma eşiği (dakika)",
+          "auto_sync_daily_time": "Otomatik eşitlemenin günlük saati (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "BLE bağlantı kurulumu zaman aşımı (varsayılan: 15s)",
           "pair_timeout": "Kurulum sırasında BLE eşleştirme zaman aşımı (varsayılan: 30s)",
           "recipe_retries": "Tarif okuma/yazma işlemleri için yeniden deneme sayısı (varsayılan: 3)",
           "initial_connect_delay": "Kurulumdan sonra ilk bağlantı denemesi öncesi bekleme süresi (varsayılan: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Yeniden bağlanıldığında ve günde bir kez HA yerel saatini makineye otomatik olarak yazar (varsayılan: açık)",
+          "auto_sync_drift_minutes": "Ölçülen sapma bu dakika değerinin altındaysa yazma işlemi atlanır (varsayılan: 2)",
+          "auto_sync_daily_time": "24 saatlik HH:MM biçiminde günlük zorunlu eşitleme saati (varsayılan: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "BLE eşleştirmesini onar",
+        "description": "Hafif kurtarma: bu makinenin tarayıcısını yöneten ESPHome BLE proxy'sini yeniden yükler, böylece sonraki eşleştirme denemesi temiz bir önbellekle başlar. Önce bunu deneyin. Sonrasında demleme yine başarısız oluyorsa Yeniden eşleştirmeyi zorla (tam) seçeneğini deneyin — o seçenek ESP üzerindeki eşleştirme anahtarını da siler VE makineyi eşleştirme moduna almanızı gerektirir."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Tam yeniden eşleştirmeyi zorla",
+        "description": "Tam kurtarma: ESPHome BLE proxy'sindeki eşleştirme tablosunu siler, takılan yuvanın bağlantısını keser ve proxy kaydını yeniden yükleyerek yeni bir SMP alışverişini zorlar.\n\nGönder'e basmadan ÖNCE: makineyi kendi menüsünden eşleştirme moduna alın (Menu → Bluetooth → Pair new device / App-Verbindung — tam yol donanım yazılımına göre değişir). Eşleştirme modu olmadan makine yeni SMP isteğini reddeder ve günlüğe `auth fail reason=82` yazar.\n\nESPHome proxy YAML dosyanızda `clear_ble_bonds` ve `disconnect_ble_peer` eylemlerinin tanımlı olması gerekir (entegrasyon deposundaki esphome/ble-proxy-xiao-c6.yaml dosyasına bakın)."
       },
       "bluetooth_source": {
         "title": "Bluetooth adaptörü",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "ESPHome BLE proxy'si şimdi yeniden yükleniyor — entegrasyon bir dakika içinde yeniden bağlanacak. Sonrasında ESP günlüklerinde `auth fail reason=82` görürseniz eşleştirme her iki tarafta da takılmış demektir: Yeniden eşleştirmeyi zorla (tam) seçeneğini deneyin VE yeni bir SMP alışverişini kabul etmesi için makineyi eşleştirme moduna alın (Menu → Bluetooth → Pair new device).",
+      "repair_local_reconnect": "Bu makine için ESPHome proxy'si bulunamadı — bunun yerine yerel Bluetooth adaptörü üzerinden yeniden bağlanılıyor. Makinenin bir sonraki duyuruda yeniden bağlanması gerekir.",
+      "repair_failed": "Kurtarma yordamı beklenmeyen bir hata verdi — ayrıntılar için Home Assistant günlüklerine bakın ve bunları #10 numaralı sorunda paylaşmayı düşünün.",
+      "full_pair_done": "ESP proxy'sindeki eşleştirme tablosu silindi VE proxy kaydı yeniden yüklendi. ÖNEMLİ: şimdi 1 dakika içinde makineyi eşleştirme moduna alın (Menu → Bluetooth → Pair new device / App-Verbindung — tam yol donanım yazılımına göre değişir). Entegrasyon yeni bir SMP alışverişi yapacak ve yeni bir eşleştirme oluşturacak. Sonraki bağlantılarda eşleştirme moduna gerek kalmayacak.",
+      "full_pair_partial": "ESPHome proxy kaydı yeniden yüklendi, ancak eşleştirme tablosu silinemedi — HA günlüklerine bakın. Yeniden deneyin veya günlükleri #10 numaralı sorunda paylaşın.",
+      "full_pair_no_action": "`esphome.{service}` servisi kayıtlı olmadığı için eşleştirme tablosunu silemiyoruz. ESPHome YAML dosyanıza `clear_ble_bonds` eylemini ekleyin (şablon için entegrasyon deposundaki esphome/ble-proxy-xiao-c6.yaml dosyasına bakın), proxy'nin donanım yazılımını yeniden yükleyin ve tekrar deneyin. Proxy kaydını yeniden yükledik; bu, HA tarafındaki önbelleği temizler — bu arada Bağlantıyı onar (hafif) seçeneğini deneyin.",
+      "full_pair_local_only": "Bu makine için ESPHome proxy'si bulunamadı — yerel bir Bluetooth adaptörü kullanılıyor. Tam yeniden eşleştirme burada geçerli değil; bunun yerine yerel bağlantı kesilip yeniden kuruluyor.",
+      "full_pair_failed": "Yeniden eşleştirmeyi zorlama yordamı beklenmeyen bir hata verdi — Home Assistant günlüklerine bakın ve bunları #10 numaralı sorunda paylaşın."
     },
     "error": {
       "invalid_time": "HH:MM biçiminde geçerli bir saat girin (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Kahve"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Café Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -218,7 +218,7 @@
         "name": "Cappuccino"
       },
       "caffe_latte": {
-        "name": "Caffè latte"
+        "name": "Caffè Latte"
       },
       "macchiato": {
         "name": "Latte macchiato"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Ilık süt"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Sıcak süt"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Süt"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Süt köpüğü"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Sıcak su"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "My Coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Buharlı içecekler"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Çekilmiş kahve"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Tek fincanlık demlemeler"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Çift fincanlık demlemeler"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Toplam içecek"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Kahve sistemi temizliği"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Demleme ünitesi temizliği"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Süt köpürtücü temizliği"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Durulama döngüleri"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Köpürtücü durulamaları"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Filtre durulamaları"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Filtre değişimleri"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Kireç çözme"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Uygulamadan hazırlanan içecekler"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Sürahiyle hazırlanan içecekler"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Kireç çözme ilerlemesi"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Kireç çözme uyarısı"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Demleme ünitesi temizlik ilerlemesi"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Demleme ünitesi temizlik uyarısı"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Köpürtücü temizlik ilerlemesi"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Köpürtücü temizlik uyarısı"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Filtre ilerlemesi"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Filtre uyarısı"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Filtre bağımlılığı"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Seri numarası"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Saat"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Bu servis çağrısı için desteklenen kahve makinesi bulunamadı."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Demleme başarısız oldu. Makinenin durumunu kontrol edip tekrar deneyin."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Tarif kaydedilemedi. BLE bağlantısını kontrol edin."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Şu anda seçili bir tarif yok. Bir tarif seçin veya recipe_id değerini açıkça belirtin."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Makine sıfırlamayı reddetti (NACK veya zaman aşımı). Bu donanım yazılımı, bu yazmaç için HD komutunu desteklemiyor olabilir."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Makine onayı reddetti (NACK veya zaman aşımı). Bu donanım yazılımı HY komutunu desteklemiyor olabilir."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Makine parametre yazma işlemini reddetti (NACK veya zaman aşımı). Markayı/aileyi, seçiciyi/yuvayı ve parametre anahtarını kontrol edin."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Kararsız BLE bağlantısı",
+      "description": "Kahve makinesinin bağlantısı son bir saatte {count} kez koptu. ESPHome BLE proxy'sini makineye yaklaştırmayı ya da Bluetooth parazitini kontrol etmeyi deneyin."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "BLE eşleştirme kurtarması başlatıldı",
+      "description": "Kahve makinesiyle ({address}) eşleştirme takılmış görünüyor (makine el sıkışmamızı sürekli reddetti — bu genellikle makine ekranında kırmızı Bluetooth göstergesiyle belli olur). Entegrasyon, önbellekte kalan eski BLEDevice kaydını temizlemek için ESPHome BLE proxy'sini otomatik olarak yeniden yükledi.\n\nBir dakika sonra demleme yine başarısız oluyorsa eşleştirme MAKİNE tarafında da takılmış demektir. Düzeltmek için:\n\n1. Makine menüsünü açın → Bluetooth → Pair new device (donanım yazılımına göre App-Verbindung / Connect / Reset connection yazabilir).\n2. Makine eşleştirme modundayken `melitta_barista.repair_connection` servisini çağırın (veya Ayarlar → Cihazlar ve hizmetler → Melitta → Yapılandır → Yeniden eşleştirmeyi zorla (tam) yolunu izleyin).\n3. Makine yeni bir eşleştirme oluşturur; sonraki bağlantılarda eşleştirme moduna gerek kalmaz.\n\nBu her yeniden bağlanmada tekrarlanıyorsa günlükleri #10 numaralı sorunda paylaşın."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Eski saat varlıkları kaldırıldı",
+      "description": "number.MACHINE_clock ve number.MACHINE_clock_send varlıkları 0.52.0 sürümünde kaldırıldı. Yeni time.MACHINE_clock varlığını kullanın veya bir otomasyondan melitta_barista.sync_clock servisini çağırın."
     },
     "bond_reset_required": {
       "title": "Kahve makinesinin yeniden eşleştirilmesi gerekiyor",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Makine saatini eşitle",
+      "description": "Home Assistant'ın güncel yerel saatini makinenin RTC'sine yazar."
     }
   },
   "selector": {

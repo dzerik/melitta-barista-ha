@@ -419,10 +419,10 @@ export default {
 
   // Backup & restore (System -> Settings subtab).
   "backup.title": "Copie de rezervă și restaurare",
-  "backup.help": "Exportați întreaga configurație Sommelier — boabe, rezervoare, tipuri de lapte, adaosuri, producători, profiluri, favorite, presetări și șabloane de prompt — într-un singur fișier JSON și importați-o înapoi aici sau pe altă instalare.",
+  "backup.help": "Exportați întreaga configurație Somelier — boabe, rezervoare, tipuri de lapte, adaosuri, producători, profiluri, favorite, presetări și șabloane de prompt — într-un singur fișier JSON și importați-o înapoi aici sau pe altă instalare.",
   "backup.privacy_note": "Exportul conține numele profilurilor dvs., preferințele alimentare, șabloanele de prompt și — împreună cu istoricul — vremea înregistrată în momentul generării; verificați-l înainte de a-l partaja.",
   "backup.include_history": "Include istoricul generărilor",
-  "backup.include_history_help": "Adaugă în fișier toate sesiunile Sommelier și rețetele lor. Importul șterge oricum istoricul local, indiferent dacă fișierul conține unul.",
+  "backup.include_history_help": "Adaugă în fișier toate sesiunile Somelier și rețetele lor. Importul șterge oricum istoricul local, indiferent dacă fișierul conține unul.",
   "backup.include_install_specific": "Preia agentul IA și entitatea meteo din copie",
   "backup.include_install_specific_help": "Dezactivat: se păstrează agentul IA și entitatea meteo proprii acestei instalări, iar valorile din copie sunt ignorate. Activat: sunt preluate și acestea din copie.",
   "backup.export": "Exportă…",
@@ -444,11 +444,11 @@ export default {
   "backup.restore_done": "Instantaneu restaurat.",
   "backup.delete_done": "Instantaneu șters.",
 
-  "confirm.import.title": "Înlocuiți configurația Sommelier?",
-  "confirm.import.message": "Aceasta înlocuiește TOATE datele Sommelier — boabe, rezervoare, tipuri de lapte, adaosuri, producători, profiluri, favorite, presetări și șabloane de prompt — cu conținutul fișierului «{file}». Istoricul generărilor va fi șters. Mai întâi se salvează un instantaneu al configurației curente, astfel încât puteți anula din lista de instantanee de mai jos.",
+  "confirm.import.title": "Înlocuiți configurația Somelier?",
+  "confirm.import.message": "Aceasta înlocuiește TOATE datele Somelier — boabe, rezervoare, tipuri de lapte, adaosuri, producători, profiluri, favorite, presetări și șabloane de prompt — cu conținutul fișierului «{file}». Istoricul generărilor va fi șters. Mai întâi se salvează un instantaneu al configurației curente, astfel încât puteți anula din lista de instantanee de mai jos.",
   "confirm.import.confirm": "Înlocuiește tot",
   "confirm.restore.title": "Restaurați acest instantaneu?",
-  "confirm.restore.message": "Aceasta înlocuiește TOATE datele Sommelier cu conținutul instantaneului «{name}». Mai întâi se salvează un instantaneu al configurației curente.",
+  "confirm.restore.message": "Aceasta înlocuiește TOATE datele Somelier cu conținutul instantaneului «{name}». Mai întâi se salvează un instantaneu al configurației curente.",
   "confirm.snapshot_delete.title": "Ștergeți acest instantaneu?",
   "confirm.snapshot_delete.message": "«{name}» va fi eliminat de pe disc. Această acțiune nu poate fi anulată.",
 };

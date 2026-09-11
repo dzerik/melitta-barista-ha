@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Перенастроить кофемашину",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC-адрес",
+          "name": "Имя устройства"
         }
       }
     },
@@ -108,7 +108,7 @@
       },
       "repair": {
         "title": "Восстановление BLE-сопряжения",
-        "description": "Мягкое восстановление: перезагружает ESPHome BLE-прокси, владеющий сканером, чтобы следующая попытка сопряжения началась с чистого кэша. Используйте сначала это. Если варка по-прежнему не работает, попробуйте Принудительное пересопряжение (жёсткое) — оно также стирает bond-ключ на ESP, А ТАКЖЕ требует перевести машину в режим сопряжения."
+        "description": "Мягкое восстановление: перезагружает ESPHome BLE-прокси, владеющий сканером, чтобы следующая попытка сопряжения началась с чистого кэша. Сначала попробуйте этот вариант. Если варка по-прежнему не работает, попробуйте Принудительное пересопряжение (жёсткое) — оно также стирает bond-ключ на ESP, А ТАКЖЕ требует перевести машину в режим сопряжения."
       },
       "full_pair": {
         "title": "Принудительное полное пересопряжение",
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Кофе"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Café Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,94 +227,94 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Тёплое молоко"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Горячее молоко"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Молоко"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Молочная пена"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Горячая вода"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "Мой кофе"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Паровые напитки"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Молотый кофе"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Приготовления на одну чашку"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Приготовления на две чашки"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Всего напитков"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Очистки кофейной системы"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Очистки заварочного блока"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Очистки капучинатора"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Циклы промывки"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Промывки капучинатора"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Промывки фильтра"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Замены фильтра"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Циклы декальцинации"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Напитки через приложение"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Напитки через кофейник"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Прогресс до декальцинации"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Предупреждение о декальцинации"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Прогресс до очистки заварочного блока"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Предупреждение об очистке заварочного блока"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Прогресс до очистки капучинатора"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Предупреждение об очистке капучинатора"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Прогресс до замены фильтра"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Предупреждение о фильтре"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Зависимость от фильтра"
       },
       "serial_number": {
         "name": "Серийный номер"
@@ -384,7 +384,7 @@
           "latte_macchiato_extra": "Latte Macchiato Extra",
           "latte_macchiato_triple": "Latte Macchiato Triple",
           "milk": "Молоко",
-          "milk_froth": "Молочная пенка",
+          "milk_froth": "Молочная пена",
           "hot_water": "Горячая вода"
         }
       },
@@ -535,10 +535,10 @@
       "message": "Поддерживаемая кофемашина для этого вызова сервиса не найдена."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Не удалось приготовить напиток. Проверьте состояние машины и попробуйте снова."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Не удалось сохранить рецепт. Проверьте BLE-соединение."
     },
     "no_recipe_selected": {
       "message": "Рецепт не выбран. Выберите рецепт или передайте recipe_id явно."
@@ -555,8 +555,8 @@
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Нестабильное BLE-соединение",
+      "description": "Число отключений кофемашины за последний час: {count}. Попробуйте переставить ESPHome BLE-прокси ближе к машине или проверьте, нет ли помех в эфире Bluetooth."
     },
     "pairing_wedged": {
       "title": "Запущено восстановление BLE-сопряжения",

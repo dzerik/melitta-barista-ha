@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Rekonfiguracja ekspresu do kawy",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Adres Bluetooth MAC",
+          "name": "Nazwa urządzenia"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Ustawienia podstawowe",
           "advanced": "Ustawienia zaawansowane",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Napraw połączenie (miękki reset)",
+          "full_pair": "Wymuś ponowne parowanie (twardy reset)",
           "bluetooth_source": "Adapter Bluetooth"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Maks. opóźnienie ponownego połączenia (sekundy)",
           "max_consecutive_errors": "Błędy odpytywania przed rozłączeniem",
           "frame_timeout": "Limit czasu ramki BLE (sekundy)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Automatyczne potwierdzanie łagodnych monitów"
         },
         "data_description": {
           "poll_interval": "Jak często odpytywać ekspres o aktualizacje statusu (domyślnie: 5 s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Maksymalne opóźnienie między próbami ponownego połączenia (domyślnie: 300 s)",
           "max_consecutive_errors": "Liczba kolejnych błędów odpytywania przed wymuszonym rozłączeniem (domyślnie: 3)",
           "frame_timeout": "Limit czasu operacji wysyłania/odbierania ramek BLE (domyślnie: 5 s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Automatycznie potwierdzaj łagodne monity (przesuń filiżankę, płukanie). Monity sprzętowe (dolej wody, opróżnij tacki) nadal wymagają ręcznego potwierdzenia."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Limit czasu parowania (sekundy)",
           "recipe_retries": "Ponowne próby odczytu/zapisu przepisów",
           "initial_connect_delay": "Opóźnienie pierwszego połączenia (sekundy)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Automatyczna synchronizacja zegara ekspresu",
+          "auto_sync_drift_minutes": "Próg odchylenia przy synchronizacji (minuty)",
+          "auto_sync_daily_time": "Codzienna godzina synchronizacji (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Limit czasu nawiązywania połączenia BLE (domyślnie: 15 s)",
           "pair_timeout": "Limit czasu parowania BLE podczas konfiguracji (domyślnie: 30 s)",
           "recipe_retries": "Liczba ponownych prób odczytu/zapisu przepisów (domyślnie: 3)",
           "initial_connect_delay": "Oczekiwanie przed pierwszą próbą połączenia po konfiguracji (domyślnie: 3 s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Automatycznie wysyłaj czas lokalny HA do ekspresu po ponownym połączeniu i raz dziennie (domyślnie: włączone)",
+          "auto_sync_drift_minutes": "Pomiń zapis, jeśli zmierzone odchylenie jest mniejsze niż tyle minut (domyślnie: 2)",
+          "auto_sync_daily_time": "Godzina codziennej wymuszonej synchronizacji w formacie 24-godzinnym HH:MM (domyślnie: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Napraw parowanie BLE",
+        "description": "Miękkie odzyskiwanie: ponownie ładuje proxy BLE ESPHome, do którego należy skaner obsługujący ten ekspres, dzięki czemu kolejna próba parowania zaczyna się od czystej pamięci podręcznej. Zacznij od tej opcji. Jeśli parzenie nadal nie działa, spróbuj Wymuś ponowne parowanie (twardy reset) — ta opcja kasuje dodatkowo klucz parowania w module ESP ORAZ wymaga przełączenia ekspresu w tryb parowania."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Wymuś pełne ponowne parowanie",
+        "description": "Twarde odzyskiwanie: kasuje tablicę parowań w proxy BLE ESPHome, rozłącza zablokowane gniazdo i ponownie ładuje wpis proxy, wymuszając nową wymianę SMP.\n\nPRZED naciśnięciem Wyślij: przełącz ekspres w tryb parowania w jego menu (Menu → Bluetooth → Pair new device / App-Verbindung — dokładna ścieżka zależy od wersji oprogramowania). Bez trybu parowania ekspres odrzuci nowe żądanie SMP, zgłaszając `auth fail reason=82`.\n\nWymaga akcji `clear_ble_bonds` i `disconnect_ble_peer` w pliku YAML proxy ESPHome (zobacz esphome/ble-proxy-xiao-c6.yaml w repozytorium integracji)."
       },
       "bluetooth_source": {
         "title": "Adapter Bluetooth",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "Trwa ponowne ładowanie proxy BLE ESPHome — integracja połączy się ponownie w ciągu minuty. Jeśli potem zobaczysz w logach ESP `auth fail reason=82`, parowanie jest zablokowane po obu stronach: użyj opcji Wymuś ponowne parowanie (twardy reset) ORAZ przełącz ekspres w tryb parowania (Menu → Bluetooth → Pair new device), aby przyjął nową wymianę SMP.",
+      "repair_local_reconnect": "Nie znaleziono proxy ESPHome dla tego ekspresu — łączenie odbywa się ponownie przez lokalny adapter Bluetooth. Ekspres powinien połączyć się przy następnym rozgłoszeniu.",
+      "repair_failed": "Procedura odzyskiwania zgłosiła nieoczekiwany wyjątek — szczegóły znajdziesz w logach Home Assistant; rozważ udostępnienie ich w zgłoszeniu #10.",
+      "full_pair_done": "Skasowano tablicę parowań w proxy ESP ORAZ ponownie załadowano wpis proxy. WAŻNE: w ciągu minuty przełącz ekspres w tryb parowania (Menu → Bluetooth → Pair new device / App-Verbindung — dokładna ścieżka zależy od wersji oprogramowania). Integracja przeprowadzi nową wymianę SMP i utworzy nowe parowanie. Kolejne połączenia nie będą już wymagać trybu parowania.",
+      "full_pair_partial": "Ponownie załadowano wpis proxy ESPHome, ale kasowanie parowań nie powiodło się — sprawdź logi HA. Spróbuj ponownie lub udostępnij logi w zgłoszeniu #10.",
+      "full_pair_no_action": "Usługa ESPHome `esphome.{service}` nie jest zarejestrowana, więc nie możemy skasować tablicy parowań. Dodaj akcję `clear_ble_bonds` do pliku YAML ESPHome (szablon w esphome/ble-proxy-xiao-c6.yaml w repozytorium integracji), wgraj oprogramowanie do proxy i spróbuj ponownie. Wpis proxy został ponownie załadowany, co czyści pamięć podręczną po stronie HA — w międzyczasie wypróbuj Napraw połączenie (miękki reset).",
+      "full_pair_local_only": "Nie znaleziono proxy ESPHome dla tego ekspresu — pracuje on na lokalnym adapterze Bluetooth. Pełne ponowne parowanie nie ma tu zastosowania; zamiast tego wykonywane jest lokalne rozłączenie i ponowne połączenie.",
+      "full_pair_failed": "Procedura wymuszonego ponownego parowania zgłosiła nieoczekiwany wyjątek — sprawdź logi Home Assistant i udostępnij je w zgłoszeniu #10."
     },
     "error": {
       "invalid_time": "Wprowadź prawidłowy czas w formacie HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Kawa"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Café Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Ciepłe mleko"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Gorące mleko"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Mleko"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Pianka mleczna"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Gorąca woda"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Napoje z parą"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Kawa mielona"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Parzenia pojedyncze"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Parzenia podwójne"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Napoje łącznie"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Czyszczenia systemu kawowego"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Czyszczenia bloku parzącego"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Czyszczenia spieniacza"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Cykle płukania"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Płukania spieniacza"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Płukania filtra"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Wymiany filtra"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Odkamienienia"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Napoje z aplikacji"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Napoje przez Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Postęp do odkamieniania"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Ostrzeżenie o odkamienianiu"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Postęp do czyszczenia bloku parzącego"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Ostrzeżenie o czyszczeniu bloku parzącego"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Postęp do czyszczenia spieniacza"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Ostrzeżenie o czyszczeniu spieniacza"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Postęp do wymiany filtra"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Ostrzeżenie o filtrze"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Zależność od filtra"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Numer seryjny"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Zegar"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Nie znaleziono obsługiwanego ekspresu do kawy dla tego wywołania usługi."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Parzenie nie powiodło się. Sprawdź stan ekspresu i spróbuj ponownie."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Nie udało się zapisać przepisu. Sprawdź połączenie BLE."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Żaden przepis nie jest obecnie wybrany. Wybierz przepis lub podaj wprost recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Ekspres odrzucił reset (NACK lub przekroczenie czasu). To oprogramowanie może nie obsługiwać HD dla tego rejestru."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Ekspres odrzucił potwierdzenie (NACK lub przekroczenie czasu). To oprogramowanie może nie obsługiwać HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Ekspres odrzucił zapis parametru (NACK lub przekroczenie czasu). Sprawdź markę/rodzinę, selektor/slot oraz klucz parametru."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Niestabilne połączenie BLE",
+      "description": "Ekspres do kawy rozłączył się {count} razy w ciągu ostatniej godziny. Rozważ przeniesienie proxy BLE ESPHome bliżej ekspresu lub sprawdź, czy nie występują zakłócenia Bluetooth."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Uruchomiono odzyskiwanie parowania BLE",
+      "description": "Parowanie z ekspresem do kawy ({address}) wygląda na zablokowane (ekspres raz po raz odrzucał nasze uzgodnienie — zwykle sygnalizuje to czerwony wskaźnik Bluetooth na wyświetlaczu ekspresu). Integracja automatycznie przeładowała proxy BLE ESPHome, aby usunąć nieaktualny wpis BLEDevice z pamięci podręcznej.\n\nJeśli po minucie parzenie nadal nie działa, parowanie jest zablokowane także po stronie EKSPRESU. Aby to naprawić:\n\n1. Otwórz w ekspresie menu → Bluetooth → Pair new device (zależnie od wersji oprogramowania ścieżka może brzmieć App-Verbindung / Connect / Reset connection).\n2. Gdy ekspres jest w trybie parowania, wywołaj `melitta_barista.repair_connection` (albo użyj Ustawienia → Urządzenia i usługi → Melitta → Konfiguruj → Wymuś ponowne parowanie).\n3. Ekspres utworzy nowe parowanie; kolejne połączenia nie będą już wymagać trybu parowania.\n\nJeśli powtarza się to przy każdym połączeniu, udostępnij logi w zgłoszeniu #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Usunięto dawne encje zegara",
+      "description": "Encje number.MACHINE_clock i number.MACHINE_clock_send zostały usunięte w wersji 0.52.0. Użyj nowej encji time.MACHINE_clock lub wywołaj usługę melitta_barista.sync_clock z automatyzacji."
     },
     "bond_reset_required": {
       "title": "Ekspres wymaga ponownego sparowania",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Synchronizuj zegar ekspresu",
+      "description": "Wyślij bieżący czas lokalny Home Assistant do zegara RTC ekspresu."
     }
   },
   "selector": {

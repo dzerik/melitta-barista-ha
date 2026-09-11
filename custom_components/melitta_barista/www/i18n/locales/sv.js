@@ -109,7 +109,7 @@ export default {
   "recipes.cat.latte_macchiato": "Latte macchiato",
   "recipes.cat.milk_froth": "Mjölkskum",
   "recipes.cat.milk": "Varm mjölk",
-  "recipes.cat.water": "Hett vatten",
+  "recipes.cat.water": "Varmt vatten",
   "recipes.opt.none": "Ingen",
   "recipes.opt.coffee": "Kaffe",
   "recipes.opt.milk": "Mjölk",
@@ -277,7 +277,7 @@ export default {
   "history.clear.done": "{n} sessioner borttagna.",
   "history.clear.failed": "Det gick inte att rensa historiken",
 
-  "wizard.title": "Bryggguide",
+  "wizard.title": "Brygguide",
   "wizard.step_of": "Steg {n} av {m}",
   "wizard.step.cup": "Ställ en {cup} (~{ml} ml) under utloppet",
   "wizard.step.done": "Klart",

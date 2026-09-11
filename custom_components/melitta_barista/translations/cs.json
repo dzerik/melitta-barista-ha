@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Překonfigurovat kávovar",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC adresa",
+          "name": "Název zařízení"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Základní nastavení",
           "advanced": "Pokročilá nastavení",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Oprava připojení (šetrná)",
+          "full_pair": "Vynutit nové spárování (úplné)",
           "bluetooth_source": "Adaptér Bluetooth"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Max. prodleva opětovného připojení (sekundy)",
           "max_consecutive_errors": "Chyb dotazování před odpojením",
           "frame_timeout": "Časový limit BLE rámce (sekundy)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Automaticky potvrzovat jednoduché výzvy"
         },
         "data_description": {
           "poll_interval": "Jak často dotazovat kávovar na aktualizace stavu (výchozí: 5 s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Maximální prodleva mezi pokusy o opětovné připojení (výchozí: 300 s)",
           "max_consecutive_errors": "Počet po sobě jdoucích chyb dotazování před vynuceným odpojením (výchozí: 3)",
           "frame_timeout": "Časový limit pro operace odesílání/přijímání BLE rámců (výchozí: 5 s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Automaticky potvrzovat jednoduché výzvy (přesun šálku, propláchnutí). Hardwarové výzvy (doplnění vody, vyprázdnění misek) je i nadále nutné potvrdit ručně."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Časový limit párování (sekundy)",
           "recipe_retries": "Opakování čtení/zápisu receptů",
           "initial_connect_delay": "Prodleva prvního připojení (sekundy)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Automaticky synchronizovat hodiny kávovaru",
+          "auto_sync_drift_minutes": "Práh odchylky pro synchronizaci (minuty)",
+          "auto_sync_daily_time": "Denní čas synchronizace (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Časový limit pro navázání BLE připojení (výchozí: 15 s)",
           "pair_timeout": "Časový limit BLE párování během nastavení (výchozí: 30 s)",
           "recipe_retries": "Počet opakovaných pokusů o čtení/zápis receptů (výchozí: 3)",
           "initial_connect_delay": "Čekání před prvním pokusem o připojení po nastavení (výchozí: 3 s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Automaticky odesílat místní čas Home Assistanta do kávovaru po opětovném připojení a jednou denně (výchozí: zapnuto)",
+          "auto_sync_drift_minutes": "Nezapisovat, pokud je naměřená odchylka menší než tento počet minut (výchozí: 2)",
+          "auto_sync_daily_time": "Čas denní vynucené synchronizace ve 24hodinovém formátu HH:MM (výchozí: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Oprava párování BLE",
+        "description": "Šetrná obnova: znovu načte ESPHome BLE proxy, která pro tento kávovar vlastní skener, aby další pokus o spárování začal s prázdnou vyrovnávací pamětí. Zkuste ji jako první. Pokud příprava kávy selhává i poté, zkuste Vynutit nové spárování (úplné) — to navíc smaže párovací klíč na ESP A vyžaduje, abyste kávovar přepnuli do režimu párování."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Vynutit úplné nové spárování",
+        "description": "Úplná obnova: smaže tabulku párování na ESPHome BLE proxy, odpojí zaseknutý slot a znovu načte záznam proxy, čímž vynutí novou výměnu SMP.\n\nNEŽ stisknete Odeslat: přepněte kávovar do režimu párování přes jeho nabídku (Menu → Bluetooth → Pair new device / App-Verbindung — přesná cesta závisí na firmwaru). Bez režimu párování kávovar nový požadavek SMP odmítne s chybou `auth fail reason=82`.\n\nVyžaduje akce `clear_ble_bonds` a `disconnect_ble_peer` v YAML konfiguraci vaší ESPHome proxy (viz esphome/ble-proxy-xiao-c6.yaml v repozitáři integrace)."
       },
       "bluetooth_source": {
         "title": "Adaptér Bluetooth",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "ESPHome BLE proxy se právě znovu načítá — integrace se do minuty připojí. Pokud poté uvidíte v protokolech ESP `auth fail reason=82`, je párování zaseknuté na obou stranách: zkuste Vynutit nové spárování (úplné) A přepněte kávovar do režimu párování (Menu → Bluetooth → Pair new device), aby novou výměnu SMP přijal.",
+      "repair_local_reconnect": "Pro tento kávovar nebyla nalezena žádná ESPHome proxy — připojení proto proběhne přes místní Bluetooth adaptér. Kávovar by se měl připojit při další inzerci.",
+      "repair_failed": "Obnovovací rutina skončila neočekávanou chybou — podrobnosti najdete v protokolech Home Assistanta a zvažte jejich sdílení v issue #10.",
+      "full_pair_done": "Tabulka párování na ESP proxy byla smazána A záznam proxy byl znovu načten. DŮLEŽITÉ: nyní do jedné minuty přepněte kávovar do režimu párování (Menu → Bluetooth → Pair new device / App-Verbindung — přesná cesta závisí na firmwaru). Integrace provede novou výměnu SMP a vytvoří nové párování. Další připojení už režim párování potřebovat nebudou.",
+      "full_pair_partial": "Záznam ESPHome proxy byl znovu načten, ale smazání párování se nezdařilo — viz protokoly HA. Zkuste to znovu nebo sdílejte protokoly v issue #10.",
+      "full_pair_no_action": "Služba ESPHome `esphome.{service}` není registrovaná, takže tabulku párování nelze smazat. Přidejte do YAML konfigurace své ESPHome proxy akci `clear_ble_bonds` (šablona je v esphome/ble-proxy-xiao-c6.yaml v repozitáři integrace), nahrajte firmware do proxy a zkuste to znovu. Záznam proxy jsme znovu načetli, což vyprázdní vyrovnávací paměť na straně HA — mezitím zkuste Oprava připojení (šetrná).",
+      "full_pair_local_only": "Pro tento kávovar nebyla nalezena žádná ESPHome proxy — běží na místním Bluetooth adaptéru. Úplné nové spárování zde nedává smysl; místo něj proběhne místní odpojení a opětovné připojení.",
+      "full_pair_failed": "Rutina vynuceného nového spárování skončila neočekávanou chybou — podívejte se do protokolů Home Assistanta a sdílejte je v issue #10."
     },
     "error": {
       "invalid_time": "Zadejte platný čas ve formátu HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Káva"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -218,7 +218,7 @@
         "name": "Cappuccino"
       },
       "caffe_latte": {
-        "name": "Caffè latte"
+        "name": "Caffè Latte"
       },
       "macchiato": {
         "name": "Latte macchiato"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Teplé mléko"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Horké mléko"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Mléko"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Mléčná pěna"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Horká voda"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "My Coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Nápoje s párou"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Mletá káva"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Přípravy do jednoho šálku"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Přípravy do dvou šálků"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Nápoje celkem"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Čištění kávového systému"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Čištění spařovací jednotky"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Čištění napěňovače"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Proplachovací cykly"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Oplachy napěňovače"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Oplachy filtru"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Výměny filtru"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Odvápnění"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Nápoje přes aplikaci"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Nápoje přes Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Postup do odvápnění"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Upozornění na odvápnění"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Postup do čištění spařovací jednotky"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Upozornění na čištění spařovací jednotky"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Postup do čištění napěňovače"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Upozornění na čištění napěňovače"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Postup do výměny filtru"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Upozornění na filtr"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Závislost na filtru"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Sériové číslo"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Hodiny"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Pro toto volání služby nebyl nalezen žádný podporovaný kávovar."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Příprava se nezdařila. Zkontrolujte stav kávovaru a zkuste to znovu."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Recept se nepodařilo uložit. Zkontrolujte připojení BLE."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Momentálně není vybrán žádný recept. Vyberte jej, nebo výslovně zadejte recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Kávovar obnovení odmítl (NACK nebo vypršení časového limitu). Tento firmware nemusí pro tento registr podporovat HD."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Kávovar potvrzení odmítl (NACK nebo vypršení časového limitu). Tento firmware nemusí podporovat HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Kávovar zápis parametru odmítl (NACK nebo vypršení časového limitu). Zkontrolujte značku/rodinu, volič/slot a klíč parametru."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Nestabilní připojení BLE",
+      "description": "Kávovar se za poslední hodinu odpojil {count}×. Zvažte přesunutí ESPHome BLE proxy blíž ke kávovaru nebo zkontrolujte rušení Bluetooth."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Spuštěna obnova párování BLE",
+      "description": "Párování s kávovarem ({address}) vypadalo zaseknuté (kávovar opakovaně odmítal naše navázání spojení — obvykle se to projeví červenou kontrolkou Bluetooth na jeho displeji). Integrace automaticky znovu načetla ESPHome BLE proxy, aby zahodila zastaralý uložený BLEDevice.\n\nPokud příprava kávy nefunguje ani po minutě, je párování zaseknuté i na straně KÁVOVARU. Náprava:\n\n1. Otevřete nabídku kávovaru → Bluetooth → Pair new device (podle firmwaru může být cesta popsaná jako App-Verbindung / Connect / Reset connection).\n2. Dokud je kávovar v režimu párování, zavolejte `melitta_barista.repair_connection` (nebo použijte Nastavení → Zařízení a služby → Melitta → Konfigurovat → Vynutit nové spárování).\n3. Kávovar vytvoří nové párování; další připojení už režim párování potřebovat nebudou.\n\nPokud se to opakuje při každém připojení, sdílejte protokoly v issue #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Staré entity hodin byly odstraněny",
+      "description": "Entity number.MACHINE_clock a number.MACHINE_clock_send byly odstraněny ve verzi 0.52.0. Použijte novou entitu time.MACHINE_clock nebo z automatizace volejte službu melitta_barista.sync_clock."
     },
     "bond_reset_required": {
       "title": "Kávovar vyžaduje nové spárování",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Synchronizovat hodiny kávovaru",
+      "description": "Odešle aktuální místní čas Home Assistanta do hodin kávovaru (RTC)."
     }
   },
   "selector": {

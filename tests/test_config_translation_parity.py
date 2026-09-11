@@ -7,6 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.i18n_english_fallback import (
+    english_fallbacks,
+    load_json_locale,
+)
+
 
 _TRANSLATIONS_DIR = (
     Path(__file__).parent.parent
@@ -91,4 +96,28 @@ def test_selector_translation_keys_match_english(locale: str) -> None:
         f"{locale}.json selector translation keys differ from en.json; "
         f"missing={sorted(english.keys() - translated.keys())}, "
         f"extra={sorted(translated.keys() - english.keys())}"
+    )
+
+
+@pytest.mark.parametrize(
+    "locale",
+    [p.stem for p in sorted(_TRANSLATIONS_DIR.glob("*.json")) if p.stem != "en"],
+)
+def test_no_locale_value_is_still_english(locale: str) -> None:
+    """No entity/config/options string may silently ship the English source.
+
+    The generalisation of the Greek-only pin above: key parity says the key
+    exists, this says somebody actually translated it. Justified exceptions
+    (drink proper names, contract-frozen entity names, words a language
+    genuinely shares with English) live in tests/i18n_english_fallback.py —
+    extend the table there, deliberately, rather than this assertion.
+    """
+    english = load_json_locale(_TRANSLATIONS_DIR / "en.json")
+    translated = load_json_locale(_TRANSLATIONS_DIR / f"{locale}.json")
+
+    stale = english_fallbacks("translations", locale, english, translated)
+    assert not stale, (
+        f"{locale}.json still carries {len(stale)} English source strings: "
+        + ", ".join(f"{key}={english[key]!r}" for key in stale[:10])
+        + ("..." if len(stale) > 10 else "")
     )

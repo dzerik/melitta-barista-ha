@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Omkonfigurer kaffemaskine",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC-adresse",
+          "name": "Enhedsnavn"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Grundindstillinger",
           "advanced": "Avancerede indstillinger",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Reparér forbindelsen (blød)",
+          "full_pair": "Gennemtving ny parring (hård)",
           "bluetooth_source": "Bluetooth-adapter"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Genforbindelse maks. backoff (sekunder)",
           "max_consecutive_errors": "Pollingfejl før afbrydelse",
           "frame_timeout": "BLE frame-timeout (sekunder)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Bekræft bløde prompts automatisk"
         },
         "data_description": {
           "poll_interval": "Hvor ofte maskinen polles for statusopdateringer (standard: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Maksimal forsinkelse mellem genforbindelsesforsøg (standard: 300s)",
           "max_consecutive_errors": "Antal pollingfejl i træk før tvungen afbrydelse (standard: 3)",
           "frame_timeout": "Timeout for BLE frame-afsendelse/-modtagelse (standard: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Kvittér automatisk for bløde prompts (flyt koppen, skyl). Hardware-prompts (fyld vand på, tøm bakkerne) kræver stadig manuel bekræftelse."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Parringstimeout (sekunder)",
           "recipe_retries": "Opskrift læse-/skriveforsøg",
           "initial_connect_delay": "Startforsinkelse for forbindelse (sekunder)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Synkronisér maskinens ur automatisk",
+          "auto_sync_drift_minutes": "Afvigelsesgrænse for automatisk synkronisering (minutter)",
+          "auto_sync_daily_time": "Dagligt tidspunkt for automatisk synkronisering (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Timeout for etablering af BLE-forbindelse (standard: 15s)",
           "pair_timeout": "Timeout for BLE-parring under opsætning (standard: 30s)",
           "recipe_retries": "Antal genforsøg for opskrift læse-/skriveoperationer (standard: 3)",
           "initial_connect_delay": "Ventetid før første forbindelsesforsøg efter opsætning (standard: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Send automatisk Home Assistants lokale tid til maskinen ved genforbindelse og én gang i døgnet (standard: til)",
+          "auto_sync_drift_minutes": "Spring skrivningen over, hvis den målte afvigelse er mindre end så mange minutter (standard: 2)",
+          "auto_sync_daily_time": "Tidspunkt for den daglige tvungne synkronisering i 24-timersformatet HH:MM (standard: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Reparér BLE-parringen",
+        "description": "Blød gendannelse: genindlæser den ESPHome BLE-proxy, der ejer scanneren for denne maskine, så næste parringsforsøg starter fra en ren cache. Prøv denne først. Hvis brygningen stadig fejler bagefter, så prøv Gennemtving ny parring (hård) — den sletter også parringsnøglen på ESP'en OG kræver, at du sætter maskinen i parringstilstand."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Gennemtving fuld ny parring",
+        "description": "Hård gendannelse: sletter parringstabellen på ESPHome BLE-proxyen, afbryder den fastlåste forbindelse og genindlæser proxyens post, så der fremtvinges en ny SMP-udveksling.\n\nFØR du trykker på Send: sæt maskinen i parringstilstand via dens menu (Menu → Bluetooth → Pair new device / App-Verbindung — den præcise sti afhænger af firmwaren). Uden parringstilstand afviser maskinen den nye SMP-anmodning med `auth fail reason=82`.\n\nKræver handlingerne `clear_ble_bonds` og `disconnect_ble_peer` i din ESPHome-proxys YAML (se esphome/ble-proxy-xiao-c6.yaml i integrationens repository)."
       },
       "bluetooth_source": {
         "title": "Bluetooth-adapter",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "ESPHome BLE-proxyen genindlæses nu — integrationen opretter forbindelse igen inden for et minut. Hvis du bagefter ser `auth fail reason=82` i ESP-loggen, er parringen fastlåst i begge ender: prøv Gennemtving ny parring (hård), OG sæt maskinen i parringstilstand (Menu → Bluetooth → Pair new device), så den accepterer en ny SMP-udveksling.",
+      "repair_local_reconnect": "Der blev ikke fundet nogen ESPHome-proxy til denne maskine — der oprettes i stedet forbindelse via den lokale Bluetooth-adapter. Maskinen bør komme på igen ved næste annoncering.",
+      "repair_failed": "Gendannelsesrutinen udløste en uventet fejl — se Home Assistant-loggen for detaljer, og overvej at dele den i issue #10.",
+      "full_pair_done": "Parringstabellen på ESP-proxyen er slettet, OG proxyens post er genindlæst. VIGTIGT: sæt nu maskinen i parringstilstand (Menu → Bluetooth → Pair new device / App-Verbindung — den præcise sti afhænger af firmwaren) inden for 1 minut. Integrationen gennemfører en ny SMP-udveksling og opretter en ny parring. Efterfølgende genforbindelser kræver ikke parringstilstand igen.",
+      "full_pair_partial": "ESPHome-proxyens post blev genindlæst, men parringstabellen kunne ikke ryddes — se Home Assistant-loggen. Prøv igen, eller del loggen i issue #10.",
+      "full_pair_no_action": "ESPHome-tjenesten `esphome.{service}` er ikke registreret, så vi kan ikke slette parringstabellen. Tilføj handlingen `clear_ble_bonds` til din ESPHome-YAML (skabelon i esphome/ble-proxy-xiao-c6.yaml i integrationens repository), flash proxyen, og prøv igen. Vi genindlæste proxyens post, hvilket rydder cachen i Home Assistant — prøv Reparér forbindelsen (blød) i mellemtiden.",
+      "full_pair_local_only": "Der blev ikke fundet nogen ESPHome-proxy til denne maskine — den kører på en lokal Bluetooth-adapter. Fuld ny parring kan ikke bruges her; i stedet afbrydes og genoprettes forbindelsen lokalt.",
+      "full_pair_failed": "Rutinen for gennemtvunget ny parring udløste en uventet fejl — se Home Assistant-loggen, og del den i issue #10."
     },
     "error": {
       "invalid_time": "Indtast et gyldigt tidspunkt i formatet HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Kaffe"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Varm mælk"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Meget varm mælk"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Mælk"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Mælkeskum"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Varmt vand"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "My Coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Dampdrikke"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Malet kaffe"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Enkelte kopper"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Dobbelte kopper"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Drikke i alt"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Rengøringer af kaffesystem"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Rengøringer af bryggeenhed"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Rengøringer af mælkeskummer"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Skylninger"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Skylninger af mælkeskummer"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Skylninger af filter"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Filterskift"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Afkalkninger"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Drikke via app"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Drikke via Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Fremskridt for afkalkning"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Afkalkningsadvarsel"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Fremskridt for rengøring af bryggeenhed"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Advarsel om rengøring af bryggeenhed"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Fremskridt for rengøring af mælkeskummer"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Advarsel om rengøring af mælkeskummer"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Fremskridt for filter"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Filteradvarsel"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Filterafhængighed"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Serienummer"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Ur"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Ingen understøttet kaffemaskine fundet til dette tjenestekald."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Brygningen mislykkedes. Tjek maskinens status, og prøv igen."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Opskriften kunne ikke gemmes. Tjek BLE-forbindelsen."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Der er ikke valgt nogen opskrift lige nu. Vælg en, eller angiv recipe_id udtrykkeligt."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Maskinen afviste nulstillingen (NACK eller timeout). Denne firmware understøtter muligvis ikke HD for dette register."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Maskinen afviste bekræftelsen (NACK eller timeout). Denne firmware understøtter muligvis ikke HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Maskinen afviste skrivningen af parameteren (NACK eller timeout). Tjek mærke/familie, vælger/plads og parameternøgle."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Ustabil BLE-forbindelse",
+      "description": "Kaffemaskinen mistede forbindelsen {count} gange den seneste time. Overvej at flytte ESPHome BLE-proxyen tættere på maskinen, eller undersøg om noget forstyrrer Bluetooth-signalet."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Gendannelse af BLE-parring udløst",
+      "description": "Parringen med kaffemaskinen ({address}) så ud til at være fastlåst (maskinen blev ved med at afvise vores handshake — det vises typisk som en rød Bluetooth-indikator på maskinens display). Integrationen genindlæste automatisk ESPHome BLE-proxyen for at rydde en forældet BLEDevice i cachen.\n\nHvis brygningen stadig fejler efter et minut, er parringen også fastlåst på MASKINENS side. Sådan retter du det:\n\n1. Åbn maskinens menu → Bluetooth → Pair new device (stien kan hedde App-Verbindung / Connect / Reset connection afhængigt af firmwaren).\n2. Mens maskinen er i parringstilstand, skal du kalde `melitta_barista.repair_connection` (eller bruge Indstillinger → Enheder og tjenester → Melitta → Konfigurer → Gennemtving ny parring).\n3. Maskinen opretter en ny parring; efterfølgende genforbindelser kræver ikke parringstilstand igen.\n\nHvis det sker ved hver eneste genforbindelse, så del loggen i issue #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Gamle ur-entiteter er fjernet",
+      "description": "Entiteterne number.MACHINE_clock og number.MACHINE_clock_send blev fjernet i 0.52.0. Brug den nye entitet time.MACHINE_clock, eller kald tjenesten melitta_barista.sync_clock fra en automatisering."
     },
     "bond_reset_required": {
       "title": "Kaffemaskinen skal parres igen",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Synkronisér maskinens ur",
+      "description": "Send Home Assistants aktuelle lokale tid til maskinens realtidsur."
     }
   },
   "selector": {

@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Преконфигуриране на кафемашината",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC адрес",
+          "name": "Име на устройството"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Основни настройки",
           "advanced": "Разширени настройки",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Поправяне на връзката (меко)",
+          "full_pair": "Принудително повторно сдвояване (твърдо)",
           "bluetooth_source": "Bluetooth адаптер"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Макс. забавяне при повторно свързване (секунди)",
           "max_consecutive_errors": "Грешки при анкетиране преди прекъсване",
           "frame_timeout": "Времево ограничение на BLE кадър (секунди)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Автоматично потвърждаване на софтуерните подкани"
         },
         "data_description": {
           "poll_interval": "Колко често да се анкетира машината за обновяване на статуса (по подразбиране: 5 с)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Максимално забавяне между опитите за повторно свързване (по подразбиране: 300 с)",
           "max_consecutive_errors": "Брой последователни грешки при анкетиране преди принудително прекъсване (по подразбиране: 3)",
           "frame_timeout": "Времево ограничение за операции за изпращане/получаване на BLE кадри (по подразбиране: 5 с)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Автоматично потвърждава софтуерните подкани (преместване на чашата, изплакване). Хардуерните подкани (доливане на вода, изпразване на тавите) продължават да изискват ръчно потвърждение."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Времево ограничение на сдвояване (секунди)",
           "recipe_retries": "Повторни опити за четене/запис на рецепти",
           "initial_connect_delay": "Забавяне на първоначално свързване (секунди)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Автоматична синхронизация на часовника на машината",
+          "auto_sync_drift_minutes": "Праг на отклонение за автоматичната синхронизация (минути)",
+          "auto_sync_daily_time": "Час на ежедневната автоматична синхронизация (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Времево ограничение за установяване на BLE връзка (по подразбиране: 15 с)",
           "pair_timeout": "Времево ограничение за BLE сдвояване при настройка (по подразбиране: 30 с)",
           "recipe_retries": "Брой повторни опити за четене/запис на рецепти (по подразбиране: 3)",
           "initial_connect_delay": "Изчакване преди първия опит за свързване след настройка (по подразбиране: 3 с)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Автоматично изпраща местното време на HA към машината при повторно свързване и веднъж дневно (по подразбиране: включено)",
+          "auto_sync_drift_minutes": "Пропуска записа, ако измереното отклонение е под този брой минути (по подразбиране: 2)",
+          "auto_sync_daily_time": "Час на ежедневната принудителна синхронизация в 24-часов формат HH:MM (по подразбиране: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Поправяне на BLE сдвояването",
+        "description": "Меко възстановяване: презарежда ESPHome BLE проксито, което притежава скенера за тази машина, така че следващият опит за сдвояване да започне с чист кеш. Опитайте първо това. Ако приготвянето продължава да е неуспешно, опитайте Принудително повторно сдвояване (твърдо) — то освен това изтрива ключа на сдвояването в ESP И изисква да поставите машината в режим на сдвояване."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Принудително пълно повторно сдвояване",
+        "description": "Твърдо възстановяване: изтрива таблицата със сдвоявания в ESPHome BLE проксито, прекъсва блокирания слот и презарежда записа на проксито, принуждавайки нов SMP обмен.\n\nПРЕДИ да натиснете Изпращане: поставете машината в режим на сдвояване от нейното меню (Menu → Bluetooth → Pair new device / App-Verbindung — точният път зависи от фърмуера). Без режим на сдвояване машината ще отхвърли новата SMP заявка с `auth fail reason=82`.\n\nИзисква действията `clear_ble_bonds` и `disconnect_ble_peer` в YAML файла на вашето ESPHome прокси (вижте esphome/ble-proxy-xiao-c6.yaml в хранилището на интеграцията)."
       },
       "bluetooth_source": {
         "title": "Bluetooth адаптер",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "ESPHome BLE проксито се презарежда в момента — интеграцията ще се свърже отново до минута. Ако след това видите `auth fail reason=82` в дневниците на ESP, сдвояването е блокирано и от двете страни: опитайте Принудително повторно сдвояване (твърдо) И поставете машината в режим на сдвояване (Menu → Bluetooth → Pair new device), за да приеме нов SMP обмен.",
+      "repair_local_reconnect": "Не е намерено ESPHome прокси за тази машина — връзката се възстановява през локалния Bluetooth адаптер. Машината би трябвало да се свърже отново при следващото си обявление.",
+      "repair_failed": "Процедурата за възстановяване предизвика неочаквана грешка — вижте дневниците на Home Assistant за подробности и по възможност ги споделете в issue #10.",
+      "full_pair_done": "Таблицата със сдвоявания в ESP проксито е изтрита И записът на проксито е презареден. ВАЖНО: в рамките на 1 минута поставете машината в режим на сдвояване (Menu → Bluetooth → Pair new device / App-Verbindung — точният път зависи от фърмуера). Интеграцията ще извърши нов SMP обмен и ще създаде ново сдвояване. При следващите свързвания режимът на сдвояване няма да е необходим.",
+      "full_pair_partial": "Записът на ESPHome проксито е презареден, но изтриването на сдвояванията не бе успешно — вижте дневниците на HA. Опитайте отново или споделете дневниците в issue #10.",
+      "full_pair_no_action": "Услугата `esphome.{service}` не е регистрирана, затова таблицата със сдвоявания не може да бъде изтрита. Добавете действието `clear_ble_bonds` в YAML файла на вашето ESPHome (шаблон в esphome/ble-proxy-xiao-c6.yaml в хранилището на интеграцията), запишете фърмуера на проксито и опитайте отново. Записът на проксито все пак беше презареден, което изчиства кеша от страна на HA — междувременно опитайте Поправяне на връзката (меко).",
+      "full_pair_local_only": "Не е намерено ESPHome прокси за тази машина — работи се през локален Bluetooth адаптер. Пълното повторно сдвояване не е приложимо тук; вместо това се извършва локално прекъсване и повторно свързване.",
+      "full_pair_failed": "Процедурата за принудително повторно сдвояване предизвика неочаквана грешка — вижте дневниците на Home Assistant и ги споделете в issue #10."
     },
     "error": {
       "invalid_time": "Въведете валиден час във формат HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Кафе"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Крем"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Топло мляко"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Горещо мляко"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Мляко"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Млечна пяна"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Гореща вода"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Напитки с пара"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Мляно кафе"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Приготвяния с една чаша"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Приготвяния с две чаши"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Общо напитки"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Почиствания на системата за кафе"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Почиствания на заварочния блок"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Почиствания на разпенвача"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Цикли на изплакване"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Изплаквания на разпенвача"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Изплаквания на филтъра"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Смени на филтъра"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Декалцирания"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Напитки през приложението"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Напитки през Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Напредък на декалцирането"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Предупреждение за декалциране"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Напредък на почистването на заварочния блок"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Предупреждение за почистване на заварочния блок"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Напредък на почистването на разпенвача"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Предупреждение за почистване на разпенвача"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Напредък на филтъра"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Предупреждение за филтъра"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Зависимост от филтъра"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Сериен номер"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Часовник"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Не е намерена поддържана кафемашина за това извикване на услуга."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Приготвянето не бе успешно. Проверете състоянието на машината и опитайте отново."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Рецептата не можа да бъде запазена. Проверете BLE връзката."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "В момента не е избрана рецепта. Изберете рецепта или подайте изрично recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Машината отхвърли нулирането (NACK или изтекло време). Възможно е този фърмуер да не поддържа HD за този регистър."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Машината отхвърли потвърждението (NACK или изтекло време). Възможно е този фърмуер да не поддържа HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Машината отхвърли записа на параметъра (NACK или изтекло време). Проверете марката/семейството, селектора/слота и ключа на параметъра."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Нестабилна BLE връзка",
+      "description": "Кафемашината прекъсна връзката {count} пъти през последния час. Обмислете да преместите ESPHome BLE проксито по-близо до машината или проверете за Bluetooth смущения."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Стартирано е възстановяване на BLE сдвояването",
+      "description": "Сдвояването с кафемашината ({address}) изглеждаше блокирано (машината постоянно отхвърляше ръкостискането — обикновено се показва като червен Bluetooth индикатор на дисплея ѝ). Интеграцията автоматично презареди ESPHome BLE проксито, за да изчисти остарял кеширан BLEDevice.\n\nАко след минута приготвянето все още е неуспешно, сдвояването е блокирано и от страната на МАШИНАТА. За да го поправите:\n\n1. Отворете менюто на машината → Bluetooth → Pair new device (пътят може да е App-Verbindung / Connect / Reset connection в зависимост от фърмуера).\n2. Докато машината е в режим на сдвояване, извикайте `melitta_barista.repair_connection` (или използвайте Настройки → Устройства и услуги → Melitta → Конфигуриране → Принудително повторно сдвояване).\n3. Машината създава ново сдвояване; при следващите свързвания режимът на сдвояване няма да е необходим.\n\nАко това се повтаря при всяко свързване, споделете дневниците в issue #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Старите обекти за часовник са премахнати",
+      "description": "Обектите number.MACHINE_clock и number.MACHINE_clock_send бяха премахнати във версия 0.52.0. Използвайте новия обект time.MACHINE_clock или извикайте услугата melitta_barista.sync_clock от автоматизация."
     },
     "bond_reset_required": {
       "title": "Кафемашината се нуждае от повторно сдвояване",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Синхронизиране на часовника на машината",
+      "description": "Изпраща текущото местно време на Home Assistant към часовника (RTC) на машината."
     }
   },
   "selector": {

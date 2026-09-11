@@ -34,7 +34,7 @@
   "recipes.category.espresso": "Espresso",
   "recipes.category.milk_drink": "Mjölkdryck",
   "recipes.category.my_coffee": "My Coffee",
-  "recipes.category.water": "Hett vatten",
+  "recipes.category.water": "Varmt vatten",
   "recipes.name.americano": "Americano",
   "recipes.name.americano_extra": "Americano Extra",
   "recipes.name.black_eye": "Black Eye",
@@ -47,7 +47,7 @@
   "recipes.name.chilled_espresso": "Kall Espresso",
   "recipes.name.chilled_lungo": "Kall Lungo",
   "recipes.name.coffee": "Kaffe",
-  "recipes.name.cream": "Cream",
+  "recipes.name.cream": "Crème",
   "recipes.name.dead_eye": "Dead Eye",
   "recipes.name.espresso": "Espresso",
   "recipes.name.espresso_doppio": "Espresso Doppio",
@@ -249,7 +249,7 @@
   "values.directkey_category.latte_macchiato": "Latte macchiato",
   "values.directkey_category.milk": "Varm mjölk",
   "values.directkey_category.milk_froth": "Mjölkskum",
-  "values.directkey_category.water": "Hett vatten",
+  "values.directkey_category.water": "Varmt vatten",
   "values.intensity.medium": "Med",
   "values.intensity.mild": "Mild",
   "values.intensity.strong": "Stark",
@@ -269,7 +269,7 @@
   "wizard.close.leave": "Lämna",
   "wizard.close.message": "Om en utmatning pågår fortsätter maskinen att brygga. Din position sparas i 2 timmar.",
   "wizard.close.stay": "Stanna",
-  "wizard.close.title": "Lämna bryggguiden?",
+  "wizard.close.title": "Lämna brygguiden?",
   "wizard.finish.button": "Stäng",
   "wizard.finish.message": "Alla steg är klara.",
   "wizard.finish.title": "Njut!",
@@ -294,5 +294,5 @@
   "wizard.step.machine": "Brygg på maskinen",
   "wizard.step.machine_n": "Maskinutmatning {n} av {m}",
   "wizard.step_of": "Steg {n} av {m}",
-  "wizard.title": "Bryggguide"
+  "wizard.title": "Brygguide"
 }

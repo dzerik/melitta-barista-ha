@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Καφές"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Café Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Ζεστό γάλα"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Καυτό γάλα"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Γάλα"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Αφρόγαλα"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Ζεστό νερό"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Ροφήματα με ατμό"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Αλεσμένος καφές"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Παρασκευές μονού φλιτζανιού"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Παρασκευές διπλού φλιτζανιού"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Σύνολο ροφημάτων"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Καθαρισμοί συστήματος καφέ"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Καθαρισμοί μονάδας παρασκευής"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Καθαρισμοί αφριστή"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Κύκλοι ξεπλύματος"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Ξεπλύματα αφριστή"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Ξεπλύματα φίλτρου"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Αλλαγές φίλτρου"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Αφαλατώσεις"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Ροφήματα μέσω εφαρμογής"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Ροφήματα μέσω κανάτας"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Πρόοδος αφαλάτωσης"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Προειδοποίηση αφαλάτωσης"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Πρόοδος καθαρισμού μονάδας παρασκευής"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Προειδοποίηση καθαρισμού μονάδας παρασκευής"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Πρόοδος καθαρισμού αφριστή"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Προειδοποίηση καθαρισμού αφριστή"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Πρόοδος φίλτρου"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Προειδοποίηση φίλτρου"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Εξάρτηση από φίλτρο"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Σειριακός αριθμός"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Ρολόι"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Δεν βρέθηκε υποστηριζόμενη καφετιέρα για αυτήν την κλήση υπηρεσίας."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Η παρασκευή απέτυχε. Ελέγξτε την κατάσταση της μηχανής και δοκιμάστε ξανά."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Δεν ήταν δυνατή η αποθήκευση της συνταγής. Ελέγξτε τη σύνδεση BLE."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Δεν είναι επιλεγμένη καμία συνταγή αυτή τη στιγμή. Επιλέξτε μία ή δηλώστε ρητά το recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Η μηχανή απέρριψε την επαναφορά (NACK ή λήξη χρόνου). Αυτό το υλικολογισμικό ίσως δεν υποστηρίζει HD για αυτόν τον καταχωρητή."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Η μηχανή απέρριψε την επιβεβαίωση (NACK ή λήξη χρόνου). Αυτό το υλικολογισμικό ίσως δεν υποστηρίζει HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Η μηχανή απέρριψε την εγγραφή της παραμέτρου (NACK ή λήξη χρόνου). Ελέγξτε τη μάρκα/οικογένεια, τον επιλογέα/θέση και το κλειδί της παραμέτρου."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Ασταθής σύνδεση BLE",
+      "description": "Η καφετιέρα αποσυνδέθηκε {count} φορές την τελευταία ώρα. Δοκιμάστε να μετακινήσετε το ESPHome BLE proxy πιο κοντά στη μηχανή ή ελέγξτε για παρεμβολές Bluetooth."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Ενεργοποιήθηκε ανάκτηση σύζευξης BLE",
+      "description": "Η σύζευξη με την καφετιέρα ({address}) φαίνεται να έχει κολλήσει (η μηχανή απέρριπτε συνεχώς τη χειραψία μας — συνήθως εμφανίζεται ως κόκκινη ένδειξη Bluetooth στην οθόνη της μηχανής). Η ενσωμάτωση επαναφόρτωσε αυτόματα το ESPHome BLE proxy, ώστε να καθαρίσει μια παλιά αποθηκευμένη εγγραφή BLEDevice.\n\nΑν η παρασκευή εξακολουθεί να αποτυγχάνει μετά από ένα λεπτό, η σύζευξη έχει κολλήσει και από την πλευρά της ΜΗΧΑΝΗΣ. Για να το διορθώσετε:\n\n1. Ανοίξτε στη μηχανή το μενού → Bluetooth → Σύζευξη νέας συσκευής (ανάλογα με το firmware η διαδρομή μπορεί να γράφει App-Verbindung / Connect / Reset connection).\n2. Όσο η μηχανή βρίσκεται σε λειτουργία σύζευξης, καλέστε το `melitta_barista.repair_connection` (ή χρησιμοποιήστε Ρυθμίσεις → Συσκευές και υπηρεσίες → Melitta → Ρύθμιση → Εξαναγκασμένη νέα σύζευξη).\n3. Η μηχανή δημιουργεί νέα σύζευξη· οι επόμενες επανασυνδέσεις δεν θα χρειάζονται ξανά λειτουργία σύζευξης.\n\nΑν αυτό επαναλαμβάνεται σε κάθε επανασύνδεση, κοινοποιήστε τα αρχεία καταγραφής στο issue #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Οι παλιές οντότητες ρολογιού αφαιρέθηκαν",
+      "description": "Οι οντότητες number.MACHINE_clock και number.MACHINE_clock_send αφαιρέθηκαν στην έκδοση 0.52.0. Χρησιμοποιήστε τη νέα οντότητα time.MACHINE_clock ή καλέστε την υπηρεσία melitta_barista.sync_clock από έναν αυτοματισμό."
     },
     "bond_reset_required": {
       "title": "Η καφετιέρα χρειάζεται νέα σύζευξη",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Συγχρονισμός ρολογιού μηχανής",
+      "description": "Αποστολή της τρέχουσας τοπικής ώρας του Home Assistant στο ρολόι πραγματικού χρόνου (RTC) της μηχανής."
     }
   },
   "selector": {

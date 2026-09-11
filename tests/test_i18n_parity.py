@@ -17,6 +17,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.i18n_english_fallback import (
+    english_fallbacks,
+    load_js_locale,
+)
+
 
 _LOCALES_DIR = (
     Path(__file__).parent.parent
@@ -94,4 +99,29 @@ def test_locale_has_full_parity_with_en(locale):
         f"{locale}.js has {len(extra_in_locale)} keys that are not in en.js "
         f"(stale entries from renames?): "
         f"{sorted(extra_in_locale)[:10]}{'...' if len(extra_in_locale) > 10 else ''}"
+    )
+
+
+@pytest.mark.parametrize(
+    "locale",
+    [p.stem for p in sorted(_LOCALES_DIR.glob("*.js")) if p.stem != "en"],
+)
+def test_locale_values_are_not_the_english_source(locale):
+    """Key parity is not translation: the value must not still be English.
+
+    `test_locale_has_full_parity_with_en` passes happily when a locale
+    mirrors en.js by copying its strings, which is what the panel shipped
+    before the translation wave. Values allowed to stay identical (drink
+    proper names, product names, words a language shares with English) are
+    enumerated in tests/i18n_english_fallback.py — extend that table rather
+    than this assertion.
+    """
+    english = load_js_locale(_LOCALES_DIR / "en.js")
+    translated = load_js_locale(_LOCALES_DIR / f"{locale}.js")
+
+    stale = english_fallbacks("panel", locale, english, translated)
+    assert not stale, (
+        f"{locale}.js still carries {len(stale)} English source strings: "
+        + ", ".join(f"{key}={english[key]!r}" for key in stale[:10])
+        + ("..." if len(stale) > 10 else "")
     )

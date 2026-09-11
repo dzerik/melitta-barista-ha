@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Reconfigurare espressor",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Adresă Bluetooth MAC",
+          "name": "Numele dispozitivului"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Setări de bază",
           "advanced": "Setări avansate",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Reparare conexiune (ușoară)",
+          "full_pair": "Reîmperechere forțată (completă)",
           "bluetooth_source": "Adaptor Bluetooth"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Întârziere maximă reconectare (secunde)",
           "max_consecutive_errors": "Erori de interogare înainte de deconectare",
           "frame_timeout": "Timeout cadru BLE (secunde)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Confirmare automată a prompturilor simple"
         },
         "data_description": {
           "poll_interval": "Cât de des se interoghează aparatul pentru actualizări de stare (implicit: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Întârziere maximă între tentativele de reconectare (implicit: 300s)",
           "max_consecutive_errors": "Numărul de erori consecutive de interogare înainte de deconectarea forțată (implicit: 3)",
           "frame_timeout": "Timeout pentru operațiuni de trimitere/primire cadru BLE (implicit: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Confirmă automat prompturile simple (mutarea ceștii, clătirea). Prompturile hardware (umplerea rezervorului de apă, golirea tăvilor) necesită în continuare confirmare manuală."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Timeout împerechere (secunde)",
           "recipe_retries": "Reîncercări citire/scriere rețetă",
           "initial_connect_delay": "Întârziere conexiune inițială (secunde)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Sincronizare automată a ceasului aparatului",
+          "auto_sync_drift_minutes": "Prag de abatere pentru sincronizarea automată (minute)",
+          "auto_sync_daily_time": "Ora sincronizării automate zilnice (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Timeout pentru stabilirea conexiunii BLE (implicit: 15s)",
           "pair_timeout": "Timeout pentru împerecherea BLE în timpul configurării (implicit: 30s)",
           "recipe_retries": "Numărul de reîncercări pentru operațiunile de citire/scriere rețetă (implicit: 3)",
           "initial_connect_delay": "Timp de așteptare înainte de prima tentativă de conectare după configurare (implicit: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Trimite automat ora locală din HA către aparat la fiecare reconectare și o dată pe zi (implicit: pornit)",
+          "auto_sync_drift_minutes": "Nu scrie ora dacă abaterea măsurată este sub acest număr de minute (implicit: 2)",
+          "auto_sync_daily_time": "Ora sincronizării forțate zilnice, în format HH:MM de 24 de ore (implicit: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Repararea împerecherii BLE",
+        "description": "Recuperare ușoară: reîncarcă proxy-ul BLE ESPHome care deține scanerul pentru acest espressor, astfel încât următoarea tentativă de împerechere să pornească de la o memorie cache curată. Încercați mai întâi această variantă. Dacă prepararea eșuează în continuare, încercați Reîmperechere forțată (completă) — aceasta șterge și cheia de asociere de pe ESP ȘI necesită punerea espressorului în modul de împerechere."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Forțarea unei reîmperecheri complete",
+        "description": "Recuperare completă: șterge tabelul de asocieri de pe proxy-ul BLE ESPHome, deconectează slotul blocat și reîncarcă intrarea proxy-ului, forțând un nou schimb SMP.\n\nÎNAINTE de a apăsa Trimite: puneți espressorul în modul de împerechere din meniul său (Menu → Bluetooth → Pair new device / App-Verbindung — calea exactă depinde de firmware). Fără modul de împerechere, espressorul va respinge noua cerere SMP cu `auth fail reason=82`.\n\nNecesită acțiunile `clear_ble_bonds` și `disconnect_ble_peer` în fișierul YAML al proxy-ului ESPHome (vedeți esphome/ble-proxy-xiao-c6.yaml în depozitul integrării)."
       },
       "bluetooth_source": {
         "title": "Adaptor Bluetooth",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "Proxy-ul BLE ESPHome se reîncarcă acum — integrarea se va reconecta în mai puțin de un minut. Dacă vedeți ulterior `auth fail reason=82` în jurnalele ESP, asocierea este blocată de ambele părți: încercați Reîmperechere forțată (completă) ȘI puneți espressorul în modul de împerechere (Menu → Bluetooth → Pair new device), ca să accepte un nou schimb SMP.",
+      "repair_local_reconnect": "Nu s-a găsit niciun proxy ESPHome pentru acest espressor — reconectarea se face prin adaptorul Bluetooth local. Espressorul ar trebui să se reconecteze la următorul anunț.",
+      "repair_failed": "Rutina de recuperare a generat o excepție neașteptată — consultați jurnalele Home Assistant pentru detalii și luați în considerare partajarea lor în issue-ul #10.",
+      "full_pair_done": "Tabelul de asocieri de pe proxy-ul ESP a fost șters ȘI intrarea proxy-ului a fost reîncărcată. IMPORTANT: puneți acum espressorul în modul de împerechere (Menu → Bluetooth → Pair new device / App-Verbindung — calea exactă depinde de firmware), în decurs de un minut. Integrarea va executa un nou schimb SMP și va crea o asociere nouă. Reconectările ulterioare nu vor mai avea nevoie de modul de împerechere.",
+      "full_pair_partial": "Intrarea proxy-ului ESPHome a fost reîncărcată, dar ștergerea asocierii a eșuat — consultați jurnalele HA. Încercați din nou sau partajați jurnalele în issue-ul #10.",
+      "full_pair_no_action": "Serviciul ESPHome `esphome.{service}` nu este înregistrat, așa că nu putem șterge tabelul de asocieri. Adăugați acțiunea `clear_ble_bonds` în fișierul YAML ESPHome (șablon în esphome/ble-proxy-xiao-c6.yaml în depozitul integrării), scrieți firmware-ul pe proxy și încercați din nou. Totuși, am reîncărcat intrarea proxy-ului, ceea ce golește memoria cache din partea HA — între timp, încercați Reparare conexiune (ușoară).",
+      "full_pair_local_only": "Nu s-a găsit niciun proxy ESPHome pentru acest espressor — se rulează pe un adaptor Bluetooth local. Reîmperecherea completă nu se aplică aici; se face în schimb o deconectare și o reconectare locală.",
+      "full_pair_failed": "Rutina de reîmperechere forțată a generat o excepție neașteptată — consultați jurnalele Home Assistant și partajați-le în issue-ul #10."
     },
     "error": {
       "invalid_time": "Introduceți o oră validă în format HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Cafea"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Lapte cald"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Lapte fierbinte"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Lapte"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Spumă de lapte"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Apă fierbinte"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "My Coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Băuturi cu abur"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Cafea măcinată"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Preparări cu o ceașcă"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Preparări cu două cești"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Total băuturi"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Curățări sistem de cafea"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Curățări unitate de preparare"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Curățări sistem de spumare"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Cicluri de clătire"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Clătiri sistem de spumare"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Clătiri filtru"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Schimbări de filtru"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Decalcifieri"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Băuturi prin aplicație"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Băuturi prin Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Progres decalcifiere"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Avertisment decalcifiere"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Progres curățare unitate de preparare"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Avertisment curățare unitate de preparare"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Progres curățare sistem de spumare"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Avertisment curățare sistem de spumare"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Progres filtru"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Avertisment filtru"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Dependență de filtru"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Număr de serie"
       }
     },
     "button": {
@@ -334,7 +334,7 @@
         "name": "Curățare intensivă"
       },
       "descaling": {
-        "name": "Detartrare"
+        "name": "Decalcifiere"
       },
       "switch_off": {
         "name": "Oprire"
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Ceas"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Nu s-a găsit niciun espressor compatibil pentru acest apel de serviciu."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Prepararea a eșuat. Verificați starea espressorului și încercați din nou."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Salvarea rețetei a eșuat. Verificați conexiunea BLE."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Nicio rețetă nu este selectată în acest moment. Selectați una sau transmiteți explicit recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Espressorul a respins resetarea (NACK sau timeout). Este posibil ca acest firmware să nu accepte HD pentru acest registru."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Espressorul a respins confirmarea (NACK sau timeout). Este posibil ca acest firmware să nu accepte HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Espressorul a respins scrierea parametrului (NACK sau timeout). Verificați marca/familia, selectorul/slotul și cheia parametrului."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Conexiune BLE instabilă",
+      "description": "Espressorul s-a deconectat de {count} ori în ultima oră. Luați în considerare mutarea proxy-ului BLE ESPHome mai aproape de espressor sau verificați dacă există interferențe Bluetooth."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "S-a declanșat recuperarea împerecherii BLE",
+      "description": "Împerecherea cu espressorul ({address}) părea blocată (aparatul a respins în mod repetat handshake-ul nostru — de regulă semnalat printr-un indicator Bluetooth roșu pe afișajul aparatului). Integrarea a reîncărcat automat proxy-ul BLE ESPHome pentru a elimina din memoria cache un BLEDevice învechit.\n\nDacă prepararea eșuează în continuare după un minut, asocierea este blocată și pe partea APARATULUI. Pentru a remedia:\n\n1. Deschideți meniul aparatului → Bluetooth → Pair new device (calea poate fi App-Verbindung / Connect / Reset connection, în funcție de firmware).\n2. Cât timp aparatul este în modul de împerechere, apelați `melitta_barista.repair_connection` (sau folosiți Setări → Dispozitive și servicii → Melitta → Configurare → Reîmperechere forțată).\n3. Aparatul creează o asociere nouă; reconectările ulterioare nu vor mai avea nevoie de modul de împerechere.\n\nDacă acest lucru se repetă la fiecare reconectare, partajați jurnalele în issue-ul #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Entitățile de ceas învechite au fost eliminate",
+      "description": "Entitățile number.MACHINE_clock și number.MACHINE_clock_send au fost eliminate în versiunea 0.52.0. Folosiți noua entitate time.MACHINE_clock sau apelați serviciul melitta_barista.sync_clock dintr-o automatizare."
     },
     "bond_reset_required": {
       "title": "Espressorul necesită reîmperechere",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Sincronizează ceasul aparatului",
+      "description": "Trimite ora locală curentă din Home Assistant către ceasul RTC al aparatului."
     }
   },
   "selector": {

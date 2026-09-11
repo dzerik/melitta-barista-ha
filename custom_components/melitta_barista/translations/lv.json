@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Pārkonfigurēt kafijas automātu",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC adrese",
+          "name": "Ierīces nosaukums"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Pamata iestatījumi",
           "advanced": "Papildu iestatījumi",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Labot savienojumu (vieglā atkopšana)",
+          "full_pair": "Piespiedu atkārtota pārošana (pilnā atkopšana)",
           "bluetooth_source": "Bluetooth adapteris"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Atkārtotas savienošanas maks. aizkave (sekundes)",
           "max_consecutive_errors": "Aptaujas kļūdas pirms atvienošanas",
           "frame_timeout": "BLE kadra noildze (sekundes)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Automātiski apstiprināt vieglās uzvednes"
         },
         "data_description": {
           "poll_interval": "Cik bieži aptaujāt iekārtu statusa atjauninājumiem (noklusējums: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Maksimālā aizkave starp atkārtotas savienošanas mēģinājumiem (noklusējums: 300s)",
           "max_consecutive_errors": "Secīgu aptaujas kļūdu skaits pirms piespiedu atvienošanas (noklusējums: 3)",
           "frame_timeout": "BLE kadra sūtīšanas/saņemšanas noildze (noklusējums: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Automātiski apstiprināt vieglās uzvednes (pārvietot tasi, izskalot). Aparatūras uzvednes (piepildīt ūdeni, iztukšot paplātes) joprojām jāapstiprina manuāli."
         }
       },
       "advanced": {
@@ -92,48 +92,48 @@
           "pair_timeout": "Savienošanas noildze (sekundes)",
           "recipe_retries": "Receptes lasīšanas/rakstīšanas mēģinājumi",
           "initial_connect_delay": "Sākotnējā savienojuma aizkave (sekundes)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Automātiski sinhronizēt automāta pulksteni",
+          "auto_sync_drift_minutes": "Automātiskās sinhronizācijas novirzes slieksnis (minūtes)",
+          "auto_sync_daily_time": "Automātiskās sinhronizācijas ikdienas laiks (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "BLE savienojuma izveidošanas noildze (noklusējums: 15s)",
           "pair_timeout": "BLE savienošanas noildze iestatīšanas laikā (noklusējums: 30s)",
           "recipe_retries": "Atkārtotu mēģinājumu skaits receptes lasīšanas/rakstīšanas operācijām (noklusējums: 3)",
           "initial_connect_delay": "Gaidīšanas laiks pirms pirmā savienojuma mēģinājuma pēc iestatīšanas (noklusējums: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Automātiski nosūtīt Home Assistant vietējo laiku uz automātu pēc atkārtotas savienošanās un reizi dienā (noklusējums: ieslēgts)",
+          "auto_sync_drift_minutes": "Neveikt ierakstīšanu, ja izmērītā novirze ir mazāka par šeit norādīto minūšu skaitu (noklusējums: 2)",
+          "auto_sync_daily_time": "Ikdienas piespiedu sinhronizācijas laiks 24 stundu formātā HH:MM (noklusējums: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "BLE pārošanas labošana",
+        "description": "Vieglā atkopšana: pārlādē ESPHome BLE starpniekserveri, kuram pieder šī automāta skeneris, lai nākamais pārošanas mēģinājums sāktos ar tīru kešatmiņu. Izmēģiniet to vispirms. Ja pēc tam gatavošana joprojām neizdodas, mēģiniet Piespiedu atkārtotu pārošanu (pilnā atkopšana) — tā turklāt dzēš pāra atslēgu ESP ierīcē UN prasa ieslēgt automātā pārošanas režīmu."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Piespiedu pilnā atkārtotā pārošana",
+        "description": "Pilnā atkopšana: dzēš pāra savienojumu tabulu ESPHome BLE starpniekserverī, atvieno iestrēgušo slotu un pārlādē starpniekservera ierakstu, piespiežot jaunu SMP apmaiņu.\n\nPIRMS nospiežat Iesniegt: ieslēdziet automātā pārošanas režīmu tā izvēlnē (Menu → Bluetooth → Pair new device / App-Verbindung — precīzs ceļš atkarīgs no programmaparatūras). Bez pārošanas režīma automāts noraidīs jauno SMP pieprasījumu ar kļūdu `auth fail reason=82`.\n\nNepieciešamas darbības `clear_ble_bonds` un `disconnect_ble_peer` jūsu ESPHome starpniekservera YAML failā (skatiet esphome/ble-proxy-xiao-c6.yaml integrācijas repozitorijā)."
       },
       "bluetooth_source": {
         "title": "Bluetooth adapteris",
-        "description": "Izvēlieties, kurš Bluetooth centrālais mezgls drīkst savienoties ar šo sapāroto kafijas automātu.\n\n**Pašreizējais pārošanas avots:** {bonded_source}\n\nAutomātiskais režīms atceras adapteri/proxy, kas pēdējais veiksmīgi pabeidza šifrēto rokasspiedienu, un turpina to izmantot. Cita adaptera izvēle ir apzināta migrācija: pirms jaunā adaptera saglabāšanas ieslēdziet kafijas automātā pārošanas režīmu.",
+        "description": "Izvēlieties, kurš Bluetooth centrālais mezgls drīkst savienoties ar šo sapāroto kafijas automātu.\n\n**Pašreizējais pārošanas avots:** {bonded_source}\n\nAutomātiskais režīms atceras adapteri vai starpniekserveri, kas pēdējais veiksmīgi pabeidza šifrēto rokasspiedienu, un turpina to izmantot. Cita adaptera izvēle ir apzināta migrācija: pirms jaunā adaptera saglabāšanas ieslēdziet kafijas automātā pārošanas režīmu.",
         "data": {
           "bluetooth_source": "Savienojuma adapteris"
         },
         "data_description": {
-          "bluetooth_source": "Ieteicams Automātiskais režīms. Tas neļauj Home Assistant pārvietot šo sapāroto ierīci starp lokālo Bluetooth adapteri un ESPHome proxy."
+          "bluetooth_source": "Ieteicams Automātiskais režīms. Tas neļauj Home Assistant pārvietot šo sapāroto ierīci starp lokālo Bluetooth adapteri un ESPHome starpniekserveri."
         }
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "Tagad tiek pārlādēts ESPHome BLE starpniekserveris — integrācija atjaunos savienojumu minūtes laikā. Ja pēc tam ESP žurnālos redzat `auth fail reason=82`, pāra savienojums ir iestrēdzis abās pusēs: mēģiniet Piespiedu atkārtotu pārošanu (pilnā atkopšana) UN ieslēdziet automātā pārošanas režīmu (Menu → Bluetooth → Pair new device), lai tas pieņemtu jaunu SMP apmaiņu.",
+      "repair_local_reconnect": "Šim automātam nav atrasts neviens ESPHome starpniekserveris — savienojums tiek atjaunots caur lokālo Bluetooth adapteri. Automātam vajadzētu pieslēgties ar nākamo sludinājumu.",
+      "repair_failed": "Atkopšanas procedūra izraisīja neparedzētu kļūdu — sīkāku informāciju skatiet Home Assistant žurnālos un apsveriet iespēju tos pievienot problēmai #10.",
+      "full_pair_done": "Pāra savienojumu tabula ESP starpniekserverī ir dzēsta UN starpniekservera ieraksts pārlādēts. SVARĪGI: minūtes laikā ieslēdziet automātā pārošanas režīmu (Menu → Bluetooth → Pair new device / App-Verbindung — precīzs ceļš atkarīgs no programmaparatūras). Integrācija veiks jaunu SMP apmaiņu un izveidos jaunu pāra savienojumu. Turpmākajām savienošanās reizēm pārošanas režīms vairs nebūs vajadzīgs.",
+      "full_pair_partial": "ESPHome starpniekservera ieraksts ir pārlādēts, taču pāra savienojumu dzēšana neizdevās — skatiet HA žurnālus. Mēģiniet vēlreiz vai pievienojiet žurnālus problēmai #10.",
+      "full_pair_no_action": "ESPHome pakalpojums `esphome.{service}` nav reģistrēts, tāpēc pāra savienojumu tabulu nevar dzēst. Pievienojiet darbību `clear_ble_bonds` savam ESPHome YAML failam (veidne: esphome/ble-proxy-xiao-c6.yaml integrācijas repozitorijā), ieprogrammējiet starpniekserveri un mēģiniet vēlreiz. Starpniekservera ieraksts tika pārlādēts, kas iztīra HA puses kešatmiņu — tikmēr izmēģiniet Labot savienojumu (vieglā atkopšana).",
+      "full_pair_local_only": "Šim automātam nav atrasts neviens ESPHome starpniekserveris — tas darbojas caur lokālo Bluetooth adapteri. Pilnā atkārtotā pārošana šeit nav piemērojama; tās vietā tiek veikta lokāla atvienošana un atkārtota savienošana.",
+      "full_pair_failed": "Piespiedu atkārtotās pārošanas procedūra izraisīja neparedzētu kļūdu — skatiet Home Assistant žurnālus un pievienojiet tos problēmai #10."
     },
     "error": {
       "invalid_time": "Ievadiet derīgu laiku formātā HH:MM (00:00–23:59)."
@@ -178,7 +178,7 @@
         "name": "Nepieciešama darbība",
         "state": {
           "none": "Nav",
-          "brew_unit_removed": "Brūvēšanas bloks izņemts",
+          "brew_unit_removed": "Gatavošanas bloks izņemts",
           "trays_missing": "Paplātes trūkst",
           "empty_trays": "Iztukšojiet paplātes",
           "fill_water": "Piepildiet ūdeni",
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Kafija"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Silts piens"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Karsts piens"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Piens"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Piena putas"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Karsts ūdens"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Tvaika dzērieni"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Malta kafija"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Vienas tases dzērieni"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Divu tašu dzērieni"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Dzērieni kopā"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Kafijas sistēmas tīrīšana"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Gatavošanas bloka tīrīšana"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Putotāja tīrīšana"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Skalošanas cikli"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Putotāja skalošana"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Filtra skalošana"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Filtra maiņas"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Atkaļķošana"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Dzērieni no lietotnes"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Dzērieni ar funkciju Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Atkaļķošanas norise"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Atkaļķošanas brīdinājums"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Gatavošanas bloka tīrīšanas norise"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Gatavošanas bloka tīrīšanas brīdinājums"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Putotāja tīrīšanas norise"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Putotāja tīrīšanas brīdinājums"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Filtra maiņas norise"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Filtra brīdinājums"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Filtra atkarība"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Sērijas numurs"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Pulkstenis"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Šim pakalpojuma izsaukumam nav atrasts atbalstīts kafijas automāts."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Pagatavošana neizdevās. Pārbaudiet automāta statusu un mēģiniet vēlreiz."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Neizdevās saglabāt recepti. Pārbaudiet BLE savienojumu."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Pašlaik nav izvēlēta neviena recepte. Izvēlieties kādu vai tieši norādiet recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Automāts noraidīja atiestatīšanu (NACK vai noildze). Šī programmaparatūra, iespējams, neatbalsta HD šim reģistram."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Automāts noraidīja apstiprinājumu (NACK vai noildze). Šī programmaparatūra, iespējams, neatbalsta HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Automāts noraidīja parametra ierakstīšanu (NACK vai noildze). Pārbaudiet zīmolu/saimi, atlasītāju/slotu un parametra atslēgu."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Nestabils BLE savienojums",
+      "description": "Kafijas automāts pēdējās stundas laikā ir atvienojies {count} reizes. Apsveriet iespēju pārvietot ESPHome BLE starpniekserveri tuvāk automātam vai pārbaudiet, vai nav Bluetooth traucējumu."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Sākta BLE pārošanas atkopšana",
+      "description": "Pārošana ar kafijas automātu ({address}) šķiet iestrēgusi (automāts atkārtoti noraidīja mūsu rokasspiedienu — parasti to rāda sarkans Bluetooth indikators automāta displejā). Integrācija automātiski pārlādēja ESPHome BLE starpniekserveri, lai iztīrītu novecojušu kešatmiņā saglabātu BLEDevice.\n\nJa pēc minūtes gatavošana joprojām neizdodas, pāra savienojums ir iestrēdzis arī AUTOMĀTA pusē. Lai to novērstu:\n\n1. Atveriet automāta izvēlni → Bluetooth → Pair new device (atkarībā no programmaparatūras ceļš var saukties App-Verbindung / Connect / Reset connection).\n2. Kamēr automāts ir pārošanas režīmā, izsauciet `melitta_barista.repair_connection` (vai izmantojiet Iestatījumi → Ierīces un pakalpojumi → Melitta → Konfigurēt → Piespiedu atkārtota pārošana).\n3. Automāts izveido jaunu pāra savienojumu; turpmākajām savienošanās reizēm pārošanas režīms vairs nebūs vajadzīgs.\n\nJa tas atkārtojas ik reizi, kad tiek atjaunots savienojums, pievienojiet žurnālus problēmai #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Novecojušās pulksteņa entītijas ir noņemtas",
+      "description": "Entītijas number.MACHINE_clock un number.MACHINE_clock_send tika noņemtas versijā 0.52.0. Izmantojiet jauno entītiju time.MACHINE_clock vai izsauciet pakalpojumu melitta_barista.sync_clock no automatizācijas."
     },
     "bond_reset_required": {
       "title": "Kafijas automāts jāsavieno pārī no jauna",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Sinhronizēt automāta pulksteni",
+      "description": "Nosūtīt automāta reāllaika pulkstenim (RTC) Home Assistant pašreizējo vietējo laiku."
     }
   },
   "selector": {

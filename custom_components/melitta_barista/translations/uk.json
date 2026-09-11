@@ -28,22 +28,22 @@
         }
       },
       "pair": {
-        "title": "Спряження з {brand} {model}",
-        "description": "Увімкніть режим Bluetooth-спряження на кавомашині (див. меню налаштувань) і натисніть «Надіслати».\n\n- **Бренд:** {brand}\n- **Модель:** {model}\n- **Ім'я в ефірі:** {name}\n- **MAC:** {address}"
+        "title": "Спарювання з {brand} {model}",
+        "description": "Увімкніть режим Bluetooth-спарювання на кавомашині (див. меню налаштувань) і натисніть «Надіслати».\n\n- **Бренд:** {brand}\n- **Модель:** {model}\n- **Ім'я в ефірі:** {name}\n- **MAC:** {address}"
       },
       "reconfigure": {
         "title": "Переналаштувати кавомашину",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC-адреса",
+          "name": "Назва пристрою"
         }
       }
     },
     "error": {
       "invalid_address": "Невірна Bluetooth MAC-адреса",
       "cannot_connect": "Не вдалося підключитися до пристрою. Переконайтеся, що машина увімкнена і знаходиться в зоні дії Bluetooth.",
-      "pairing_failed": "Сполучення не вдалося. Переконайтеся, що машина в режимі сполучення, і спробуйте знову.",
-      "pairing_timeout": "Час сполучення вичерпано. Увімкніть режим сполучення на машині і спробуйте знову.",
+      "pairing_failed": "Спарювання не вдалося. Переконайтеся, що машина в режимі спарювання, і спробуйте знову.",
+      "pairing_timeout": "Час очікування спарювання вичерпано. Увімкніть режим спарювання на машині і спробуйте знову.",
       "unknown": "Неочікувана помилка"
     },
     "abort": {
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Основні налаштування",
           "advanced": "Розширені налаштування",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Відновити з'єднання (м'яко)",
+          "full_pair": "Примусове повторне спарювання (жорстко)",
           "bluetooth_source": "Bluetooth-адаптер"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Макс. затримка перепідключення (секунди)",
           "max_consecutive_errors": "Помилок опитування до відключення",
           "frame_timeout": "Таймаут BLE-фрейму (секунди)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Автопідтвердження простих запитів"
         },
         "data_description": {
           "poll_interval": "Як часто опитувати машину для оновлення статусу (за замовчуванням: 5 с)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Максимальна затримка між спробами перепідключення (за замовчуванням: 300 с)",
           "max_consecutive_errors": "Кількість послідовних помилок опитування до примусового відключення (за замовчуванням: 3)",
           "frame_timeout": "Таймаут операцій надсилання/отримання BLE-фреймів (за замовчуванням: 5 с)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Автоматично підтверджувати прості запити (підставте чашку, промивання). Апаратні запити (долийте воду, спорожніть піддони) все одно потребують підтвердження вручну."
         }
       },
       "advanced": {
@@ -89,34 +89,34 @@
         "description": "Параметри BLE-з'єднання (змінюйте лише при проблемах з підключенням)",
         "data": {
           "ble_connect_timeout": "Таймаут BLE-підключення (секунди)",
-          "pair_timeout": "Таймаут сполучення (секунди)",
+          "pair_timeout": "Таймаут спарювання (секунди)",
           "recipe_retries": "Повтори читання/запису рецептів",
           "initial_connect_delay": "Затримка першого підключення (секунди)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Автосинхронізація годинника машини",
+          "auto_sync_drift_minutes": "Поріг розбіжності для автосинхронізації (хвилини)",
+          "auto_sync_daily_time": "Час щоденної автосинхронізації (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Таймаут встановлення BLE-з'єднання (за замовчуванням: 15 с)",
-          "pair_timeout": "Таймаут BLE-сполучення під час налаштування (за замовчуванням: 30 с)",
+          "pair_timeout": "Таймаут BLE-спарювання під час налаштування (за замовчуванням: 30 с)",
           "recipe_retries": "Кількість повторних спроб читання/запису рецептів (за замовчуванням: 3)",
           "initial_connect_delay": "Очікування перед першою спробою підключення після налаштування (за замовчуванням: 3 с)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Автоматично надсилати локальний час HA на машину під час перепідключення та раз на добу (за замовчуванням: увімкнено)",
+          "auto_sync_drift_minutes": "Не записувати час, якщо виміряна розбіжність менша за вказану кількість хвилин (за замовчуванням: 2)",
+          "auto_sync_daily_time": "Час щоденної примусової синхронізації у 24-годинному форматі HH:MM (за замовчуванням: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Відновлення BLE-спарювання",
+        "description": "М'яке відновлення: перезавантажує BLE-проксі ESPHome, якому належить сканер цієї машини, щоб наступна спроба спарювання почалася з чистого кешу. Спробуйте спершу цей спосіб. Якщо приготування після цього все одно не працює, скористайтеся примусовим повторним спарюванням (жорстко) — воно ще й стирає ключ спарювання на ESP І потребує переведення машини в режим спарювання."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Примусове повне повторне спарювання",
+        "description": "Жорстке відновлення: стирає таблицю спарювань на BLE-проксі ESPHome, розриває зависле з'єднання та перезавантажує запис проксі, примушуючи виконати новий обмін SMP.\n\nПЕРШ НІЖ натиснути «Надіслати»: переведіть машину в режим спарювання через її меню (Menu → Bluetooth → Pair new device / App-Verbindung — точний шлях залежить від прошивки). Без режиму спарювання машина відхилить новий SMP-запит із помилкою `auth fail reason=82`.\n\nПотребує дій `clear_ble_bonds` і `disconnect_ble_peer` у YAML-конфігурації вашого проксі ESPHome (див. esphome/ble-proxy-xiao-c6.yaml у репозиторії інтеграції)."
       },
       "bluetooth_source": {
         "title": "Bluetooth-адаптер",
-        "description": "Виберіть Bluetooth-центр, якому дозволено підключатися до цієї спареної кавомашини.\n\n**Поточне джерело спарювання:** {bonded_source}\n\nАвтоматичний режим запам’ятовує адаптер/proxy, який останнім успішно завершив зашифроване рукостискання, і продовжує його використовувати. Вибір іншого адаптера — це навмисна міграція: перед збереженням нового адаптера переведіть кавомашину в режим спарювання.",
+        "description": "Виберіть Bluetooth-адаптер, якому дозволено підключатися до цієї спареної кавомашини.\n\n**Поточне джерело спарювання:** {bonded_source}\n\nАвтоматичний режим запам’ятовує адаптер/proxy, який останнім успішно завершив зашифроване рукостискання, і продовжує його використовувати. Вибір іншого адаптера — це навмисна міграція: перед збереженням нового адаптера переведіть кавомашину в режим спарювання.",
         "data": {
           "bluetooth_source": "Адаптер підключення"
         },
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "Перезавантажуємо BLE-проксі ESPHome — інтеграція перепідключиться протягом хвилини. Якщо після цього в логах ESP ви бачите `auth fail reason=82`, спарювання зависло з обох боків: скористайтеся примусовим повторним спарюванням (жорстко) І переведіть машину в режим спарювання (Menu → Bluetooth → Pair new device), щоб вона прийняла новий обмін SMP.",
+      "repair_local_reconnect": "Для цієї машини не знайдено проксі ESPHome — перепідключаємося через локальний Bluetooth-адаптер. Машина має перепідключитися після наступного оголошення.",
+      "repair_failed": "Процедура відновлення завершилася неочікуваною помилкою — подробиці шукайте в логах Home Assistant; за можливості поділіться ними в issue #10.",
+      "full_pair_done": "Таблицю спарювань на проксі ESP стерто, запис проксі перезавантажено. ВАЖЛИВО: тепер протягом хвилини переведіть машину в режим спарювання (Menu → Bluetooth → Pair new device / App-Verbindung — точний шлях залежить від прошивки). Інтеграція виконає новий обмін SMP і створить нове спарювання. Наступні перепідключення вже не потребуватимуть режиму спарювання.",
+      "full_pair_partial": "Запис проксі ESPHome перезавантажено, але стерти таблицю спарювань не вдалося — дивіться логи HA. Спробуйте ще раз або поділіться логами в issue #10.",
+      "full_pair_no_action": "Службу ESPHome `esphome.{service}` не зареєстровано, тож стерти таблицю спарювань неможливо. Додайте дію `clear_ble_bonds` до YAML-конфігурації ESPHome (шаблон — esphome/ble-proxy-xiao-c6.yaml у репозиторії інтеграції), прошийте проксі та повторіть спробу. Запис проксі ми все ж перезавантажили, що очищає кеш на боці HA — тим часом спробуйте м'яке відновлення з'єднання.",
+      "full_pair_local_only": "Для цієї машини не знайдено проксі ESPHome — вона працює через локальний Bluetooth-адаптер. Повне повторне спарювання тут не застосовується; натомість виконуємо локальне відключення та підключення.",
+      "full_pair_failed": "Процедура примусового повторного спарювання завершилася неочікуваною помилкою — дивіться логи Home Assistant і поділіться ними в issue #10."
     },
     "error": {
       "invalid_time": "Введіть коректний час у форматі HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Кава"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Café Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Тепле молоко"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Гаряче молоко"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Молоко"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Молочна піна"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Гаряча вода"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Парові напої"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Мелена кава"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Приготування на одну чашку"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Приготування на дві чашки"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Усього напоїв"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Очищення кавової системи"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Очищення заварювального блока"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Очищення капучинатора"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Цикли промивання"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Промивання капучинатора"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Промивання фільтра"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Заміни фільтра"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Цикли декальцинації"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Напої через застосунок"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Напої через кавник"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Прогрес до декальцинації"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Попередження про декальцинацію"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Прогрес до очищення заварювального блока"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Попередження про очищення заварювального блока"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Прогрес до очищення капучинатора"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Попередження про очищення капучинатора"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Прогрес до заміни фільтра"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Попередження про фільтр"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Залежність від фільтра"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Серійний номер"
       }
     },
     "button": {
@@ -384,7 +384,7 @@
           "latte_macchiato_extra": "Latte Macchiato Extra",
           "latte_macchiato_triple": "Latte Macchiato Triple",
           "milk": "Молоко",
-          "milk_froth": "Молочна пінка",
+          "milk_froth": "Молочна піна",
           "hot_water": "Гаряча вода"
         }
       },
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Годинник"
       }
     },
     "event": {
@@ -535,44 +535,44 @@
       "message": "Підтримувану кавомашину для цього виклику сервісу не знайдено."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Не вдалося приготувати напій. Перевірте стан машини та спробуйте ще раз."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Не вдалося зберегти рецепт. Перевірте BLE-з'єднання."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Зараз не вибрано жодного рецепта. Виберіть рецепт або передайте recipe_id явно."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Машина відхилила скидання (NACK або таймаут). Ця прошивка може не підтримувати HD для цього регістра."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Машина відхилила підтвердження (NACK або таймаут). Ця прошивка може не підтримувати HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Машина відхилила запис параметра (NACK або таймаут). Перевірте бренд/сімейство, селектор/слот і ключ параметра."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Нестабільне BLE-з'єднання",
+      "description": "За останню годину кавомашина відключалася {count} раз(ів). Спробуйте перемістити BLE-проксі ESPHome ближче до машини або перевірте, чи немає Bluetooth-завад."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Запущено відновлення BLE-спарювання",
+      "description": "Спарювання з кавомашиною ({address}) зависло (машина раз за разом відхиляла наше рукостискання — зазвичай це показано червоним індикатором Bluetooth на дисплеї машини). Інтеграція автоматично перезавантажила BLE-проксі ESPHome, щоб очистити застарілий кеш BLEDevice.\n\nЯкщо за хвилину приготування все одно не працює, спарювання зависло і на боці МАШИНИ. Як це виправити:\n\n1. Відкрийте на машині меню → Bluetooth → Pair new device (залежно від прошивки пункт може називатися App-Verbindung / Connect / Reset connection).\n2. Поки машина в режимі спарювання, викличте `melitta_barista.repair_connection` (або скористайтеся Налаштування → Пристрої та служби → Melitta → Налаштувати → Примусове повторне спарювання).\n3. Машина створить нове спарювання; наступні перепідключення вже не потребуватимуть режиму спарювання.\n\nЯкщо це повторюється під час кожного перепідключення, поділіться логами в issue #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Застарілі сутності годинника видалено",
+      "description": "Сутності number.MACHINE_clock і number.MACHINE_clock_send видалено у версії 0.52.0. Використовуйте нову сутність time.MACHINE_clock або викликайте службу melitta_barista.sync_clock з автоматизації."
     },
     "bond_reset_required": {
-      "title": "Кавомашина потребує повторного сполучення",
-      "description": "Кавомашина ({address}) відхиляє Bluetooth-обмін шифруванням — збережене сполучення більше не збігається. Це неможливо виправити лише з Home Assistant.\n\nОдноразове відновлення:\n1. На машині: відкрийте меню Bluetooth і видаліть/скиньте підключення.\n2. Вимкніть і ввімкніть машину.\n3. Відкрийте на машині екран Bluetooth-сполучення.\n4. Поки він показаний, перезавантажте цю інтеграцію (Налаштування → Пристрої та служби → запис → Перезавантажити).\n\nІнтеграція автоматично сполучиться знову, і проблема зникне після першого успішного підключення."
+      "title": "Кавомашина потребує повторного спарювання",
+      "description": "Кавомашина ({address}) відхиляє Bluetooth-обмін шифруванням — збережене спарювання більше не збігається. Це неможливо виправити лише з Home Assistant.\n\nОдноразове відновлення:\n1. На машині: відкрийте меню Bluetooth і видаліть/скиньте підключення.\n2. Вимкніть і ввімкніть машину.\n3. Відкрийте на машині екран Bluetooth-спарювання.\n4. Поки він показаний, перезавантажте цю інтеграцію (Налаштування → Пристрої та служби → запис → Перезавантажити).\n\nІнтеграція автоматично спарується знову, і проблема зникне після першого успішного підключення."
     },
     "ble_source_unavailable": {
       "title": "Спарений Bluetooth-адаптер недоступний",
-      "description": "Кавомашина ({address}) видима через інші Bluetooth-адаптери, але адаптер, якому належить спарювання ({source}), недоступний. Інтеграція очікує замість переходу на інший Bluetooth-центр, оскільки це спричинило б помилку автентифікації.\n\nЯкщо адаптер лише перезапускається, нічого робити не потрібно. Якщо його видалено або замінено, відкрийте Налаштування → Пристрої та служби → Melitta → Налаштувати → Bluetooth-адаптер, переведіть кавомашину в режим спарювання та виберіть новий адаптер."
+      "description": "Кавомашина ({address}) видима через інші Bluetooth-адаптери, але адаптер, якому належить спарювання ({source}), недоступний. Інтеграція очікує замість переходу на інший адаптер, оскільки це спричинило б помилку автентифікації.\n\nЯкщо адаптер лише перезапускається, нічого робити не потрібно. Якщо його видалено або замінено, відкрийте Налаштування → Пристрої та служби → Melitta → Налаштувати → Bluetooth-адаптер, переведіть кавомашину в режим спарювання та виберіть новий адаптер."
     },
     "ble_source_migration_pending": {
       "title": "Очікується перенесення на інший Bluetooth-адаптер",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Синхронізувати годинник машини",
+      "description": "Записати поточний локальний час Home Assistant у RTC машини."
     }
   },
   "selector": {

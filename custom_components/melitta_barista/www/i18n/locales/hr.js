@@ -69,7 +69,7 @@ export default {
   "diag.no_frames": "Još nema zabilježenih okvira.",
   "diag.address": "BLE adresa",
   "diag.brand": "Marka",
-  "diag.proxy": "Transport",
+  "diag.proxy": "Prijenos",
   "diag.proxy_local": "Lokalni BlueZ adapter",
   "diag.proxy_remote": "ESPHome BLE proxy",
   "diag.poll_interval": "Interval ispitivanja",
@@ -395,7 +395,7 @@ export default {
   "hopper.assigned": "Dodijeljeno",
 
   "settings.title": "Postavke",
-  "settings.llm_agent": "LLM model",
+  "settings.llm_agent": "Model LLM-a",
   "settings.llm_help": "Agent za razgovor koji se koristi za Sommeliera i automatsko ispunjavanje zrna.",
   "settings.prompts": "Predlošci promptova",
   "settings.prompt_default": "Zadano",

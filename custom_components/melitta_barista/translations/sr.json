@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Поново подеси апарат за кафу",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC адреса",
+          "name": "Назив уређаја"
         }
       }
     },
@@ -59,9 +59,9 @@
         "menu_options": {
           "basic": "Основна подешавања",
           "advanced": "Напредна подешавања",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
-          "bluetooth_source": "Bluetooth adapter"
+          "repair": "Поправи везу (блажи поступак)",
+          "full_pair": "Принудно поновно упаривање (потпуно)",
+          "bluetooth_source": "Bluetooth адаптер"
         }
       },
       "basic": {
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Макс. кашњење поновног повезивања (секунде)",
           "max_consecutive_errors": "Грешака испитивања пре прекида везе",
           "frame_timeout": "Временско ограничење BLE оквира (секунде)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Аутоматски потврђуј благе упите"
         },
         "data_description": {
           "poll_interval": "Колико често испитивати апарат за ажурирање статуса (подразумевано: 5 с)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Максимално кашњење између покушаја поновног повезивања (подразумевано: 300 с)",
           "max_consecutive_errors": "Број узастопних грешака испитивања пре принудног прекида везе (подразумевано: 3)",
           "frame_timeout": "Временско ограничење за операције слања/примања BLE оквира (подразумевано: 5 с)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Аутоматски потврђује благе упите (померање шоље, испирање). Хардверски упити (доливање воде, пражњење посуда) и даље траже ручну потврду."
         }
       },
       "advanced": {
@@ -92,51 +92,51 @@
           "pair_timeout": "Временско ограничење упаривања (секунде)",
           "recipe_retries": "Поновни покушаји читања/писања рецепата",
           "initial_connect_delay": "Кашњење првог повезивања (секунде)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Аутоматска синхронизација сата апарата",
+          "auto_sync_drift_minutes": "Праг одступања за аутоматску синхронизацију (минути)",
+          "auto_sync_daily_time": "Време дневне аутоматске синхронизације (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Временско ограничење за успостављање BLE везе (подразумевано: 15 с)",
           "pair_timeout": "Временско ограничење BLE упаривања током подешавања (подразумевано: 30 с)",
           "recipe_retries": "Број поновних покушаја читања/писања рецепата (подразумевано: 3)",
           "initial_connect_delay": "Чекање пре првог покушаја повезивања после подешавања (подразумевано: 3 с)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Аутоматски шаље локално време из Home Assistant-а апарату при поновном повезивању и једном дневно (подразумевано: укључено)",
+          "auto_sync_drift_minutes": "Прескочи упис ако је измерено одступање мање од оволико минута (подразумевано: 2)",
+          "auto_sync_daily_time": "Време дневне принудне синхронизације у 24-часовном формату HH:MM (подразумевано: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Поправка BLE упаривања",
+        "description": "Блажи опоравак: поново учитава ESPHome BLE прокси који поседује скенер за овај апарат, тако да следећи покушај упаривања креће са чистим кешом. Прво пробајте ово. Ако припрема ни после тога не успева, пробајте Принудно поновно упаривање (потпуно) — оно уз то брише и кључ упаривања на ESP-у, И захтева да апарат ставите у режим упаривања."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Принудно потпуно поновно упаривање",
+        "description": "Груби опоравак: брише табелу упаривања на ESPHome BLE проксију, прекида везу на заглављеном слоту и поново учитава унос проксија, чиме изнуђује нову SMP размену.\n\nПРЕ него што притиснете Пошаљи: ставите апарат у режим упаривања преко његовог менија (Menu → Bluetooth → Pair new device / App-Verbindung — тачна путања зависи од фирмвера). Без режима упаривања апарат ће одбити нови SMP захтев уз `auth fail reason=82`.\n\nЗахтева акције `clear_ble_bonds` и `disconnect_ble_peer` у YAML датотеци вашег ESPHome проксија (погледајте esphome/ble-proxy-xiao-c6.yaml у репозиторијуму интеграције)."
       },
       "bluetooth_source": {
-        "title": "Bluetooth adapter",
-        "description": "Izaberite koji Bluetooth centralni uređaj sme da se povezuje sa ovim uparenim aparatom za kafu.\n\n**Trenutni izvor uparivanja:** {bonded_source}\n\nAutomatski režim pamti adapter/proxy koji je poslednji uspešno završio šifrovano rukovanje i nastavlja da ga koristi. Izbor drugog adaptera je namerna migracija: stavite aparat za kafu u režim uparivanja pre čuvanja novog adaptera.",
+        "title": "Bluetooth адаптер",
+        "description": "Изаберите који Bluetooth централни уређај сме да се повезује са овим упареним апаратом за кафу.\n\n**Тренутни извор упаривања:** {bonded_source}\n\nАутоматски режим памти адаптер/прокси који је последњи успешно завршио шифровано руковање и наставља да га користи. Избор другог адаптера је намерна миграција: ставите апарат за кафу у режим упаривања пре чувања новог адаптера.",
         "data": {
-          "bluetooth_source": "Adapter veze"
+          "bluetooth_source": "Адаптер везе"
         },
         "data_description": {
-          "bluetooth_source": "Preporučuje se Automatski režim. On sprečava Home Assistant da prebacuje ovaj upareni uređaj između lokalnog Bluetooth adaptera i ESPHome proxy uređaja."
+          "bluetooth_source": "Препоручује се Аутоматски режим. Он спречава Home Assistant да пребацује овај упарени уређај између локалног Bluetooth адаптера и ESPHome прокси уређаја."
         }
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "ESPHome BLE прокси се сада поново учитава — интеграција ће се поново повезати у року од једног минута. Ако после тога у ESP дневницима видите `auth fail reason=82`, упаривање је заглављено са обе стране: пробајте Принудно поновно упаривање (потпуно) И ставите апарат у режим упаривања (Menu → Bluetooth → Pair new device) како би прихватио нову SMP размену.",
+      "repair_local_reconnect": "За овај апарат није пронађен ESPHome прокси — поновно повезивање иде преко локалног Bluetooth адаптера. Апарат би требало да се поново повеже при следећем оглашавању.",
+      "repair_failed": "Рутина за опоравак је изазвала неочекивану грешку — детаље потражите у дневницима Home Assistant-а и размислите да их поделите у пријави #10.",
+      "full_pair_done": "Табела упаривања на ESP проксију је обрисана И унос проксија је поново учитан. ВАЖНО: сада у року од једног минута ставите апарат у режим упаривања (Menu → Bluetooth → Pair new device / App-Verbindung — тачна путања зависи од фирмвера). Интеграција ће покренути нову SMP размену и направити ново упаривање. За наредна повезивања режим упаривања више неће бити потребан.",
+      "full_pair_partial": "Унос ESPHome проксија је поново учитан, али брисање упаривања није успело — погледајте дневнике Home Assistant-а. Покушајте поново или поделите дневнике у пријави #10.",
+      "full_pair_no_action": "ESPHome услуга `esphome.{service}` није регистрована, па не можемо да обришемо табелу упаривања. Додајте акцију `clear_ble_bonds` у свој ESPHome YAML (шаблон: esphome/ble-proxy-xiao-c6.yaml у репозиторијуму интеграције), флешујте прокси и покушајте поново. Унос проксија јесмо поново учитали, чиме се празни кеш на страни Home Assistant-а — у међувремену пробајте Поправи везу (блажи поступак).",
+      "full_pair_local_only": "За овај апарат није пронађен ESPHome прокси — ради преко локалног Bluetooth адаптера. Потпуно поновно упаривање овде није применљиво; уместо тога се раде локално прекидање и поновно повезивање.",
+      "full_pair_failed": "Рутина за принудно поновно упаривање је изазвала неочекивану грешку — погледајте дневнике Home Assistant-а и поделите их у пријави #10."
     },
     "error": {
-      "invalid_time": "Unesite ispravno vreme u formatu HH:MM (00:00–23:59)."
+      "invalid_time": "Унесите исправно време у формату HH:MM (00:00–23:59)."
     }
   },
   "entity": {
@@ -178,9 +178,9 @@
         "name": "Потребна радња",
         "state": {
           "none": "Нема",
-          "brew_unit_removed": "Јединица за припрему уклоњена",
-          "trays_missing": "Фиоке недостају",
-          "empty_trays": "Испразните фиоке",
+          "brew_unit_removed": "Јединица за кување уклоњена",
+          "trays_missing": "Посуде недостају",
+          "empty_trays": "Испразните посуде",
           "fill_water": "Напуните воду",
           "close_powder_lid": "Затворите поклопац",
           "fill_powder": "Додајте кафу"
@@ -197,16 +197,16 @@
         "name": "Фирмвер"
       },
       "features": {
-        "name": "Funkcije"
+        "name": "Функције"
       },
       "espresso": {
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Кафа"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Крем"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Топло млеко"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Вруће млеко"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Млеко"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Млечна пена"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Врела вода"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Напици са паром"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Млевена кафа"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Појединачне припреме"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Двоструке припреме"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Укупно напитака"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Чишћења система за кафу"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Чишћења јединице за кување"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Чишћења пенилице"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Циклуси испирања"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Испирања пенилице"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Испирања филтера"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Замене филтера"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Уклањања каменца"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Напици преко апликације"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Напици преко функције Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Напредак уклањања каменца"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Упозорење о каменцу"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Напредак чишћења јединице за кување"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Упозорење о чишћењу јединице за кување"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Напредак чишћења пенилице"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Упозорење о чишћењу пенилице"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Напредак филтера"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Упозорење о филтеру"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Зависност од филтера"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Серијски број"
       }
     },
     "button": {
@@ -352,10 +352,10 @@
         "name": "Испаравање"
       },
       "reset_recipe": {
-        "name": "Resetuj recept"
+        "name": "Ресетуј рецепт"
       },
       "confirm_prompt": {
-        "name": "Potvrdi upit"
+        "name": "Потврди упит"
       }
     },
     "select": {
@@ -385,7 +385,7 @@
           "latte_macchiato_triple": "Latte Macchiato Triple",
           "milk": "Млеко",
           "milk_froth": "Млечна пена",
-          "hot_water": "Топла вода"
+          "hot_water": "Врела вода"
         }
       },
       "water_hardness": {
@@ -494,12 +494,12 @@
     },
     "binary_sensor": {
       "awaiting_confirmation": {
-        "name": "Čeka potvrdu"
+        "name": "Чека потврду"
       }
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Сат"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Није пронађен ниједан подржани апарат за кафу за овај позив услуге."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Припрема није успела. Проверите стање апарата и покушајте поново."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Чување рецепта није успело. Проверите BLE везу."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Тренутно није изабран ниједан рецепт. Изаберите га или изричито наведите recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Апарат је одбио ресетовање (NACK или истек времена). Овај фирмвер можда не подржава HD за овај регистар."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Апарат је одбио потврду (NACK или истек времена). Овај фирмвер можда не подржава HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Апарат је одбио упис параметра (NACK или истек времена). Проверите марку/фамилију, селектор/слот и кључ параметра."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Нестабилна BLE веза",
+      "description": "Апарат за кафу је прекинуо везу {count} пута у последњих сат времена. Размислите о томе да ESPHome BLE прокси приближите апарату или проверите да ли има Bluetooth сметњи."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Покренут је опоравак BLE упаривања",
+      "description": "Упаривање са апаратом за кафу ({address}) изгледа заглављено (апарат је стално одбијао наше руковање — то се обично види као црвени Bluetooth индикатор на екрану апарата). Интеграција је аутоматски поново учитала ESPHome BLE прокси како би уклонила застарели кеширани BLEDevice.\n\nАко припрема ни после једног минута не успева, упаривање је заглављено и на страни АПАРАТА. Решење:\n\n1. Отворите мени апарата → Bluetooth → Pair new device (зависно од фирмвера путања може писати App-Verbindung / Connect / Reset connection).\n2. Док је апарат у режиму упаривања, позовите `melitta_barista.repair_connection` (или идите на Подешавања → Уређаји и услуге → Melitta → Конфигуриши → Принудно поновно упаривање).\n3. Апарат прави ново упаривање; за наредна повезивања режим упаривања више неће бити потребан.\n\nАко се ово понавља при сваком повезивању, поделите дневнике у пријави #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Уклоњени су стари ентитети сата",
+      "description": "Ентитети number.MACHINE_clock и number.MACHINE_clock_send уклоњени су у верзији 0.52.0. Користите нови ентитет time.MACHINE_clock или из аутоматизације позовите услугу melitta_barista.sync_clock."
     },
     "bond_reset_required": {
       "title": "Апарату за кафу је потребно поновно упаривање",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Синхронизуј сат апарата",
+      "description": "Шаље тренутно локално време из Home Assistant-а у RTC апарата."
     }
   },
   "selector": {

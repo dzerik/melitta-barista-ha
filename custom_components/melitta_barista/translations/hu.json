@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Kávéfőző újrakonfigurálása",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC-cím",
+          "name": "Eszköz neve"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Alapbeállítások",
           "advanced": "Speciális beállítások",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Kapcsolat javítása (egyszerű)",
+          "full_pair": "Újrapárosítás kikényszerítése (teljes)",
           "bluetooth_source": "Bluetooth-adapter"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Újracsatlakozás max. késleltetés (másodperc)",
           "max_consecutive_errors": "Lekérdezési hibák lecsatlakozás előtt",
           "frame_timeout": "BLE keret időtúllépés (másodperc)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Egyszerű felszólítások automatikus megerősítése"
         },
         "data_description": {
           "poll_interval": "Milyen gyakran kérdezze le a gép állapotát (alapértelmezett: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Maximális késleltetés újracsatlakozási kísérletek között (alapértelmezett: 300s)",
           "max_consecutive_errors": "Egymás utáni lekérdezési hibák száma kényszerített lecsatlakozás előtt (alapértelmezett: 3)",
           "frame_timeout": "BLE keret küldési/fogadási időtúllépés (alapértelmezett: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Automatikusan nyugtázza az egyszerű felszólításokat (csésze áthelyezése, öblítés). A hardveres felszólításokat (víz feltöltése, tálcák ürítése) továbbra is kézzel kell megerősíteni."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Párosítási időtúllépés (másodperc)",
           "recipe_retries": "Recept olvasási/írási kísérletek",
           "initial_connect_delay": "Kezdő csatlakozási késleltetés (másodperc)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "A gép órájának automatikus szinkronizálása",
+          "auto_sync_drift_minutes": "Szinkronizálási eltérésküszöb (perc)",
+          "auto_sync_daily_time": "Napi szinkronizálás időpontja (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "BLE kapcsolat létrehozásának időtúllépése (alapértelmezett: 15s)",
           "pair_timeout": "BLE párosítás időtúllépése beállítás közben (alapértelmezett: 30s)",
           "recipe_retries": "Újrapróbálkozások száma recept olvasási/írási műveletekhez (alapértelmezett: 3)",
           "initial_connect_delay": "Várakozási idő az első csatlakozási kísérlet előtt a beállítás után (alapértelmezett: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Újracsatlakozáskor és naponta egyszer automatikusan átküldi a HA helyi idejét a gépre (alapértelmezett: be)",
+          "auto_sync_drift_minutes": "Kihagyja az írást, ha a mért eltérés ennél kevesebb perc (alapértelmezett: 2)",
+          "auto_sync_daily_time": "A napi kényszerített szinkronizálás időpontja 24 órás HH:MM formátumban (alapértelmezett: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "BLE-párosítás javítása",
+        "description": "Egyszerű helyreállítás: újratölti azt az ESPHome BLE proxyt, amely ehhez a géphez a szkennert birtokolja, így a következő párosítási kísérlet tiszta gyorsítótárral indul. Először ezzel próbálkozzon. Ha a főzés utána sem sikerül, próbálja az Újrapárosítás kikényszerítése (teljes) lehetőséget — az a párosítási kulcsot is törli az ESP-n, ÉS párosítási módba kell hoznia a gépet."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Teljes újrapárosítás kikényszerítése",
+        "description": "Teljes helyreállítás: törli a párosítási táblát az ESPHome BLE proxyn, bontja a beragadt kapcsolatot, és újratölti a proxy bejegyzését, ezzel új SMP-cserét kényszerítve ki.\n\nA Küldés gomb megnyomása ELŐTT: hozza párosítási módba a gépet a gép menüjéből (Menu → Bluetooth → Pair new device / App-Verbindung — a pontos útvonal firmware-függő). Párosítási mód nélkül a gép `auth fail reason=82` hibával elutasítja az új SMP-kérést.\n\nSzükséges hozzá a `clear_ble_bonds` és a `disconnect_ble_peer` művelet az ESPHome proxy YAML-fájljában (lásd esphome/ble-proxy-xiao-c6.yaml az integráció tárolójában)."
       },
       "bluetooth_source": {
         "title": "Bluetooth-adapter",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "Az ESPHome BLE proxy újratöltése folyamatban — az integráció egy percen belül újracsatlakozik. Ha ezután `auth fail reason=82` üzenetet lát az ESP naplójában, a párosítás mindkét oldalon beragadt: próbálja az Újrapárosítás kikényszerítése (teljes) lehetőséget, ÉS hozza párosítási módba a gépet (Menu → Bluetooth → Pair new device), hogy elfogadja az új SMP-cserét.",
+      "repair_local_reconnect": "Ehhez a géphez nem található ESPHome proxy — az újracsatlakozás helyette a helyi Bluetooth-adapteren keresztül történik. A gépnek a következő hirdetéskor újra kell csatlakoznia.",
+      "repair_failed": "A helyreállítási rutin váratlan kivételt dobott — a részletekért nézze meg a Home Assistant naplóit, és fontolja meg a megosztásukat a #10-es hibajegyben.",
+      "full_pair_done": "Töröltük a párosítási táblát az ESP proxyn, ÉS újratöltöttük a proxy bejegyzését. FONTOS: most hozza párosítási módba a gépet (Menu → Bluetooth → Pair new device / App-Verbindung — a pontos útvonal firmware-függő) egy percen belül. Az integráció új SMP-cserét hajt végre, és új párosítást hoz létre. A későbbi újracsatlakozásokhoz már nem lesz szükség párosítási módra.",
+      "full_pair_partial": "Az ESPHome proxy bejegyzését újratöltöttük, de a párosítási tábla törlése nem sikerült — nézze meg a HA naplóit. Próbálja újra, vagy ossza meg a naplókat a #10-es hibajegyben.",
+      "full_pair_no_action": "Az `esphome.{service}` szolgáltatás nincs regisztrálva, ezért nem tudjuk törölni a párosítási táblát. Vegye fel a `clear_ble_bonds` műveletet az ESPHome YAML-fájljába (sablon: esphome/ble-proxy-xiao-c6.yaml az integráció tárolójában), töltse fel újra a proxyra, majd próbálja meg ismét. A proxy bejegyzését újratöltöttük, ami kiüríti a HA oldali gyorsítótárat — addig próbálja a Kapcsolat javítása (egyszerű) lehetőséget.",
+      "full_pair_local_only": "Ehhez a géphez nem található ESPHome proxy — helyi Bluetooth-adapteren fut. A teljes újrapárosítás itt nem alkalmazható; helyette helyi bontás és újracsatlakozás történik.",
+      "full_pair_failed": "Az újrapárosítási rutin váratlan kivételt dobott — nézze meg a Home Assistant naplóit, és ossza meg őket a #10-es hibajegyben."
     },
     "error": {
       "invalid_time": "Adjon meg érvényes időpontot HH:MM formátumban (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Kávé"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Meleg tej"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Forró tej"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Tej"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Tejhab"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Forró víz"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "My Coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Gőzös italok"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Őrölt kávé"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Egycsészés főzések"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Kétcsészés főzések"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Összes ital"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Kávérendszer tisztítása"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Főzőegység tisztítása"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Tejhabosító tisztítása"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Öblítési ciklusok"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Tejhabosító öblítése"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Szűrő öblítése"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Szűrőcserék"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Vízkőmentesítések"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Italok az alkalmazásból"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Italok a Kanne funkcióval"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Vízkőmentesítés előrehaladása"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Vízkőmentesítési figyelmeztetés"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Főzőegység-tisztítás előrehaladása"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Főzőegység-tisztítási figyelmeztetés"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Tejhabosító-tisztítás előrehaladása"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Tejhabosító-tisztítási figyelmeztetés"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Szűrőcsere előrehaladása"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Szűrőfigyelmeztetés"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Szűrőfüggőség"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Sorozatszám"
       }
     },
     "button": {
@@ -334,7 +334,7 @@
         "name": "Intenzív tisztítás"
       },
       "descaling": {
-        "name": "Vízkőtelenítés"
+        "name": "Vízkőmentesítés"
       },
       "switch_off": {
         "name": "Kikapcsolás"
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Óra"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Ehhez a szolgáltatáshíváshoz nem található támogatott kávéfőző."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "A főzés nem sikerült. Ellenőrizze a gép állapotát, és próbálja újra."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "A recept mentése nem sikerült. Ellenőrizze a BLE-kapcsolatot."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Jelenleg nincs kiválasztott recept. Válasszon egyet, vagy adja meg kifejezetten a recipe_id értékét."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "A gép elutasította a visszaállítást (NACK vagy időtúllépés). Elképzelhető, hogy ez a firmware nem támogatja a HD parancsot ehhez a regiszterhez."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "A gép elutasította a megerősítést (NACK vagy időtúllépés). Elképzelhető, hogy ez a firmware nem támogatja a HY parancsot."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "A gép elutasította a paraméterírást (NACK vagy időtúllépés). Ellenőrizze a márkát/családot, a választót/helyet és a paraméterkulcsot."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Instabil BLE-kapcsolat",
+      "description": "A kávéfőző {count} alkalommal bontotta a kapcsolatot az elmúlt órában. Érdemes közelebb vinni az ESPHome BLE proxyt a géphez, vagy ellenőrizni, nincs-e Bluetooth-zavarás."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Elindult a BLE-párosítás helyreállítása",
+      "description": "A kávéfőzővel ({address}) fennálló párosítás beragadtnak tűnt (a gép sorra elutasította a kézfogásunkat — ez általában piros Bluetooth-jelzésként látszik a gép kijelzőjén). Az integráció automatikusan újratöltötte az ESPHome BLE proxyt, hogy kiürítse az elavult BLEDevice-gyorsítótárat.\n\nHa a főzés egy perc múlva sem sikerül, a párosítás a GÉP oldalán is beragadt. A megoldás:\n\n1. Nyissa meg a gép menüjét → Bluetooth → Pair new device (a firmware-től függően App-Verbindung / Connect / Reset connection néven is szerepelhet).\n2. Amíg a gép párosítási módban van, hívja meg a `melitta_barista.repair_connection` szolgáltatást (vagy használja a Beállítások → Eszközök és szolgáltatások → Melitta → Konfigurálás → Újrapárosítás kikényszerítése útvonalat).\n3. A gép új párosítást hoz létre; a későbbi újracsatlakozásokhoz már nem kell párosítási mód.\n\nHa ez minden újracsatlakozáskor megismétlődik, ossza meg a naplókat a #10-es hibajegyben."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "A régi óraentitásokat eltávolítottuk",
+      "description": "A number.MACHINE_clock és a number.MACHINE_clock_send entitás a 0.52.0 verzióban megszűnt. Használja az új time.MACHINE_clock entitást, vagy hívja meg a melitta_barista.sync_clock szolgáltatást egy automatizálásból."
     },
     "bond_reset_required": {
       "title": "A kávégépet újra kell párosítani",
@@ -572,17 +572,17 @@
     },
     "ble_source_unavailable": {
       "title": "A párosított Bluetooth-adapter nem érhető el",
-      "description": "A kávéfőző ({address}) más Bluetooth-adaptereken keresztül látható, de a párosítást birtokló adapter ({source}) nem érhető el. Az integráció vár, ahelyett hogy másik Bluetooth-központra váltana, mert az hitelesítési hibát okozna.\n\nHa az adapter csak újraindul, nincs teendő. Ha eltávolították vagy lecserélték, nyisd meg a Beállítások → Eszközök és szolgáltatások → Melitta → Konfigurálás → Bluetooth-adapter menüt, tedd a gépet párosítási módba, és válassz másik adaptert."
+      "description": "A kávéfőző ({address}) más Bluetooth-adaptereken keresztül látható, de a párosítást birtokló adapter ({source}) nem érhető el. Az integráció vár, ahelyett hogy másik Bluetooth-központra váltana, mert az hitelesítési hibát okozna.\n\nHa az adapter csak újraindul, nincs teendő. Ha eltávolították vagy lecserélték, nyissa meg a Beállítások → Eszközök és szolgáltatások → Melitta → Konfigurálás → Bluetooth-adapter menüt, hozza a gépet párosítási módba, és válasszon másik adaptert."
     },
     "ble_source_migration_pending": {
       "title": "Bluetooth-adapter migrációja függőben",
-      "description": "A kávéfőző ({address}) a(z) {source} Bluetooth-adapterre kerül át. Tedd a gépet párosítási módba, és hagyd bekapcsolva. Az integráció csak ezen az adapteren keresztül párosít, és sikeres titkosított kézfogás után ezt jelöli meg az új párosítás tulajdonosaként. A többi Bluetooth-proxy aktív marad, de nem veheti át ezt a kapcsolatot."
+      "description": "A kávéfőző ({address}) a(z) {source} Bluetooth-adapterre kerül át. Hozza a gépet párosítási módba, és hagyja bekapcsolva. Az integráció csak ezen az adapteren keresztül párosít, és sikeres titkosított kézfogás után ezt jelöli meg az új párosítás tulajdonosaként. A többi Bluetooth-proxy aktív marad, de nem veheti át ezt a kapcsolatot."
     }
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Gép órájának szinkronizálása",
+      "description": "Átküldi a Home Assistant aktuális helyi idejét a gép óráját adó RTC-re."
     }
   },
   "selector": {

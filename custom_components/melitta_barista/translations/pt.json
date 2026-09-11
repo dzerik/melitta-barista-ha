@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Reconfigurar máquina de café",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Endereço MAC Bluetooth",
+          "name": "Nome do dispositivo"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Definições básicas",
           "advanced": "Definições avançadas",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Reparar ligação (suave)",
+          "full_pair": "Forçar novo emparelhamento (completo)",
           "bluetooth_source": "Adaptador Bluetooth"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Atraso máximo de reconexão (segundos)",
           "max_consecutive_errors": "Erros de sondagem antes de desconectar",
           "frame_timeout": "Tempo limite de frame BLE (segundos)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Confirmar automaticamente avisos simples"
         },
         "data_description": {
           "poll_interval": "Frequência de sondagem da máquina para atualizações de estado (predefinido: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Atraso máximo entre tentativas de reconexão (predefinido: 300s)",
           "max_consecutive_errors": "Número de erros de sondagem consecutivos antes de forçar a desconexão (predefinido: 3)",
           "frame_timeout": "Tempo limite para operações de envio/receção de frames BLE (predefinido: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Confirma automaticamente os avisos simples (aproximar a chávena, enxaguar). Os avisos de hardware (encher água, esvaziar tabuleiros) continuam a exigir confirmação manual."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Tempo limite de emparelhamento (segundos)",
           "recipe_retries": "Tentativas de leitura/escrita de receita",
           "initial_connect_delay": "Atraso de conexão inicial (segundos)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Sincronizar automaticamente o relógio da máquina",
+          "auto_sync_drift_minutes": "Limite de desvio para a sincronização automática (minutos)",
+          "auto_sync_daily_time": "Hora diária da sincronização automática (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "Tempo limite para o estabelecimento da conexão BLE (predefinido: 15s)",
           "pair_timeout": "Tempo limite para emparelhamento BLE durante a configuração (predefinido: 30s)",
           "recipe_retries": "Número de tentativas para operações de leitura/escrita de receita (predefinido: 3)",
           "initial_connect_delay": "Espera antes da primeira tentativa de conexão após a configuração (predefinido: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Envia automaticamente a hora local do Home Assistant para a máquina ao restabelecer a ligação e uma vez por dia (predefinido: ligado)",
+          "auto_sync_drift_minutes": "Não escrever a hora se o desvio medido for inferior a este número de minutos (predefinido: 2)",
+          "auto_sync_daily_time": "Hora da sincronização diária forçada, no formato de 24 horas HH:MM (predefinido: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Reparar emparelhamento BLE",
+        "description": "Recuperação suave: recarrega o proxy BLE ESPHome que detém o scanner desta máquina, para que a próxima tentativa de emparelhamento comece com a cache limpa. Comece por aqui. Se a preparação continuar a falhar, experimente Forçar novo emparelhamento (completo) — essa opção apaga também a chave de emparelhamento no ESP E exige que coloque a máquina em modo de emparelhamento."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Forçar novo emparelhamento completo",
+        "description": "Recuperação completa: apaga a tabela de emparelhamentos no proxy BLE ESPHome, desliga o slot bloqueado e recarrega a entrada do proxy, forçando uma nova troca SMP.\n\nANTES de premir Enviar: coloque a máquina em modo de emparelhamento através do menu da própria máquina (Menu → Bluetooth → Pair new device / App-Verbindung — o caminho exato depende do firmware). Sem o modo de emparelhamento, a máquina rejeitará o novo pedido SMP com `auth fail reason=82`.\n\nRequer as ações `clear_ble_bonds` e `disconnect_ble_peer` no YAML do seu proxy ESPHome (consulte esphome/ble-proxy-xiao-c6.yaml no repositório da integração)."
       },
       "bluetooth_source": {
         "title": "Adaptador Bluetooth",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "O proxy BLE ESPHome está a ser recarregado — a integração voltará a ligar-se dentro de um minuto. Se, depois disso, vir `auth fail reason=82` nos registos do ESP, o emparelhamento está bloqueado de ambos os lados: experimente Forçar novo emparelhamento (completo) E coloque a máquina em modo de emparelhamento (Menu → Bluetooth → Pair new device) para que aceite uma nova troca SMP.",
+      "repair_local_reconnect": "Não foi encontrado nenhum proxy ESPHome para esta máquina — a ligação será restabelecida através do adaptador Bluetooth local. A máquina deverá voltar a ligar-se no próximo anúncio.",
+      "repair_failed": "A rotina de recuperação gerou uma exceção inesperada — consulte os registos do Home Assistant e considere partilhá-los no issue #10.",
+      "full_pair_done": "A tabela de emparelhamentos do proxy ESP foi apagada E a entrada do proxy foi recarregada. IMPORTANTE: coloque agora a máquina em modo de emparelhamento (Menu → Bluetooth → Pair new device / App-Verbindung — o caminho exato depende do firmware) no prazo de 1 minuto. A integração fará uma nova troca SMP e criará um novo emparelhamento. As ligações seguintes já não precisarão do modo de emparelhamento.",
+      "full_pair_partial": "A entrada do proxy ESPHome foi recarregada, mas não foi possível apagar a tabela de emparelhamentos — consulte os registos do HA. Tente novamente ou partilhe os registos no issue #10.",
+      "full_pair_no_action": "O serviço ESPHome `esphome.{service}` não está registado, pelo que não é possível apagar a tabela de emparelhamentos. Adicione a ação `clear_ble_bonds` ao YAML do seu ESPHome (modelo em esphome/ble-proxy-xiao-c6.yaml no repositório da integração), volte a gravar o firmware do proxy e tente novamente. A entrada do proxy foi recarregada, o que limpa a cache do lado do HA — entretanto, experimente Reparar ligação (suave).",
+      "full_pair_local_only": "Não foi encontrado nenhum proxy ESPHome para esta máquina — está a funcionar com um adaptador Bluetooth local. O novo emparelhamento completo não se aplica aqui; em vez disso, será feita uma desligação e nova ligação locais.",
+      "full_pair_failed": "A rotina de novo emparelhamento forçado gerou uma exceção inesperada — consulte os registos do Home Assistant e partilhe-os no issue #10."
     },
     "error": {
       "invalid_time": "Introduza uma hora válida no formato HH:MM (00:00–23:59)."
@@ -182,8 +182,8 @@
           "trays_missing": "Tabuleiros em falta",
           "empty_trays": "Esvaziar tabuleiros",
           "fill_water": "Encher o reservatório de água",
-          "close_powder_lid": "Fechar tampa do pó",
-          "fill_powder": "Adicionar café"
+          "close_powder_lid": "Fechar a tampa do café moído",
+          "fill_powder": "Adicionar café moído"
         }
       },
       "connection": {
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Café"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Creme"
       },
       "lungo": {
         "name": "Lungo"
@@ -218,7 +218,7 @@
         "name": "Cappuccino"
       },
       "caffe_latte": {
-        "name": "Caffè latte"
+        "name": "Caffè Latte"
       },
       "macchiato": {
         "name": "Latte macchiato"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Leite morno"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Leite quente"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Leite"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Espuma de leite"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Água quente"
       },
       "my_coffee": {
-        "name": "My coffee"
+        "name": "My Coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Bebidas com vapor"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Café moído"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Preparações de uma chávena"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Preparações de duas chávenas"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Total de bebidas"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Limpezas do sistema de café"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Limpezas da unidade de infusão"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Limpezas do espumador"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Ciclos de enxaguamento"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Enxaguamentos do espumador"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Enxaguamentos do filtro"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Mudanças de filtro"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Descalcificações"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Bebidas através da aplicação"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Bebidas via Kanne"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Progresso da descalcificação"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Aviso de descalcificação"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Progresso da limpeza da unidade de infusão"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Aviso de limpeza da unidade de infusão"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Progresso da limpeza do espumador"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Aviso de limpeza do espumador"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Progresso do filtro"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Aviso do filtro"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Dependência do filtro"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Número de série"
       }
     },
     "button": {
@@ -382,7 +382,7 @@
           "flat_white": "Flat White",
           "latte_macchiato": "Latte Macchiato",
           "latte_macchiato_extra": "Latte Macchiato Extra",
-          "latte_macchiato_triple": "Latte Macchiato Triple",
+          "latte_macchiato_triple": "Latte Macchiato Triplo",
           "milk": "Leite",
           "milk_froth": "Espuma de leite",
           "hot_water": "Água quente"
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Relógio"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Nenhuma máquina de café suportada encontrada para esta chamada de serviço."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "A preparação falhou. Verifique o estado da máquina e tente novamente."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Não foi possível guardar a receita. Verifique a ligação BLE."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Não há nenhuma receita selecionada. Selecione uma ou indique explicitamente o recipe_id."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "A máquina rejeitou a reposição (NACK ou tempo limite). Este firmware pode não suportar HD para este registo."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "A máquina rejeitou a confirmação (NACK ou tempo limite). Este firmware pode não suportar HY."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "A máquina rejeitou a escrita do parâmetro (NACK ou tempo limite). Verifique a marca/família, o seletor/slot e a chave do parâmetro."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Ligação BLE instável",
+      "description": "A máquina de café perdeu a ligação {count} vezes na última hora. Considere aproximar o proxy BLE ESPHome da máquina ou verifique se existem interferências Bluetooth."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "Recuperação do emparelhamento BLE acionada",
+      "description": "O emparelhamento com a máquina de café ({address}) parecia bloqueado (a máquina continuou a rejeitar a nossa negociação — normalmente assinalado por um símbolo Bluetooth vermelho no visor da máquina). A integração recarregou automaticamente o proxy BLE ESPHome para limpar um BLEDevice desatualizado em cache.\n\nSe a preparação continuar a falhar ao fim de um minuto, o emparelhamento está bloqueado também do lado da MÁQUINA. Para resolver:\n\n1. Abra o menu da máquina → Bluetooth → Pair new device (consoante o firmware, o caminho pode aparecer como App-Verbindung / Connect / Reset connection).\n2. Com a máquina em modo de emparelhamento, chame `melitta_barista.repair_connection` (ou use Definições → Dispositivos e serviços → Melitta → Configurar → Forçar novo emparelhamento).\n3. A máquina cria um novo emparelhamento; as ligações seguintes já não precisarão do modo de emparelhamento.\n\nSe isto se repetir em todas as reconexões, partilhe os registos no issue #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Entidades de relógio antigas removidas",
+      "description": "As entidades number.MACHINE_clock e number.MACHINE_clock_send foram removidas na versão 0.52.0. Utilize a nova entidade time.MACHINE_clock ou chame o serviço melitta_barista.sync_clock a partir de uma automatização."
     },
     "bond_reset_required": {
       "title": "A máquina de café precisa de novo emparelhamento",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Sincronizar o relógio da máquina",
+      "description": "Envia a hora local atual do Home Assistant para o RTC da máquina."
     }
   },
   "selector": {

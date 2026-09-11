@@ -44,6 +44,7 @@ from custom_components.melitta_barista.brands.nivona._family_8000 import (
 )
 from custom_components.melitta_barista.const import MachineType
 from custom_components.melitta_barista.sommelier_api import build_sommelier_vocab
+from tests.i18n_english_fallback import english_fallbacks
 from custom_components.melitta_barista.ui_contract import (
     FREESTYLE_AROMA_TOKENS,
     FREESTYLE_BLEND_TOKENS,
@@ -655,3 +656,22 @@ def test_locale_carries_placeholders_verbatim(locale, en_strings):
         if key in en_strings and _spans(value) != _spans(en_strings[key])
     }
     assert not mismatched, f"{locale}.json placeholder drift: {mismatched}"
+
+
+@pytest.mark.parametrize("locale", NON_EN_LOCALES)
+def test_locale_values_are_not_the_english_source(locale, en_strings):
+    """§6.3.7(b) continued: complete over the keyspace AND actually translated.
+
+    `test_locale_covers_the_served_keyspace` only proves the key is there.
+    A value byte-identical to en.json means the server serves the English
+    string to a non-English client — the failure the translation wave cleaned up.
+    Legitimate identity (drink proper names, tokens, words a language shares
+    with English) is enumerated in tests/i18n_english_fallback.py.
+    """
+    data = _load(UI_STRINGS_DIR / f"{locale}.json")
+    stale = english_fallbacks("ui_strings", locale, en_strings, data)
+    assert not stale, (
+        f"{locale}.json still carries {len(stale)} English source strings: "
+        + ", ".join(f"{key}={en_strings[key]!r}" for key in stale[:10])
+        + ("..." if len(stale) > 10 else "")
+    )

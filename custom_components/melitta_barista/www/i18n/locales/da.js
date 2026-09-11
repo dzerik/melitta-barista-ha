@@ -447,7 +447,7 @@ export default {
   "backup.snapshots_unavailable": "Listen over øjebliksbilleder kunne ikke læses.",
   "backup.snapshot_auto": "Automatisk",
   "backup.snapshot_manual": "Bevaret",
-  "backup.snapshot_download": "Download",
+  "backup.snapshot_download": "Hent",
   "backup.snapshot_restore": "Gendan",
   "backup.snapshot_delete": "Slet",
   "backup.restore_done": "Øjebliksbilledet er gendannet.",

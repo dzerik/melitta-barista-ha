@@ -34,8 +34,8 @@
       "reconfigure": {
         "title": "Määritä kahvikone uudelleen",
         "data": {
-          "address": "Bluetooth MAC Address",
-          "name": "Device Name"
+          "address": "Bluetooth MAC-osoite",
+          "name": "Laitteen nimi"
         }
       }
     },
@@ -59,8 +59,8 @@
         "menu_options": {
           "basic": "Perusasetukset",
           "advanced": "Lisäasetukset",
-          "repair": "Repair connection (soft)",
-          "full_pair": "Force re-pair (hard)",
+          "repair": "Korjaa yhteys (kevyt)",
+          "full_pair": "Pakota uusi pariliitos (järeä)",
           "bluetooth_source": "Bluetooth-sovitin"
         }
       },
@@ -73,7 +73,7 @@
           "reconnect_max_delay": "Uudelleenyhteys enimmäisviive (sekuntia)",
           "max_consecutive_errors": "Kyselyvirheitä ennen katkaisua",
           "frame_timeout": "BLE-kehyksen aikakatkaisu (sekuntia)",
-          "auto_confirm_prompts": "Auto-confirm soft prompts"
+          "auto_confirm_prompts": "Vahvista kevyet kehotteet automaattisesti"
         },
         "data_description": {
           "poll_interval": "Kuinka usein koneen tila kysellään (oletus: 5s)",
@@ -81,7 +81,7 @@
           "reconnect_max_delay": "Enimmäisviive uudelleenyhteysyritysten välillä (oletus: 300s)",
           "max_consecutive_errors": "Peräkkäisten kyselyvirheiden määrä ennen pakotetua katkaisua (oletus: 3)",
           "frame_timeout": "BLE-kehyksen lähetys-/vastaanottokeskeytys (oletus: 5s)",
-          "auto_confirm_prompts": "Automatically acknowledge soft prompts (move cup, flush). Hardware prompts (fill water, empty trays) still require manual confirmation."
+          "auto_confirm_prompts": "Kuittaa kevyet kehotteet automaattisesti (siirrä kuppi, huuhtele). Laitteistokehotteet (täytä vesi, tyhjennä alustat) vaativat edelleen manuaalisen vahvistuksen."
         }
       },
       "advanced": {
@@ -92,27 +92,27 @@
           "pair_timeout": "Pariliitoksen aikakatkaisu (sekuntia)",
           "recipe_retries": "Reseptin luku-/kirjoitusyritykset",
           "initial_connect_delay": "Ensimmäisen yhteyden viive (sekuntia)",
-          "auto_sync_clock": "Auto-sync machine clock",
-          "auto_sync_drift_minutes": "Auto-sync drift threshold (minutes)",
-          "auto_sync_daily_time": "Auto-sync daily time (HH:MM)"
+          "auto_sync_clock": "Synkronoi koneen kello automaattisesti",
+          "auto_sync_drift_minutes": "Automaattisynkronoinnin poikkeamaraja (minuuttia)",
+          "auto_sync_daily_time": "Automaattisynkronoinnin päivittäinen aika (HH:MM)"
         },
         "data_description": {
           "ble_connect_timeout": "BLE-yhteyden muodostuksen aikakatkaisu (oletus: 15s)",
           "pair_timeout": "BLE-pariliitoksen aikakatkaisu asennuksen aikana (oletus: 30s)",
           "recipe_retries": "Uudelleenyritysten määrä reseptin luku-/kirjoitusoperaatioille (oletus: 3)",
           "initial_connect_delay": "Odotusaika ennen ensimmäistä yhteysyritystä asennuksen jälkeen (oletus: 3s)",
-          "auto_sync_clock": "Automatically push HA local time to the machine on reconnect and once per day (default: on)",
-          "auto_sync_drift_minutes": "Skip writing if measured drift is below this many minutes (default: 2)",
-          "auto_sync_daily_time": "Daily forced sync time in 24h HH:MM format (default: 03:17)"
+          "auto_sync_clock": "Lähettää Home Assistantin paikallisajan koneelle automaattisesti uudelleenyhteyden yhteydessä ja kerran vuorokaudessa (oletus: päällä)",
+          "auto_sync_drift_minutes": "Ohita kirjoitus, jos mitattu poikkeama on tätä pienempi (oletus: 2)",
+          "auto_sync_daily_time": "Päivittäisen pakotetun synkronoinnin kellonaika 24 tunnin muodossa HH:MM (oletus: 03:17)"
         }
       },
       "repair": {
-        "title": "Repair BLE pairing",
-        "description": "Soft recovery: reloads the ESPHome BLE proxy that owns the scanner for this machine so the next pair attempt starts from a clean cache. Use this first. If brewing still fails afterwards, try Force re-pair (hard) — that one also wipes the bond key on the ESP, AND requires you to put the machine into pairing mode."
+        "title": "Korjaa BLE-pariliitos",
+        "description": "Kevyt palautus: lataa uudelleen ESPHome BLE -välityspalvelimen, joka omistaa tämän koneen skannerin, jotta seuraava pariliitosyritys alkaa puhtaalta välimuistilta. Kokeile tätä ensin. Jos valmistus ei senkään jälkeen onnistu, kokeile toimintoa Pakota uusi pariliitos (järeä) — se tyhjentää myös ESP:lle tallennetun pariliitosavaimen JA edellyttää, että asetat koneen pariliitostilaan."
       },
       "full_pair": {
-        "title": "Force full re-pair",
-        "description": "Hard recovery: wipes the bond table on the ESPHome BLE proxy, disconnects the stuck slot, and reloads the proxy entry, forcing a fresh SMP exchange.\n\nBEFORE pressing Submit: put the machine into pairing mode via its menu (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware). Without pairing mode the machine will reject the fresh SMP request with `auth fail reason=82`.\n\nRequires the `clear_ble_bonds` and `disconnect_ble_peer` actions in your ESPHome proxy YAML (see esphome/ble-proxy-xiao-c6.yaml in the integration repo)."
+        "title": "Pakota täysin uusi pariliitos",
+        "description": "Järeä palautus: tyhjentää ESPHome BLE -välityspalvelimen pariliitostaulun, katkaisee jumiin jääneen yhteyden ja lataa välityspalvelimen merkinnän uudelleen, mikä pakottaa uuden SMP-vaihdon.\n\nENNEN kuin painat Lähetä: aseta kone pariliitostilaan sen omasta valikosta (Menu → Bluetooth → Pair new device / App-Verbindung — tarkka polku riippuu laiteohjelmistosta). Ilman pariliitostilaa kone hylkää uuden SMP-pyynnön virheellä `auth fail reason=82`.\n\nVaatii ESPHome-välityspalvelimesi YAML-tiedostoon toiminnot `clear_ble_bonds` ja `disconnect_ble_peer` (katso esphome/ble-proxy-xiao-c6.yaml integraation koodivarastossa)."
       },
       "bluetooth_source": {
         "title": "Bluetooth-sovitin",
@@ -126,14 +126,14 @@
       }
     },
     "abort": {
-      "repair_proxy_reloaded": "Reloading the ESPHome BLE proxy now — the integration will reconnect within a minute. If you see `auth fail reason=82` in ESP logs afterwards, the bond is wedged on both sides: try Force re-pair (hard), AND put the machine into pairing mode (Menu → Bluetooth → Pair new device) so it accepts a fresh SMP exchange.",
-      "repair_local_reconnect": "No ESPHome proxy found for this machine — reconnecting via the local Bluetooth adapter instead. The machine should reconnect on the next advertisement.",
-      "repair_failed": "Recovery routine raised an unexpected exception — see Home Assistant logs for details and consider sharing them on issue #10.",
-      "full_pair_done": "Wiped the bond table on the ESP proxy AND reloaded the proxy entry. IMPORTANT: now put the machine into pairing mode (Menu → Bluetooth → Pair new device / App-Verbindung — exact path depends on firmware) within 1 minute. The integration will run a fresh SMP exchange and create a new bond. Subsequent reconnects won't need pairing mode again.",
-      "full_pair_partial": "Reloaded the ESPHome proxy entry, but bond clearing failed — see HA logs. Try again, or share logs on issue #10.",
-      "full_pair_no_action": "ESPHome service `esphome.{service}` is not registered, so we can't wipe the bond table. Add the `clear_ble_bonds` action to your ESPHome YAML (template at esphome/ble-proxy-xiao-c6.yaml in the integration repo), flash the proxy, and retry. We did reload the proxy entry, which evicts HA-side cache — try Soft Repair connection meanwhile.",
-      "full_pair_local_only": "No ESPHome proxy found for this machine — running on a local Bluetooth adapter. Full re-pair isn't applicable here; doing a local disconnect+reconnect instead.",
-      "full_pair_failed": "Force re-pair routine raised an unexpected exception — see Home Assistant logs and share them on issue #10."
+      "repair_proxy_reloaded": "ESPHome BLE -välityspalvelin ladataan nyt uudelleen — integraatio yhdistää minuutin kuluessa. Jos näet sen jälkeen ESP:n lokeissa `auth fail reason=82`, pariliitos on jumissa molemmissa päissä: kokeile toimintoa Pakota uusi pariliitos (järeä) JA aseta kone pariliitostilaan (Menu → Bluetooth → Pair new device), jotta se hyväksyy uuden SMP-vaihdon.",
+      "repair_local_reconnect": "Tälle koneelle ei löytynyt ESPHome-välityspalvelinta — yhteys muodostetaan uudelleen paikallisen Bluetooth-sovittimen kautta. Koneen pitäisi yhdistyä seuraavan mainoksen yhteydessä.",
+      "repair_failed": "Palautusrutiini aiheutti odottamattoman poikkeuksen — katso tarkemmat tiedot Home Assistantin lokeista ja harkitse niiden jakamista issuessa #10.",
+      "full_pair_done": "Pariliitostaulu tyhjennettiin ESP-välityspalvelimelta JA välityspalvelimen merkintä ladattiin uudelleen. TÄRKEÄÄ: aseta kone nyt pariliitostilaan (Menu → Bluetooth → Pair new device / App-Verbindung — tarkka polku riippuu laiteohjelmistosta) minuutin kuluessa. Integraatio suorittaa uuden SMP-vaihdon ja luo uuden pariliitoksen. Myöhemmät uudelleenyhteydet eivät enää vaadi pariliitostilaa.",
+      "full_pair_partial": "ESPHome-välityspalvelimen merkintä ladattiin uudelleen, mutta pariliitostaulun tyhjennys epäonnistui — katso Home Assistantin lokit. Yritä uudelleen tai jaa lokit issuessa #10.",
+      "full_pair_no_action": "ESPHome-palvelua `esphome.{service}` ei ole rekisteröity, joten pariliitostaulua ei voi tyhjentää. Lisää toiminto `clear_ble_bonds` ESPHome-YAML-tiedostoosi (malli: esphome/ble-proxy-xiao-c6.yaml integraation koodivarastossa), flashaa välityspalvelin ja yritä uudelleen. Välityspalvelimen merkintä ladattiin kuitenkin uudelleen, mikä tyhjentää Home Assistantin puoleisen välimuistin — kokeile sillä välin kevyttä yhteyden korjausta.",
+      "full_pair_local_only": "Tälle koneelle ei löytynyt ESPHome-välityspalvelinta — käytössä on paikallinen Bluetooth-sovitin. Täysin uusi pariliitos ei sovellu tähän; tehdään sen sijaan paikallinen katkaisu ja uudelleenyhdistys.",
+      "full_pair_failed": "Pakotetun uuden pariliitoksen rutiini aiheutti odottamattoman poikkeuksen — katso Home Assistantin lokit ja jaa ne issuessa #10."
     },
     "error": {
       "invalid_time": "Anna kelvollinen aika muodossa HH:MM (00:00–23:59)."
@@ -203,10 +203,10 @@
         "name": "Espresso"
       },
       "coffee": {
-        "name": "Coffee"
+        "name": "Kahvi"
       },
       "cream": {
-        "name": "Cream"
+        "name": "Crème"
       },
       "lungo": {
         "name": "Lungo"
@@ -227,97 +227,97 @@
         "name": "Latte macchiato"
       },
       "warm_milk": {
-        "name": "Warm milk"
+        "name": "Lämmin maito"
       },
       "hot_milk": {
-        "name": "Hot milk"
+        "name": "Kuuma maito"
       },
       "milk": {
-        "name": "Milk"
+        "name": "Maito"
       },
       "milk_foam": {
-        "name": "Milk foam"
+        "name": "Maitovaahto"
       },
       "hot_water": {
-        "name": "Hot water"
+        "name": "Kuuma vesi"
       },
       "my_coffee": {
         "name": "My coffee"
       },
       "steam_drinks": {
-        "name": "Steam drinks"
+        "name": "Höyryjuomat"
       },
       "powder_coffee": {
-        "name": "Powder coffee"
+        "name": "Jauhekahvi"
       },
       "single_cup": {
-        "name": "Single cup brews"
+        "name": "Yhden kupin annokset"
       },
       "double_cup": {
-        "name": "Double cup brews"
+        "name": "Kahden kupin annokset"
       },
       "total_beverages": {
-        "name": "Total beverages"
+        "name": "Juomia yhteensä"
       },
       "clean_coffee_system": {
-        "name": "Clean coffee system"
+        "name": "Kahvijärjestelmän puhdistukset"
       },
       "clean_brewing_unit": {
-        "name": "Clean brewing unit"
+        "name": "Keittoyksikön puhdistukset"
       },
       "clean_frother": {
-        "name": "Clean frother"
+        "name": "Vaahdottimen puhdistukset"
       },
       "rinse_cycles": {
-        "name": "Rinse cycles"
+        "name": "Huuhtelujaksot"
       },
       "rinse_frother": {
-        "name": "Rinse frother"
+        "name": "Vaahdottimen huuhtelut"
       },
       "rinse_filter": {
-        "name": "Rinse filter"
+        "name": "Suodattimen huuhtelut"
       },
       "filter_changes": {
-        "name": "Filter changes"
+        "name": "Suodattimen vaihdot"
       },
       "descaling": {
-        "name": "Descaling"
+        "name": "Kalkinpoistot"
       },
       "beverages_via_app": {
-        "name": "Beverages via app"
+        "name": "Juomat sovelluksesta"
       },
       "beverages_via_kanne": {
-        "name": "Beverages via Kanne"
+        "name": "Juomat Kanne-toiminnolla"
       },
       "descale_percent": {
-        "name": "Descale progress"
+        "name": "Kalkinpoiston edistyminen"
       },
       "descale_warning": {
-        "name": "Descale warning"
+        "name": "Kalkinpoistovaroitus"
       },
       "brew_unit_clean_percent": {
-        "name": "Brew unit clean progress"
+        "name": "Keittoyksikön puhdistuksen edistyminen"
       },
       "brew_unit_clean_warning": {
-        "name": "Brew unit clean warning"
+        "name": "Keittoyksikön puhdistusvaroitus"
       },
       "frother_clean_percent": {
-        "name": "Frother clean progress"
+        "name": "Vaahdottimen puhdistuksen edistyminen"
       },
       "frother_clean_warning": {
-        "name": "Frother clean warning"
+        "name": "Vaahdottimen puhdistusvaroitus"
       },
       "filter_percent": {
-        "name": "Filter progress"
+        "name": "Suodattimen käyttöaste"
       },
       "filter_warning": {
-        "name": "Filter warning"
+        "name": "Suodatinvaroitus"
       },
       "filter_dependency": {
-        "name": "Filter dependency"
+        "name": "Suodatinriippuvuus"
       },
       "serial_number": {
-        "name": "Serial number"
+        "name": "Sarjanumero"
       }
     },
     "button": {
@@ -499,7 +499,7 @@
     },
     "time": {
       "clock": {
-        "name": "Clock"
+        "name": "Kello"
       }
     },
     "event": {
@@ -535,36 +535,36 @@
       "message": "Tälle palvelukutsulle ei löytynyt tuettua kahvikonetta."
     },
     "brew_failed": {
-      "message": "Brewing failed. Check the machine status and try again."
+      "message": "Valmistus epäonnistui. Tarkista koneen tila ja yritä uudelleen."
     },
     "save_failed": {
-      "message": "Failed to save recipe. Check the BLE connection."
+      "message": "Reseptin tallennus epäonnistui. Tarkista BLE-yhteys."
     },
     "no_recipe_selected": {
-      "message": "No recipe is currently selected. Select one or pass recipe_id explicitly."
+      "message": "Yhtään reseptiä ei ole valittuna. Valitse resepti tai anna recipe_id nimenomaisesti."
     },
     "reset_failed": {
-      "message": "Machine rejected the reset (NACK or timeout). This firmware may not support HD for this register."
+      "message": "Kone hylkäsi palautuksen (NACK tai aikakatkaisu). Tämä laiteohjelmisto ei ehkä tue HD-komentoa tälle rekisterille."
     },
     "confirm_failed": {
-      "message": "Machine rejected the confirmation (NACK or timeout). This firmware may not support HY."
+      "message": "Kone hylkäsi vahvistuksen (NACK tai aikakatkaisu). Tämä laiteohjelmisto ei ehkä tue HY-komentoa."
     },
     "write_failed": {
-      "message": "Machine rejected the parameter write (NACK or timeout). Check the brand/family, selector/slot, and parameter key."
+      "message": "Kone hylkäsi parametrin kirjoituksen (NACK tai aikakatkaisu). Tarkista merkki/tuoteperhe, valitsin/paikka ja parametriavain."
     }
   },
   "issues": {
     "connection_unstable": {
-      "title": "Unstable BLE connection",
-      "description": "The coffee machine disconnected {count} times in the last hour. Consider moving the ESPHome BLE proxy closer to the machine, or check for Bluetooth interference."
+      "title": "Epävakaa BLE-yhteys",
+      "description": "Kahvikoneen yhteys katkesi {count} kertaa viimeisen tunnin aikana. Harkitse ESPHome BLE -välityspalvelimen siirtämistä lähemmäs konetta tai tarkista, häiritseekö jokin muu laite Bluetooth-yhteyttä."
     },
     "pairing_wedged": {
-      "title": "BLE pairing recovery triggered",
-      "description": "The pairing with the coffee machine ({address}) appeared wedged (the machine kept rejecting our handshake — typically shown as a red Bluetooth indicator on the machine display). The integration automatically reloaded the ESPHome BLE proxy to clear a stale cached BLEDevice.\n\nIf brewing still fails after a minute, the bond is wedged on the MACHINE side too. To fix:\n\n1. Open the machine menu → Bluetooth → Pair new device (path may say App-Verbindung / Connect / Reset connection depending on firmware).\n2. While the machine is in pairing mode, call `melitta_barista.repair_connection` (or use Settings → Devices & Services → Melitta → Configure → Force re-pair).\n3. The machine creates a fresh bond; subsequent reconnects won't need pairing mode again.\n\nIf this keeps happening on every reconnect, share logs on issue #10."
+      "title": "BLE-pariliitoksen palautus käynnistettiin",
+      "description": "Kahvikoneen ({address}) pariliitos vaikutti jumiutuneen (kone hylkäsi kättelymme toistuvasti — tämä näkyy tyypillisesti punaisena Bluetooth-merkkinä koneen näytöllä). Integraatio latasi ESPHome BLE -välityspalvelimen automaattisesti uudelleen tyhjentääkseen vanhentuneen BLEDevice-välimuistin.\n\nJos valmistus ei onnistu minuutin kuluttuakaan, pariliitos on jumissa myös KONEEN puolella. Korjaus:\n\n1. Avaa koneen valikko → Bluetooth → Pair new device (polku voi olla App-Verbindung / Connect / Reset connection laiteohjelmistosta riippuen).\n2. Kun kone on pariliitostilassa, kutsu `melitta_barista.repair_connection` (tai valitse Asetukset → Laitteet ja palvelut → Melitta → Määritä → Pakota uusi pariliitos).\n3. Kone luo uuden pariliitoksen; myöhemmät uudelleenyhteydet eivät enää vaadi pariliitostilaa.\n\nJos tämä toistuu joka uudelleenyhteydellä, jaa lokit issuessa #10."
     },
     "clock_entity_migration": {
-      "title": "Legacy clock entities removed",
-      "description": "The number.MACHINE_clock and number.MACHINE_clock_send entities were removed in 0.52.0. Use the new time.MACHINE_clock entity or call the melitta_barista.sync_clock service from an automation."
+      "title": "Vanhat kelloentiteetit poistettu",
+      "description": "Entiteetit number.MACHINE_clock ja number.MACHINE_clock_send poistettiin versiossa 0.52.0. Käytä uutta time.MACHINE_clock-entiteettiä tai kutsu melitta_barista.sync_clock -palvelua automaatiosta."
     },
     "bond_reset_required": {
       "title": "Kahvikone on paritettava uudelleen",
@@ -581,8 +581,8 @@
   },
   "services": {
     "sync_clock": {
-      "name": "Sync machine clock",
-      "description": "Push Home Assistant's current local time to the machine RTC."
+      "name": "Synkronoi koneen kello",
+      "description": "Lähettää Home Assistantin nykyisen paikallisajan koneen reaaliaikakelloon."
     }
   },
   "selector": {

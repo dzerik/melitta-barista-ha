@@ -175,7 +175,7 @@ export default {
   "additives.flavor_notes_add": "Προσθήκη νότας…",
   "additives.composition": "Σύνθεση",
   "additives.attributes": "Χαρακτηριστικά",
-  "additives.attr.vegan": "Vegan",
+  "additives.attr.vegan": "Βίγκαν",
   "additives.attr.sugar_free": "Χωρίς ζάχαρη",
   "additives.attr.lactose_free": "Χωρίς λακτόζη",
   "additives.attr.gluten_free": "Χωρίς γλουτένη",
@@ -369,7 +369,7 @@ export default {
   "sommelier.diet.no_sugar": "Χωρίς ζάχαρη",
   "sommelier.diet.lactose_free": "Χωρίς λακτόζη",
   "sommelier.diet.low_calorie": "Χαμηλών θερμίδων",
-  "sommelier.diet.vegan": "Vegan",
+  "sommelier.diet.vegan": "Βίγκαν",
 
   "modal.add_bean": "Προσθήκη κόκκων",
   "modal.edit_bean": "Επεξεργασία κόκκων",
