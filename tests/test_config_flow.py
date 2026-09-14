@@ -678,6 +678,119 @@ async def test_step_pair_timeout_shows_error(
     assert result3["errors"]["base"] == "pairing_timeout"
 
 
+async def test_step_pair_reports_advertisement_only_scanners(
+    hass: HomeAssistant,
+) -> None:
+    """A machine seen only via non-connectable scanners never attempts pairing.
+
+    Issue #44: through a Shelly the machine is visible but no active
+    connection can exist, so the pair form names the scanner up front and
+    submitting does not start a pairing attempt that is bound to fail.
+    """
+    from custom_components.melitta_barista.scanner_reach import ScannerSighting
+
+    shelly = ScannerSighting(
+        source="AA:00:00:00:00:01", name="shelly1g4-hall",
+        scanner_type="ShellyBLEScanner", connectable=False, rssi=-60,
+    )
+    discovery_info = _make_bluetooth_service_info()
+
+    with patch(
+        "custom_components.melitta_barista.config_flow.async_scanner_sightings",
+        return_value=[shelly],
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_BLUETOOTH}, data=discovery_info,
+        )
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input={}
+        )
+        assert result2["step_id"] == "pair"
+        assert result2["errors"] == {"base": "no_connectable_scanner"}
+        assert result2["description_placeholders"]["scanners"] == "shelly1g4-hall"
+
+        with patch(
+            "custom_components.melitta_barista.config_flow.MelittaBaristaConfigFlow._async_try_pair",
+            new_callable=AsyncMock,
+            return_value="ok",
+        ) as try_pair:
+            result3 = await hass.config_entries.flow.async_configure(
+                result2["flow_id"], user_input={}
+            )
+
+    assert result3["type"] is FlowResultType.FORM
+    assert result3["errors"] == {"base": "no_connectable_scanner"}
+    try_pair.assert_not_awaited()
+
+
+async def test_step_pair_proceeds_when_a_connectable_scanner_also_sees_it(
+    hass: HomeAssistant,
+) -> None:
+    """A Shelly next to an ESPHome proxy does not block setup."""
+    from custom_components.melitta_barista.scanner_reach import ScannerSighting
+
+    sightings = [
+        ScannerSighting(
+            source="AA:00:00:00:00:01", name="shelly1g4-hall",
+            scanner_type="ShellyBLEScanner", connectable=False, rssi=-50,
+        ),
+        ScannerSighting(
+            source="AA:00:00:00:00:02", name="esphome-kitchen",
+            scanner_type="ESPHomeScanner", connectable=True, rssi=-80,
+        ),
+    ]
+    discovery_info = _make_bluetooth_service_info()
+
+    with patch(
+        "custom_components.melitta_barista.config_flow.async_scanner_sightings",
+        return_value=sightings,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_BLUETOOTH}, data=discovery_info,
+        )
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input={}
+        )
+        assert result2["errors"] == {}
+
+        with patch(
+            "custom_components.melitta_barista.config_flow.MelittaBaristaConfigFlow._async_try_pair",
+            new_callable=AsyncMock,
+            return_value="ok",
+        ), patch(
+            "custom_components.melitta_barista.async_setup_entry",
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            result3 = await hass.config_entries.flow.async_configure(
+                result2["flow_id"], user_input={}
+            )
+
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_step_user_discovery_includes_advertisement_only_sightings(
+    hass: HomeAssistant,
+) -> None:
+    """Discovery asks HA for non-connectable sightings too.
+
+    Otherwise a machine seen only through a Shelly never appears in the
+    picker and the user never reaches the explanation on the pair step.
+    """
+    info = _make_bluetooth_service_info()
+
+    with patch(
+        "custom_components.melitta_barista.config_flow.async_discovered_service_info",
+        return_value=[info],
+    ) as discovered:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+
+    discovered.assert_called_once_with(hass, connectable=False)
+    assert result["step_id"] == "user"
+
+
 # ---------------------------------------------------------------------------
 # _async_try_pair
 # ---------------------------------------------------------------------------

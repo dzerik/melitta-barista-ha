@@ -176,6 +176,28 @@ integration 0.91.0 bonded-source affinity handles this automatically and
 all proxies may stay `active: true` — on older versions keep `active: true`
 only on the nearest proxy, `active: false` everywhere else).
 
+### Supported Bluetooth transports
+
+The machine is controlled over an **active, bonded BLE connection** — reading
+its advertisements is not enough. Only scanners that can open connections for
+Home Assistant work as a transport:
+
+| Transport | Sees the machine | Can control it |
+|---|---|---|
+| ESPHome `bluetooth_proxy` (ESP32) | ✅ | ✅ recommended |
+| Local Bluetooth adapter (BlueZ) | ✅ | ✅ |
+| Shelly Gen2+ Bluetooth gateway | ✅ | ❌ advertisements only |
+| SMLIGHT SLZB-U | ✅ | ❌ advertisements only |
+
+Shelly and SMLIGHT devices forward advertisements but do not proxy active
+(GATT) connections — see Home Assistant's
+[remote adapters table](https://www.home-assistant.io/integrations/bluetooth/#remote-adapters-bluetooth-proxies).
+They can stay in the house alongside an ESPHome proxy or a local adapter;
+Home Assistant routes the connection through a connectable scanner. If the
+machine is seen *only* through advertisement-only scanners, setup stops at the
+pair step with an error that names them, and the diagnostics download shows
+the same under `bluetooth_reach` (`advertisement_only: true`).
+
 ### Running HA in a Docker container? Three host-side prerequisites
 
 If you run **Home Assistant Container** (Docker) and want to use the host's
@@ -1251,6 +1273,9 @@ The service `melitta_barista.repair_connection` runs the same soft-repair routin
 - Ensure the Home Assistant host has a working Bluetooth adapter. Run `bluetoothctl scan on` on the host to verify BLE scanning works.
 - Move the Home Assistant host closer to the machine.
 - Make sure no other device (e.g., the Melitta app on your phone) is currently connected to the machine.
+
+**Setup says the machine is visible only through scanners that cannot open connections**
+- Every scanner that currently sees the machine is advertisement-only (for example a Shelly or SMLIGHT device). Place an ESPHome Bluetooth proxy or a local Bluetooth adapter within range of the machine — see [Supported Bluetooth transports](#supported-bluetooth-transports).
 
 **Connection fails with "D-Bus connection lost"**
 - The device is not paired with the Home Assistant host. Follow the pairing instructions in the Configuration section above.

@@ -2,6 +2,19 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.1] — 2026-09-14
+
+Setup explains why a machine seen through a Shelly cannot be paired (#44).
+
+### Fixed
+
+- **A machine visible only through advertisement-only Bluetooth scanners is now reported as such.** Shelly Gen2+ gateways and SMLIGHT SLZB-U devices forward advertisements but cannot open connections, while the machine is controlled over an active, bonded one. Home Assistant's lookups default to connectable scanners only, so such a machine never appeared in the setup picker and a manual add ended in a generic pairing failure. Discovery now lists it, and the pair step names the scanners and says a connectable transport — an ESPHome Bluetooth proxy or a local adapter — is needed, without starting a pairing attempt that cannot succeed. A Shelly next to a connectable scanner does not block anything. Translated into all 29 languages.
+
+### Added
+
+- **Diagnostics** gained a `bluetooth_reach` block: every scanner currently seeing the machine with its type, connectability and RSSI (MAC sources redacted, names omitted because remote-scanner names embed a MAC), plus an `advertisement_only` flag.
+- **README** gained a *Supported Bluetooth transports* table and a troubleshooting entry; **HCL** lists advertisement-only scanners as a transport that cannot control the machine.
+
 ## [0.95.0] — 2026-09-11
 
 The machine tells you what it just did, in your language — and the sommelier's configuration can finally leave the house.

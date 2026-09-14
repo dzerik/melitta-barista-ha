@@ -93,6 +93,8 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
         # maintainer's primary lens on a field install, and a section that
         # appears or vanishes unnoticed is exactly what this pins.
         "narration",
+        # Which scanners see the machine and whether any can connect (#44).
+        "bluetooth_reach",
     }
 
     # Entry section
@@ -150,6 +152,53 @@ async def test_diagnostics_bluetooth_affinity_redacts_mac_sources(
     assert affinity["seen_sources"] == {
         "11:22:**:**:**:**:66": 123.0,
         "proxy-kitchen": 456.0,
+    }
+
+
+async def test_diagnostics_bluetooth_reach_flags_advertisement_only(
+    hass: HomeAssistant,
+) -> None:
+    """Scanner list redacts MAC sources, omits names and flags a Shelly-only view."""
+    from unittest.mock import patch
+
+    from custom_components.melitta_barista.scanner_reach import ScannerSighting
+
+    shelly = ScannerSighting(
+        source="AA:00:00:00:00:01", name="shelly1g4-hall (AA:00:00:00:00:01)",
+        scanner_type="ShellyBLEScanner", connectable=False, rssi=-61,
+    )
+    entry = _make_entry(runtime_data=_make_mock_client())
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.melitta_barista.diagnostics.async_scanner_sightings",
+        return_value=[shelly],
+    ) as sightings:
+        result = await async_get_config_entry_diagnostics(hass, entry)
+
+    sightings.assert_called_once_with(hass, MOCK_ADDRESS)
+    assert result["bluetooth_reach"] == {
+        "scanners": [{
+            "source": "AA:00:**:**:**:**:01",
+            "type": "ShellyBLEScanner",
+            "connectable": False,
+            "rssi": -61,
+        }],
+        "advertisement_only": True,
+    }
+
+
+async def test_diagnostics_bluetooth_reach_without_bluetooth(
+    hass: HomeAssistant,
+) -> None:
+    """No Bluetooth manager → an empty, still-downloadable block."""
+    entry = _make_entry(runtime_data=_make_mock_client())
+    entry.add_to_hass(hass)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert result["bluetooth_reach"] == {
+        "scanners": [], "advertisement_only": False,
     }
 
 

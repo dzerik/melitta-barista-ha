@@ -44,6 +44,7 @@
       "cannot_connect": "Laitteeseen ei voitu yhdistää. Varmista, että kone on päällä ja Bluetooth-kantaman sisällä.",
       "pairing_failed": "Pariliitos epäonnistui. Varmista, että kone on pariliitostilassa, ja yritä uudelleen.",
       "pairing_timeout": "Pariliitoksen aikakatkaisu. Ota pariliitostila käyttöön koneessa ja yritä uudelleen.",
+      "no_connectable_scanner": "Kone näkyy vain Bluetooth-skannereiden kautta, jotka eivät pysty muodostamaan yhteyksiä ({scanners}). Shelly- ja SMLIGHT-laitteet vain välittävät mainospaketteja, mutta koneen ohjaaminen vaatii aktiivisen, paritetun yhteyden. Lisää ESPHome Bluetooth -välityspalvelin tai paikallinen Bluetooth-sovitin koneen kantaman sisälle ja yritä uudelleen.",
       "unknown": "Odottamaton virhe"
     },
     "abort": {

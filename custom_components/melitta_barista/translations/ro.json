@@ -44,6 +44,7 @@
       "cannot_connect": "Nu s-a putut conecta la dispozitiv. Asigurați-vă că aparatul este pornit și în raza Bluetooth.",
       "pairing_failed": "Împerecherea a eșuat. Asigurați-vă că aparatul este în modul de împerechere și încercați din nou.",
       "pairing_timeout": "Timpul de împerechere a expirat. Activați modul de împerechere pe aparat și încercați din nou.",
+      "no_connectable_scanner": "Aparatul este vizibil doar prin scanere Bluetooth care nu pot stabili conexiuni ({scanners}). Dispozitivele Shelly și SMLIGHT doar redirecționează pachetele de anunț, iar controlul aparatului necesită o conexiune activă, asociată. Adăugați un proxy Bluetooth ESPHome sau un adaptor Bluetooth local în raza aparatului și încercați din nou.",
       "unknown": "Eroare neașteptată"
     },
     "abort": {

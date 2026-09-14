@@ -44,6 +44,7 @@
       "cannot_connect": "Neizdevās savienoties ar ierīci. Pārliecinieties, ka iekārta ir ieslēgta un Bluetooth darbības zonā.",
       "pairing_failed": "Savienošana neizdevās. Pārliecinieties, ka iekārta ir savienošanas režīmā, un mēģiniet vēlreiz.",
       "pairing_timeout": "Savienošanas noildze. Ieslēdziet savienošanas režīmu iekārtā un mēģiniet vēlreiz.",
+      "no_connectable_scanner": "Iekārta ir redzama tikai caur Bluetooth skeneriem, kas nespēj izveidot savienojumu ({scanners}). Shelly un SMLIGHT ierīces tikai pārsūta reklāmas paketes, bet iekārtas vadībai nepieciešams aktīvs, sapārots savienojums. Pievienojiet ESPHome Bluetooth starpniekserveri vai lokālu Bluetooth adapteri iekārtas darbības zonā un mēģiniet vēlreiz.",
       "unknown": "Neparedzēta kļūda"
     },
     "abort": {

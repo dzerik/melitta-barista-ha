@@ -12,6 +12,7 @@ from .coffee_platform.contract import CoffeeMachineClient
 from .const import DOMAIN
 from .event import lifecycle_detector_key
 from .lifecycle import BrewIntent
+from .scanner_reach import advertisement_only_scanner_names, async_scanner_sightings
 
 
 def _redact_address(address: str) -> str:
@@ -124,6 +125,30 @@ def _narration_diagnostics(
     }
 
 
+def _bluetooth_reach(hass: HomeAssistant, address: str) -> dict[str, Any]:
+    """Every scanner currently seeing the machine, with its connectability.
+
+    Answers "the machine is visible but never connects" in one download: a
+    list made only of ``connectable: false`` scanners (Shelly, SMLIGHT) means
+    no route for the bonded GATT connection exists (issue #44). Scanner names
+    are left out because remote-scanner names embed the scanner's MAC; the
+    class name identifies the kind of scanner without it.
+    """
+    sightings = async_scanner_sightings(hass, address) if address else []
+    return {
+        "scanners": [
+            {
+                "source": _redact_source(sighting.source),
+                "type": sighting.scanner_type,
+                "connectable": sighting.connectable,
+                "rssi": sighting.rssi,
+            }
+            for sighting in sightings
+        ],
+        "advertisement_only": bool(advertisement_only_scanner_names(sightings)),
+    }
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry,
 ) -> dict[str, Any]:
@@ -202,6 +227,7 @@ async def async_get_config_entry_diagnostics(
         },
         "recovery": recovery,
         "bluetooth_affinity": bluetooth_affinity,
+        "bluetooth_reach": _bluetooth_reach(hass, address),
         "narration": _narration_diagnostics(hass, entry, client),
         "domain_entries": {
             "count": len(domain_entries),

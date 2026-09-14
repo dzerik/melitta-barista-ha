@@ -44,6 +44,7 @@
       "cannot_connect": "Povezivanje s uređajem nije uspjelo. Provjerite da li je aparat uključen i u dometu Bluetootha.",
       "pairing_failed": "Uparivanje nije uspjelo. Provjerite da li je aparat u načinu uparivanja i pokušajte ponovo.",
       "pairing_timeout": "Isteklo je vrijeme uparivanja. Uključite način uparivanja i pokušajte ponovo.",
+      "no_connectable_scanner": "Aparat je vidljiv samo preko Bluetooth skenera koji ne mogu uspostaviti vezu ({scanners}). Uređaji Shelly i SMLIGHT samo prosljeđuju reklamne pakete, a za upravljanje aparatom potrebna je aktivna uparena veza. Dodajte ESPHome Bluetooth proxy ili lokalni Bluetooth adapter u dometu aparata i pokušajte ponovo.",
       "unknown": "Neočekivana greška"
     },
     "abort": {

@@ -166,6 +166,16 @@ If something still breaks after these prerequisites, please include
 `bluetoothctl show` output and `dmesg | grep -i bluetooth` in the bug
 report.
 
+### 1.4 Advertisement-only scanners (Shelly, SMLIGHT) ❌ cannot control the machine
+
+Shelly Gen2+ Bluetooth gateways and SMLIGHT SLZB-U devices forward
+advertisements to Home Assistant but do not proxy active (GATT) connections,
+so they cannot pair with or control the machine (#44). They are harmless next
+to a connectable transport (1.1 / 1.2) — Home Assistant routes connections
+only through scanners that can open them. When they are the machine's only
+route, the setup flow reports it on the pair step and diagnostics show
+`bluetooth_reach.advertisement_only: true`.
+
 ---
 
 ## 2. Coffee machines
