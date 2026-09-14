@@ -44,6 +44,7 @@
       "cannot_connect": "Nepavyko prisijungti prie įrenginio. Įsitikinkite, kad aparatas įjungtas ir yra Bluetooth veikimo zonoje.",
       "pairing_failed": "Susiejimas nepavyko. Įsitikinkite, kad aparatas yra susiejimo režime, ir bandykite dar kartą.",
       "pairing_timeout": "Susiejimo laikas baigėsi. Įjunkite susiejimo režimą aparate ir bandykite dar kartą.",
+      "no_connectable_scanner": "Aparatas matomas tik per Bluetooth skenerius, kurie negali užmegzti ryšio ({scanners}). Shelly ir SMLIGHT įrenginiai tik persiunčia reklaminius paketus, o aparatui valdyti reikia aktyvaus susieto ryšio. Pridėkite ESPHome Bluetooth tarpinį serverį arba vietinį Bluetooth adapterį aparato veikimo zonoje ir bandykite dar kartą.",
       "unknown": "Netikėta klaida"
     },
     "abort": {

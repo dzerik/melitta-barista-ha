@@ -44,6 +44,7 @@
       "cannot_connect": "Cihaza bağlanılamadı. Makinenin açık ve Bluetooth menzilinde olduğundan emin olun.",
       "pairing_failed": "Eşleştirme başarısız. Makinenin eşleştirme modunda olduğundan emin olun ve tekrar deneyin.",
       "pairing_timeout": "Eşleştirme zaman aşımı. Makinede eşleştirme modunu etkinleştirip tekrar deneyin.",
+      "no_connectable_scanner": "Makine yalnızca bağlantı kuramayan Bluetooth tarayıcıları üzerinden görünüyor ({scanners}). Shelly ve SMLIGHT cihazları yalnızca reklam paketlerini iletir; makineyi kontrol etmek ise etkin, eşleştirilmiş bir bağlantı gerektirir. Makinenin menzili içine bir ESPHome Bluetooth proxy'si veya yerel bir Bluetooth adaptörü ekleyip tekrar deneyin.",
       "unknown": "Beklenmeyen hata"
     },
     "abort": {

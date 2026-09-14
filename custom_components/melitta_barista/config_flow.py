@@ -23,6 +23,10 @@ from homeassistant.helpers.selector import (
 )
 
 from .ble_client import MELITTA_SERVICE_UUID
+from .scanner_reach import (
+    advertisement_only_scanner_names,
+    async_scanner_sightings,
+)
 from .const import (
     BLE_PREFIXES_ALL,
     DOMAIN,
@@ -223,9 +227,15 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
         """Discover supported coffee machines via HA bluetooth and BLE scan."""
         self._discovered_devices = {}
 
-        # Try HA bluetooth integration first
+        # Try HA bluetooth integration first. ``connectable=False`` also
+        # lists machines seen only through advertisement-only scanners
+        # (Shelly, SMLIGHT): picking one then reaches the pair step, which
+        # explains why it cannot be controlled instead of the machine
+        # silently never appearing (issue #44).
         try:
-            for info in async_discovered_service_info(self.hass):
+            for info in async_discovered_service_info(
+                self.hass, connectable=False,
+            ):
                 for uuid in info.service_uuids:
                     if MELITTA_SERVICE_UUID in uuid.lower():
                         # If the peripheral didn't advertise a local_name,
@@ -381,10 +391,31 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_pair(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Pair with the coffee machine via BLE."""
-        errors: dict[str, str] = {}
+        """Pair with the coffee machine via BLE.
 
-        if user_input is not None:
+        Before any pairing attempt, a machine that is visible only through
+        advertisement-only scanners is reported as such — on first render
+        and again on submit — because pairing through those can never
+        succeed and the generic pairing errors would point the user at the
+        machine instead of at the Bluetooth setup.
+        """
+        errors: dict[str, str] = {}
+        unreachable_via = (
+            advertisement_only_scanner_names(
+                async_scanner_sightings(self.hass, self._address)
+            )
+            if self._address else []
+        )
+
+        if unreachable_via:
+            _LOGGER.warning(
+                "%s is visible only through Bluetooth scanners that cannot "
+                "open connections (%s); an ESPHome Bluetooth proxy or a local "
+                "adapter within range is required",
+                self._address, ", ".join(unreachable_via),
+            )
+            errors["base"] = "no_connectable_scanner"
+        elif user_input is not None:
             # User pressed submit — attempt pairing
             pair_result = await self._async_try_pair()
 
@@ -451,6 +482,7 @@ class MelittaBaristaConfigFlow(ConfigFlow, domain=DOMAIN):
                 "brand": brand_label or _FALLBACK_NAME,
                 "model": desc["model"] or "—",
                 "address": self._address or "",
+                "scanners": ", ".join(unreachable_via),
             },
             errors=errors,
         )

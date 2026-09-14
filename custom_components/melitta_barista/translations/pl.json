@@ -44,6 +44,7 @@
       "cannot_connect": "Nie udało się połączyć z urządzeniem. Upewnij się, że ekspres jest włączony i znajduje się w zasięgu Bluetooth.",
       "pairing_failed": "Parowanie nie powiodło się. Upewnij się, że ekspres jest w trybie parowania, i spróbuj ponownie.",
       "pairing_timeout": "Przekroczono czas parowania. Włącz tryb parowania na ekspresie i spróbuj ponownie.",
+      "no_connectable_scanner": "Ekspres jest widoczny tylko przez skanery Bluetooth, które nie potrafią nawiązywać połączeń ({scanners}). Urządzenia Shelly i SMLIGHT jedynie przekazują pakiety rozgłoszeniowe, a sterowanie ekspresem wymaga aktywnego, sparowanego połączenia. Dodaj proxy Bluetooth ESPHome lub lokalny adapter Bluetooth w zasięgu ekspresu i spróbuj ponownie.",
       "unknown": "Nieoczekiwany błąd"
     },
     "abort": {

@@ -44,6 +44,7 @@
       "cannot_connect": "No se pudo conectar al dispositivo. Asegúrese de que la máquina esté encendida y dentro del alcance Bluetooth.",
       "pairing_failed": "Error de emparejamiento. Asegúrese de que la máquina esté en modo de emparejamiento e intente de nuevo.",
       "pairing_timeout": "Tiempo de emparejamiento agotado. Active el modo de emparejamiento en la máquina e intente de nuevo.",
+      "no_connectable_scanner": "La máquina solo es visible a través de escáneres Bluetooth que no pueden establecer conexiones ({scanners}). Los dispositivos Shelly y SMLIGHT solo reenvían anuncios, mientras que controlar la máquina requiere una conexión activa y emparejada. Añada un proxy Bluetooth de ESPHome o un adaptador Bluetooth local dentro del alcance de la máquina e inténtelo de nuevo.",
       "unknown": "Error inesperado"
     },
     "abort": {

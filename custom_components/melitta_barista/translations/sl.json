@@ -44,6 +44,7 @@
       "cannot_connect": "Povezava z napravo ni uspela. Prepričajte se, da je aparat vklopljen in v dosegu Bluetootha.",
       "pairing_failed": "Povezovanje ni uspelo. Prepričajte se, da je aparat v načinu povezovanja, in poskusite znova.",
       "pairing_timeout": "Časovna omejitev povezovanja. Vklopite način povezovanja in poskusite znova.",
+      "no_connectable_scanner": "Aparat je viden le prek Bluetooth skenerjev, ki ne morejo vzpostaviti povezave ({scanners}). Naprave Shelly in SMLIGHT le posredujejo oglasne pakete, za upravljanje aparata pa je potrebna aktivna seznanjena povezava. Dodajte Bluetooth proxy ESPHome ali lokalni Bluetooth vmesnik v dosegu aparata in poskusite znova.",
       "unknown": "Nepričakovana napaka"
     },
     "abort": {

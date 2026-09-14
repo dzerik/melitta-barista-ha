@@ -44,6 +44,7 @@
       "cannot_connect": "Seadmega ühendamine ebaõnnestus. Veenduge, et masin on sisse lülitatud ja Bluetooth levialas.",
       "pairing_failed": "Sidumine ebaõnnestus. Veenduge, et masin on sidumisrežiimis, ja proovige uuesti.",
       "pairing_timeout": "Sidumise ajalõpp. Lülitage masinal sidumisrežiim sisse ja proovige uuesti.",
+      "no_connectable_scanner": "Masin on nähtav ainult Bluetoothi skannerite kaudu, mis ei suuda ühendust luua ({scanners}). Shelly ja SMLIGHT seadmed edastavad ainult reklaampakette, kuid masina juhtimiseks on vaja aktiivset seotud ühendust. Lisage masina levialasse ESPHome Bluetoothi puhverserver või kohalik Bluetoothi adapter ja proovige uuesti.",
       "unknown": "Ootamatu viga"
     },
     "abort": {

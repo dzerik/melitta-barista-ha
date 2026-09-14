@@ -44,6 +44,7 @@
       "cannot_connect": "Impossibile connettersi al dispositivo. Assicurati che la macchina sia accesa e nel raggio d'azione del Bluetooth.",
       "pairing_failed": "Accoppiamento fallito. Assicurati che la macchina sia in modalità accoppiamento e riprova.",
       "pairing_timeout": "Timeout accoppiamento. Attiva la modalità accoppiamento sulla macchina e riprova.",
+      "no_connectable_scanner": "La macchina è visibile solo tramite scanner Bluetooth che non possono stabilire connessioni ({scanners}). I dispositivi Shelly e SMLIGHT inoltrano solo gli annunci, mentre il controllo della macchina richiede una connessione attiva e associata. Aggiungi un proxy Bluetooth ESPHome o un adattatore Bluetooth locale nel raggio d'azione della macchina e riprova.",
       "unknown": "Errore imprevisto"
     },
     "abort": {

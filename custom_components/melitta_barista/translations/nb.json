@@ -44,6 +44,7 @@
       "cannot_connect": "Kunne ikke koble til enheten. Sørg for at maskinen er slått på og innen Bluetooth-rekkevidde.",
       "pairing_failed": "Paring mislyktes. Sørg for at maskinen er i paringsmodus, og prøv igjen.",
       "pairing_timeout": "Tidsavbrudd for paring. Aktiver paringsmodus på maskinen og prøv igjen.",
+      "no_connectable_scanner": "Maskinen er bare synlig gjennom Bluetooth-skannere som ikke kan opprette tilkoblinger ({scanners}). Shelly- og SMLIGHT-enheter videresender bare annonseringer, mens styring av maskinen krever en aktiv, paret tilkobling. Legg til en ESPHome Bluetooth-proxy eller en lokal Bluetooth-adapter innen rekkevidde av maskinen, og prøv igjen.",
       "unknown": "Uventet feil"
     },
     "abort": {

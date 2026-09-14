@@ -44,6 +44,7 @@
       "cannot_connect": "Nepodarilo sa pripojiť k zariadeniu. Uistite sa, že je kávovar zapnutý a v dosahu Bluetooth.",
       "pairing_failed": "Párovanie zlyhalo. Uistite sa, že je stroj v režime párovania, a skúste znova.",
       "pairing_timeout": "Časový limit párovania vypršal. Zapnite režim párovania a skúste znova.",
+      "no_connectable_scanner": "Kávovar je viditeľný iba cez Bluetooth skenery, ktoré nedokážu nadviazať spojenie ({scanners}). Zariadenia Shelly a SMLIGHT iba preposielajú reklamné pakety, ale ovládanie kávovaru vyžaduje aktívne spárované spojenie. Pridajte Bluetooth proxy ESPHome alebo lokálny Bluetooth adaptér v dosahu kávovaru a skúste to znova.",
       "unknown": "Neočakávaná chyba"
     },
     "abort": {

@@ -44,6 +44,7 @@
       "cannot_connect": "Impossible de se connecter à l'appareil. Assurez-vous que la machine est allumée et à portée Bluetooth.",
       "pairing_failed": "Échec de l'appairage. Assurez-vous que la machine est en mode appairage et réessayez.",
       "pairing_timeout": "Délai d'appairage dépassé. Activez le mode appairage sur la machine et réessayez.",
+      "no_connectable_scanner": "La machine n'est visible que par des scanners Bluetooth incapables d'établir une connexion ({scanners}). Les appareils Shelly et SMLIGHT se contentent de relayer les annonces, alors que le pilotage de la machine exige une connexion active et appairée. Ajoutez un proxy Bluetooth ESPHome ou un adaptateur Bluetooth local à portée de la machine, puis réessayez.",
       "unknown": "Erreur inattendue"
     },
     "abort": {

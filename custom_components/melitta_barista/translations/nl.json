@@ -44,6 +44,7 @@
       "cannot_connect": "Kan niet verbinden met het apparaat. Controleer of de machine is ingeschakeld en binnen Bluetooth-bereik is.",
       "pairing_failed": "Koppeling mislukt. Zorg dat de machine in koppelingsmodus staat en probeer opnieuw.",
       "pairing_timeout": "Time-out bij koppeling. Schakel de koppelingsmodus in op de machine en probeer opnieuw.",
+      "no_connectable_scanner": "De machine is alleen zichtbaar via Bluetooth-scanners die geen verbinding kunnen maken ({scanners}). Shelly- en SMLIGHT-apparaten sturen alleen advertenties door, terwijl het bedienen van de machine een actieve, gekoppelde verbinding vereist. Voeg een ESPHome Bluetooth-proxy of een lokale Bluetooth-adapter binnen bereik van de machine toe en probeer het opnieuw.",
       "unknown": "Onverwachte fout"
     },
     "abort": {

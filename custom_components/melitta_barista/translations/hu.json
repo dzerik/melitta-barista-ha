@@ -44,6 +44,7 @@
       "cannot_connect": "Nem sikerült csatlakozni az eszközhöz. Győződjön meg róla, hogy a gép be van kapcsolva és Bluetooth-hatótávolságon belül van.",
       "pairing_failed": "Párosítás sikertelen. Győződjön meg róla, hogy a gép párosítási módban van, és próbálja újra.",
       "pairing_timeout": "Párosítási időtúllépés. Kapcsolja be a párosítási módot a gépen és próbálja újra.",
+      "no_connectable_scanner": "A gép csak olyan Bluetooth-szkennereken keresztül látható, amelyek nem tudnak kapcsolatot létesíteni ({scanners}). A Shelly és SMLIGHT eszközök csak továbbítják a hirdetési csomagokat, a gép vezérléséhez viszont aktív, párosított kapcsolat szükséges. Adjon hozzá egy ESPHome Bluetooth-proxyt vagy egy helyi Bluetooth-adaptert a gép hatótávolságán belül, majd próbálja újra.",
       "unknown": "Váratlan hiba"
     },
     "abort": {
