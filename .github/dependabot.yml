@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # Docs toolchain only: runtime requirements live in manifest.json, which
+  # Dependabot cannot parse; security alerts still cover them via the
+  # dependency graph.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ["*"]
+        update-types: [minor, patch]
