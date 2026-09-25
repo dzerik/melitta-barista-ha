@@ -2,6 +2,17 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.2] — 2026-09-25
+
+Repository hygiene: dependency and code scanning, no change to the integration itself.
+
+### Changed
+
+- **Dependabot** now watches GitHub Actions and the docs toolchain weekly (minor/patch updates grouped into one PR); security alerts and security update PRs are enabled for all dependencies, including the runtime requirements in `manifest.json`.
+- **CodeQL** default setup scans Python, JavaScript and the workflows themselves.
+- **Private vulnerability reporting** is enabled, so the advisory link in `SECURITY.md` now works.
+- **CI:** HACS and hassfest validation run once per change instead of twice (the duplicate job in `tests.yml` is gone, and `validate.yml` no longer fires on pushes to every branch); `tests.yml` declares read-only token permissions.
+
 ## [0.95.1] — 2026-09-14
 
 Setup explains why a machine seen through a Shelly cannot be paired (#44).
