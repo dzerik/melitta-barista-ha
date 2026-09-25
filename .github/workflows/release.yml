@@ -28,6 +28,6 @@ jobs:
         run: zip -r ../../melitta_barista.zip .
 
       - name: Upload zip to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: melitta_barista.zip
