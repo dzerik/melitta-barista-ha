@@ -2,6 +2,18 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.3] — 2026-09-25
+
+First Dependabot round. No change to the integration itself.
+
+### Security
+
+- **Docs site:** `mkdocs-material` 9.7.6 → 9.7.7 fixes a DOM XSS in search suggestions (the site only; the integration never shipped it). `mkdocs-include-markdown-plugin` updated alongside.
+
+### Changed
+
+- **CI actions** moved to their Node 24 majors: `actions/checkout` v7, `actions/setup-python` v7, `actions/upload-artifact` v7, `softprops/action-gh-release` v3.
+
 ## [0.95.2] — 2026-09-25
 
 Repository hygiene: dependency and code scanning, no change to the integration itself.
