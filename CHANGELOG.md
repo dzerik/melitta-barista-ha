@@ -2,6 +2,21 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.95.4] — 2026-10-02
+
+Restores local brew choices and sidebar panel preferences reported in #51 and #52.
+
+### Fixed
+
+- **HA brew controls (#51):** restore the selected Melitta recipe, active profile,
+  Freestyle options, portions and name after an HA restart or integration reload,
+  including shutdowns while the machine is offline. Invalid saved choices fall
+  back safely, and restoration does not send brewing or recipe-write commands.
+- **Sidebar panel preferences (#52):** remember machine/tab selection, DirectKey
+  editor profile and Sommelier form inputs in browser storage, scoped by HA user
+  and machine. Preserve deliberate empty ingredient selections, tolerate broken
+  storage and ignore stale responses after switching machines or users.
+
 ## [0.95.3] — 2026-09-25
 
 First Dependabot round. No change to the integration itself.

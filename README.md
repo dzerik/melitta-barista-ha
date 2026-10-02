@@ -471,6 +471,19 @@ Once configured, the integration creates a device with all available entities fi
 | Profile 1-8 Name | TS | User profile names (read/write, configuration). |
 | Freestyle Name | T, TS | Custom name for the freestyle recipe. |
 
+### Remembered brew controls
+
+Home Assistant restores the Melitta **Recipe**, **Profile**, and all **Freestyle**
+controls (including portions and name) after an HA restart or integration reload.
+Choices are retained even if the machine is offline at shutdown. Invalid saved
+values fall back to defaults; restoring controls never starts a brew.
+
+**Brew** uses the recipe selected in **Recipe**, with the machine's saved recipe
+parameters. **Brew Freestyle** uses the Freestyle controls. Changing Freestyle
+aroma or shots does not modify the recipe used by the regular Brew button.
+For an automation with fixed parameters, use the explicit
+[`melitta_barista.brew_freestyle`](#melitta_baristabrew_freestyle) action below.
+
 ### Events
 
 | Entity | Model | Description |
@@ -605,6 +618,24 @@ Brew a custom recipe with fully configurable parameters.
 | `process2` | string | No | Secondary process (same options + `none`) |
 | `two_cups` | bool | No | Brew two cups (default: false) |
 
+Example action for an automation's action sequence. Replace the entity ID with
+your machine's Brew button, and adjust the portion to your preference. Explicit
+parameters make this automation independent of the current Freestyle controls:
+
+```yaml
+action: melitta_barista.brew_freestyle
+data:
+  entity_id: button.your_machine_brew
+  name: Morning coffee
+  process1: coffee
+  intensity1: medium
+  aroma1: intense
+  temperature1: normal
+  shots1: two
+  portion1_ml: 120
+  process2: none
+```
+
 ### `melitta_barista.brew_directkey`
 
 Brew from a DirectKey profile slot (uses the active profile's personalized recipe).
@@ -687,6 +718,19 @@ Configure the integration via **Settings → Devices & Services → Melitta Bari
 **Requirements**: at least one `conversation` integration configured in HA. We recommend [SmartChain](https://github.com/dzerik/ha-smartchain) (multi-provider through LangChain) when you want native structured-output mode; any single-provider HA Conversation agent works through the text+validation fallback.
 
 **Tracking**: see open issues tagged `sommelier` in the [issue tracker](https://github.com/dzerik/melitta-barista-ha/issues).
+
+### Remembered panel preferences
+
+The built-in sidebar panel remembers the selected machine and tab, the DirectKey
+editor's selected profile, and the Sommelier form's preferences and ingredient
+selections. These choices are stored in this browser, separately for each HA
+user and, for forms, each machine. Reloading the page or restarting HA preserves
+them; another browser starts with its own preferences. Clearing site storage
+resets them.
+
+Saved DirectKey recipes continue to come from the machine. Unsaved recipe edits,
+generated sessions and open brewing dialogs are not restored or automatically
+executed. If browser storage is blocked, the panel works for the current session.
 
 ### Backup & restore
 

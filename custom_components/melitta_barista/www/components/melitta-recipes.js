@@ -28,6 +28,7 @@
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
 import { displayNameFor, labelFor } from "../i18n/server-strings.js";
+import { panelStateKey, readPanelState, writePanelState } from "../panel-state.js";
 import "./melitta-confirm.js";
 import "./ui/melitta-drink-icon.js";
 
@@ -107,6 +108,30 @@ class MelittaRecipes extends LitElement {
     this._busy = false;
     this._error = "";
     this._loading = false;
+    this._preferencesKey = null;
+    this._scopeVersion = 0;
+    this._loadRequest = 0;
+    this._loadedEntry = null;
+  }
+
+  _restorePreferences() {
+    const key = this.entryId ? panelStateKey(this.hass, "recipes", this.entryId) : null;
+    if (key === this._preferencesKey && this.entryId === this._loadedEntry) return false;
+    this._preferencesKey = key;
+    this._loadedEntry = this.entryId;
+    this._scopeVersion++;
+    const saved = readPanelState(key);
+    this._profileId = Number.isInteger(saved?.profile) ? saved.profile : null;
+    this._data = null;
+    this._status = null;
+    this._editing = null;
+    this._error = "";
+    this._busy = false;
+    return true;
+  }
+
+  _savePreferences() {
+    if (this._profile()) writePanelState(this._preferencesKey, { profile: this._profileId });
   }
 
   _t(key, params) {
@@ -119,12 +144,20 @@ class MelittaRecipes extends LitElement {
   }
 
   updated(changedProps) {
-    if (changedProps.has("entryId") && this.entryId) this._load();
+    const changedScope = this._restorePreferences();
+    if (changedScope || (changedProps.has("entryId") && this.entryId)) this._load();
+    if (changedProps.has("_profileId")) this._savePreferences();
   }
 
   /** Fetch the recipe caches and a status snapshot (connection, profile). */
   async _load() {
     if (!this.hass || !this.entryId) return;
+    this._restorePreferences();
+    const entryId = this.entryId;
+    const scope = this._scopeVersion;
+    const request = ++this._loadRequest;
+    const current = () => entryId === this.entryId && scope === this._scopeVersion
+      && request === this._loadRequest;
     this._loading = true;
     try {
       const [data, status] = await Promise.all([
@@ -137,14 +170,17 @@ class MelittaRecipes extends LitElement {
           entry_id: this.entryId,
         }),
       ]);
+      if (!current()) return;
       this._data = data;
       this._status = status;
       this._error = "";
       this._pickDefaultProfile();
+      this._savePreferences();
     } catch (e) {
+      if (!current()) return;
       this._error = e.message || String(e);
     } finally {
-      this._loading = false;
+      if (current()) this._loading = false;
     }
   }
 
@@ -159,6 +195,7 @@ class MelittaRecipes extends LitElement {
   /** Keep the selection; else prefer the machine's active profile. */
   _pickDefaultProfile() {
     const profiles = this._profiles();
+    if (!profiles.length) return; // Cache may still be warming after HA startup.
     if (profiles.some((p) => p.profile_id === this._profileId)) return;
     const active = this._status?.active_profile;
     const match = profiles.find((p) => p.profile_id === active);
@@ -407,6 +444,7 @@ class MelittaRecipes extends LitElement {
     }
     const c1 = e.c1;
     const c2 = e.c2;
+    const scope = this._scopeVersion;
     this._busy = true;
     try {
       await this.hass.callService("melitta_barista", "save_directkey", {
@@ -426,6 +464,7 @@ class MelittaRecipes extends LitElement {
         shots2: c2.shots,
         portion2_ml: this._clampPortion(c2.portion_ml, "c2"),
       });
+      if (scope !== this._scopeVersion) return;
       this._closeEditor();
       await this._load();
       this._showToast(
@@ -434,20 +473,23 @@ class MelittaRecipes extends LitElement {
       );
       this._error = "";
     } catch (err) {
+      if (scope !== this._scopeVersion) return;
       this._showToast(
         `${this._t("recipes.save_failed")}: ${err?.message || err}`,
         "error",
       );
     } finally {
-      this._busy = false;
+      if (scope === this._scopeVersion) this._busy = false;
     }
   }
 
   async _reset(recipe, index) {
     if (this._busy || !this._connected()) return;
+    const scope = this._scopeVersion;
     const category = this._categoryToken(recipe, index);
     if (!Number.isFinite(Number(recipe?.id))) return;
     if (!(await this._confirmReset())) return;
+    if (scope !== this._scopeVersion) return;
     const entityId = this._findServiceEntity();
     if (!entityId) {
       this._error = this._t("recipes.no_entity");
@@ -459,6 +501,7 @@ class MelittaRecipes extends LitElement {
         entity_id: entityId,
         recipe_id: Number(recipe.id),
       });
+      if (scope !== this._scopeVersion) return;
       this._closeEditor();
       await this._load();
       this._showToast(
@@ -467,12 +510,13 @@ class MelittaRecipes extends LitElement {
       );
       this._error = "";
     } catch (err) {
+      if (scope !== this._scopeVersion) return;
       this._showToast(
         `${this._t("recipes.reset_failed")}: ${err?.message || err}`,
         "error",
       );
     } finally {
-      this._busy = false;
+      if (scope === this._scopeVersion) this._busy = false;
     }
   }
 

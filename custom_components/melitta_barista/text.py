@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import USER_NAME_IDS, get_user_profile_count
-from .entity import MelittaDeviceMixin
+from .entity import MelittaDeviceMixin, MelittaLocalControl
 
 
 PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
@@ -103,13 +103,14 @@ class MelittaProfileNameText(MelittaDeviceMixin, TextEntity):
             self.async_write_ha_state()
 
 
-class MelittaFreestyleNameText(MelittaDeviceMixin, TextEntity):
+class MelittaFreestyleNameText(MelittaLocalControl, TextEntity):
     """Text entity for the freestyle recipe name."""
 
     _attr_has_entity_name = True
     _attr_name = "Freestyle Name"
     _attr_icon = "mdi:label-outline"
     _attr_native_max = 30
+    _client_attr = "freestyle_name"
 
     def __init__(
         self,
@@ -134,6 +135,10 @@ class MelittaFreestyleNameText(MelittaDeviceMixin, TextEntity):
         return self._client.connected
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        saved = await self.async_get_last_control_value()
+        if isinstance(saved, str) and self.native_min <= len(saved) <= self.native_max:
+            self._client.freestyle_name = saved
         self._client.add_connection_callback(self._on_connection_change)
 
     async def async_will_remove_from_hass(self) -> None:
