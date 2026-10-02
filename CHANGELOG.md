@@ -5,6 +5,7 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 ## [0.95.4] — 2026-10-02
 
 Restores local brew choices and sidebar panel preferences reported in #51 and #52.
+Home Assistant supplies the `cryptography` dependency used by the integration.
 
 ### Fixed
 
