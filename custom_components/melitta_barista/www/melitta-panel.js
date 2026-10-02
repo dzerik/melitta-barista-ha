@@ -35,6 +35,7 @@ await Promise.all([
 import { LitElement, html, css } from "./lit-base.js";
 import { t } from "./i18n/index.js";
 import { setServerStrings } from "./i18n/server-strings.js";
+import { panelStateKey, readPanelState, writePanelState } from "./panel-state.js";
 
 const TAB_IDS = [
   "sommelier", "recipes", "beans", "additives", "producers", "system",
@@ -72,6 +73,28 @@ class MelittaPanel extends LitElement {
     this._vocabFetched = false;
     this._i18nLocale = null;
     this._logoFailed = false;
+    this._preferencesKey = null;
+    this._scopeVersion = 0;
+    this._contractRequest = 0;
+  }
+
+  _restorePreferences() {
+    const key = panelStateKey(this.hass, "navigation");
+    if (key === this._preferencesKey) return;
+    this._preferencesKey = key;
+    this._scopeVersion++;
+    const saved = readPanelState(key);
+    this._activeEntry = typeof saved?.entry === "string" ? saved.entry : "";
+    this._tab = TAB_IDS.includes(saved?.tab) ? saved.tab : TAB_IDS[0];
+    this._entries = [];
+    this._contract = null;
+    this._brandTheme = null;
+    this._hassReady = false;
+  }
+
+  _savePreferences() {
+    if (!this._entries.some((e) => e.entry_id === this._activeEntry)) return;
+    writePanelState(this._preferencesKey, { entry: this._activeEntry, tab: this._tab });
   }
 
   /** Current language code for translations. */
@@ -84,6 +107,7 @@ class MelittaPanel extends LitElement {
   }
 
   updated(changedProps) {
+    this._restorePreferences();
     if (changedProps.has("hass") && this.hass && !this._hassReady) {
       this._hassReady = true;
       this._loadEntries();
@@ -93,6 +117,9 @@ class MelittaPanel extends LitElement {
     // for the new locale (no-op while the locale is unchanged).
     if (changedProps.has("hass") && this.hass) {
       this._loadServerStrings();
+    }
+    if (changedProps.has("_tab") || changedProps.has("_activeEntry")) {
+      this._savePreferences();
     }
   }
 
@@ -170,15 +197,20 @@ class MelittaPanel extends LitElement {
   }
 
   async _loadEntries() {
+    const scope = this._scopeVersion;
     try {
       const result = await this.hass.callWS({ type: "melitta_barista/entries" });
+      if (scope !== this._scopeVersion) return;
       this._entries = result.entries || [];
-      if (this._entries.length && !this._activeEntry) {
-        this._activeEntry = this._entries[0].entry_id;
+      if (!this._entries.some((e) => e.entry_id === this._activeEntry)) {
+        this._activeEntry = this._entries[0]?.entry_id || "";
       }
       this._error = "";
+      this._ensureVisibleTab();
+      this._savePreferences();
       this._loadBrandTheme();
     } catch (e) {
+      if (scope !== this._scopeVersion) return;
       this._error = e.message || String(e);
     }
   }
@@ -196,16 +228,21 @@ class MelittaPanel extends LitElement {
    * data, not markup.
    */
   async _loadBrandTheme() {
+    const request = ++this._contractRequest;
     this._brandTheme = null;
     this._contract = null;
     this._logoFailed = false;
     if (!this._activeEntry || !this.hass) return;
+    const entryId = this._activeEntry;
+    const scope = this._scopeVersion;
     this._loadServerStrings();
     try {
       const contract = await this.hass.callWS({
         type: "melitta_barista/ui_contract/get",
         entry_id: this._activeEntry,
       });
+      if (entryId !== this._activeEntry || scope !== this._scopeVersion
+        || request !== this._contractRequest) return;
       this._contract =
         contract && typeof contract === "object" ? contract : null;
       const bt = contract && contract.brand_theme;
@@ -214,11 +251,14 @@ class MelittaPanel extends LitElement {
           ? bt
           : null;
     } catch (e) {
+      if (entryId !== this._activeEntry || scope !== this._scopeVersion
+        || request !== this._contractRequest) return;
       // Old backend / contract not ready → graceful absence (§3.10).
       this._brandTheme = null;
       this._contract = null;
     }
     this._ensureVisibleTab();
+    this._savePreferences();
   }
 
   /**

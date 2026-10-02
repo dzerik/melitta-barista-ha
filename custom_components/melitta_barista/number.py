@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import math
 
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.components.number import NumberEntity, NumberMode, RestoreNumber
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
@@ -326,12 +327,13 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
             self.async_write_ha_state()
 
 
-class MelittaFreestyleNumber(MelittaDeviceMixin, NumberEntity):
+class MelittaFreestyleNumber(MelittaDeviceMixin, RestoreNumber):
     """Number entity for a freestyle recipe portion parameter."""
 
     _attr_has_entity_name = True
     _attr_mode = NumberMode.BOX
     _attr_native_unit_of_measurement = "ml"
+    _attr_should_poll = False
 
     def __init__(
         self,
@@ -370,6 +372,23 @@ class MelittaFreestyleNumber(MelittaDeviceMixin, NumberEntity):
         return self._client.connected
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        data = await self.async_get_last_number_data()
+        if data is not None:
+            saved = data.native_value
+        else:
+            last = await self.async_get_last_state()
+            saved = last.state if last else None
+        try:
+            value = float(saved) if not isinstance(saved, bool) else math.nan
+        except (TypeError, ValueError, OverflowError):
+            value = math.nan
+        if (
+            math.isfinite(value)
+            and self.native_min_value <= value <= self.native_max_value
+            and (value - self.native_min_value) % self.native_step == 0
+        ):
+            setattr(self._client, self._client_attr, int(value))
         self._client.add_connection_callback(self._on_connection_change)
 
     async def async_will_remove_from_hass(self) -> None:

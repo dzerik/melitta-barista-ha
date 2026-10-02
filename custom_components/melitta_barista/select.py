@@ -29,7 +29,7 @@ from .const import (
     get_available_recipes,
     get_user_profile_count,
 )
-from .entity import MelittaDeviceMixin
+from .entity import MelittaDeviceMixin, MelittaLocalControl
 from .protocol import RecipeComponent
 from .ui_contract import build_icon_spec, component_to_tokens
 
@@ -201,7 +201,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
+class MelittaRecipeSelect(MelittaLocalControl, SelectEntity):
     """Select and brew a recipe."""
 
     _attr_has_entity_name = True
@@ -210,6 +210,7 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
     # The full recipe table is exposed live for the card/app but is too large
     # for the recorder's 16 KB attribute cap. Keep it out of history (#13).
     _unrecorded_attributes = frozenset({"recipes"})
+    _client_attr = "selected_recipe"
 
     def __init__(
         self,
@@ -263,6 +264,17 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
         return attrs
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        saved = await self.async_get_last_control_value()
+        recipe_id = (
+            _NAME_TO_RECIPE.get(saved) if isinstance(saved, str)
+            else saved if isinstance(saved, int) and not isinstance(saved, bool)
+            else None
+        )
+        name = RECIPE_NAMES.get(recipe_id)
+        if name in self.options:
+            self._selected = name
+            self._client.selected_recipe = RecipeId(recipe_id)
         self._client.add_connection_callback(self._on_connection_change)
         self._client.add_recipe_refresh_callback(self._on_recipe_refresh)
 
@@ -331,7 +343,7 @@ class MelittaRecipeSelect(MelittaDeviceMixin, SelectEntity):
                 self.async_write_ha_state()
 
 
-class MelittaProfileSelect(MelittaDeviceMixin, SelectEntity):
+class MelittaProfileSelect(MelittaLocalControl, SelectEntity):
     """Select the active user profile."""
 
     _attr_has_entity_name = True
@@ -341,6 +353,7 @@ class MelittaProfileSelect(MelittaDeviceMixin, SelectEntity):
     # for the card/app but blows past the recorder's 16 KB attribute cap.
     # Keep it out of history (#13).
     _unrecorded_attributes = frozenset({"directkey_recipes"})
+    _client_attr = "active_profile"
 
     def __init__(
         self,
@@ -401,6 +414,10 @@ class MelittaProfileSelect(MelittaDeviceMixin, SelectEntity):
         return attrs
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        saved = await self.async_get_last_control_value("active_profile")
+        if type(saved) is int and 0 <= saved <= self._profile_count:
+            self._client.active_profile = saved
         self._client.add_connection_callback(self._on_connection_change)
         self._client.add_profile_callback(self._on_profile_data_change)
 
@@ -428,7 +445,7 @@ class MelittaProfileSelect(MelittaDeviceMixin, SelectEntity):
         self.async_write_ha_state()
 
 
-class MelittaFreestyleSelect(MelittaDeviceMixin, SelectEntity):
+class MelittaFreestyleSelect(MelittaLocalControl, SelectEntity):
     """Select entity for a freestyle recipe parameter."""
 
     _attr_has_entity_name = True
@@ -466,6 +483,10 @@ class MelittaFreestyleSelect(MelittaDeviceMixin, SelectEntity):
         return self._client.connected
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        saved = await self.async_get_last_control_value()
+        if isinstance(saved, str) and saved in self.options:
+            setattr(self._client, self._client_attr, saved)
         self._client.add_connection_callback(self._on_connection_change)
 
     async def async_will_remove_from_hass(self) -> None:

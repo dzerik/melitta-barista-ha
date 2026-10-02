@@ -18,6 +18,7 @@
 
 import { LitElement, html, css } from "../lit-base.js";
 import { t } from "../i18n/index.js";
+import { panelStateKey, readPanelState, writePanelState } from "../panel-state.js";
 import {
   displayNameFor,
   freeFormLabel,
@@ -158,6 +159,95 @@ class MelittaSommelier extends LitElement {
     this._activeProfile = null;
     this.serverStrings = null;
     this.vocab = null;
+    this._preferencesKey = null;
+    this._scopeVersion = 0;
+    this._addinsReady = false;
+    this._savedAddins = {};
+    this._loadedEntry = null;
+  }
+
+  /** Restore choices only; sessions, dialogs and actions are never replayed. */
+  _restorePreferences() {
+    const key = this.entryId ? panelStateKey(this.hass, "sommelier", this.entryId) : null;
+    if (key === this._preferencesKey && this.entryId === this._loadedEntry) return false;
+    this._preferencesKey = key;
+    this._scopeVersion++;
+    this._loadedEntry = this.entryId;
+    const saved = readPanelState(key) || {};
+    this._restoreForm(saved);
+    this._savedAddins = {};
+    this._addinsReady = false;
+    for (const [field, prop] of [["allow_syrups", "_allowSyrups"],
+      ["allow_toppings", "_allowToppings"], ["allow_milk", "_allowMilk"]]) {
+      const values = saved[field];
+      this._savedAddins[prop] = Array.isArray(values);
+      this[prop] = Array.isArray(values) ? values.filter((v) => typeof v === "string") : [];
+    }
+    this._session = null;
+    this._wizardRecipe = null;
+    this._selectedPresetId = "";
+    this._activeProfile = null;
+    this._presets = [];
+    this._capabilities = null;
+    this._availableSyrups = [];
+    this._availableToppings = [];
+    this._availableMilk = [];
+    this._generating = false;
+    this._error = "";
+    this._info = "";
+    this._favoritesModalOpen = false;
+    this._historyModalOpen = false;
+    this._presetsModalOpen = false;
+    this._saveAsOpen = false;
+    return true;
+  }
+
+  _restoreForm(saved) {
+    for (const [field, prop, family, fallback, initial] of [
+      ["mode", "_mode", "mode", MODES.map((m) => m.id), "surprise_me"],
+      ["cup_size", "_cupSize", "cup_size", CUP_SIZES, "mug"],
+      ["occasion", "_occasion", "occasion", OCCASIONS, this._suggestOccasionByTime()],
+      ["temperature", "_temperature", "temperature", TEMPERATURES, "auto"],
+      ["caffeine_pref", "_caffeine", "caffeine", CAFFEINE_PREFS, "regular"],
+    ]) {
+      const options = this._vocabTokens(family, fallback);
+      this[prop] = options.includes(saved[field]) ? saved[field]
+        : options.includes(initial) ? initial : options[0];
+    }
+    for (const [field, prop, family, fallback] of [
+      ["moods", "_moods", "mood", MOODS], ["dietary", "_dietary", "dietary", DIETARY],
+    ]) {
+      const options = this._vocabTokens(family, fallback);
+      this[prop] = Array.isArray(saved[field])
+        ? [...new Set(saved[field].filter((value) => options.includes(value)))] : [];
+    }
+    this._preference = typeof saved.preference === "string" ? saved.preference : "";
+    this._count = Number.isInteger(saved.count) && saved.count >= 1 && saved.count <= 5
+      ? saved.count : 3;
+    this._showConstraints = typeof saved.show_constraints === "boolean" ? saved.show_constraints : true;
+    this._showAddins = typeof saved.show_addins === "boolean" ? saved.show_addins : true;
+  }
+
+  _preferences() {
+    const saved = {
+      ...this._serializeFormToPayload(), count: this._count,
+      show_constraints: this._showConstraints, show_addins: this._showAddins,
+    };
+    for (const [field, prop] of [["allow_syrups", "_allowSyrups"],
+      ["allow_toppings", "_allowToppings"], ["allow_milk", "_allowMilk"]]) {
+      if (this._addinsReady || this._savedAddins[prop]) saved[field] = this[prop];
+    }
+    return saved;
+  }
+
+  updated(changedProps) {
+    if (this._restorePreferences()) this._loadFormData();
+    if (changedProps.has("vocab")) this._restoreForm(this._preferences());
+    if (["_mode", "_preference", "_count", "_cupSize", "_moods", "_occasion",
+      "_temperature", "_caffeine", "_dietary", "_allowSyrups", "_allowToppings",
+      "_allowMilk", "_showConstraints", "_showAddins"].some((key) => changedProps.has(key))) {
+      writePanelState(this._preferencesKey, this._preferences());
+    }
   }
 
   /**
@@ -279,9 +369,17 @@ class MelittaSommelier extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._restorePreferences();
+    this._loadFormData();
+  }
+
+  _loadFormData() {
+    if (!this.hass || !this.entryId) return;
+    const scope = this._scopeVersion;
     this._loadAvailable();
-    this._loadActiveProfile();
-    this._loadPresets();
+    this._loadActiveProfile().then(() => {
+      if (scope === this._scopeVersion) this._loadPresets();
+    });
   }
 
   /**
@@ -293,20 +391,23 @@ class MelittaSommelier extends LitElement {
    */
   async _loadActiveProfile() {
     if (!this.hass || !this.entryId) return;
+    const scope = this._scopeVersion;
     try {
       const status = await this.hass.callWS({
         type: "melitta_barista/status",
         entry_id: this.entryId,
       });
+      if (scope !== this._scopeVersion) return;
       const p = status?.active_profile;
       this._activeProfile = typeof p === "number" && p > 0 ? p : null;
     } catch {
-      this._activeProfile = null;
+      if (scope === this._scopeVersion) this._activeProfile = null;
     }
   }
 
   async _loadPresets() {
     if (!this.hass) return;
+    const scope = this._scopeVersion;
     try {
       const payload = {
         type: "melitta_barista/sommelier/presets/list",
@@ -315,6 +416,7 @@ class MelittaSommelier extends LitElement {
         payload.machine_profile_filter = this._activeProfile;
       }
       const result = await this.hass.callWS(payload);
+      if (scope !== this._scopeVersion) return;
       this._presets = result.presets || [];
     } catch (e) {
       // Silent — presets are optional UI; log only.
@@ -431,12 +533,14 @@ class MelittaSommelier extends LitElement {
 
   async _loadAvailable() {
     if (!this.hass) return;
+    const scope = this._scopeVersion;
     try {
       const [syrups, toppings, milk] = await Promise.all([
         this.hass.callWS({ type: "melitta_barista/syrups/list" }),
         this.hass.callWS({ type: "melitta_barista/toppings/list" }),
         this.hass.callWS({ type: "melitta_barista/sommelier/milk/get" }),
       ]);
+      if (scope !== this._scopeVersion) return;
       // Out-of-stock items are hidden from the chip picker. The
       // catalogue `available` flag is patched via melitta-additives.js;
       // ws_generate enforces the same filter on the backend.
@@ -454,12 +558,15 @@ class MelittaSommelier extends LitElement {
         .filter((t) => t.available !== false)
         .map((t) => t.name);
       this._availableMilk = milk.milk_types || [];
-      // Default: select everything available so the user has to opt OUT
-      // of an ingredient they don't want, not opt IN to each one.
-      if (this._allowSyrups.length === 0) this._allowSyrups = [...this._availableSyrups];
-      if (this._allowToppings.length === 0) this._allowToppings = [...this._availableToppings];
-      if (this._allowMilk.length === 0) this._allowMilk = [...this._availableMilk];
+      // A saved empty list is an explicit opt-out, not an uninitialized form.
+      for (const [prop, available] of [["_allowSyrups", this._availableSyrups],
+        ["_allowToppings", this._availableToppings], ["_allowMilk", this._availableMilk]]) {
+        this[prop] = this._addinsReady || this._savedAddins[prop]
+          ? this[prop].filter((value) => available.includes(value)) : [...available];
+      }
+      this._addinsReady = true;
     } catch (e) {
+      if (scope !== this._scopeVersion) return;
       this._error = `${this._t("sommelier.addins_load_failed")}: ${e.message || e}`;
     }
     // Fetch capabilities for UI gating. Failures are silent: no caps → no gating.
@@ -468,9 +575,10 @@ class MelittaSommelier extends LitElement {
         type: "melitta_barista/capabilities/get",
         entry_id: this.entryId,
       });
+      if (scope !== this._scopeVersion) return;
       this._capabilities = result?.capabilities || null;
     } catch (e) {
-      this._capabilities = null;
+      if (scope === this._scopeVersion) this._capabilities = null;
     }
   }
 
@@ -482,6 +590,7 @@ class MelittaSommelier extends LitElement {
 
   async _generate() {
     if (!this.hass) return;
+    const scope = this._scopeVersion;
     this._generating = true;
     this._error = "";
     this._info = "";
@@ -511,9 +620,11 @@ class MelittaSommelier extends LitElement {
     if (this._activeProfile !== null) payload.machine_profile = this._activeProfile;
     try {
       const result = await this.hass.callWS(payload);
+      if (scope !== this._scopeVersion) return;
       this._session = result.session;
       this._favoritedIds = [];
     } catch (e) {
+      if (scope !== this._scopeVersion) return;
       // HA WS errors have `{code, message}` — surface both so the user
       // doesn't see a useless "Unknown error". Stack/raw payload goes to
       // the DevTools console for deeper debugging.
@@ -526,7 +637,7 @@ class MelittaSommelier extends LitElement {
       // eslint-disable-next-line no-console
       console.error("[melitta-panel] generate failed:", e, "payload:", payload);
     } finally {
-      this._generating = false;
+      if (scope === this._scopeVersion) this._generating = false;
     }
   }
 
