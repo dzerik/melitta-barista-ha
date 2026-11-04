@@ -454,6 +454,18 @@
       },
       "power_on_frother_time": {
         "name": "Power-on frother time"
+      },
+      "freestyle_milk_mode_1": {
+        "state": {
+          "warm_milk": "Leite morno",
+          "milk_froth": "Espuma de leite"
+        }
+      },
+      "freestyle_milk_mode_2": {
+        "state": {
+          "warm_milk": "Leite morno",
+          "milk_froth": "Espuma de leite"
+        }
       }
     },
     "number": {

@@ -294,5 +294,7 @@
   "wizard.step.machine": "Preparar na máquina",
   "wizard.step.machine_n": "Extração {n} de {m}",
   "wizard.step_of": "Passo {n} de {m}",
-  "wizard.title": "Assistente de preparação"
+  "wizard.title": "Assistente de preparação",
+  "values.milk_mode.warm_milk": "Leite morno",
+  "values.milk_mode.milk_froth": "Espuma de leite"
 }

@@ -294,5 +294,7 @@
   "wizard.step.machine": "Приготування на машині",
   "wizard.step.machine_n": "Подача з машини {n} з {m}",
   "wizard.step_of": "Крок {n} з {m}",
-  "wizard.title": "Гід із приготування"
+  "wizard.title": "Гід із приготування",
+  "values.milk_mode.warm_milk": "Тепле молоко",
+  "values.milk_mode.milk_froth": "Молочна піна"
 }

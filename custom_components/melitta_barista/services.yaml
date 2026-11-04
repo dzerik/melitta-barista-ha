@@ -133,6 +133,14 @@ save_directkey:
             - "cold"
             - "normal"
             - "high"
+    milk_mode1:
+      name: Component 1 Milk Mode
+      description: "Milk preparation for a milk component. Omit to preserve the legacy shots value."
+      selector:
+        select:
+          options:
+            - "warm_milk"
+            - "milk_froth"
     shots1:
       name: Component 1 Shots
       description: "Shots: none, one, two, three"
@@ -198,6 +206,14 @@ save_directkey:
             - "cold"
             - "normal"
             - "high"
+    milk_mode2:
+      name: Component 2 Milk Mode
+      description: "Milk preparation for a milk component. Ignored for other processes."
+      selector:
+        select:
+          options:
+            - "warm_milk"
+            - "milk_froth"
     shots2:
       name: Component 2 Shots
       required: false
@@ -291,6 +307,14 @@ brew_freestyle:
             - "cold"
             - "normal"
             - "high"
+    milk_mode1:
+      name: Component 1 Milk Mode
+      description: "Milk preparation for a milk component. Omit to preserve the legacy shots value."
+      selector:
+        select:
+          options:
+            - "warm_milk"
+            - "milk_froth"
     shots1:
       name: Component 1 Shots
       description: "Shots: none, one, two, three"
@@ -366,6 +390,14 @@ brew_freestyle:
             - "cold"
             - "normal"
             - "high"
+    milk_mode2:
+      name: Component 2 Milk Mode
+      description: "Milk preparation for a milk component. Ignored for other processes."
+      selector:
+        select:
+          options:
+            - "warm_milk"
+            - "milk_froth"
     shots2:
       name: Component 2 Shots
       required: false

@@ -294,5 +294,7 @@
   "wizard.step.machine": "Припрема на апарату",
   "wizard.step.machine_n": "Точење из апарата {n} од {m}",
   "wizard.step_of": "Корак {n} од {m}",
-  "wizard.title": "Водич за припрему"
+  "wizard.title": "Водич за припрему",
+  "values.milk_mode.warm_milk": "Топло млеко",
+  "values.milk_mode.milk_froth": "Млечна пена"
 }

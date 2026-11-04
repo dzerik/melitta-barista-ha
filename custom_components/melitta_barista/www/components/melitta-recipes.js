@@ -56,6 +56,7 @@ const FALLBACK_FREESTYLE = {
   aroma: ["standard", "intense"],
   temperature: ["cold", "normal", "high"],
   shots: ["none", "one", "two", "three"],
+  milk_mode: ["warm_milk", "milk_froth"],
 };
 
 /** Fallback portion clamps matching the service schema defaults. */
@@ -447,6 +448,15 @@ class MelittaRecipes extends LitElement {
     };
   }
 
+  /** Resolve an explicitly chosen milk mode without mutating coffee shots. */
+  _componentShots(component) {
+    if (component.process === "milk") {
+      if (component.milk_mode === "milk_froth") return "none";
+      if (component.milk_mode === "warm_milk") return "one";
+    }
+    return component.shots;
+  }
+
   async _save() {
     const e = this._editing;
     if (!e || this._busy) return;
@@ -468,13 +478,13 @@ class MelittaRecipes extends LitElement {
         intensity1: c1.intensity,
         aroma1: c1.aroma,
         temperature1: c1.temperature,
-        shots1: c1.shots,
+        shots1: this._componentShots(c1),
         portion1_ml: this._clampPortion(c1.portion_ml, "c1"),
         process2: c2.process,
         intensity2: c2.intensity,
         aroma2: c2.aroma,
         temperature2: c2.temperature,
-        shots2: c2.shots,
+        shots2: this._componentShots(c2),
         portion2_ml: this._clampPortion(c2.portion_ml, "c2"),
       });
       if (scope !== this._scopeVersion) return;
@@ -584,7 +594,10 @@ class MelittaRecipes extends LitElement {
   // ── rendering: edit modal ──────────────────────────────────────────
 
   _renderSelect(slot, key, options, disabled) {
-    const current = this._editing?.[slot]?.[key];
+    const component = this._editing?.[slot];
+    const current = key === "milk_mode"
+      ? component?.milk_mode ?? (component?.shots === "none" ? "milk_froth" : "warm_milk")
+      : component?.[key];
     return html`
       <label>${this._t(`recipes.${key}`)}
         <select ?disabled=${disabled}
@@ -631,7 +644,9 @@ class MelittaRecipes extends LitElement {
         </div>
         <div class="grid3">
           ${this._renderSelect(slot, "temperature", this._vocab("temperature"), rest)}
-          ${this._renderSelect(slot, "shots", this._vocab("shots"), rest)}
+          ${form?.process === "milk"
+            ? this._renderSelect(slot, "milk_mode", this._vocab("milk_mode"), rest)
+            : this._renderSelect(slot, "shots", this._vocab("shots"), rest || form?.process !== "coffee")}
           ${this._renderPortion(slot, comp, rest)}
         </div>
       </fieldset>
@@ -874,10 +889,11 @@ class MelittaRecipes extends LitElement {
       }
       .grid3 {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
       }
       .form label {
+        min-width: 0;
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -885,6 +901,9 @@ class MelittaRecipes extends LitElement {
         color: var(--secondary-text-color);
       }
       .form select, .form input {
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
         padding: 7px 8px;
         border: 1px solid var(--divider-color);
         border-radius: 4px;
@@ -894,6 +913,9 @@ class MelittaRecipes extends LitElement {
         font-family: inherit;
       }
       .form select:disabled, .form input:disabled { opacity: 0.5; }
+      @media (max-width: 600px) {
+        .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
       .form-actions {
         display: flex;
         align-items: center;

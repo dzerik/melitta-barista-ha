@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
 from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
@@ -31,6 +32,7 @@ from .const import (
     get_user_profile_count,
 )
 from .entity import MelittaDeviceMixin, MelittaLocalControl
+from .milk_mode import MILK_MODES, milk_mode_from_shots
 from .protocol import RecipeComponent
 from .ui_contract import build_icon_spec, component_to_tokens, configured_recipe_identity
 
@@ -179,6 +181,8 @@ async def async_setup_entry(
 
     if "HJ" in client.brand.supported_extensions:
         entities.extend([
+            MelittaMilkModeSelect(client, entry, name, 1),
+            MelittaMilkModeSelect(client, entry, name, 2),
             # Freestyle parameter selects
             MelittaFreestyleSelect(client, entry, name, "process_1", "Process 1", "mdi:coffee", _PROCESS_OPTIONS, "freestyle_process1"),
             MelittaFreestyleSelect(client, entry, name, "intensity_1", "Intensity 1", "mdi:gauge", _INTENSITY_OPTIONS, "freestyle_intensity1"),
@@ -456,7 +460,7 @@ class MelittaProfileSelect(MelittaLocalControl, SelectEntity):
 
 
 class MelittaFreestyleSelect(MelittaLocalControl, SelectEntity):
-    """Select entity for a freestyle recipe parameter."""
+    """Select a local recipe parameter and refresh its dependent controls."""
 
     _attr_has_entity_name = True
 
@@ -492,12 +496,21 @@ class MelittaFreestyleSelect(MelittaLocalControl, SelectEntity):
     def available(self) -> bool:
         return self._client.connected
 
+    @property
+    def _control_signal(self) -> str:
+        return f"melitta_barista_freestyle_{self._entry.entry_id}"
+
     async def async_added_to_hass(self) -> None:
+        """Restore the raw choice and subscribe to local sibling updates."""
         await super().async_added_to_hass()
         saved = await self.async_get_last_control_value()
         if isinstance(saved, str) and saved in self.options:
             setattr(self._client, self._client_attr, saved)
         self._client.add_connection_callback(self._on_connection_change)
+        self.async_on_remove(async_dispatcher_connect(
+            self.hass, self._control_signal, self._on_local_change,
+        ))
+        async_dispatcher_send(self.hass, self._control_signal)
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)
@@ -506,9 +519,54 @@ class MelittaFreestyleSelect(MelittaLocalControl, SelectEntity):
     def _on_connection_change(self, connected: bool) -> None:
         self.async_write_ha_state()
 
-    async def async_select_option(self, option: str) -> None:
-        setattr(self._client, self._client_attr, option)
+    @callback
+    def _on_local_change(self) -> None:
         self.async_write_ha_state()
+
+    async def async_select_option(self, option: str) -> None:
+        """Set this parameter; an explicit legacy shots edit wins over a mode."""
+        setattr(self._client, self._client_attr, option)
+        if self._client_attr in ("freestyle_shots1", "freestyle_shots2"):
+            slot = self._client_attr[-1]
+            setattr(self._client, f"freestyle_milk_mode{slot}", None)
+        self.async_write_ha_state()
+        if self.hass is not None:
+            async_dispatcher_send(self.hass, self._control_signal)
+
+class MelittaMilkModeSelect(MelittaFreestyleSelect):
+    """Edit milk preparation independently of the stored coffee shots choice."""
+
+    def __init__(
+        self, client: CoffeeMachineClient, entry: ConfigEntry,
+        machine_name: str, slot: int,
+    ) -> None:
+        super().__init__(
+            client, entry, machine_name, f"milk_mode_{slot}",
+            f"Milk Mode {slot}", "mdi:cup", list(MILK_MODES),
+            f"freestyle_milk_mode{slot}",
+        )
+        self._shots_attr = f"freestyle_shots{slot}"
+        self._process_attr = f"freestyle_process{slot}"
+        self._attr_translation_key = f"freestyle_milk_mode_{slot}"
+
+    @property
+    def current_option(self) -> str:
+        """Show an explicit mode or the existing recipe's unmodified mode."""
+        override = getattr(self._client, self._client_attr, None)
+        if isinstance(override, str) and override in MILK_MODES:
+            return override
+        return milk_mode_from_shots(getattr(self._client, self._shots_attr, "one"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str | None]:
+        """Expose the optional override separately from the derived state."""
+        override = getattr(self._client, self._client_attr, None)
+        return {"milk_mode": override if isinstance(override, str) and override in MILK_MODES else None}
+
+    @property
+    def available(self) -> bool:
+        """Milk preparation applies only to a connected milk component."""
+        return self._client.connected and getattr(self._client, self._process_attr, None) == "milk"
 
 
 # ---------------------------------------------------------------------------

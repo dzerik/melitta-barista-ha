@@ -2,13 +2,37 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
-## [Unreleased] — 0.96.0b4
+## [0.96.0b5] — 2026-11-04 (beta)
+
+### Added
+
+- **Milk preparation in Freestyle and recipe editors (#60):** choose warm milk
+  or milk froth independently for each milk component. New optional action
+  fields and native HA controls preserve coffee shots and existing action
+  payloads. The panel, card and PWA serialize the choice through the existing
+  milk component fields, including on older integrations.
+- **Nivona two cups (#57):** expose a native `Brew Two Cups` 0/1 control where
+  the existing family layout maps its temporary-recipe flag, and include it
+  in the native Brew button's override set. Untouched defaults keep saved
+  recipes; explicit choices and their override markers are restored.
+
+### Fixed
+
+- **Nivona override reset:** use bounded internal event names for fields whose
+  previous names exceeded Home Assistant's event-type length limit. Existing
+  valid event names remain unchanged, and Reset Brew Overrides can clear all
+  fields, including the two-cup flag.
 
 ### Documentation
 
 - Record the community-reported ATOM Lite BLE proxy setup with a NIVO 9101
   in the hardware compatibility list (#56). Detailed functional and stability
-  validation is pending. This documentation update has no release tag.
+  validation is pending.
+
+Companion beta clients: card 2.12.1-beta.2 and PWA 3.1.5-beta.2. The milk/froth
+command distinction was confirmed on the maintainer's machine; the new native
+Nivona two-cup control still needs field confirmation. Maintenance commands
+remain a separate stage and are not included.
 
 ## [0.96.0b3] — 2026-11-04 (beta)
 

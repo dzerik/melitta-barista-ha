@@ -72,6 +72,8 @@ def test_parameters_melitta_ts_payload_pinned_verbatim():
         "blend": {"kind": "enum", "scope": ["freestyle"],
                   "applies_to": ["coffee"],
                   "tokens": ["hopper_1", "hopper_2"]},
+        "milk_mode": {"kind": "enum", "scope": ["freestyle"],
+                      "applies_to": ["milk"], "tokens": ["warm_milk", "milk_froth"]},
         "portion_ml": {"kind": "range", "scope": ["freestyle"], "unit": "ml",
                        "per_component": True,
                        "c1": {"min": 5, "max": 250, "step": 5},
@@ -104,7 +106,7 @@ def _assert_mirror(document):
     parameters = document["parameters"]
     freestyle = document["vocabularies"]["freestyle"]
     for family, descriptor in parameters.items():
-        if descriptor["kind"] != "enum":
+        if descriptor["kind"] != "enum" or family not in freestyle:
             continue
         assert descriptor["tokens"] == freestyle[family], family
     if "portion_ml" in parameters:
@@ -115,7 +117,7 @@ def _assert_mirror(document):
 def test_mirror_invariant_melitta_document():
     document = build_ui_contract(make_entry(), make_melitta_client())
     assert set(document["parameters"]) == {
-        "process", "intensity", "aroma", "temperature", "shots", "blend",
+        "process", "intensity", "aroma", "temperature", "shots", "blend", "milk_mode",
         "portion_ml",
     }
     _assert_mirror(document)

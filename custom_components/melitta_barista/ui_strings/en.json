@@ -294,5 +294,7 @@
   "wizard.step.machine": "Brew on the machine",
   "wizard.step.machine_n": "Machine pour {n} of {m}",
   "wizard.step_of": "Step {n} of {m}",
-  "wizard.title": "Brew guide"
+  "wizard.title": "Brew guide",
+  "values.milk_mode.warm_milk": "Warm Milk",
+  "values.milk_mode.milk_froth": "Milk Froth"
 }

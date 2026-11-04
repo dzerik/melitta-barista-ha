@@ -40,6 +40,7 @@ from homeassistant.util import dt as dt_util
 
 from .ble_client import MelittaBleClient, UnpairOutcome
 from .bond_state import BondState, BondStateMachine
+from .milk_mode import MILK_MODES, component_shots
 # Imported at module level on purpose: HA loads this package in the import
 # executor, so the pydantic chain (panel_api → pydantic) is pulled in off
 # the event loop. A first-time lazy import inside async_setup_entry trips
@@ -1850,6 +1851,8 @@ SAVE_DIRECTKEY_SCHEMA = vol.Schema({
     vol.Required("entity_id"): cv.entity_id,
     vol.Required("category"): vol.In(_DIRECTKEY_CATEGORIES),
     vol.Optional("profile_id"): vol.All(int, vol.Range(min=0, max=8)),
+    vol.Optional("milk_mode1"): vol.In(MILK_MODES),
+    vol.Optional("milk_mode2"): vol.In(MILK_MODES),
     vol.Required("process1", default="coffee"): vol.In(_PROCESS_MAP),
     vol.Optional("intensity1", default="medium"): vol.In(_INTENSITY_MAP),
     vol.Optional("aroma1", default="standard"): vol.In(_AROMA_MAP),
@@ -1865,6 +1868,8 @@ SAVE_DIRECTKEY_SCHEMA = vol.Schema({
 })
 
 BREW_FREESTYLE_SCHEMA = vol.Schema({
+    vol.Optional("milk_mode1"): vol.In(MILK_MODES),
+    vol.Optional("milk_mode2"): vol.In(MILK_MODES),
     vol.Required("entity_id"): cv.entity_id,
     vol.Required("name", default="Custom"): cv.string,
     vol.Required("process1", default="coffee"): vol.In(_PROCESS_MAP),
@@ -1954,7 +1959,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
         comp1 = RecipeComponent(
             process=_PROCESS_MAP[call.data["process1"]],
-            shots=_SHOTS_MAP[call.data.get("shots1", "one")],
+            shots=component_shots(call.data["process1"], call.data.get("shots1", "one"),
+                                  call.data.get("milk_mode1")),
             blend=_BLEND_MAP.get(call.data.get("blend1", "hopper_1"), Blend.BLEND_1),
             intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
             aroma=_AROMA_MAP[call.data.get("aroma1", "standard")],
@@ -1964,7 +1970,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
         comp2 = RecipeComponent(
             process=_PROCESS_MAP[call.data.get("process2", "none")],
-            shots=_SHOTS_MAP[call.data.get("shots2", "none")],
+            shots=component_shots(call.data.get("process2", "none"), call.data.get("shots2", "none"),
+                                  call.data.get("milk_mode2"), default=0),
             blend=_BLEND_MAP.get(call.data.get("blend2", "hopper_1"), Blend.BLEND_1),
             intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
             aroma=_AROMA_MAP[call.data.get("aroma2", "standard")],
@@ -2036,7 +2043,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
         comp1 = RecipeComponent(
             process=_PROCESS_MAP[call.data["process1"]],
-            shots=_SHOTS_MAP[call.data.get("shots1", "one")],
+            shots=component_shots(call.data["process1"], call.data.get("shots1", "one"),
+                                  call.data.get("milk_mode1")),
             blend=1,
             intensity=_INTENSITY_MAP[call.data.get("intensity1", "medium")],
             aroma=_AROMA_MAP[call.data.get("aroma1", "standard")],
@@ -2046,7 +2054,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
         comp2 = RecipeComponent(
             process=_PROCESS_MAP[call.data.get("process2", "none")],
-            shots=_SHOTS_MAP[call.data.get("shots2", "none")],
+            shots=component_shots(call.data.get("process2", "none"), call.data.get("shots2", "none"),
+                                  call.data.get("milk_mode2"), default=0),
             blend=0,
             intensity=_INTENSITY_MAP[call.data.get("intensity2", "medium")],
             aroma=_AROMA_MAP[call.data.get("aroma2", "standard")],

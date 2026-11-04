@@ -7,7 +7,7 @@ import math
 
 from homeassistant.components.number import NumberEntity, NumberMode, RestoreNumber
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, UnitOfTime
+from homeassistant.const import CONF_NAME, MAX_LENGTH_EVENT_EVENT_TYPE, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
@@ -39,6 +39,14 @@ _UNIT_MAP: dict[str, str] = {
     "min": UnitOfTime.MINUTES,
     "h": UnitOfTime.HOURS,
 }
+
+
+def _override_reset_event_type(unique_id: str) -> str:
+    """Keep legacy reset events where valid and shorten names above HA's limit."""
+    event_type = f"{DOMAIN}_reset_override_{unique_id}"
+    if len(event_type) <= MAX_LENGTH_EVENT_EVENT_TYPE:
+        return event_type
+    return f"{DOMAIN}_reset_{unique_id}"
 
 
 def _number_definition(row: dict) -> dict:
@@ -168,6 +176,16 @@ async def async_setup_entry(
             client, entry, name, "milk_amount", "Brew Milk Amount",
             "mdi:cup", 0, 240, 5, default=80, unit="mL",
         ))
+        if any(
+            client.brand.temp_recipe_register(
+                caps_for_overrides.family_key, recipe.recipe_id, "two_cups",
+            ) is not None
+            for recipe in caps_for_overrides.recipes
+        ):
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "two_cups", "Brew Two Cups",
+                "mdi:coffee", 0, 1, 1, default=0,
+            ))
 
     # Freestyle portion entities require HJ recipe writes.
     if "HJ" in client.brand.supported_extensions:
@@ -453,6 +471,7 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
         return {"user_set": self._user_set}
 
     async def async_added_to_hass(self) -> None:
+        """Restore the override and listen for its length-safe reset event."""
         await super().async_added_to_hass()
         last = await self.async_get_last_state()
         if last and last.state not in (None, "unknown", "unavailable"):
@@ -466,7 +485,7 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
         # NivonaResetOverridesButton — clears user_set and restores default.
         self.async_on_remove(
             self.hass.bus.async_listen(
-                f"{DOMAIN}_reset_override_{self._attr_unique_id}",
+                _override_reset_event_type(self._attr_unique_id),
                 self._handle_reset_event,
             )
         )

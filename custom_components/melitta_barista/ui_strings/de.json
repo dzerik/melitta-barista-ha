@@ -294,5 +294,7 @@
   "wizard.step.machine": "An der Maschine brühen",
   "wizard.step.machine_n": "Bezug {n} von {m}",
   "wizard.step_of": "Schritt {n} von {m}",
-  "wizard.title": "Brüh-Assistent"
+  "wizard.title": "Brüh-Assistent",
+  "values.milk_mode.warm_milk": "Warme Milch",
+  "values.milk_mode.milk_froth": "Milchschaum"
 }

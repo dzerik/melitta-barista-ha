@@ -294,5 +294,7 @@
   "wizard.step.machine": "Valmista masinaga",
   "wizard.step.machine_n": "Masina valamine {n} / {m}",
   "wizard.step_of": "Samm {n} / {m}",
-  "wizard.title": "Valmistusjuhend"
+  "wizard.title": "Valmistusjuhend",
+  "values.milk_mode.warm_milk": "Soe piim",
+  "values.milk_mode.milk_froth": "Piimavaht"
 }

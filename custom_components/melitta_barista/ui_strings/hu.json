@@ -294,5 +294,7 @@
   "wizard.step.machine": "Főzés a gépen",
   "wizard.step.machine_n": "Gépi kiadagolás: {n}. / {m}",
   "wizard.step_of": "{n}. lépés / {m}",
-  "wizard.title": "Főzési útmutató"
+  "wizard.title": "Főzési útmutató",
+  "values.milk_mode.warm_milk": "Meleg tej",
+  "values.milk_mode.milk_froth": "Tejhab"
 }

@@ -18,7 +18,6 @@ from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import (
-    DOMAIN,
     FREESTYLE_RECIPE_TYPE, HE_CMD_FACTORY_RESET_RECIPES,
     HE_CMD_FACTORY_RESET_SETTINGS, PROMPT_MANIPULATIONS, RECIPE_NAMES,
     MachineProcess,
@@ -257,12 +256,15 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
         )
 
     async def async_press(self) -> None:
+        """Brew the current local components, including explicit milk preparation."""
         from .protocol import RecipeComponent  # noqa: PLC0415
+        from .milk_mode import component_shots  # noqa: PLC0415
 
         c = self._client
         comp1 = RecipeComponent(
             process=_PROCESS_MAP.get(c.freestyle_process1, 1),
-            shots=_SHOTS_MAP.get(c.freestyle_shots1, 1),
+            shots=component_shots(c.freestyle_process1, c.freestyle_shots1,
+                                  getattr(c, "freestyle_milk_mode1", None)),
             blend=_BLEND_MAP.get(c.freestyle_blend1, Blend.BLEND_1),
             intensity=_INTENSITY_MAP.get(c.freestyle_intensity1, 2),
             aroma=_AROMA_MAP.get(c.freestyle_aroma1, 0),
@@ -271,7 +273,8 @@ class MelittaBrewFreestyleButton(_MelittaButtonBase):
         )
         comp2 = RecipeComponent(
             process=_PROCESS_MAP.get(c.freestyle_process2, 0),
-            shots=_SHOTS_MAP.get(c.freestyle_shots2, 0),
+            shots=component_shots(c.freestyle_process2, c.freestyle_shots2,
+                                  getattr(c, "freestyle_milk_mode2", None), default=0),
             blend=_BLEND_MAP.get(c.freestyle_blend2, Blend.BLEND_1),
             intensity=_INTENSITY_MAP.get(c.freestyle_intensity2, 2),
             aroma=_AROMA_MAP.get(c.freestyle_aroma2, 0),
@@ -465,13 +468,14 @@ class MelittaConfirmPromptButton(_MelittaButtonBase):
 
 
 class NivonaBrewButton(_MelittaButtonBase):
-    """Brew the recipe selected in NivonaRecipeSelect via HE."""
+    """Brew the selected Nivona recipe with optional temporary overrides."""
 
     _attr_name = "Brew"
     _attr_icon = "mdi:coffee"
 
     _OVERRIDE_FIELDS = (
         "strength", "coffee_amount", "water_amount", "temperature", "milk_amount",
+        "two_cups",
     )
 
     @property
@@ -554,8 +558,8 @@ class NivonaResetOverridesButton(_MelittaButtonBase):
     Clears the ``user_set`` flag on every NivonaBrewOverrideNumber so the
     next brew falls back to the machine's saved recipe instead of a
     temp-recipe override. Implemented via a bus event per slider (each
-    slider listens for its own ``{DOMAIN}_reset_override_<uid>`` event)
-    so the button needs no direct handle on the entity objects.
+    slider uses the same length-safe event name as this button) so the
+    button needs no direct handle on the entity objects.
     """
 
     _attr_name = "Reset Brew Overrides"
@@ -575,9 +579,12 @@ class NivonaResetOverridesButton(_MelittaButtonBase):
         return True
 
     async def async_press(self) -> None:
+        """Reset every override using an event name accepted by Home Assistant."""
+        from .number import _override_reset_event_type  # noqa: PLC0415
+
         for field in self._OVERRIDE_FIELDS:
             uid = f"{self._client.address}_brew_{field}"
-            self.hass.bus.async_fire(f"{DOMAIN}_reset_override_{uid}")
+            self.hass.bus.async_fire(_override_reset_event_type(uid))
         _LOGGER.info("Brew overrides reset — user_set cleared on all sliders")
 
 

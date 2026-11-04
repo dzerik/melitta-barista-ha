@@ -294,5 +294,7 @@
   "wizard.step.machine": "Παρασκευή στη μηχανή",
   "wizard.step.machine_n": "Ροή από τη μηχανή {n} από {m}",
   "wizard.step_of": "Βήμα {n} από {m}",
-  "wizard.title": "Οδηγός παρασκευής"
+  "wizard.title": "Οδηγός παρασκευής",
+  "values.milk_mode.warm_milk": "Ζεστό γάλα",
+  "values.milk_mode.milk_froth": "Αφρόγαλα"
 }

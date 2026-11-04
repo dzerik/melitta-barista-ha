@@ -1296,7 +1296,7 @@ Normatively (also appended as §5.2 rule 7):
 
 * `vocabularies.freestyle` and `limits.portion_ml` remain present forever within
   v1, but become **closed sets**: no new keys will ever be added inside them.
-* `parameters` **mirrors** them: for every freestyle family,
+* `parameters` **mirrors** them: for every legacy freestyle family,
   `parameters.<family>.tokens` is byte-equal to
   `vocabularies.freestyle.<family>`, and `parameters.portion_ml.c1/.c2` are
   element-wise equal to `limits.portion_ml.c1/.c2`. A pytest pins this
@@ -1313,6 +1313,7 @@ Normatively (also appended as §5.2 rule 7):
 | `aroma` | enum | `standard intense` | per `has_aroma_balance` | as intensity |
 | `temperature` | enum | `cold normal high` | same | `freestyle` (Melitta only) |
 | `shots` | enum | `none one two three` | same | `freestyle` (Melitta only) |
+| `milk_mode` | enum, `applies_to: ["milk"]` | `warm_milk milk_froth` | absent | `freestyle` (Melitta only) |
 | `blend` | enum, `applies_to: ["coffee"]` | `hopper_1 hopper_2` (T: 1) | `hopper_1` | `freestyle` |
 | `portion_ml` | range, `per_component`, `unit: "ml"` | c1 {5,250,5}, c2 {0,250,5} | same | Melitta: `freestyle`; Nivona: `brew_override` |
 
@@ -1322,6 +1323,30 @@ Normatively (also appended as §5.2 rule 7):
 family omitted entirely. Token subsets follow the exact same server filters as
 the v1 vocabularies (3-level intensity, single-hopper blend, §3.5) — guaranteed
 by the §6.1.2 mirror.
+
+The additive `milk_mode` family belongs only to `parameters`; the closed
+`vocabularies.freestyle` block is unchanged. It applies independently to either
+milk component. `warm_milk` resolves to its legacy `shots: one`, `milk_froth` to
+`shots: none`. The `brew_freestyle` and `save_directkey` actions accept optional
+`milk_mode1` and `milk_mode2` fields. An omitted mode preserves the legacy shots
+value exactly; a supplied mode affects only a component whose process is milk.
+Coffee, water and none keep their shots unchanged. The process token remains
+`milk`; there is no new process opcode or legacy process-vocabulary token.
+
+Client editing models keep optional milk modes separate from coffee shots and
+resolve them at serialization time. Merely displaying an old recipe must not
+normalize its shots, including nonzero legacy values two/three. Clients may
+send the resolved legacy shots fields to older integrations, so this control
+does not require a new action schema. Mode labels use
+`values.milk_mode.warm_milk` and `values.milk_mode.milk_froth`.
+
+Native HA selects `freestyle_milk_mode_1` and `_2` store independent optional
+overrides and are available for milk components. Their state is the effective
+mode, while their `milk_mode` attribute is the optional underlying override
+(null means derive from the raw legacy shots). Clients must distinguish null
+from an explicit choice when seeding local editing state. Restore data retains
+that optional value, including null. An explicit legacy shots-select edit clears
+its component's mode override; local sibling controls refresh without BLE reads.
 
 #### 6.1.4 Example payloads (pinned verbatim in tests)
 
@@ -1341,6 +1366,8 @@ Melitta Barista TS (extends the §3.7 document):
                    "tokens": ["none", "one", "two", "three"] },
   "blend":       { "kind": "enum", "scope": ["freestyle"], "applies_to": ["coffee"],
                    "tokens": ["hopper_1", "hopper_2"] },
+  "milk_mode":   { "kind": "enum", "scope": ["freestyle"], "applies_to": ["milk"],
+                   "tokens": ["warm_milk", "milk_froth"] },
   "portion_ml":  { "kind": "range", "scope": ["freestyle"], "unit": "ml",
                    "per_component": true,
                    "c1": { "min": 5, "max": 250, "step": 5 },
@@ -1695,6 +1722,7 @@ served that has no home):
 | `status` | `status.info_message.<TOKEN>` | 5 `InfoMessage` tokens | none anywhere | newly author English (`FILL_BEANS_1` "Fill bean hopper 1", `FILL_BEANS_2` "Fill bean hopper 2", `EASY_CLEAN` "Easy Clean recommended", `POWDER_FILLED` "Ground coffee filled", `PREPARATION_CANCELLED` "Preparation cancelled") + translate 29-way |
 | `values` | `values.<family>.<token>` | 20 freestyle tokens (family-scoped keys — bare tokens collide) | card `values.*` (18 tokens, 29 langs) for process/intensity/aroma/temperature/shots; panel `hopper.*`/`beans.*` strings inform `blend`; integration: none | port card translations; author `blend` labels; drop the card-only `extra_strong` (no server token — never served) |
 | `values` | `values.directkey_category.<token>` | 7 DirectKey categories | panel `recipes.cat.*` (7, 29 langs); card `drinks.*` (7, 29 langs) | port panel translations |
+| `values` | `values.milk_mode.<token>` | 2 milk preparation modes in the v2 parameter catalog | existing `recipes.name.warm_milk` / `recipes.name.milk_froth` translations (29 languages) | reuse recipe labels; legacy process vocabulary unchanged |
 | `recipes` | `recipes.name.<name_key>` | 24 Melitta keys + Nivona descriptor name_keys | integration `entity.select.recipe.state.*` (24, dormant, 29 langs); Nivona-only names: none | copy the 24; author Nivona `name_key` entries (§6.3.6), reusing overlapping keys (`espresso`, `cappuccino`, …), newly author the remainder |
 | `recipes` | `recipes.category.<token>` | 5 contract categories (`espresso coffee milk_drink water my_coffee`) | none (panel's 7 DirectKey categories are a different set) | newly author + translate |
 | `actions` | `actions.<token>.label` | 16 §6.2.2 action tokens | integration `entity.button.<key>.name` (dormant, 29 langs) for the 12 existing button keys; missing: `brew_freestyle`, `brew_directkey`, `factory_reset_settings`, `factory_reset_recipes` | copy 12; newly author 4 |
