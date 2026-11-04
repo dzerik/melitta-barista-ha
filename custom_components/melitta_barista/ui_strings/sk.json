@@ -294,5 +294,7 @@
   "wizard.step.machine": "Príprava v kávovare",
   "wizard.step.machine_n": "Výdaj z kávovaru {n} z {m}",
   "wizard.step_of": "Krok {n} z {m}",
-  "wizard.title": "Sprievodca prípravou"
+  "wizard.title": "Sprievodca prípravou",
+  "values.milk_mode.warm_milk": "Teplé mlieko",
+  "values.milk_mode.milk_froth": "Mliečna pena"
 }

@@ -294,5 +294,7 @@
   "wizard.step.machine": "Приготвяне на машината",
   "wizard.step.machine_n": "Наливане от машината {n} от {m}",
   "wizard.step_of": "Стъпка {n} от {m}",
-  "wizard.title": "Ръководство за приготвяне"
+  "wizard.title": "Ръководство за приготвяне",
+  "values.milk_mode.warm_milk": "Топло мляко",
+  "values.milk_mode.milk_froth": "Млечна пяна"
 }

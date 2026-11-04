@@ -294,5 +294,7 @@
   "wizard.step.machine": "Brygg på maskinen",
   "wizard.step.machine_n": "Maskinutmatning {n} av {m}",
   "wizard.step_of": "Steg {n} av {m}",
-  "wizard.title": "Brygguide"
+  "wizard.title": "Brygguide",
+  "values.milk_mode.warm_milk": "Varm mjölk",
+  "values.milk_mode.milk_froth": "Mjölkskum"
 }

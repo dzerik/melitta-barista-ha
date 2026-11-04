@@ -294,5 +294,7 @@
   "wizard.step.machine": "Prepara sulla macchina",
   "wizard.step.machine_n": "Erogazione della macchina {n} di {m}",
   "wizard.step_of": "Passaggio {n} di {m}",
-  "wizard.title": "Guida alla preparazione"
+  "wizard.title": "Guida alla preparazione",
+  "values.milk_mode.warm_milk": "Latte caldo",
+  "values.milk_mode.milk_froth": "Schiuma di latte"
 }

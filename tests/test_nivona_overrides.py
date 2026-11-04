@@ -178,7 +178,6 @@ class TestResetOverridesButton:
 
         fired = [c.args[0] for c in btn.hass.bus.async_fire.call_args_list]
         for field in NivonaResetOverridesButton._OVERRIDE_FIELDS:
-            assert (
-                f"{DOMAIN}_reset_override_{client.address}_brew_{field}" in fired
-            )
+            prefix = "reset_override" if field in ("strength", "two_cups") else "reset"
+            assert f"{DOMAIN}_{prefix}_{client.address}_brew_{field}" in fired
         assert btn.available is True

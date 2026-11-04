@@ -294,5 +294,7 @@
   "wizard.step.machine": "Valmista koneella",
   "wizard.step.machine_n": "Koneen annostelu {n}/{m}",
   "wizard.step_of": "Vaihe {n}/{m}",
-  "wizard.title": "Valmistusopas"
+  "wizard.title": "Valmistusopas",
+  "values.milk_mode.warm_milk": "Lämmin maito",
+  "values.milk_mode.milk_froth": "Maitovaahto"
 }

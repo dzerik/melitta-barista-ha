@@ -294,5 +294,7 @@
   "wizard.step.machine": "Priprava na aparatu",
   "wizard.step.machine_n": "Točenje iz aparata {n} od {m}",
   "wizard.step_of": "Korak {n} od {m}",
-  "wizard.title": "Vodnik za pripravo"
+  "wizard.title": "Vodnik za pripravo",
+  "values.milk_mode.warm_milk": "Toplo mleko",
+  "values.milk_mode.milk_froth": "Mlečna pena"
 }

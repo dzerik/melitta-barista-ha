@@ -294,5 +294,7 @@
   "wizard.step.machine": "Pagatavot ar automātu",
   "wizard.step.machine_n": "Automāta liešana {n} no {m}",
   "wizard.step_of": "Solis {n} no {m}",
-  "wizard.title": "Pagatavošanas vednis"
+  "wizard.title": "Pagatavošanas vednis",
+  "values.milk_mode.warm_milk": "Silts piens",
+  "values.milk_mode.milk_froth": "Piena putas"
 }

@@ -294,5 +294,7 @@
   "wizard.step.machine": "Makinede demle",
   "wizard.step.machine_n": "Makine dökümü {n} / {m}",
   "wizard.step_of": "Adım {n} / {m}",
-  "wizard.title": "Demleme rehberi"
+  "wizard.title": "Demleme rehberi",
+  "values.milk_mode.warm_milk": "Ilık süt",
+  "values.milk_mode.milk_froth": "Süt köpüğü"
 }

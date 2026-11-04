@@ -449,6 +449,12 @@ Each RecipeType must be paired with the correct RecipeKey when writing via HJ:
 | 6 | portion | byte | value × 5 = ml (e.g., 8 = 40ml) |
 | 7 | reserve | byte | Always 0 |
 
+For a milk component (`process=2`), the byte at component offset 1 also selects
+preparation: 0 produces milk froth and 1 produces warm milk. Temperature remains
+independent of that choice. Coffee components retain the usual shots semantics.
+The integration preserves legacy nonzero values unless a milk mode is explicitly
+selected; new mode choices use 0 or 1.
+
 ## Machine Settings (Numerical Values HR/HW)
 
 | Name | ID | Notes |

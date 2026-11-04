@@ -294,5 +294,7 @@
   "wizard.step.machine": "Ruoškite aparatu",
   "wizard.step.machine_n": "Aparato pilstymas {n} iš {m}",
   "wizard.step_of": "Žingsnis {n} iš {m}",
-  "wizard.title": "Ruošimo vadovas"
+  "wizard.title": "Ruošimo vadovas",
+  "values.milk_mode.warm_milk": "Šiltas pienas",
+  "values.milk_mode.milk_froth": "Pieno puta"
 }

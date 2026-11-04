@@ -252,6 +252,7 @@ def _required_en_keys():
     for token in STATUS_INFO_MESSAGE_TOKENS:
         keys.add(f"status.info_message.{token}")
     value_families = {
+        "milk_mode": ("warm_milk", "milk_froth"),
         "process": FREESTYLE_PROCESS_TOKENS,
         "intensity": FREESTYLE_INTENSITY_TOKENS,
         "aroma": FREESTYLE_AROMA_TOKENS,

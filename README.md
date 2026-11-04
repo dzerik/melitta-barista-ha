@@ -437,10 +437,12 @@ Once configured, the integration creates a device with all available entities fi
 | Freestyle Intensity 1 | Component 1 brew intensity. |
 | Freestyle Temperature 1 | Component 1 temperature level. |
 | Freestyle Shots 1 | Component 1 number of shots. |
+| Freestyle Milk Mode 1 | Warm milk or milk froth for component 1; available when its process is milk. |
 | Freestyle Process 2 | Component 2 process: none, coffee, milk, or water. |
 | Freestyle Intensity 2 | Component 2 brew intensity. |
 | Freestyle Temperature 2 | Component 2 temperature level. |
 | Freestyle Shots 2 | Component 2 number of shots. |
+| Freestyle Milk Mode 2 | Warm milk or milk froth for component 2; available when its process is milk. |
 
 ### Buttons
 
@@ -448,6 +450,7 @@ Once configured, the integration creates a device with all available entities fi
 |--------|-------|-------------|
 | Brew | Melitta | Brew the recipe selected in the Recipe dropdown. Available when machine is Ready and a recipe is selected. |
 | Brew Freestyle | Melitta | Brew the custom freestyle recipe using current freestyle parameters. |
+| Reset Brew Overrides | Nivona | Clear explicit brew override markers so the next untouched Brew uses the machine's saved recipe. |
 | Cancel | both | Cancel the currently running operation (HZ). |
 | Confirm Prompt | both | Acknowledge an active machine prompt (move cup, flush, fill water, etc.) via HY. Available only when `awaiting_confirmation` binary sensor is on. |
 | Reset Recipe | Melitta | Reset the currently selected recipe to factory defaults (HD). Available when machine is Ready and a recipe is selected. Recipe cache auto-refreshes. |
@@ -467,6 +470,14 @@ Once configured, the integration creates a device with all available entities fi
 | Brew Temperature | 0 -- 2 | Brew temperature level: 0 = Cold, 1 = Normal, 2 = High (configuration). |
 | Freestyle Portion 1 | 5 -- 250 ml | Component 1 portion size in milliliters. |
 | Freestyle Portion 2 | 0 -- 250 ml | Component 2 portion size in milliliters (0 = disabled). |
+| Brew Two Cups | 0 -- 1 | Nivona: 0 = single cup, 1 = two cups. Created only for families with an existing mapped temporary-recipe flag. |
+
+The Nivona two-cup control defaults to 0 and follows the native **Brew** button.
+An untouched default does not activate temporary-recipe overrides. As with the
+other Nivona brew controls, explicitly changing an override sends the complete
+current override set before brewing. **Reset Brew Overrides** clears the
+explicit markers and returns to the machine's saved recipe. Two-cup values and
+their override markers survive reloads.
 
 ### Switches
 
@@ -629,6 +640,7 @@ Brew a custom recipe with fully configurable parameters.
 | `shots1` | string | No | Shots: `none`, `one`, `two`, `three` |
 | `portion1_ml` | int | No | Portion size in ml (20-300) |
 | `process2` | string | No | Secondary process (same options + `none`) |
+| `milk_mode1`, `milk_mode2` | string | No | `warm_milk` or `milk_froth`; applies only to the corresponding milk component. Omit to preserve its existing `shots` value. |
 | `two_cups` | bool | No | Brew two cups (default: false) |
 
 Example action for an automation's action sequence. Replace the entity ID with
@@ -648,6 +660,12 @@ data:
   portion1_ml: 120
   process2: none
 ```
+
+Freestyle forms and recipe editors offer a separate milk-mode choice for each
+milk component. This does not change the stored coffee shots. Older clients and
+automations keep their existing behavior: for a milk component, `shots: none`
+selects froth and `shots: one` selects warm milk. `save_directkey` also accepts
+the optional `milk_mode1` / `milk_mode2` fields with the same semantics.
 
 ### `melitta_barista.brew_directkey`
 

@@ -11,9 +11,9 @@ base-recipe cache) — building a contract never triggers BLE traffic.
 
 Token vocabularies are generated from the real enums / const maps, never
 hand-copied, so a new enum member automatically ships as a new token
-(additive growth per spec §5.2.2). The only intra-package imports are
-`const.py` and `brands/nivona/_options.py` (shared pure data tables) —
-no homeassistant modules.
+(additive growth per spec §5.2.2). Derivation imports shared pure data
+tables and helpers from const, milk_mode and brands/nivona/_options;
+it imports no homeassistant modules.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ from .coffee_platform.domain import (
     SubProcess,
 )
 from .brands.nivona._options import nivona_number_range, option_tokens
+from .milk_mode import MILK_MODES
 from .const import (
     AROMA_MAP,
     BLEND_MAP,
@@ -570,11 +571,13 @@ def build_parameters(capabilities_block: Mapping[str, Any]) -> dict[str, Any]:
     """Build the v2 `parameters` catalog (§6.1) for one machine.
 
     `capabilities_block` is the §3.3 block from build_capabilities_block.
-    Enum token lists are taken from build_vocabularies, which guarantees
+    Legacy enum token lists are taken from build_vocabularies, which guarantees
     the §6.1.2 mirror-and-freeze invariant by construction:
     `parameters.<family>.tokens` is byte-equal to
     `vocabularies.freestyle.<family>` and `parameters.portion_ml.c1/.c2`
-    to `limits.portion_ml.c1/.c2`. Scope gating per §6.1.3:
+    to `limits.portion_ml.c1/.c2`. New families such as milk_mode live only in
+    this catalog and do not extend the closed legacy vocabularies.
+    Scope gating per §6.1.3:
     `freestyle`-scoped descriptors are emitted iff supports_freestyle,
     `brew_override`-scoped iff supports_brew_overrides; a family left
     with no scope is omitted entirely.
@@ -595,6 +598,12 @@ def build_parameters(capabilities_block: Mapping[str, Any]) -> dict[str, Any]:
             descriptor["applies_to"] = list(applies_to)
         descriptor["tokens"] = list(freestyle_vocab[family])
         parameters[family] = descriptor
+
+    if gates["freestyle"]:
+        parameters["milk_mode"] = {
+            "kind": "enum", "scope": ["freestyle"], "applies_to": ["milk"],
+            "tokens": list(MILK_MODES),
+        }
 
     portion_scope = [s for s in ("freestyle", "brew_override") if gates[s]]
     if portion_scope:
