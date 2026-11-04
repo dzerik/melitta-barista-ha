@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Actualizarea rețetelor necesită un aparat conectat, inactiv și care acceptă citirea rețetelor."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nu s-a putut actualiza nicio rețetă. Rețetele încărcate anterior au fost păstrate."
+    },
     "device_not_found": {
       "message": "Nu s-a găsit niciun espressor compatibil pentru acest apel de serviciu."
     },

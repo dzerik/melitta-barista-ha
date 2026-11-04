@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Obnovenie receptov vyžaduje pripojený, nečinný kávovar s podporou čítania receptov."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nepodarilo sa obnoviť žiadny recept. Predtým načítané recepty boli zachované."
+    },
     "device_not_found": {
       "message": "Pre toto volanie služby sa nenašiel žiadny podporovaný kávovar."
     },

@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Receptams atnaujinti reikia prijungto, ramybės būsenoje esančio aparato, palaikančio receptų skaitymą."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nepavyko atnaujinti nė vieno recepto. Anksčiau įkelti receptai išsaugoti."
+    },
     "device_not_found": {
       "message": "Šiam paslaugos iškvietimui nerasta palaikomo kavos aparato."
     },

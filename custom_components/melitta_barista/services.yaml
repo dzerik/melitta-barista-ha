@@ -1,3 +1,15 @@
+refresh_recipes:
+  name: Refresh Recipes
+  description: Read base and profile recipes from the connected machine. Failed reads keep cached recipes. Partial results report fresh versus expected counts; concurrent calls share one refresh.
+  fields:
+    entity_id:
+      name: Entity
+      description: A button entity belonging to the machine. The machine must be connected and idle.
+      required: true
+      selector:
+        entity:
+          domain: button
+
 brew_directkey:
   name: Brew DirectKey
   description: Brew a DirectKey recipe for the active profile.

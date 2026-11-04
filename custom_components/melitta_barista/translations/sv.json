@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Uppdatering av recept kräver en ansluten, ledig maskin som stöder läsning av recept."
+    },
+    "recipe_refresh_failed": {
+      "message": "Inga recept kunde uppdateras. Tidigare inlästa recept behölls."
+    },
     "device_not_found": {
       "message": "Ingen kaffemaskin som stöds hittades för detta serviceanrop."
     },

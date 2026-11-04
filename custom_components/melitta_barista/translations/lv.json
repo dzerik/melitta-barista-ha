@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Lai atjauninātu receptes, aparātam jābūt savienotam, dīkstāvē un jāatbalsta recepšu lasīšana."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nevienu recepti neizdevās atjaunināt. Iepriekš ielādētās receptes tika saglabātas."
+    },
     "device_not_found": {
       "message": "Šim pakalpojuma izsaukumam nav atrasts atbalstīts kafijas automāts."
     },

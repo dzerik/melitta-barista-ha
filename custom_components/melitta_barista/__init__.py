@@ -34,7 +34,7 @@ from homeassistant.const import (
     EVENT_CORE_CONFIG_UPDATE,
     Platform,
 )
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.util import dt as dt_util
 
@@ -1789,6 +1789,7 @@ SERVICE_CONFIRM_PROMPT = "confirm_prompt"
 SERVICE_WRITE_RECIPE_PARAM = "nivona_write_recipe_param"
 SERVICE_WRITE_MYCOFFEE_PARAM = "nivona_write_mycoffee_param"
 SERVICE_REPAIR_CONNECTION = "repair_connection"
+SERVICE_REFRESH_RECIPES = "refresh_recipes"
 
 _NIVONA_PARAM_KEYS = [
     "strength", "profile", "two_cups", "temperature",
@@ -2055,6 +2056,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
         success = await client.write_profile_recipe(
             profile_id, category, comp1, comp2,
+            preserve_hidden_fields=True,
         )
         if not success:
             raise HomeAssistantError(
@@ -2098,6 +2100,33 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_SAVE_DIRECTKEY, _handle_save_directkey,
         schema=SAVE_DIRECTKEY_SCHEMA,
+    )
+
+    async def _handle_refresh_recipes(call: ServiceCall) -> dict:
+        """Refresh device recipes and report freshly read versus expected slots."""
+        client = _find_client(call.data["entity_id"])
+        if client is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+            )
+        result = await client.refresh_recipes()
+        if result is None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="recipe_refresh_unavailable",
+            )
+        if not result["base_updated"] and not result["directkey_updated"]:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="recipe_refresh_failed",
+            )
+        return result
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_REFRESH_RECIPES, _handle_refresh_recipes,
+        schema=vol.Schema({vol.Required("entity_id"): cv.entity_id}),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     async def _handle_confirm_prompt(call: ServiceCall) -> None:
         """Handle confirm_prompt service call."""
@@ -2256,6 +2285,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_BREW_FREESTYLE,
                 SERVICE_BREW_DIRECTKEY,
                 SERVICE_SAVE_DIRECTKEY,
+                SERVICE_REFRESH_RECIPES,
                 SERVICE_RESET_RECIPE,
                 SERVICE_CONFIRM_PROMPT,
                 SERVICE_WRITE_RECIPE_PARAM,

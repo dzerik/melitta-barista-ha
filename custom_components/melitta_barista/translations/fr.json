@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Pour actualiser les recettes, la machine doit être connectée, au repos et prendre en charge la lecture des recettes."
+    },
+    "recipe_refresh_failed": {
+      "message": "Aucune recette n’a pu être actualisée. Les recettes précédemment mises en cache ont été conservées."
+    },
     "device_not_found": {
       "message": "Aucune machine à café compatible trouvée pour cet appel de service."
     },

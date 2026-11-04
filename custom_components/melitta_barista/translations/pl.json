@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Odświeżanie przepisów wymaga podłączonego, bezczynnego ekspresu obsługującego odczyt przepisów."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nie udało się odświeżyć żadnego przepisu. Wcześniej wczytane przepisy zostały zachowane."
+    },
     "device_not_found": {
       "message": "Nie znaleziono obsługiwanego ekspresu do kawy dla tego wywołania usługi."
     },

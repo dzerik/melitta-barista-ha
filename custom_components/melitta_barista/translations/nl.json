@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Voor het vernieuwen van recepten moet de machine verbonden en inactief zijn en het lezen van recepten ondersteunen."
+    },
+    "recipe_refresh_failed": {
+      "message": "Er konden geen recepten worden vernieuwd. Eerder opgeslagen recepten zijn behouden."
+    },
     "device_not_found": {
       "message": "Geen ondersteunde koffiemachine gevonden voor deze service-aanroep."
     },

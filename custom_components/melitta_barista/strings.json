@@ -26,6 +26,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Recipe refresh requires a connected, idle machine with recipe-read support."
+    },
+    "recipe_refresh_failed": {
+      "message": "No recipes could be refreshed. Previously cached recipes were kept."
+    },
     "device_not_found": {
       "message": "No supported coffee machine found for this service call."
     },

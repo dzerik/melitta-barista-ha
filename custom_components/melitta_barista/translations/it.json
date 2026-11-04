@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Per aggiornare le ricette, la macchina deve essere connessa, inattiva e supportare la lettura delle ricette."
+    },
+    "recipe_refresh_failed": {
+      "message": "Non è stato possibile aggiornare alcuna ricetta. Le ricette precedentemente memorizzate sono state conservate."
+    },
     "device_not_found": {
       "message": "Nessuna macchina da caffè supportata trovata per questa chiamata al servizio."
     },

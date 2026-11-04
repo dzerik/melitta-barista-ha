@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Za osvježavanje recepata aparat mora biti povezan, slobodan i podržavati čitanje recepata."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nijedan recept nije osvježen. Prethodno učitani recepti su sačuvani."
+    },
     "device_not_found": {
       "message": "Nije pronađen nijedan podržani aparat za kafu za ovaj poziv usluge."
     },

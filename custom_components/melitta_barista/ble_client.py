@@ -411,8 +411,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._my_coffee_slots: list[dict[str, int]] | None = None
         self._mycoffee_callbacks: list[Callable[[], None]] = []
         self._cups_callbacks: list[Callable[[], None]] = []
-        # Called after a base recipe is (re-)read post-HD reset; consumers use
-        # this to refresh cached attributes in select entities / attributes.
+        # Called after recipe reset or explicit refresh; consumers update
+        # their attributes after the client cache has received the recipe.
         self._recipe_refresh_callbacks: list[
             Callable[[int, "MachineRecipe"], None]
         ] = []
@@ -430,6 +430,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         # input for the UI contract builder.
         self.base_recipes: dict[int, MachineRecipe] = {}
         self.recipe_cache_generation: int = 0
+        self.recipe_refresh_status: dict[str, int | bool] | None = None
+        self._recipe_refresh_task: asyncio.Task | None = None
         # UI Contract §3.10: cached setup-time result of the user-supplied
         # brand-logo file check ("/local/melitta_barista/<brand>.png" or
         # None). Set by async_setup_entry via executor I/O; fixed for the
@@ -2086,9 +2088,15 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 delay = self._reconnect_max_delay
 
     async def disconnect(self) -> None:
+        """Stop background work and close the machine connection."""
         self._auto_reconnect = False
         self._disconnecting = True
+        self._connected = False
         self._stop_polling()
+        if self._recipe_refresh_task and not self._recipe_refresh_task.done():
+            self._recipe_refresh_task.cancel()
+            await asyncio.gather(self._recipe_refresh_task, return_exceptions=True)
+        self._recipe_refresh_task = None
         if self._post_connect_task and not self._post_connect_task.done():
             self._post_connect_task.cancel()
             self._post_connect_task = None
@@ -2097,7 +2105,6 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             self._reconnect_task = None
         client = self._client
         self._client = None
-        self._connected = False
         # Hygiene: drop the bond-tracking flag so the next connect starts
         # from a clean assumption. _connect_impl always begins with pair=False
         # then escalates, so this doesn't actually skip steps — but it keeps
