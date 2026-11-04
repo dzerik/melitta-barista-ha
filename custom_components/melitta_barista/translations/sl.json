@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Za osvežitev receptov mora biti aparat povezan, v mirovanju in podpirati branje receptov."
+    },
+    "recipe_refresh_failed": {
+      "message": "Nobenega recepta ni bilo mogoče osvežiti. Prej naloženi recepti so bili ohranjeni."
+    },
     "device_not_found": {
       "message": "Za ta klic storitve ni bilo mogoče najti podprtega aparata za kavo."
     },

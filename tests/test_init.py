@@ -447,6 +447,7 @@ async def test_unload_entry(hass: HomeAssistant, mock_entry: MockConfigEntry) ->
 
     assert mock_entry.state is ConfigEntryState.NOT_LOADED
     client.disconnect.assert_awaited_once()
+    assert not hass.services.has_service(DOMAIN, "refresh_recipes")
 
 
 async def test_legacy_cleanup_removes_old_entities(
@@ -796,6 +797,7 @@ async def test_services_registered_only_once(
         assert hass.services.has_service(DOMAIN, "brew_freestyle")
         assert hass.services.has_service(DOMAIN, "brew_directkey")
         assert hass.services.has_service(DOMAIN, "save_directkey")
+        assert hass.services.has_service(DOMAIN, "refresh_recipes")
 
         # Set up a second entry — should not re-register
         mock_entry2 = MockConfigEntry(

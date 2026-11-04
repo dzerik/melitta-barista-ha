@@ -149,6 +149,23 @@ def _bluetooth_reach(hass: HomeAssistant, address: str) -> dict[str, Any]:
     }
 
 
+def _recipe_cache_summary(client: CoffeeMachineClient) -> dict[str, Any]:
+    """Distinguish cached recipes from successful reads in the last refresh."""
+    base = getattr(client, "base_recipes", {})
+    profiles = getattr(client, "directkey_recipes", {})
+    status = getattr(client, "recipe_refresh_status", None)
+    task = getattr(client, "_recipe_refresh_task", None)
+    return {
+        "base_cached": len(base) if isinstance(base, dict) else 0,
+        "directkey_cached": (
+            sum(len(slots) for slots in profiles.values())
+            if isinstance(profiles, dict) else 0
+        ),
+        "refresh_in_progress": bool(task is not None and not task.done()),
+        "last_refresh": dict(status) if isinstance(status, dict) else None,
+    }
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry,
 ) -> dict[str, Any]:
@@ -266,6 +283,7 @@ async def async_get_config_entry_diagnostics(
             "active_profile": client.active_profile,
             "names": dict(client.profile_names),
         },
+        "recipes": _recipe_cache_summary(client),
         "options": dict(entry.options),
         "ble_trace": {
             "recent_frames_raw": recent_frames,

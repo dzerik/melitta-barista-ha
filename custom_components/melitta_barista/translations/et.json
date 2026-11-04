@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Retseptide värskendamiseks peab masin olema ühendatud, jõudeolekus ja toetama retseptide lugemist."
+    },
+    "recipe_refresh_failed": {
+      "message": "Ühtegi retsepti ei õnnestunud värskendada. Varem laaditud retseptid säilitati."
+    },
     "device_not_found": {
       "message": "Selle teenusekutse jaoks ei leitud toetatud kohvimasinat."
     },

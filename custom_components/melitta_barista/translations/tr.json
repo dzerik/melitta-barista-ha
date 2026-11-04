@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Tarifleri yenilemek için makinenin bağlı, boşta ve tarif okumayı destekliyor olması gerekir."
+    },
+    "recipe_refresh_failed": {
+      "message": "Hiçbir tarif yenilenemedi. Önceden önbelleğe alınmış tarifler korundu."
+    },
     "device_not_found": {
       "message": "Bu servis çağrısı için desteklenen kahve makinesi bulunamadı."
     },

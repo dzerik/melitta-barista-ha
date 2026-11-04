@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Zum Aktualisieren muss die Maschine verbunden und im Leerlauf sein und das Lesen von Rezepten unterstützen."
+    },
+    "recipe_refresh_failed": {
+      "message": "Es konnten keine Rezepte aktualisiert werden. Zuvor zwischengespeicherte Rezepte wurden beibehalten."
+    },
     "device_not_found": {
       "message": "Für diesen Dienstaufruf wurde keine unterstützte Kaffeemaschine gefunden."
     },

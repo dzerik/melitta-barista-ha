@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Para atualizar as receitas, a máquina deve estar ligada, inativa e suportar a leitura de receitas."
+    },
+    "recipe_refresh_failed": {
+      "message": "Não foi possível atualizar nenhuma receita. As receitas anteriormente guardadas foram mantidas."
+    },
     "device_not_found": {
       "message": "Nenhuma máquina de café suportada encontrada para esta chamada de serviço."
     },

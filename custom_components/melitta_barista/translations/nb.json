@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Oppdatering av oppskrifter krever en tilkoblet, ledig maskin som støtter lesing av oppskrifter."
+    },
+    "recipe_refresh_failed": {
+      "message": "Ingen oppskrifter kunne oppdateres. Tidligere innlastede oppskrifter ble beholdt."
+    },
     "device_not_found": {
       "message": "Ingen støttet kaffemaskin funnet for dette tjenestekallet."
     },

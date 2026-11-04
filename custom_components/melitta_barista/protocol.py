@@ -255,6 +255,7 @@ class EugsterProtocol:
         self._recv_buffer = bytearray()
         self._frame_start_time: float = 0.0
         self._frame_futures: dict[str, asyncio.Future] = {}
+        self._frame_response_ids: dict[str, int] = {}
         self._ack_future: asyncio.Future | None = None
         self._on_status: Callable[[MachineStatus], None] | None = None
         self._lock = asyncio.Lock()
@@ -510,6 +511,13 @@ class EugsterProtocol:
 
         # Resolve waiting futures
         if command in self._frame_futures:
+            expected_id = self._frame_response_ids.get(command)
+            if expected_id is not None and payload[:2] != struct.pack(">h", expected_id):
+                _LOGGER.debug(
+                    "Ignoring %s response for unexpected ID %s (waiting for %d)",
+                    command, payload[:2].hex(), expected_id,
+                )
+                return
             future = self._frame_futures.pop(command)
             if not future.done():
                 future.set_result(payload)
@@ -643,18 +651,23 @@ class EugsterProtocol:
         payload: bytes | None,
         write_func: Callable[[bytes], Awaitable[None]],
         timeout: float | None = None,
+        *,
+        expected_id: int | None = None,
     ) -> bytes | None:
         """Send a read command and wait for response frame.
 
         ``timeout`` overrides the default ``self._frame_timeout`` for this
         call only — used by optional commands (e.g. ``HI``) that may not
-        be answered on some firmwares.
+        be answered on some firmwares. ``expected_id`` keeps a late reply
+        to a different register/recipe from satisfying this request.
         """
         effective_timeout = timeout if timeout is not None else self._frame_timeout
         async with self._lock:
             loop = asyncio.get_running_loop()
             future = loop.create_future()
             self._frame_futures[command] = future
+            if expected_id is not None:
+                self._frame_response_ids[command] = expected_id
 
             try:
                 frame = self.build_frame(command, payload)
@@ -668,6 +681,7 @@ class EugsterProtocol:
                 return None
             finally:
                 self._frame_futures.pop(command, None)
+                self._frame_response_ids.pop(command, None)
 
     # High-level API
 
@@ -731,11 +745,14 @@ class EugsterProtocol:
         return None
 
     async def read_recipe(self, write_func, recipe_id: int) -> MachineRecipe | None:
+        """Read the requested recipe, ignoring replies to other recipe IDs."""
         if "HC" not in self._brand.supported_extensions:
             from .brands.base import FeatureNotSupported  # noqa: PLC0415
             raise FeatureNotSupported("HC", self._brand.brand_slug)
         payload = struct.pack(">h", recipe_id)
-        data = await self.send_and_wait_response(CMD_READ_RECIPE, payload, write_func)
+        data = await self.send_and_wait_response(
+            CMD_READ_RECIPE, payload, write_func, expected_id=recipe_id,
+        )
         if data:
             result = MachineRecipe.from_payload(data)
             return result

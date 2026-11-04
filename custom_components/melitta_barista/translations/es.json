@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Para actualizar las recetas, la máquina debe estar conectada, inactiva y admitir la lectura de recetas."
+    },
+    "recipe_refresh_failed": {
+      "message": "No se pudo actualizar ninguna receta. Se conservaron las recetas almacenadas anteriormente."
+    },
     "device_not_found": {
       "message": "No se encontró ninguna cafetera compatible para esta llamada al servicio."
     },

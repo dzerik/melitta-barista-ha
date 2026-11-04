@@ -94,7 +94,7 @@ async def test_diagnostics_full_result_structure(hass: HomeAssistant) -> None:
         # appears or vanishes unnoticed is exactly what this pins.
         "narration",
         # Which scanners see the machine and whether any can connect (#44).
-        "bluetooth_reach",
+        "bluetooth_reach", "recipes",
     }
 
     # Entry section

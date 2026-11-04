@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "Reseptien päivitys edellyttää yhdistettyä, vapaana olevaa laitetta, joka tukee reseptien lukemista."
+    },
+    "recipe_refresh_failed": {
+      "message": "Yhtään reseptiä ei voitu päivittää. Aiemmin ladatut reseptit säilytettiin."
+    },
     "device_not_found": {
       "message": "Tälle palvelukutsulle ei löytynyt tuettua kahvikonetta."
     },

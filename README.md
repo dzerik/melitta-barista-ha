@@ -648,14 +648,42 @@ Brew from a DirectKey profile slot (uses the active profile's personalized recip
 
 ### `melitta_barista.save_directkey`
 
-Save a recipe to a DirectKey profile slot.
+Save a recipe to a DirectKey profile slot. Existing bean-hopper selections and
+reserved component settings are preserved. If the current recipe cannot be
+read, saving fails instead of replacing unknown settings with defaults.
 
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
 | `entity_id` | string | Yes | Any entity from the Melitta device |
 | `category` | string | Yes | Recipe category (same as brew_directkey) |
 | `profile_id` | int | No | Profile ID (default: active profile) |
-| (recipe params) | — | — | Same as brew_freestyle |
+| (recipe params) | — | — | Component process, intensity, aroma, portion, temperature and shots, as in brew_freestyle. Hopper selection and two_cups are not save parameters. |
+
+### `melitta_barista.refresh_recipes`
+
+Read base and DirectKey profile recipes again without restarting Home Assistant
+or changing recipes on the machine. Use a button entity belonging to the
+connected, idle Melitta machine:
+
+```yaml
+action: melitta_barista.refresh_recipes
+data:
+  entity_id: button.melitta_brew
+response_variable: recipe_refresh
+```
+
+The optional response reports `base_updated`, `base_expected`,
+`directkey_updated`, `directkey_expected`, and `complete`. Failed reads retain
+previously cached recipes, so `complete: false` means some data may be stale.
+If no recipe can be read, the action reports an error and keeps the cache.
+Diagnostics include cache sizes and the last refresh result under `recipes`.
+
+Concurrent requests share one refresh. Reads use the configured recipe retry
+limit, with a one-minute budget for the whole refresh. When it expires, the
+response reports the partial progress. Brew commands are blocked until the
+refresh finishes. Nivona machines do not support this recipe-read action.
+The panel's Refresh button only reloads its cache view; use this action to
+request new data from the machine.
 
 ### `melitta_barista.repair_connection`
 

@@ -2,6 +2,42 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.96.0b1] — 2026-11-04 (beta)
+
+Recipe preservation and recovery for the reports in #54 and #55. Existing
+panel, card and app clients remain compatible; no client update is required.
+
+### Fixed
+
+- **Saved bean-hopper selection (#55):** saving a DirectKey recipe preserves
+  the hopper and reserved settings of both components. If the existing recipe
+  cannot be read, saving fails instead of overwriting unknown settings with
+  defaults. Previously overwritten settings must be restored on the machine.
+- **Profile recipe cache (#54):** unsuccessful reads retain previously loaded
+  slots. Successful reads update the cache generation; load logs report actual
+  successful recipe counts instead of counting empty profiles as loaded.
+- **Late recipe replies:** an HC response for a different recipe ID is ignored
+  while the requested recipe is still awaited, preventing stale replies from
+  supplying the wrong drink settings or entering the wrong cache slot.
+
+### Added
+
+- **`melitta_barista.refresh_recipes`:** reread base and DirectKey recipes from
+  a connected, idle Melitta machine without restarting Home Assistant. Concurrent
+  calls share one refresh, failed reads keep cached data, and an optional response
+  reports fresh versus expected counts. A one-minute budget limits the operation;
+  brew commands are blocked until it finishes. Nivona does not support HC reads.
+- **Recipe diagnostics:** cached recipe counts, refresh-in-progress status and
+  the last explicit refresh result help distinguish cached data from fresh reads.
+- **Localized refresh errors** in all 29 supported languages.
+
+### Validation and beta testing
+
+- 3120 tests passed, including 16 new regression cases; Ruff and Bandit `-ll` passed.
+- Not yet verified on physical hardware. In particular, the #54 report that only
+  a full Core restart restores recipes still needs confirmation during a failure.
+  Capture diagnostics and debug logs before restarting, then test `refresh_recipes`.
+
 ## [0.95.4] — 2026-10-02
 
 Restores local brew choices and sidebar panel preferences reported in #51 and #52.

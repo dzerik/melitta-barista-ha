@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from bleak.exc import BleakError
@@ -27,11 +28,13 @@ from .const import (
     USER_ACTIVITY_IDS,
     USER_NAME_IDS,
     get_directkey_id,
+    get_available_recipes,
     get_user_profile_count,
 )
 from .protocol import MachineRecipe, RecipeComponent
 
 _LOGGER = logging.getLogger("melitta_barista")
+_RECIPE_REFRESH_TIMEOUT = 60.0
 
 
 # Param keys (and `<key>_offset` attribute names on RecipeFieldLayout)
@@ -237,11 +240,14 @@ class BleRecipesMixin(_MixinBase):
         category: DirectKeyCategory,
         component1: RecipeComponent,
         component2: RecipeComponent,
+        *,
+        preserve_hidden_fields: bool = False,
     ) -> bool:
         """Write recipe for a profile and category via DirectKey.
 
-        Reads the current recipe first to preserve recipe_type,
-        then writes back with updated components.
+        Read the current recipe to preserve its type. Editors that do not
+        expose hopper/reserved fields set ``preserve_hidden_fields`` to keep
+        those bytes from both saved components, refusing an unreadable slot.
         """
         if not self.connected:
             return False
@@ -267,6 +273,21 @@ class BleRecipesMixin(_MixinBase):
 
                 if current:
                     recipe_type = current.recipe_type
+                    if preserve_hidden_fields:
+                        component1 = replace(
+                            component1, blend=current.component1.blend,
+                            reserve=current.component1.reserve,
+                        )
+                        component2 = replace(
+                            component2, blend=current.component2.blend,
+                            reserve=current.component2.reserve,
+                        )
+                elif preserve_hidden_fields:
+                    _LOGGER.error(
+                        "Cannot read recipe %d; refusing to overwrite saved settings",
+                        recipe_id,
+                    )
+                    return False
                 else:
                     recipe_type = DIRECTKEY_DEFAULT_RECIPE_TYPE.get(category, 0)
                     _LOGGER.warning(
@@ -464,16 +485,17 @@ class BleRecipesMixin(_MixinBase):
 
     # Profile data bulk read
 
-    async def read_profile_data(self) -> None:
-        """Read profile names and DirectKey recipes for all profiles.
+    async def read_profile_data(self, *, retries: int = 1) -> int:
+        """Refresh profiles without deleting slots whose reads fail.
 
         Gated on HC support: brands without recipe-read (e.g. Nivona)
-        return immediately.
+        return immediately. Return the number of successful recipe reads;
+        retained cached slots are not counted as freshly read.
         """
         if not self.connected:
-            return
+            return 0
         if "HC" not in self._brand.supported_extensions:
-            return
+            return 0
         profile_count = get_user_profile_count(self._machine_type)
         for i in range(1, profile_count + 1):
             if i in USER_NAME_IDS:
@@ -486,23 +508,126 @@ class BleRecipesMixin(_MixinBase):
                 except (BleakError, OSError, asyncio.TimeoutError):
                     _LOGGER.debug("Failed to read name for profile %d", i)
 
+        refreshed = 0
         for pid in range(0, profile_count + 1):
-            recipes: dict[int, MachineRecipe] = {}
+            recipes = self._directkey_recipes.setdefault(pid, {})
             for cat in DirectKeyCategory:
                 dk_id = get_directkey_id(pid, cat)
-                try:
-                    recipe = await self._protocol.read_recipe(self._write_ble, dk_id)
-                    if recipe:
-                        recipes[cat] = recipe
-                except (BleakError, OSError, asyncio.TimeoutError):
-                    _LOGGER.debug("Failed to read DirectKey %d (profile %d, %s)", dk_id, pid, cat.name)
-            self._directkey_recipes[pid] = recipes
+                recipe = await self._read_recipe_with_retries(dk_id, retries)
+                if recipe is not None:
+                    recipes[cat] = recipe
+                    refreshed += 1
+                    self.recipe_cache_generation += 1
 
         _LOGGER.info(
-            "Loaded %d profile names, DirectKey recipes for %d profiles",
-            len(self._profile_names) - 1, len(self._directkey_recipes),
+            "Read %d/%d DirectKey recipes; keeping previously cached slots on failure",
+            refreshed, (profile_count + 1) * len(DirectKeyCategory),
         )
         self._notify_profile_callbacks()
+        return refreshed
+
+    async def _read_recipe_with_retries(
+        self, recipe_id: int, attempts: int,
+    ) -> MachineRecipe | None:
+        """Retry a bounded number of reads without changing an existing cache."""
+        for _ in range(max(1, min(attempts, self._recipe_retries))):
+            if not self.connected:
+                break
+            try:
+                recipe = await self._protocol.read_recipe(self._write_ble, recipe_id)
+                if recipe is not None:
+                    return recipe
+            except (BleakError, OSError, asyncio.TimeoutError):
+                _LOGGER.debug("Failed to read recipe %d", recipe_id, exc_info=True)
+        return None
+
+    async def refresh_recipes(self) -> dict[str, int | bool] | None:
+        """Reload device recipes once for concurrent callers, retaining failed slots.
+
+        Return fresh/expected read counts, or ``None`` when the machine is
+        disconnected, busy, or does not support recipe reads. Cancelling a
+        caller leaves the shared refresh running; disconnect stops it.
+        """
+        task = self._recipe_refresh_task
+        if task is not None and not task.done():
+            return await asyncio.shield(task)
+        if (
+            not self.connected
+            or "HC" not in self._brand.supported_extensions
+            or self._brew_lock.locked()
+            or not self._is_brew_ready()
+        ):
+            return None
+        task = self._recipe_refresh_task = asyncio.create_task(
+            self._refresh_recipe_cache(),
+        )
+        return await asyncio.shield(task)
+
+    async def _refresh_recipe_cache(self) -> dict[str, int | bool] | None:
+        """Serialize an explicit refresh with brewing and notify cache consumers."""
+        async with self._brew_lock:
+            if not self.connected or not self._is_brew_ready():
+                return None
+            was_polling = self._poll_task is not None and not self._poll_task.done()
+            self._stop_polling()
+            try:
+                base_ids = get_available_recipes(self._machine_type)
+                base_updated = 0
+                directkey_updated = 0
+                profile_count = get_user_profile_count(self._machine_type)
+                directkey_expected = (
+                    profile_count + 1
+                ) * len(DirectKeyCategory)
+                try:
+                    async with asyncio.timeout(_RECIPE_REFRESH_TIMEOUT):
+                        for recipe_id in base_ids:
+                            recipe = await self._read_recipe_with_retries(
+                                int(recipe_id), self._recipe_retries,
+                            )
+                            if recipe is None:
+                                continue
+                            for callback in self._recipe_refresh_callbacks:
+                                try:
+                                    callback(int(recipe_id), recipe)
+                                except Exception:  # noqa: BLE001 - isolate subscribers
+                                    _LOGGER.exception("Error in recipe refresh callback")
+                            base_updated += 1
+                        for profile_id in range(profile_count + 1):
+                            for category in DirectKeyCategory:
+                                recipe = await self._read_recipe_with_retries(
+                                    get_directkey_id(profile_id, category),
+                                    self._recipe_retries,
+                                )
+                                if recipe is None:
+                                    continue
+                                self._directkey_recipes.setdefault(profile_id, {})[
+                                    category
+                                ] = recipe
+                                directkey_updated += 1
+                                self.recipe_cache_generation += 1
+                except asyncio.TimeoutError:
+                    _LOGGER.warning("Recipe refresh time budget reached; retaining cached slots")
+                self._notify_profile_callbacks()
+                result = {
+                    "base_updated": base_updated,
+                    "base_expected": len(base_ids),
+                    "directkey_updated": directkey_updated,
+                    "directkey_expected": directkey_expected,
+                    "complete": (
+                        base_updated == len(base_ids)
+                        and directkey_updated == directkey_expected
+                    ),
+                }
+                self.recipe_refresh_status = result
+                log = _LOGGER.info if result["complete"] else _LOGGER.warning
+                log(
+                    "Recipe refresh: base %d/%d, DirectKey %d/%d; failed reads keep cached data",
+                    base_updated, len(base_ids), directkey_updated, directkey_expected,
+                )
+                return result
+            finally:
+                if was_polling and self.connected:
+                    self.start_polling(interval=self._poll_interval)
 
     # Cup counters
 

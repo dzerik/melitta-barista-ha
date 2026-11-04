@@ -2978,6 +2978,12 @@ introspected from `SAVE_DIRECTKEY_SCHEMA` (byte-equal, pytest-diffed — the
 included); the schema has **no blend and no two_cups fields**, so no
 `params_ref` is needed:
 
+Saving through this schema preserves the existing raw hopper (`blend`) and
+reserved bytes of both components. These fields are absent from the editor's
+payload; absence must not select hopper 1. If the existing recipe cannot be
+read, the save fails rather than replacing hidden fields with defaults. The
+schema and action-catalog parameter shape remain unchanged.
+
 | action | group | process | invocation | confirm | requires | icon |
 | --- | --- | --- | --- | --- | --- | --- |
 | `save_directkey` | control | null | service `save_directkey`, **`entity_suffix: "brew"`** (the `_SERVICE_ANCHOR_SUFFIX` convention used by all three existing service entries — required: clients build the `entity_id` anchor from it, and the shipped card's `readInvocation` drops a service entry without one) | yes (overwrites a slot) | `["ready"]` | mdi:content-save |

@@ -532,6 +532,12 @@
     }
   },
   "exceptions": {
+    "recipe_refresh_unavailable": {
+      "message": "A receptek frissítéséhez csatlakoztatott, tétlen, a receptek olvasását támogató gép szükséges."
+    },
+    "recipe_refresh_failed": {
+      "message": "Egyetlen receptet sem sikerült frissíteni. A korábban betöltött receptek megmaradtak."
+    },
     "device_not_found": {
       "message": "Ehhez a szolgáltatáshíváshoz nem található támogatott kávéfőző."
     },
