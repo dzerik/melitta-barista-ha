@@ -333,6 +333,18 @@ class MelittaRecipes extends LitElement {
     return labelFor(`values.directkey_category.${token}`, bundled, token);
   }
 
+  /** Resolve the cached drink identity without changing the DirectKey target. */
+  _recipeLabel(recipe, index) {
+    const identity = recipe?.configured_recipe;
+    if (identity && typeof identity === "object" && !Array.isArray(identity)
+        && Number.isInteger(identity.type) && identity.type >= 0 && identity.type < 24
+        && typeof identity.name === "string" && identity.name.trim()
+        && typeof identity.name_key === "string" && /^[a-z][a-z0-9_]*$/.test(identity.name_key)) {
+      return labelFor(`recipes.name.${identity.name_key}`, identity.name, identity.name_key);
+    }
+    return this._categoryLabel(this._categoryToken(recipe, index), recipe?.name);
+  }
+
   /**
    * Family-scoped label for a vocabulary token (§6.3.5): server string
    * `values.<family>.<token>` → panel bundle (`recipes.opt.<token>`) →
@@ -415,6 +427,7 @@ class MelittaRecipes extends LitElement {
       category,
       recipeId: recipe?.id ?? null,
       name: recipe?.name || this._categoryLabel(category),
+      configured_recipe: recipe?.configured_recipe || null,
       icon: recipe?.icon || null,
       empty: !components[0],
       c1: this._componentForm(components[0], this._componentDefaults("c1")),
@@ -468,7 +481,7 @@ class MelittaRecipes extends LitElement {
       this._closeEditor();
       await this._load();
       this._showToast(
-        this._t("recipes.save_success", { category: this._categoryLabel(e.category) }),
+        this._t("recipes.save_success", { category: this._recipeLabel(e) }),
         "success",
       );
       this._error = "";
@@ -533,7 +546,6 @@ class MelittaRecipes extends LitElement {
   }
 
   _renderCategoryCard(recipe, index) {
-    const token = this._categoryToken(recipe, index);
     const connected = this._connected();
     const s1 = this._componentSummary(recipe.components?.[0]);
     const s2 = this._componentSummary(recipe.components?.[1]);
@@ -545,7 +557,7 @@ class MelittaRecipes extends LitElement {
         @click=${() => this._openEditor(recipe, index)}
       >
         <melitta-drink-icon .spec=${recipe.icon} size="40"></melitta-drink-icon>
-        <span class="drink-name">${this._categoryLabel(token, recipe.name)}</span>
+        <span class="drink-name">${this._recipeLabel(recipe, index)}</span>
         ${s1 ? html`<span class="drink-summary">${s1}</span>` : ""}
         ${s2 ? html`<span class="drink-summary">${s2}</span>` : ""}
       </button>
@@ -631,7 +643,7 @@ class MelittaRecipes extends LitElement {
     if (!e) return "";
     return html`
       <melitta-modal .open=${true}
-        .title=${this._t("recipes.edit_title", { category: this._categoryLabel(e.category, e.name) })}
+        .title=${this._t("recipes.edit_title", { category: this._recipeLabel(e) })}
         @close=${() => this._closeEditor()}>
         <div class="form">
           <div class="editor-head">

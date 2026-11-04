@@ -32,7 +32,7 @@ from .const import (
 )
 from .entity import MelittaDeviceMixin, MelittaLocalControl
 from .protocol import RecipeComponent
-from .ui_contract import build_icon_spec, component_to_tokens
+from .ui_contract import build_icon_spec, component_to_tokens, configured_recipe_identity
 
 
 PARALLEL_UPDATES = 0  # BLE: single connection, serialize via locks
@@ -354,7 +354,7 @@ class MelittaProfileSelect(MelittaLocalControl, SelectEntity):
     # The DirectKey recipe table (8 profiles × 7 categories) is exposed live
     # for the card/app but blows past the recorder's 16 KB attribute cap.
     # Keep it out of history (#13).
-    _unrecorded_attributes = frozenset({"directkey_recipes"})
+    _unrecorded_attributes = frozenset({"directkey_recipes", "directkey_drinks"})
     _client_attr = "active_profile"
 
     def __init__(
@@ -398,21 +398,29 @@ class MelittaProfileSelect(MelittaLocalControl, SelectEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
+        """Serve configured drink identities alongside the frozen recipe data."""
         attrs: dict = {"active_profile": self._client.active_profile}
-        # Expose DirectKey recipes for external consumers (PWA app)
+        drinks: dict[int, dict] = {}
         dk = self._client.directkey_recipes
         if dk:
             dk_out: dict[int, dict[str, dict]] = {}
             for pid, categories in dk.items():
                 dk_out[pid] = {}
+                drinks[pid] = {}
                 for cat_int, recipe in categories.items():
                     cat_name = _DK_CATEGORY_NAMES.get(cat_int, str(cat_int))
                     entry: dict[str, str | int] = {"category": cat_int}
                     entry.update(_component_attrs(recipe.component1, "c1"))
                     entry.update(_component_attrs(recipe.component2, "c2"))
                     dk_out[pid][cat_name] = entry
+                    try:
+                        token = DirectKeyCategory(cat_int).name.lower()
+                    except ValueError:
+                        continue
+                    drinks[pid][token] = configured_recipe_identity(recipe.recipe_type)
                 dk_out[pid] = dict(sorted(dk_out[pid].items()))
             attrs["directkey_recipes"] = dk_out
+        attrs["directkey_drinks"] = drinks
         return attrs
 
     async def async_added_to_hass(self) -> None:
