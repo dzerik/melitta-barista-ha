@@ -48,6 +48,7 @@ from .ui_contract import (
     build_icon_spec,
     build_ui_contract,
     component_to_tokens,
+    configured_recipe_identity,
 )
 
 _LOGGER = logging.getLogger("melitta_barista")
@@ -583,6 +584,7 @@ def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
     the post-connect preload fills; DirectKey recipes come from the
     per-profile cache. Since 0.93 every DirectKey row also carries its
     lower_snake ``category`` token (UI Contract §9.3.4, additive).
+    Configured drink identity is additive metadata; legacy labels stay fixed.
     """
     client = _resolve_client(hass, msg["entry_id"])
     if client is None:
@@ -624,6 +626,9 @@ def _ws_recipes_list(hass: HomeAssistant, connection, msg) -> None:
             # above stay frozen (§5.2 rule 8).
             row["category"] = (
                 category.name.lower() if category is not None else ""
+            )
+            row["configured_recipe"] = configured_recipe_identity(
+                getattr(recipes[cat_value], "recipe_type", None)
             )
             rows.append(row)
         directkey.append({

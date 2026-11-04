@@ -1134,6 +1134,22 @@ def build_action_catalog(
 # component_to_tokens (§3.3 RecipeComponentData)
 # ---------------------------------------------------------------------------
 
+def configured_recipe_identity(recipe_type: int | None) -> dict[str, int | str] | None:
+    """Describe a known cached Melitta drink without changing its slot identity.
+
+    Custom/Freestyle and unknown types have no inferred name. The canonical
+    name keys keep localization independent from translated display text.
+    """
+    if not isinstance(recipe_type, int) or isinstance(recipe_type, bool):
+        return None
+    recipe_id = 200 + recipe_type
+    name = RECIPE_NAMES.get(recipe_id)
+    name_key = MELITTA_RECIPE_NAME_KEYS.get(recipe_id)
+    if name is None or name_key is None:
+        return None
+    return {"type": recipe_type, "name": name, "name_key": name_key}
+
+
 def component_to_tokens(recipe_component: Any) -> dict[str, Any]:
     """Translate a protocol RecipeComponent into a token-level dict.
 

@@ -3040,6 +3040,37 @@ schema (byte-equality rule); the machine's real slot count lives in
    read-only; the profile select itself absent → the whole profile UI falls
    back per rule 1. Contract presence never overrides entity absence.
 
+#### 9.3.7 Configured DirectKey drink identity (additive, issue #61)
+
+The category identifies the physical key and the command target; the cached
+`recipe_type` identifies the drink saved in that slot. A profile's `espresso`
+category may therefore display Lungo while still targeting its DirectKey slot.
+
+Every `recipes/list` DirectKey row gains `configured_recipe`, either `null` or:
+
+```json
+{"type": 2, "name": "Lungo", "name_key": "lungo"}
+```
+
+The server derives this from known cached Melitta types 0–23, using the existing
+canonical recipe names and §6.3.6 name keys. Missing, invalid, custom/Freestyle
+(type 24) and unknown types produce `null`; components and portions never imply
+a drink identity. Base recipe rows and the frozen DirectKey `name` labels are
+unchanged.
+
+For entity-driven clients, the profile select exposes a separate, recorder-
+excluded `directkey_drinks` attribute with the same descriptors, keyed by profile
+slot then category token. It is `{}` before the cache is populated. This does
+not add keys inside frozen `directkey_recipes` and needs no extra BLE requests.
+
+Clients prefer `recipes.name.<name_key>` for the title, then descriptor `name`.
+They retain the old category label if metadata is absent, null or malformed.
+Data is scoped to each profile/category; refresh, metadata removal and locale
+changes must not reuse a previous label. The metadata is live recipe data, not
+a new fingerprint input or a duplicate of the contract's category/slot model.
+All brew/save/reset targets remain unchanged: Lungo in profile 1's Espresso
+slot 312 still uses category `espresso` / profile 1, never base recipe 202.
+
 ### 9.4 Fingerprint, `strings_version`, and propagation
 
 * Per the §5.1 delta: **no new fingerprint inputs.** `settings` and

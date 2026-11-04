@@ -2,6 +2,21 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.96.0b3] — 2026-11-04 (beta)
+
+### Added
+
+- **Configured DirectKey drink names (#61):** expose a separate localized
+  drink identity from the cached recipe type. The panel can show Lungo in an
+  Espresso slot while preserving the slot/category used by commands. Older
+  clients retain their frozen labels; unknown/custom types keep category
+  fallback. A separate recorder-excluded attribute supplies entity-driven
+  clients without extra BLE reads.
+
+Companion beta clients: card 2.12.1-beta.1 and PWA 3.1.5-beta.1.
+Existing clients remain compatible. Maintenance commands remain a separate
+stage and are not included in this release. Hardware testing is pending.
+
 ## [0.96.0b2] — 2026-11-04 (beta)
 
 ### Fixed
