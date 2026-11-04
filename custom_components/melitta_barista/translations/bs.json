@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Serijski broj"
+      },
+      "single_coffee_brews": {
+        "name": "Pojedinačne pripreme kafe"
+      },
+      "total_coffee_brews": {
+        "name": "Ukupno priprema kafe"
       }
     },
     "button": {

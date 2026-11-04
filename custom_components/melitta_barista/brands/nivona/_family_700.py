@@ -98,39 +98,41 @@ STATS_700: tuple[StatDescriptor, ...] = (
     _flag(105, "filter_dependency", "Filter dependency"),
 )
 
-# 79X family — like 700 but id 201 is "Kaffee" (not "Creme") and
-# selector 204 (Cappuccino) is absent. Cumulative counters are the same
-# block as 700.
+# 79X recipe stats follow the 79X selector table (202 Americano, 203
+# Cappuccino, no 204). Six counters pack their count into the low word;
+# the high word contains a related usage/aggregate value, not more count bits.
 STATS_79X: tuple[StatDescriptor, ...] = (
     _count(200, "espresso", "Espresso"),
     _count(201, "coffee", "Coffee"),                        # "Kaffee" on 79X
-    _count(202, "lungo", "Lungo"),
-    _count(203, "americano", "Americano"),
+    _count(202, "americano", "Americano", entity_key="lungo"),
+    _count(203, "cappuccino", "Cappuccino", entity_key="americano"),
     # selector 204 absent on 79X hardware
     _count(205, "latte_macchiato", "Latte macchiato"),
     _count(206, "milk", "Milk"),
     _count(207, "hot_water", "Hot water"),
     _count(208, "my_coffee", "My coffee"),
-    _count(209, "steam_drinks", "Steam drinks"),
-    _count(210, "powder_coffee", "Powder coffee"),
-    _count(211, "single_cup", "Single cup brews"),
+    _count(209, "steam_drinks", "Steam drinks", value_mask=0xFFFF),
+    _count(210, "powder_coffee", "Powder coffee", value_mask=0xFFFF),
+    _count(211, "single_coffee_brews", "Single coffee brews", entity_key="single_cup"),
     _count(212, "double_cup", "Double cup brews"),
-    _count(213, "total_beverages", "Total beverages"),
-    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance"),
-    _count(215, "clean_frother", "Clean frother", "maintenance"),
+    _count(213, "total_coffee_brews", "Total coffee brews", entity_key="total_beverages"),
+    _count(214, "clean_coffee_system", "Clean coffee system", "maintenance", value_mask=0xFFFF),
+    _count(215, "clean_frother", "Clean frother", "maintenance", value_mask=0xFFFF),
     _count(216, "rinse_cycles", "Rinse cycles", "maintenance"),
     _count(217, "rinse_frother", "Rinse frother", "maintenance"),
     _count(218, "rinse_filter", "Rinse filter", "maintenance"),
-    _count(219, "filter_changes", "Filter changes", "maintenance"),
-    _count(220, "descaling", "Descaling", "maintenance"),
+    _count(219, "filter_changes", "Filter changes", "maintenance", value_mask=0xFFFF),
+    _count(220, "descaling", "Descaling", "maintenance", value_mask=0xFFFF),
     _count(221, "beverages_via_app", "Beverages via app", "maintenance"),
-    _pct(600, "descale_percent", "Descaling progress"),
+    # These registers report raw usage, not percentages (values can exceed
+    # 100). Keep their released keys; do not invent a scaling denominator.
+    StatDescriptor(600, "descale_percent", "Descaling progress"),
     _flag(601, "descale_warning", "Descaling warning"),
-    _pct(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
+    StatDescriptor(610, "brew_unit_clean_percent", "Brewing unit cleaning progress"),
     _flag(611, "brew_unit_clean_warning", "Brewing unit cleaning warning"),
-    _pct(620, "frother_clean_percent", "Frother cleaning progress"),
+    StatDescriptor(620, "frother_clean_percent", "Frother cleaning progress"),
     _flag(621, "frother_clean_warning", "Frother cleaning warning"),
-    _pct(640, "filter_percent", "Filter progress"),
+    StatDescriptor(640, "filter_percent", "Filter progress"),
     _flag(641, "filter_warning", "Filter warning"),
     _flag(105, "filter_dependency", "Filter dependency"),
 )

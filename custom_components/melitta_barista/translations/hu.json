@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Sorozatszám"
+      },
+      "single_coffee_brews": {
+        "name": "Egyadagos kávéfőzések"
+      },
+      "total_coffee_brews": {
+        "name": "Összes kávéfőzés"
       }
     },
     "button": {

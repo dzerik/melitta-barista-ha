@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Numer seryjny"
+      },
+      "single_coffee_brews": {
+        "name": "Parzenia pojedynczej kawy"
+      },
+      "total_coffee_brews": {
+        "name": "Łącznie parzeń kawy"
       }
     },
     "button": {

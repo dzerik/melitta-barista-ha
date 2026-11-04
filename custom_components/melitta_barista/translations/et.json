@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Seerianumber"
+      },
+      "single_coffee_brews": {
+        "name": "Ühe kohvi valmistamised"
+      },
+      "total_coffee_brews": {
+        "name": "Kohvi valmistamised kokku"
       }
     },
     "button": {

@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .ble_client import resolve_caps_from_scanner
+from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import (
     PROFILE_NAMES,
@@ -156,6 +157,7 @@ async def async_setup_entry(
     # this block naturally skips it.
     caps = client.capabilities or resolve_caps_from_scanner(
         hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+        entry.options.get(CONF_FAMILY_OVERRIDE),
     )
     if caps is not None and caps.settings:
         for descriptor in caps.settings:

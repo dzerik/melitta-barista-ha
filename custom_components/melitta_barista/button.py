@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from homeassistant.const import CONF_ADDRESS
 from .ble_client import resolve_caps_from_scanner
+from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import (
     DOMAIN,
@@ -89,21 +90,33 @@ async def async_setup_entry(
     # the slot's cached ``enabled`` flag.
     caps_for_brew = client.capabilities or resolve_caps_from_scanner(
         hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+        entry.options.get(CONF_FAMILY_OVERRIDE),
     )
-    if (
-        caps_for_brew is not None
-        and caps_for_brew.my_coffee_slots > 0
-        and client.brand.mycoffee_layout(caps_for_brew.family_key) is not None
-    ):
-        for slot in range(caps_for_brew.my_coffee_slots):
-            entities.append(NivonaBrewMyCoffeeButton(client, entry, name, slot))
+    added_capability_ids: set[str] = set()
 
-    # Reset brew overrides button — clears the ``user_set`` flag on all
-    # NivonaBrewOverrideNumber sliders so the next brew uses the machine's
-    # saved recipe instead of a temp-recipe override. Registered for brands
-    # that support per-brew temp-recipe overrides (Nivona).
-    if caps_for_brew is not None and caps_for_brew.supports_brew_overrides:
-        entities.append(NivonaResetOverridesButton(client, entry, name))
+    def capability_buttons(resolved) -> list[ButtonEntity]:
+        built: list[ButtonEntity] = []
+        if client.brand.mycoffee_layout(resolved.family_key) is not None:
+            built.extend(
+                NivonaBrewMyCoffeeButton(client, entry, name, slot)
+                for slot in range(resolved.my_coffee_slots)
+            )
+        if resolved.supports_brew_overrides:
+            built.append(NivonaResetOverridesButton(client, entry, name))
+        missing = [e for e in built if e.unique_id not in added_capability_ids]
+        added_capability_ids.update(e.unique_id for e in missing)
+        return missing
+
+    if caps_for_brew is not None:
+        entities.extend(capability_buttons(caps_for_brew))
+
+    @callback
+    def on_connected(connected: bool) -> None:
+        if connected and client.capabilities is not None:
+            async_add_entities(capability_buttons(client.capabilities))
+
+    client.add_connection_callback(on_connected)
+    entry.async_on_unload(lambda: client.remove_connection_callback(on_connected))
 
     # Maintenance buttons
     entities.append(MelittaMaintenanceButton(

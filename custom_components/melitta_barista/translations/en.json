@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Serial number"
+      },
+      "single_coffee_brews": {
+        "name": "Single coffee brews"
+      },
+      "total_coffee_brews": {
+        "name": "Total coffee brews"
       }
     },
     "button": {

@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Сериски број"
+      },
+      "single_coffee_brews": {
+        "name": "Подготовки на едно кафе"
+      },
+      "total_coffee_brews": {
+        "name": "Вкупно подготовки на кафе"
       }
     },
     "button": {

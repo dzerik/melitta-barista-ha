@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Serienummer"
+      },
+      "single_coffee_brews": {
+        "name": "Enkele koffiezettingen"
+      },
+      "total_coffee_brews": {
+        "name": "Totaal aantal koffiezettingen"
       }
     },
     "button": {

@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Серийный номер"
+      },
+      "single_coffee_brews": {
+        "name": "Приготовления одной порции кофе"
+      },
+      "total_coffee_brews": {
+        "name": "Всего приготовлений кофе"
       }
     },
     "button": {

@@ -153,6 +153,21 @@ settings: tuple[SettingDescriptor, ...] = ()    # HR-readable settings
 stats: tuple[StatDescriptor, ...] = ()          # HR counters
 ```
 
+Each `StatDescriptor` declares the register ID, display/translation `key`,
+title, unit and diagnostic category. Optional `value_mask` selects the count
+bits of a packed register; shared sensors must not guess a width from the
+brand or family. Optional `entity_key` preserves an already released HA unique
+ID when the display key is corrected. It identifies the same physical register
+and must be unique within the family's stats table. `unit="count"` denotes an
+increasing counter; `unit=None` can represent a warning flag or a raw usage
+gauge with unknown units and no statistics state class.
+
+Capability-driven statistics use one entry-local read queue. Reads run on
+connection, after a busy-to-ready transition and every five minutes while idle.
+Concurrent requests share a pass, failed reads keep cached values, and successful
+zeros or decreases remain valid. Disconnect/unload cancels active reads. None
+of these refreshes changes the persisted recipe or machine settings.
+
 **Important:** Melitta leaves `settings = ()` even though it has
 settings entities — Melitta's settings are surfaced through the legacy
 hand-coded `MachineSettingSelect/Number/Switch` entities (driven by

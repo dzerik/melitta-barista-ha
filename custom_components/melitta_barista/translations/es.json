@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Número de serie"
+      },
+      "single_coffee_brews": {
+        "name": "Preparaciones individuales de café"
+      },
+      "total_coffee_brews": {
+        "name": "Total de preparaciones de café"
       }
     },
     "button": {

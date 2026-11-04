@@ -172,12 +172,18 @@ class SettingDescriptor:
 
 @dataclass(frozen=True)
 class StatDescriptor:
-    """One read-only stat counter."""
+    """One read-only register: presentation, decoding and stable entity identity.
+
+    ``value_mask`` selects a counter inside a packed register. ``entity_key``
+    preserves released HA unique IDs when the display/translation key changes.
+    """
     stat_id: int
     key: str
     title: str
     unit: str | None = None
     is_diagnostic: bool = True
+    value_mask: int | None = None
+    entity_key: str | None = None
 
 
 @dataclass(frozen=True)

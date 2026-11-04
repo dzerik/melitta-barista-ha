@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Seriennummer"
+      },
+      "single_coffee_brews": {
+        "name": "Einzelne Kaffeebezüge"
+      },
+      "total_coffee_brews": {
+        "name": "Kaffeebezüge gesamt"
       }
     },
     "button": {

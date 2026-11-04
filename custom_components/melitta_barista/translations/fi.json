@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Sarjanumero"
+      },
+      "single_coffee_brews": {
+        "name": "Yhden kahvin valmistukset"
+      },
+      "total_coffee_brews": {
+        "name": "Kahvin valmistuksia yhteensä"
       }
     },
     "button": {

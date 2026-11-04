@@ -2,6 +2,35 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [0.96.0b2] — 2026-11-04 (beta)
+
+### Fixed
+
+- **Nivona identification (#59):** use the HL serial when DIS reports a generic
+  module, trim serial padding, and retain per-model capabilities in early
+  scanner lookups. A matching family override still permits model refinement;
+  a conflicting override remains authoritative.
+- **Late MyCoffee discovery (#59):** register missing brew buttons and amount
+  sensors when capabilities resolve or gain a fifth slot after connection.
+  Repeated connections do not duplicate entities.
+- **Register reply correlation:** ignore HR/HA replies for other register IDs,
+  including delayed replies arriving after a previous read timed out.
+- **79x statistics (#59):** decode the low 16 bits of packed registers
+  209/210/214/215/219/220, remove incorrect percentage units from maintenance
+  usage gauges, and correct the Americano/Cappuccino and coffee-total labels.
+  Existing entity IDs are preserved; previously recorded values are not repaired.
+- **Statistics refresh (#59):** share one sequential read queue on connection,
+  after busy-to-ready transitions, and every five minutes while idle. Preserve
+  cached values on failed reads, accept successful zeros/resets, defer reads
+  while busy, and cancel outstanding reads on disconnect or unload.
+
+Maintenance command mappings and unknown Nivona process states remain outside
+this change and require further hardware evidence.
+
+Validation: 3155 tests passed, including 35 new regression cases; Ruff and
+Bandit `-ll` passed. The changes have not yet been tested on physical NICR 795
+hardware. Existing recorder history is preserved, including any old bad values.
+
 ## [0.96.0b1] — 2026-11-04 (beta)
 
 Recipe preservation and recovery for the reports in #54 and #55. Existing

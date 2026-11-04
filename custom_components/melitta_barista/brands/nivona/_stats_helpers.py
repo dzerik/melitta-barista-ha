@@ -13,11 +13,15 @@ from __future__ import annotations
 from ..base import StatDescriptor
 
 
-def _count(stat_id: int, key: str, title: str, section: str = "beverages") -> StatDescriptor:
+def _count(
+    stat_id: int, key: str, title: str, section: str = "beverages", *,
+    value_mask: int | None = None, entity_key: str | None = None,
+) -> StatDescriptor:
     """Beverage / maintenance counter (unit = ``count``)."""
     return StatDescriptor(
         stat_id=stat_id, key=key, title=title,
         unit="count", is_diagnostic=(section == "maintenance"),
+        value_mask=value_mask, entity_key=entity_key,
     )
 
 

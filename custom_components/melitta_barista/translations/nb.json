@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Serienummer"
+      },
+      "single_coffee_brews": {
+        "name": "Enkle kaffebrygginger"
+      },
+      "total_coffee_brews": {
+        "name": "Kaffebrygginger totalt"
       }
     },
     "button": {

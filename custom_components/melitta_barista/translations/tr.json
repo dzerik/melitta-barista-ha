@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Seri numarası"
+      },
+      "single_coffee_brews": {
+        "name": "Tek kahve hazırlama"
+      },
+      "total_coffee_brews": {
+        "name": "Toplam kahve hazırlama"
       }
     },
     "button": {

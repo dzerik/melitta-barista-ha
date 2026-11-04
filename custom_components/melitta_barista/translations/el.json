@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Σειριακός αριθμός"
+      },
+      "single_coffee_brews": {
+        "name": "Παρασκευές μονού καφέ"
+      },
+      "total_coffee_brews": {
+        "name": "Συνολικές παρασκευές καφέ"
       }
     },
     "button": {
