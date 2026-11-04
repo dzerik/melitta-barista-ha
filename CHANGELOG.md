@@ -2,6 +2,14 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [Unreleased] — 0.96.0b4
+
+### Documentation
+
+- Record the community-reported ATOM Lite BLE proxy setup with a NIVO 9101
+  in the hardware compatibility list (#56). Detailed functional and stability
+  validation is pending. This documentation update has no release tag.
+
 ## [0.96.0b3] — 2026-11-04 (beta)
 
 ### Added
