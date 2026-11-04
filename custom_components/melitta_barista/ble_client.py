@@ -189,30 +189,61 @@ def _source_pinned_ha_client_class(source: str):
 # backwards compatibility.
 
 
+def _capabilities_from_identity(
+    brand: BrandProfile,
+    candidates: tuple[str | None, ...],
+    dis: dict[str, str] | None = None,
+    family_override: str | None = None,
+) -> MachineCapabilities | None:
+    """Refine a family from identity without overriding the user's family choice."""
+    override = family_override if family_override in brand.families else None
+    model_lookup = getattr(brand, "capabilities_for_model", None)
+    if model_lookup is not None:
+        for candidate in candidates:
+            if not candidate:
+                continue
+            # Resolve each identity independently before using DIS fallback;
+            # otherwise a generic first candidate can mask a later model ID.
+            caps = model_lookup(candidate, None)
+            if caps is not None and (override is None or caps.family_key == override):
+                return caps
+        caps = model_lookup("", dis) if dis else None
+        if caps is not None and (override is None or caps.family_key == override):
+            return caps
+    if override is not None:
+        return brand.capabilities_for(override)
+    for candidate in candidates:
+        family = brand.detect_family(candidate or "", dis)
+        if family:
+            return brand.capabilities_for(family)
+    return None
+
+
 def resolve_caps_from_scanner(
     hass: HomeAssistant,
     address: str,
     brand: BrandProfile,
+    family_override: str | None = None,
 ) -> MachineCapabilities | None:
-    """Resolve MachineCapabilities from the HA bluetooth scanner cache.
+    """Resolve model capabilities from the scanner, honoring a family override.
 
-    Useful at async_setup_entry time when the BLE client has not
-    connected yet (client.capabilities is None). Uses O(1) address
-    lookup via async_ble_device_from_address.
+    Matching model identities refine the selected family. A conflicting
+    advertisement cannot create entities outside the explicitly chosen family.
     """
     from homeassistant.components import bluetooth  # noqa: PLC0415
 
+    ble_name = None
     try:
         ble_device = bluetooth.async_ble_device_from_address(
             hass, address.upper(), connectable=True,
         )
-        if ble_device and ble_device.name:
-            family = brand.detect_family(ble_device.name, None)
-            if family:
-                return brand.capabilities_for(family)
+        if ble_device:
+            ble_name = ble_device.name
     except Exception:  # noqa: BLE001
         _LOGGER.debug("Early caps resolution failed", exc_info=True)
-    return None
+    return _capabilities_from_identity(
+        brand, (ble_name,), family_override=family_override,
+    )
 
 
 # Melitta service UUID for BLE discovery
@@ -2091,7 +2122,14 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         """Stop background work and close the machine connection."""
         self._auto_reconnect = False
         self._disconnecting = True
+        was_connected = self._connected
         self._connected = False
+        if was_connected:
+            for cb in tuple(self._connection_callbacks):
+                try:
+                    cb(False)
+                except Exception:  # noqa: BLE001
+                    _LOGGER.exception("Error in connection callback")
         self._stop_polling()
         if self._recipe_refresh_task and not self._recipe_refresh_task.done():
             self._recipe_refresh_task.cancel()
@@ -2155,37 +2193,14 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             _LOGGER.info("DIS: %s", self._dis_info)
 
     def _resolve_capabilities(self):
-        """Resolve MachineCapabilities from brand + DIS + override."""
-        profile = self._brand
-        # 1. Explicit user override
-        if self._family_override and self._family_override in profile.families:
-            _LOGGER.info(
-                "Using family override %s from Options Flow",
-                self._family_override,
-            )
-            return profile.capabilities_for(self._family_override)
-        # 2. Nivona-style per-model lookup (serial-prefix cascade) if supported
-        # Include BLE advertisement name from the BLEDevice reference, which
-        # may differ from _device_name (friendly name stored in config entry).
-        ble_adv_name = getattr(self._ble_device, "name", None)
-        model_lookup = getattr(profile, "capabilities_for_model", None)
-        if model_lookup is not None:
-            # Try DIS serial first (most accurate), then advertisement name.
-            for candidate in (self._dis_info.get("serial"), self._device_name, ble_adv_name):
-                if not candidate:
-                    continue
-                try:
-                    caps = model_lookup(candidate, self._dis_info)
-                except Exception:  # noqa: BLE001
-                    caps = None
-                if caps is not None:
-                    return caps
-        # 3. Family detect via ble_name
-        for candidate in (self._device_name or "", ble_adv_name or ""):
-            family = profile.detect_family(candidate, self._dis_info or None)
-            if family:
-                return profile.capabilities_for(family)
-        return None
+        """Resolve model capabilities from HL, DIS and advertisement identity."""
+        return _capabilities_from_identity(
+            self._brand,
+            (self._serial, self._dis_info.get("serial"),
+             getattr(self._ble_device, "name", None), self._device_name),
+            self._dis_info or None,
+            self._family_override,
+        )
 
     def _fallback_capabilities(self):
         """Melitta-only capability fallback from the HR machine type.

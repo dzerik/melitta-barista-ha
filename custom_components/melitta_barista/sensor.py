@@ -11,9 +11,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from ._brand_stats import BrandStatsCoordinator
 from .ble_client import resolve_caps_from_scanner
+from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
-from .coffee_platform.domain import MachineCapabilities
+from .coffee_platform.domain import MachineCapabilities, StatDescriptor
 from .const import FeatureFlags, InfoMessage, MachineProcess, Manipulation, SubProcess
 from .entity import MelittaDeviceMixin
 from .protocol import MachineStatus
@@ -94,10 +96,17 @@ async def async_setup_entry(
     # capability-driven stat sensors can register without waiting.
     caps = client.capabilities
     if caps is None:
-        caps = resolve_caps_from_scanner(hass, entry.data.get(CONF_ADDRESS, ""), client.brand)
+        caps = resolve_caps_from_scanner(
+            hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+            entry.options.get(CONF_FAMILY_OVERRIDE),
+        )
+
+    stats_coordinator: BrandStatsCoordinator | None = None
+    added_capability_ids: set[str] = set()
 
     def capability_entities(resolved: MachineCapabilities) -> list:
         """The sensors that only exist once the machine's family is known."""
+        nonlocal stats_coordinator
         built: list = []
 
         # Legacy Melitta total-cups sensor reads HR id 150 — capability-flagged
@@ -110,8 +119,12 @@ async def async_setup_entry(
         # expose a stats table AND don't already have a hand-tailored
         # total-cups sensor (Melitta).
         elif resolved.stats:
+            if stats_coordinator is None:
+                stats_coordinator = BrandStatsCoordinator(hass, client)
+                entry.async_on_unload(stats_coordinator.close)
+            stats_coordinator.set_descriptors(resolved.stats)
             for descriptor in resolved.stats:
-                built.append(BrandStatSensor(client, entry, name, descriptor))
+                built.append(BrandStatSensor(client, entry, name, descriptor, stats_coordinator))
 
         # MyCoffee slot amount sensors — Nivona only. For each slot 0..N-1,
         # register one sensor per amount param (coffee / water / milk /
@@ -133,40 +146,22 @@ async def async_setup_entry(
                             client, entry, name, slot, param_key,
                         )
                     )
-        return built
+        missing = [e for e in built if e.unique_id not in added_capability_ids]
+        added_capability_ids.update(e.unique_id for e in missing)
+        return missing
 
     if caps is not None:
         entities.extend(capability_entities(caps))
-    else:
-        # Capabilities are unknown until the first BLE connect, and the
-        # scanner cache cannot resolve them either (a localized device name,
-        # or a proxy advertisement without a local_name). Registering nothing
-        # here used to be permanent: the cup counters simply never appeared
-        # for anyone whose machine was off when Home Assistant started, until
-        # they reloaded the entry by hand. Instead, wait for the connect that
-        # resolves the family and add them then.
-        added = False
 
-        def on_connected(connected: bool) -> None:
-            nonlocal added
-            if added or not connected:
-                return
-            resolved = client.capabilities
-            if resolved is None:
-                return
-            added = True
-            _LOGGER.debug(
-                "Capabilities resolved after connect — adding %s sensors",
-                resolved.family_key,
-            )
-            # Not removed from inside the callback: the client iterates its
-            # callback list while calling us.
-            async_add_entities(capability_entities(resolved))
+    @callback
+    def on_connected(connected: bool) -> None:
+        # Register missing entities even if an earlier family-level lookup
+        # succeeded: HL can later refine four MyCoffee slots into five.
+        if connected and client.capabilities is not None:
+            async_add_entities(capability_entities(client.capabilities))
 
-        client.add_connection_callback(on_connected)
-        entry.async_on_unload(
-            lambda: client.remove_connection_callback(on_connected),
-        )
+    client.add_connection_callback(on_connected)
+    entry.async_on_unload(lambda: client.remove_connection_callback(on_connected))
 
     async_add_entities(entities)
 
@@ -451,21 +446,16 @@ class MelittaTotalCupsSensor(_MelittaSensorBase):
 # ---------------------------------------------------------------------------
 
 class BrandStatSensor(_MelittaSensorBase):
-    """Generic stat sensor driven by a ``StatDescriptor`` from the active
-    BrandProfile capabilities. Polls via HR at integration's poll interval
-    plus refreshes on connection events. Used for Nivona families that
-    expose per-recipe cup counters, maintenance counters, and percent/flag
-    gauges through the shared Eugster numeric-register protocol.
-    """
+    """Capability-driven statistic using the entry's shared read cache."""
 
-    def __init__(self, client: CoffeeMachineClient, entry, name: str, descriptor) -> None:
+    def __init__(
+        self, client: CoffeeMachineClient, entry: ConfigEntry, name: str,
+        descriptor: StatDescriptor, coordinator: BrandStatsCoordinator,
+    ) -> None:
         super().__init__(client, entry, name)
         self._desc = descriptor
-        self._value: int | None = None
+        self._coordinator = coordinator
         self._attr_name = descriptor.title
-        # Translation key so HA looks up localized names under
-        # `entity.sensor.<descriptor.key>.name` in translations/*.json.
-        # Falls back to `_attr_name` (English) for keys not present.
         self._attr_translation_key = descriptor.key
         if descriptor.is_diagnostic:
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -475,16 +465,26 @@ class BrandStatSensor(_MelittaSensorBase):
             self._attr_native_unit_of_measurement = None
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         elif descriptor.unit is None:
-            # flag (0/1) — render as binary count
+            # Warning flag or raw usage gauge with no known physical unit.
             self._attr_native_unit_of_measurement = None
 
     @property
     def unique_id(self) -> str:
-        return f"{self._client.address}_stat_{self._desc.key}"
+        """Keep the identity of the physical register across label corrections."""
+        return f"{self._client.address}_stat_{self._desc.entity_key or self._desc.key}"
 
     @property
     def native_value(self) -> int | None:
-        return self._value
+        """Decode only the count bits declared by the brand's descriptor."""
+        value = self._coordinator.values.get(self._desc.stat_id)
+        if value is not None and self._desc.value_mask is not None:
+            return value & self._desc.value_mask
+        return value
+
+    @property
+    def available(self) -> bool:
+        """Retain cached values while exposing disconnects to Home Assistant."""
+        return self._client.connected
 
     @property
     def icon(self) -> str:
@@ -496,32 +496,10 @@ class BrandStatSensor(_MelittaSensorBase):
         return "mdi:alert-circle-outline"   # flag
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to cached updates and join the initial shared refresh."""
         await super().async_added_to_hass()
-        if self._client.connected:
-            await self._refresh()
-
-    @callback
-    def _on_status_update(self, status) -> None:
-        # Status updates arrive every poll; piggyback to refresh the
-        # stat lazily (rate-limited by HR single-flight lock upstream).
-        super()._on_status_update(status)
-
-    @callback
-    def _on_connection_change(self, connected: bool) -> None:
-        super()._on_connection_change(connected)
-        if connected:
-            self.hass.async_create_task(self._refresh())
-
-    async def _refresh(self) -> None:
-        try:
-            value = await self._client.read_setting(self._desc.stat_id)
-            if value is not None:
-                self._value = value
-                self.async_write_ha_state()
-        except Exception:  # noqa: BLE001
-            _LOGGER.debug(
-                "BrandStatSensor %s refresh failed", self._desc.key, exc_info=True,
-            )
+        self.async_on_remove(self._coordinator.subscribe(self.async_write_ha_state))
+        self._coordinator.request_initial_refresh()
 
 
 class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):

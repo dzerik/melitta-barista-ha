@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Număr de serie"
+      },
+      "single_coffee_brews": {
+        "name": "Preparări de cafea simplă"
+      },
+      "total_coffee_brews": {
+        "name": "Total preparări de cafea"
       }
     },
     "button": {

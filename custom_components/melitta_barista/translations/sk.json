@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Sériové číslo"
+      },
+      "single_coffee_brews": {
+        "name": "Prípravy jednej kávy"
+      },
+      "total_coffee_brews": {
+        "name": "Celkový počet príprav kávy"
       }
     },
     "button": {

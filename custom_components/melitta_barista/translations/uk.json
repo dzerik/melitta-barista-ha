@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Серійний номер"
+      },
+      "single_coffee_brews": {
+        "name": "Приготування однієї порції кави"
+      },
+      "total_coffee_brews": {
+        "name": "Усього приготувань кави"
       }
     },
     "button": {

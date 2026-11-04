@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Serijos numeris"
+      },
+      "single_coffee_brews": {
+        "name": "Vienos kavos ruošimai"
+      },
+      "total_coffee_brews": {
+        "name": "Iš viso kavos ruošimų"
       }
     },
     "button": {

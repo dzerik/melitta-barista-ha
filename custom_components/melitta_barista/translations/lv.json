@@ -319,6 +319,12 @@
       },
       "serial_number": {
         "name": "Sērijas numurs"
+      },
+      "single_coffee_brews": {
+        "name": "Vienas kafijas pagatavošanas"
+      },
+      "total_coffee_brews": {
+        "name": "Kopējais kafijas pagatavošanu skaits"
       }
     },
     "button": {

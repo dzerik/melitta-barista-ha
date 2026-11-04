@@ -701,13 +701,13 @@ class EugsterProtocol:
         """Read machine serial number via HL (20-byte ASCII response).
 
         Empty request payload, response is a 20-byte ASCII string commonly
-        zero-padded. Returns ``None`` if the machine does not answer (some
+        zero- or hyphen-padded. Returns ``None`` if the machine does not answer (some
         firmwares may not respond to HL even though the frame size is
         registered).
         """
         data = await self.send_and_wait_response(CMD_READ_SERIAL, None, write_func)
         if data:
-            return data.rstrip(b"\x00").decode("utf-8", errors="replace").strip()
+            return data.decode("utf-8", errors="replace").rstrip("\x00- ").strip()
         return None
 
     async def read_features(self, write_func) -> FeatureFlags | None:
@@ -729,16 +729,22 @@ class EugsterProtocol:
         return FeatureFlags(data[0])
 
     async def read_numerical(self, write_func, value_id: int) -> int | None:
+        """Read a numeric register, ignoring late replies for other IDs."""
         payload = struct.pack(">h", value_id)
-        data = await self.send_and_wait_response(CMD_READ_NUMERICAL, payload, write_func)
+        data = await self.send_and_wait_response(
+            CMD_READ_NUMERICAL, payload, write_func, expected_id=value_id,
+        )
         if data:
             nv = NumericalValue.from_payload(data)
             return nv.value if nv else None
         return None
 
     async def read_alphanumeric(self, write_func, value_id: int) -> str | None:
+        """Read a text register, ignoring late replies for other IDs."""
         payload = struct.pack(">h", value_id)
-        data = await self.send_and_wait_response(CMD_READ_ALPHA, payload, write_func)
+        data = await self.send_and_wait_response(
+            CMD_READ_ALPHA, payload, write_func, expected_id=value_id,
+        )
         if data:
             av = AlphanumericValue.from_payload(data)
             return av.value if av else None

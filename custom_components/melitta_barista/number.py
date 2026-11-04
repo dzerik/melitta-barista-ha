@@ -17,6 +17,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.const import CONF_ADDRESS
 
 from .ble_client import resolve_caps_from_scanner
+from .const import CONF_FAMILY_OVERRIDE
 from .brands.nivona._options import nivona_number_range
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import DOMAIN, MELITTA_SETTING_TABLES
@@ -91,6 +92,7 @@ async def async_setup_entry(
     # the first connect.
     caps_resolved = client.capabilities or resolve_caps_from_scanner(
         hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+        entry.options.get(CONF_FAMILY_OVERRIDE),
     )
     excluded_ids: frozenset[int] = (
         caps_resolved.unsupported_generic_setting_ids

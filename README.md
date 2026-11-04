@@ -47,6 +47,19 @@ A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart
 
 The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona, which advertises as either the legacy `NIVONA-NNNNNNNNNN-----` form, the bare `NNNNNNNNNN-----` form, or — on newer firmware like NICR 930 — a 15-digit serial without dashes such as `930254000000000`) and confirmed via the BLE protocol. Nivona firmware does not expose recipe-editing opcodes, so recipe/freestyle/profile entities are suppressed for Nivona entries.
 
+Nivona identification also uses the HL serial when the advertisement and Device
+Information Service do not identify the model. NICR 795 exposes five MyCoffee
+slots; their buttons and amount sensors can appear after the first connection
+without reloading the integration. Family overrides still take precedence.
+
+Nivona statistics refresh on connection, after the machine returns to Ready,
+and every five minutes while idle. Failed reads retain cached values; successful
+zeros and resets are accepted. On 79x, packed counters use their low 16 bits and
+maintenance usage gauges have no percentage unit. Existing entity IDs are kept
+when labels are corrected. These fixes do not repair previously recorded values;
+maintenance commands and unrecognized maintenance states still need hardware
+validation (see [#59](https://github.com/dzerik/melitta-barista-ha/issues/59)).
+
 ## Nivona (alpha) — testers wanted
 
 **Status**: the Nivona `BrandProfile` shipped in v0.41.0 is **code-complete and cryptographically validated** against the upstream protocol vectors published by [mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge), but the maintainer does **not own a Nivona machine** and cannot verify live BLE interop. The release is marked pre-release on GitHub.
