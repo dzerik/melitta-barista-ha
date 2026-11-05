@@ -4,7 +4,7 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
-## [0.96.0b9] — 2026-11-05 (beta)
+## [0.96.0b10] — 2026-11-05 (beta)
 
 ### Added
 - Give NIVO 9101 an independent experimental family with its own recipes, settings, statistics and 16 MyCoffee slots.
@@ -12,6 +12,7 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 ### Fixed
 - Resolve 9101 recipe storage separately from brew selectors and use its independent temporary register layout.
 - Require a successful model-specific preparation acknowledgment before dependent recipe or setting writes; abort partial temporary recipes instead of starting them.
+- Enforce the saved Americano water limit and retire unsupported generic controls without losing registry customizations.
 - Seed complete 9101 temporary recipes from current saved fields and verified defaults, with distinct chilled behavior.
 - Keep automatic switch-on labels consistent across the panel and native entities while retaining existing entity identities.
 

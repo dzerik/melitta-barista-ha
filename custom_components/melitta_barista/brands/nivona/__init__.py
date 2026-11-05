@@ -90,7 +90,7 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         settings=_settings.settings_for_family(k, v["capabilities"].settings),
         unsupported_setting_keys=(
             "off_rinse", "tank_light", "tank_light_color", "tank_light_brightness", "touch_lock",
-        ) if k == "900" else (),
+        ) if k == "900" else v["capabilities"].unsupported_setting_keys,
     )
     for k, v in _FAMILY_DATA.items()
 }

@@ -88,7 +88,7 @@ async def async_setup_entry(
 
     Generic Eugster settings are filtered through the family's
     ``unsupported_generic_setting_ids`` capability (issue #10: the LANGUAGE
-    register is not implemented by any Nivona family — the entity was
+    register is not implemented by legacy Nivona families — the entity was
     permanently dead on a live NICR 790). Stale registry entries for
     excluded settings are removed so they don't linger as unavailable.
     """
@@ -124,13 +124,13 @@ async def async_setup_entry(
             stale = ent_reg.async_get_entity_id(
                 "number", DOMAIN, f"{client.address}_setting_{setting_id}",
             )
-            if stale:
+            if stale and (old := ent_reg.async_get(stale)) is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
                 _LOGGER.debug(
-                    "Removing stale number entity %s (setting %d unsupported "
+                    "Disabling stale number entity %s (setting %d unsupported "
                     "by family %s)",
                     stale, setting_id, caps_resolved.family_key,
                 )
-                ent_reg.async_remove(stale)
+                ent_reg.async_update_entity(stale, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
     # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
     # hours/minutes and any future options-less setting descriptor).
     # Options-bearing descriptors become selects in select.py; here we
@@ -237,7 +237,10 @@ class MelittaSettingNumber(MelittaDeviceMixin, NumberEntity):
 
     @property
     def available(self) -> bool:
-        return self._client.connected
+        """Hide a generic control when the resolved model cannot serve its register."""
+        return self._client.connected and bool(self._client.brand.can_read_setting(
+            self._client.capabilities, self._setting_id,
+        ))
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)

@@ -9,13 +9,15 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from bleak.exc import BleakError
 
 from .coffee_platform.contract import CoffeeMachineClient
-from .const import MELITTA_SETTING_TABLES, MachineType, get_user_profile_count
+from .const import DOMAIN, MELITTA_SETTING_TABLES, MachineType, get_user_profile_count
 from .entity import MelittaDeviceMixin
 
 
@@ -50,10 +52,21 @@ async def async_setup_entry(
     client: CoffeeMachineClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
+    caps = client.capabilities
+    excluded = caps.unsupported_generic_setting_ids if caps else frozenset()
+    registry = er.async_get(hass)
+    for setting_id in excluded:
+        entity_id = registry.async_get_entity_id(
+            "switch", DOMAIN, f"{client.address}_switch_{setting_id}",
+        )
+        old = registry.async_get(entity_id) if entity_id else None
+        if old is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
+            registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+
     entities = [
         MelittaSettingSwitch(client, entry, name, defn)
         for defn in SWITCH_DEFINITIONS
-        if not (
+        if int(defn["id"]) not in excluded and not (
             defn["ts_only"]
             and client.machine_type == MachineType.BARISTA_T
         )
@@ -96,7 +109,10 @@ class MelittaSettingSwitch(MelittaDeviceMixin, SwitchEntity):
 
     @property
     def available(self) -> bool:
-        return self._client.connected
+        """Hide a generic control when the resolved model cannot serve its register."""
+        return self._client.connected and bool(self._client.brand.can_read_setting(
+            self._client.capabilities, self._setting_id,
+        ))
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
@@ -121,11 +137,17 @@ class MelittaSettingSwitch(MelittaDeviceMixin, SwitchEntity):
             _LOGGER.debug("Failed to read setting %d", self._setting_id)
 
     async def async_turn_on(self, **kwargs) -> None:
+        """Change a supported boolean setting without sending unsupported writes."""
+        if not self.available:
+            raise ServiceValidationError("This setting is unavailable for the current machine")
         if await self._client.write_setting(self._setting_id, 1):
             self._attr_is_on = True
             self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
+        """Change a supported boolean setting without sending unsupported writes."""
+        if not self.available:
+            raise ServiceValidationError("This setting is unavailable for the current machine")
         if await self._client.write_setting(self._setting_id, 0):
             self._attr_is_on = False
             self.async_write_ha_state()

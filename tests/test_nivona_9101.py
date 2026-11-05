@@ -236,3 +236,54 @@ async def test_unknown_current_state_prevents_write_preparation():
     c._protocol.read_status.return_value = None
     assert not await c.write_setting(119, 2)
     assert packets(c) == []
+
+
+@pytest.mark.parametrize("selector",[2,12])
+async def test_saved_americano_water_domain_is_not_the_remote_500_ml_domain(selector):
+    c=ready_client()
+    assert await c.write_standard_recipe_param(selector,"water_amount",240)
+    c._protocol.send_and_wait_ack.reset_mock()
+    for value in (241,500):
+        with pytest.raises(ValueError):
+            await c.write_standard_recipe_param(selector,"water_amount",value)
+    assert packets(c)==[]
+
+
+async def test_obsolete_generic_controls_preserve_registry_customization(hass):
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.melitta_barista.const import DOMAIN
+    from custom_components.melitta_barista.number import async_setup_entry as setup_numbers
+    from custom_components.melitta_barista.switch import async_setup_entry as setup_switches
+    c=ready_client();entry=MockConfigEntry(domain=DOMAIN,data={"address":c.address})
+    entry.add_to_hass(hass);entry.runtime_data=c
+    reg=er.async_get(hass)
+    old_numbers=reg.async_get_or_create("number",DOMAIN,f"{c.address}_setting_22",config_entry=entry)
+    old_switch=reg.async_get_or_create("switch",DOMAIN,f"{c.address}_switch_16",config_entry=entry)
+    for old in (old_numbers,old_switch):
+        reg.async_update_entity(old.entity_id,name="My customization")
+    await setup_numbers(hass,entry,lambda entities:None)
+    switches=[]
+    await setup_switches(hass,entry,switches.extend)
+    for old in (old_numbers,old_switch):
+        kept=reg.async_get(old.entity_id)
+        assert kept is not None
+        assert kept.name=="My customization"
+        assert kept.disabled_by==er.RegistryEntryDisabler.INTEGRATION
+    assert switches==[]
+
+
+async def test_unsupported_generic_switch_is_unavailable_and_rejects_service():
+    from homeassistant.exceptions import ServiceValidationError
+    from custom_components.melitta_barista.switch import MelittaSettingSwitch, SWITCH_DEFINITIONS
+    from unittest.mock import MagicMock
+    c=ready_client()
+    entity=MelittaSettingSwitch(c,MagicMock(),"Nivona",SWITCH_DEFINITIONS[0])
+    assert not entity.available
+    with pytest.raises(ServiceValidationError):
+        await entity.async_turn_on()
+    assert packets(c)==[]
+
+
+def test_9101_keeps_unsupported_brand_select_migration_keys():
+    assert "coffee_temperature" in _client("9101").capabilities.unsupported_setting_keys

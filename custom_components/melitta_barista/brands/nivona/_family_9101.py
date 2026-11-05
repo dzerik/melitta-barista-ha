@@ -355,6 +355,7 @@ def validate_field(context: str, selector: int, field: str, value: object) -> in
     }
     minimum, maximum = 0, 500 if field == "water_amount" else 240
     if context == "standard":
+        maximum = 500 if selector == 9 and field == "water_amount" else 240
         domains["profile"] = (5,) if selector in (10, 11, 12) else range(5)
         domains["coffee_temperature"] = range(4)
         domains["milk_type"] = range(3)
