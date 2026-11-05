@@ -43,6 +43,7 @@ from ._registers import (
     standard_recipe_register,
 )
 from . import (
+    _storage,
     _recipe_fields,
     _status,
     _family_600,
@@ -258,8 +259,17 @@ class NivonaProfile:
         return mycoffee_layout(family_key)
 
     @staticmethod
-    def standard_recipe_register(selector: int, offset: int) -> int:
-        return standard_recipe_register(selector, offset)
+    def standard_recipe_register(
+        selector: int, offset: int, *, family_key: str | None = None,
+    ) -> int | None:
+        """Resolve persistent storage without conflating its base with HE selectors.
+
+        The bare two-argument helper retains its historical arithmetic for
+        callers that do not yet supply a family. Actual writes pass a family.
+        """
+        if family_key is None:
+            return standard_recipe_register(selector, offset)
+        return _storage.standard_recipe_register(family_key, selector, offset)
 
     @staticmethod
     def temp_recipe_register(
@@ -312,9 +322,13 @@ class NivonaProfile:
             )
             offset = getattr(layout, f"{field}_offset", None)
             register = None if offset is None else (
-                self.standard_recipe_register(selector, offset)
+                self.standard_recipe_register(selector, offset, family_key=caps.family_key)
                 if context == "standard" else self.mycoffee_register(selector, offset)
             )
+            if context == "standard" and not any(
+                recipe.recipe_id == selector for recipe in caps.recipes
+            ):
+                register = None
         return _recipe_fields.validate_recipe_param(
             caps, context, selector, field, value, register=register,
         )

@@ -145,6 +145,14 @@ Shared commands preflight the whole explicit override set before the first
 HW. Persistent numeric services translate validation errors into HA service
 validation errors. Choice values retain their raw numeric meaning.
 
+Persistent storage resolution is family-aware. Call
+`standard_recipe_register(selector, offset, family_key=caps.family_key)` for
+both validation and transmission; a nullable result means the mapping is
+unsupported. The two-argument arithmetic helper is retained for compatibility
+and must not be used to choose actual write addresses. Storage bases do not
+renumber the released HE drink catalog. Conflicting pure-milk mappings and
+unknown standard selectors are rejected before any HW write.
+
 For Nivona 960/965/970 (integration family `900-light`), both standard and
 MyCoffee layouts declare `fluid_write_scale_10=True`: all quantity writes
 use mL ×10; other recipe choices are unscaled. The `900` family (920/930)

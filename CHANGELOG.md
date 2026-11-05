@@ -4,6 +4,15 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
+## [0.96.0b7] — 2026-11-05 (development checkpoint)
+
+### Fixed
+
+- Resolve persistent Nivona recipe addresses by family instead of equating
+  storage slots with brew selectors. Correct 600-family storage and the
+  1040 milk-froth slot while preserving existing brew-selector identities.
+  Reject unresolved pure-milk storage and unknown standard recipes before HW.
+
 ## [0.96.0b6] — 2026-11-05 (development checkpoint)
 
 ### Fixed

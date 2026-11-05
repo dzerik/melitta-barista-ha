@@ -715,7 +715,9 @@ class BleCommandsMixin(_MixinBase):
         value = self._brand.validate_recipe_param(caps, "standard", selector, param_key, value)
         return await self._write_param_via_layout(
             layout, selector, param_key, value,
-            base_register_fn=self._brand.standard_recipe_register,
+            base_register_fn=lambda selector, offset: self._brand.standard_recipe_register(
+                selector, offset, family_key=caps.family_key,
+            ),
         )
 
     async def write_mycoffee_param(
@@ -756,6 +758,8 @@ class BleCommandsMixin(_MixinBase):
         if layout.fluid_write_scale_10 and param_key.endswith("_amount"):
             value = value * 10
         register = base_register_fn(slot_or_selector, offset)
+        if register is None:
+            return False
         return await self._protocol.write_numerical(
             self._write_ble, register, value,
         )
