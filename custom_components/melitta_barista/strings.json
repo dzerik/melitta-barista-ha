@@ -507,7 +507,7 @@
         "name": "Direct-start deactivated"
       },
       "auto_on_deactivated": {
-        "name": "Auto-on deactivated"
+        "name": "Automatic switch-on"
       },
       "power_on_rinse": {
         "name": "Power-on rinse"

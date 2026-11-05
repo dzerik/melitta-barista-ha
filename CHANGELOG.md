@@ -4,6 +4,13 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
+## [0.96.0b8] — 2026-11-05 (development checkpoint)
+
+### Fixed
+- Bind Nivona machine settings to the physical model, including tank-light colors and auto-off durations.
+- Reject unsupported or ambiguous setting values before transmission and preserve customized registry entries when retiring unsupported controls.
+- Correct the automatic switch-on label while preserving existing entity identities.
+
 ## [0.96.0b7] — 2026-11-05 (development checkpoint)
 
 ### Fixed

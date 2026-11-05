@@ -1,7 +1,7 @@
 """NICR 9xx + 9xx-light families — selectors, settings, stats, layouts, capabilities.
 
-900 / 900-light are sibling families. 900 adds the tank-lighting and
-touch-lock accents (settings 105-108); 900-light strips them. Both
+900 / 900-light are sibling families. Physical 960/965/970 (900-light)
+add tank-lighting and touch-lock controls; 920/930 use a minimal table. Both
 share recipes and the maintenance stat block. Quantities on 960/965/970
 (900-light) use tenths of a milliliter; 920/930 retain their existing scale.
 
@@ -20,7 +20,7 @@ from ..base import (
     StatDescriptor,
 )
 from ._options import (
-    _AUTO_OFF_STANDARD_OPTIONS,
+    _AUTO_OFF_9XX_OPTIONS,
     _HARDNESS_OPTIONS,
     _OFF_ON_OPTIONS,
     _TANK_LIGHT_BRIGHTNESS_900_OPTIONS,
@@ -44,9 +44,8 @@ RECIPES_900: tuple[RecipeDescriptor, ...] = (
 RECIPES_900_LIGHT: tuple[RecipeDescriptor, ...] = RECIPES_900
 
 
-# 900 family — 8 settings including tank-lighting accents and
-# AutoOn hours/minutes pair (111/112).
-SETTINGS_900: tuple[SettingDescriptor, ...] = (
+# Physical 960/965/970, including AutoOn hours/minutes.
+SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
     SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
@@ -54,23 +53,23 @@ SETTINGS_900: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(106, "tank_light_color", "Tank light color", _TANK_LIGHT_COLOR_900_OPTIONS),
     SettingDescriptor(107, "tank_light_brightness", "Tank light brightness", _TANK_LIGHT_BRIGHTNESS_900_OPTIONS),
     SettingDescriptor(108, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_9XX_OPTIONS),
     SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
     # Hours / minutes for AutoOn time. No options list — numeric.
     SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
     SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
 )
 
-# 900-Light — strip the tank-lighting / touch-lock accents; keep
-# save-energy + AutoOn.
-SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
+# Physical 920/930: save-energy and AutoOn without accent controls.
+SETTINGS_900: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_9XX_OPTIONS),
     SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
     SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
     SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
 )
+
 
 
 # 900 / 900-Light family — 21 counters (recipe 200..208 + cumulative

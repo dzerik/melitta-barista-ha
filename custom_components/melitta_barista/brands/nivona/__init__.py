@@ -43,6 +43,7 @@ from ._registers import (
     standard_recipe_register,
 )
 from . import (
+    _settings,
     _storage,
     _recipe_fields,
     _status,
@@ -92,6 +93,10 @@ _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
         v["capabilities"], status_profile_key=_status.FAMILY_STATUS_PROFILES[k],
         brew_water_amount_max=240 if k in ("600", "900") else 500,
         recipe_amount_unit=None if k in ("600", "900") else "mL",
+        settings=_settings.settings_for_family(k, v["capabilities"].settings),
+        unsupported_setting_keys=(
+            "off_rinse", "tank_light", "tank_light_color", "tank_light_brightness", "touch_lock",
+        ) if k == "900" else (),
     )
     for k, v in _FAMILY_DATA.items()
 }
@@ -248,6 +253,18 @@ class NivonaProfile:
             and status.status_profile_key == caps.status_profile_key
             and status.prompt_confirmable is True
         )
+
+    @staticmethod
+    def can_read_setting(caps: MachineCapabilities | None, setting_id: int) -> bool:
+        """Return whether a model's setting mapping is unambiguous."""
+        return _settings.can_read_setting(caps, setting_id)
+
+    @staticmethod
+    def validate_setting(
+        caps: MachineCapabilities | None, setting_id: int, value: object,
+    ) -> int:
+        """Validate a setting without interpreting an ordinal as a duration."""
+        return _settings.validate_setting(caps, setting_id, value)
 
     # Recipe / MyCoffee write-path helpers (experimental — see mixin docs)
     @staticmethod

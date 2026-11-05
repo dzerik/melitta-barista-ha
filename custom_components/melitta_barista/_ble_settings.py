@@ -26,13 +26,16 @@ class BleSettingsMixin(_MixinBase):
     # Numerical settings
 
     async def read_setting(self, setting_id: int) -> int | None:
-        if not self.connected:
+        """Read a setting only when its model-specific meaning is known."""
+        if not self.connected or not self._brand.can_read_setting(self._capabilities, setting_id):
             return None
         return await self._protocol.read_numerical(self._write_ble, setting_id)
 
     async def write_setting(self, setting_id: int, value: int) -> bool:
+        """Validate the raw setting code before sending HW."""
         if not self.connected:
             return False
+        value = self._brand.validate_setting(self._capabilities, setting_id, value)
         return await self._protocol.write_numerical(self._write_ble, setting_id, value)
 
     # Alphanumeric operations

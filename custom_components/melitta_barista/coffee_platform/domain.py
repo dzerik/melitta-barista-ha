@@ -180,6 +180,7 @@ class SettingDescriptor:
     options: tuple[tuple[int, str], ...] = ()   # (value, label) pairs
     is_writable: bool = True
     unit: str | None = None
+    is_verified: bool = True
 
 
 @dataclass(frozen=True)
@@ -286,6 +287,7 @@ class MachineCapabilities:
     # Tables (filled at construction time per family)
     recipes: tuple[RecipeDescriptor, ...] = ()
     settings: tuple[SettingDescriptor, ...] = ()
+    unsupported_setting_keys: tuple[str, ...] = ()
     stats: tuple[StatDescriptor, ...] = ()
 
     # Generic Eugster HR setting IDs (const.MachineSettingId namespace,
@@ -448,6 +450,14 @@ class BrandProfile(Protocol):
         field: str, value: object,
     ) -> int:
         """Validate a recipe input in its register context before transmission."""
+
+    def can_read_setting(self, caps: MachineCapabilities | None, setting_id: int) -> bool:
+        """Whether a setting has an unambiguous mapping for this machine."""
+
+    def validate_setting(
+        self, caps: MachineCapabilities | None, setting_id: int, value: object,
+    ) -> int:
+        """Validate a numeric setting before HW, preserving its raw code."""
 
 
 # ---------------------------------------------------------------------------

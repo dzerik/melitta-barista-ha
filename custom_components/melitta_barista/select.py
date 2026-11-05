@@ -12,12 +12,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
 from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
 from .const import (
+    DOMAIN,
     PROFILE_NAMES,
     RECIPE_NAMES,
     RecipeId,
@@ -162,6 +165,12 @@ async def async_setup_entry(
         entry.options.get(CONF_FAMILY_OVERRIDE),
     )
     if caps is not None and caps.settings:
+        registry = er.async_get(hass)
+        for key in caps.unsupported_setting_keys:
+            entity_id = registry.async_get_entity_id("select", DOMAIN, f"{client.address}_setting_{key}")
+            entity = registry.async_get(entity_id) if entity_id else None
+            if entity is not None and entity.config_entry_id == entry.entry_id and entity.disabled_by is None:
+                registry.async_update_entity(entity.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
         for descriptor in caps.settings:
             # Only descriptors with a discrete options list become
             # selects. Options-less descriptors (raw numeric settings
@@ -587,14 +596,21 @@ class BrandSettingSelect(MelittaDeviceMixin, SelectEntity):
         self._machine_name = name
         self._desc = descriptor
         self._value_code: int | None = None
-        # option_label → value_code for write path
         self._label_to_code: dict[str, int] = {label: code for code, label in descriptor.options}
         self._code_to_label: dict[int, str] = {code: label for code, label in descriptor.options}
         self._attr_options = list(self._label_to_code.keys())
-        self._attr_name = descriptor.title
-        # Localized entity name lookup path — HA reads
-        # `entity.select.<descriptor.key>.name` from translations.
+        self._attr_name = (
+            "Automatic switch-on" if descriptor.key == "auto_on_deactivated"
+            else descriptor.title
+        )
         self._attr_translation_key = descriptor.key
+
+    @property
+    def suggested_object_id(self) -> str | None:
+        """Keep the established ID basis when correcting the AutoOn label."""
+        if self._desc.key == "auto_on_deactivated":
+            return self._desc.title
+        return super().suggested_object_id
 
     @property
     def unique_id(self) -> str:
@@ -614,7 +630,10 @@ class BrandSettingSelect(MelittaDeviceMixin, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self._client.connected
+        """Offer only settings whose meaning is verified for the resolved model."""
+        return self._client.connected and bool(self._client.brand.can_read_setting(
+            self._client.capabilities, self._desc.setting_id,
+        ))
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
@@ -642,12 +661,15 @@ class BrandSettingSelect(MelittaDeviceMixin, SelectEntity):
             )
 
     async def async_select_option(self, option: str) -> None:
+        """Write a validated setting code and surface model-domain errors."""
         code = self._label_to_code.get(option)
         if code is None:
             _LOGGER.warning("Unknown option %s for %s", option, self._desc.key)
             return
         try:
             success = await self._client.write_setting(self._desc.setting_id, code)
+        except ValueError as err:
+            raise ServiceValidationError(str(err)) from err
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("BLE error writing %s", self._desc.key)
             return

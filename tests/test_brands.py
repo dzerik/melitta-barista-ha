@@ -259,8 +259,8 @@ def test_nivona_settings_per_family():
         "600": 5,       # 101/102/103/104/106
         "700": 5,       # same as 600
         "79x": 4,       # 700 minus 103 (off-rinse absent on 79X)
-        "900": 11,      # tank-light accents + AutoOn pair
-        "900-light": 6, # strip lights, keep save_energy + AutoOn
+        "900": 6,       # physical920/930 minimal settings
+        "900-light": 11,# physical960/965/970 accent settings
         "1030": 14,     # 1000-family with cup_heater + AutoOn +
                         # profile/temps
         "1040": 17,     # 1030 + frother-temp + power-on extras

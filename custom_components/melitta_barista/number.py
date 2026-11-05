@@ -319,7 +319,10 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
 
     @property
     def available(self) -> bool:
-        return self._client.connected
+        """Offer only settings whose meaning is verified for this model."""
+        return self._client.connected and bool(self._client.brand.can_read_setting(
+            self._client.capabilities, self._setting_id,
+        ))
 
     async def async_added_to_hass(self) -> None:
         self._client.add_connection_callback(self._on_connection_change)
@@ -343,8 +346,17 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
             _LOGGER.debug("BrandSettingNumber read failed id=%d", self._setting_id)
 
     async def async_set_native_value(self, value: float) -> None:
+        """Validate integral numeric input before writing a machine setting."""
         if not self._desc.is_writable:
             return
+        if (
+            not self.native_min_value <= value <= self.native_max_value
+            or value != int(value)
+        ):
+            raise ServiceValidationError(
+                f"Setting {self._setting_id} must be an integer between "
+                f"{self.native_min_value} and {self.native_max_value}"
+            )
         if await self._client.write_setting(self._setting_id, int(value)):
             self._attr_native_value = value
             self.async_write_ha_state()

@@ -208,6 +208,18 @@ class MelittaProfile:
         """Preserve Melitta's connected-client HY behavior."""
         return True
 
+    @staticmethod
+    def can_read_setting(caps: MachineCapabilities | None, setting_id: int) -> bool:
+        """Preserve the established generic Melitta setting reads."""
+        return True
+
+    @staticmethod
+    def validate_setting(
+        caps: MachineCapabilities | None, setting_id: int, value: object,
+    ) -> int:
+        """Preserve Melitta's numeric setting path."""
+        return int(value)
+
     # ----------------------------------------------------------------- #
     # Recipe write-path contract (PR-32).
     #

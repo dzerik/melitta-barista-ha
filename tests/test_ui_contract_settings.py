@@ -174,8 +174,7 @@ _NIVONA_700_SETTINGS = [
                  {"value": 5, "token": None, "label": "6 h"},
                  {"value": 6, "token": None, "label": "8 h"},
                  {"value": 7, "token": None, "label": "10 h"},
-                 {"value": 8, "token": None, "label": "12 h"},
-                 {"value": 9, "token": None, "label": "off"}]},
+                 {"value": 8, "token": None, "label": "12 h"}]},
 ]
 
 

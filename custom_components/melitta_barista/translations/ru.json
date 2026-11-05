@@ -447,7 +447,7 @@
         "name": "Direct-start deactivated"
       },
       "auto_on_deactivated": {
-        "name": "Auto-on deactivated"
+        "name": "Автоматическое включение"
       },
       "power_on_rinse": {
         "name": "Power-on rinse"
