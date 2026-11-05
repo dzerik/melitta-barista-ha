@@ -2,6 +2,39 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [Unreleased]
+
+## [0.96.0b6] — 2026-11-05 (development checkpoint)
+
+### Fixed
+
+- Use the correct quantity units for Nivona 960/965/970 across temporary,
+  standard and MyCoffee recipe writes. Display verified MyCoffee amounts
+  in mL while retaining raw register values for diagnostics.
+- Validate explicit recipe parameters before writing, using separate numeric
+  domains for temporary, standard and MyCoffee registers. Native brew inputs
+  honor model limits, map human strength levels to zero-based wire choices,
+  refine after model identification and discard invalid restored overrides.
+- Decode Nivona status messages and preparation phases by model family.
+  Errors, waiting states and unknown messages block brewing instead of
+  becoming generic cup/flush prompts. Preserve raw status codes in diagnostics.
+  Limit HY to recognized confirmable Nivona prompts, rechecking eligibility
+  after queueing and before retries; discard stale automatic confirmations.
+- Enforce maintenance verification in native HA buttons and the client command
+  methods (#68). Unverified Nivona power-off and maintenance operations no
+  longer bypass the action catalog's availability restrictions. Verified
+  Melitta commands retain their existing payloads.
+- Use model-specific Nivona MyCoffee selector bases and recipe-specific
+  temperature registers. Reject unsupported temperature choices before
+  sending commands instead of silently dropping them.
+- Apply Nivona temporary milk recipes without misclassifying them as Chilled.
+  Preserve required Chilled presets, and restrict the saved-recipe firmware
+  workaround to its mapped model and firmware. Explicit overrides that the
+  workaround cannot apply now return an error before brewing.
+- Render milk-recipe icons using the actual warm-milk or milk-froth mode,
+  independently of temperature. Preserve the visual fallback for descriptions
+  without a known preparation mode.
+
 ## [0.96.0b5] — 2026-11-04 (beta)
 
 ### Added

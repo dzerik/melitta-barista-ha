@@ -19,6 +19,7 @@ from typing import ClassVar
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from .base import MachineCapabilities, RecipeFieldLayout
+from ..coffee_platform.domain import MachineStatus
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -195,11 +196,17 @@ class MelittaProfile:
     def capabilities_for(self, family_key: str) -> MachineCapabilities:
         return _MELITTA_FAMILIES[family_key]
 
-    def parse_status(self, family_key, data):
-        """Melitta uses the raw MachineProcess enum values directly
-        (READY=2, PRODUCT=4, …) — delegate to the canonical parser."""
-        from ..protocol import MachineStatus  # noqa: PLC0415
+    def parse_status(
+        self, family_key: str | None, data: bytes, *, status_profile_key: str | None = None,
+    ) -> MachineStatus:
+        """Decode Melitta's canonical process and manipulation codes."""
         return MachineStatus.from_payload(data)
+
+    def can_confirm_prompt(
+        self, status: MachineStatus | None, caps: MachineCapabilities | None,
+    ) -> bool:
+        """Preserve Melitta's connected-client HY behavior."""
+        return True
 
     # ----------------------------------------------------------------- #
     # Recipe write-path contract (PR-32).
@@ -226,6 +233,13 @@ class MelittaProfile:
         """Melitta writes fluid amounts in ml directly — scale = 1."""
         del family_key
         return 1
+
+    def validate_recipe_param(
+        self, caps: MachineCapabilities, context: str, selector: int,
+        field: str, value: object,
+    ) -> int:
+        """Keep the legacy integer domain for unused numeric recipe slots."""
+        return int(value)
 
     @staticmethod
     def mycoffee_layout(family_key: str) -> RecipeFieldLayout | None:

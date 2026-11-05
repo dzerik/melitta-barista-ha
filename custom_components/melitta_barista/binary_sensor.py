@@ -73,5 +73,9 @@ class MelittaAwaitingConfirmationBinarySensor(MelittaDeviceMixin, BinarySensorEn
 
     @property
     def is_on(self) -> bool:
+        """True for a prompt that permits remote confirmation."""
         status = self._client.status
-        return bool(status and status.manipulation in PROMPT_MANIPULATIONS)
+        return bool(
+            status and status.manipulation in PROMPT_MANIPULATIONS
+            and status.prompt_confirmable is not False
+        )

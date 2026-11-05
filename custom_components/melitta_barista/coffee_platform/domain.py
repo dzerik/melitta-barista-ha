@@ -57,15 +57,7 @@ class InfoMessage(IntFlag):
 
 
 class Manipulation(IntEnum):
-    """Manipulation states requiring user action.
-
-    Values 0 / 11 / 20 are observed and named the same way on both
-    Melitta and Nivona hardware. Values 1–6 are Melitta-derived labels;
-    real Nivona machines may emit different codes or a different
-    1-6 → meaning mapping. HA currently applies the Melitta labels
-    for any value in 1..6; this is a best-effort placeholder until
-    per-brand parse_status overrides verify the mapping.
-    """
+    """Canonical user actions; brand parsers translate their own wire codes."""
     NONE = 0
     BU_REMOVED = 1            # Melitta-observed
     TRAYS_MISSING = 2         # Melitta-observed
@@ -73,8 +65,8 @@ class Manipulation(IntEnum):
     FILL_WATER = 4            # Melitta-observed
     CLOSE_POWDER_LID = 5      # Melitta-observed
     FILL_POWDER = 6           # Melitta-observed
-    MOVE_CUP_TO_FROTHER = 11  # observed on both brands
-    FLUSH_REQUIRED = 20       # observed on both brands
+    MOVE_CUP_TO_FROTHER = 11
+    FLUSH_REQUIRED = 20
 
 
 # ---------------------------------------------------------------------------
@@ -89,24 +81,44 @@ class MachineStatus:
     info_messages: InfoMessage = InfoMessage(0)
     manipulation: Manipulation = Manipulation.NONE
     progress: int = 0
+    # Additive decoding metadata, separate from the canonical enum vocabulary.
+    raw_process: int | None = None
+    raw_sub_process: int | None = None
+    raw_message: int | None = None
+    message_key: str | None = None
+    status_profile_key: str | None = None
+    brew_blocked: bool = False
+    # None preserves legacy prompt handling; explicit False forbids HY.
+    prompt_confirmable: bool | None = None
 
     @property
     def is_ready(self) -> bool:
-        return self.process == MachineProcess.READY and self.manipulation == Manipulation.NONE
+        """True when ready with no blocking message or physical intervention."""
+        return (
+            not self.brew_blocked and self.process == MachineProcess.READY
+            and self.manipulation == Manipulation.NONE
+        )
 
     def is_ready_for_brew(self, tolerated: tuple[int, ...] = ()) -> bool:
         """Like is_ready but accepts brand-tolerated manipulation flags.
 
-        Some Nivona models leave MOVE_CUP_TO_FROTHER set after a
-        completed brew until the next status frame; the brand profile
-        declares such flags via tolerated_brew_manipulations so the
-        brew gate doesn't reject the next brew falsely.
+        Explicit decoding blockers take precedence over tolerated flags.
+        A tolerated canonical action cannot override a family-specific
+        error, physical intervention or unrecognized message.
         """
-        if self.process != MachineProcess.READY:
+        if self.brew_blocked or self.process != MachineProcess.READY:
             return False
         if self.manipulation == Manipulation.NONE:
             return True
         return self.manipulation.value in tolerated
+
+    @property
+    def prompt_key(self) -> tuple:
+        """Identity of a prompt, ignoring repeated progress-only updates."""
+        return (
+            self.manipulation, self.status_profile_key,
+            self.raw_message, self.message_key, self.prompt_confirmable,
+        )
 
     @property
     def is_brewing(self) -> bool:
@@ -243,7 +255,7 @@ class MachineCapabilities:
     has_aroma_balance: bool = False
     # Brew-selector base for MyCoffee slots. On Nivona, MyCoffee slot N
     # is brewed by sending HE with `payload[3] = first_mycoffee_selector
-    # + N`. The vendor protocol uses 20 for every Nivona model. Melitta
+    # + N`. Nivona models use bases 8, 10 or 20. Melitta
     # has its own MyCoffee scheme (per-slot DirectKey IDs) and doesn't
     # use this field — the default sits unused.
     #
@@ -252,13 +264,23 @@ class MachineCapabilities:
     image_transfer: bool | None = None               # None until HI answers
 
     # Protocol quirks
-    fluid_scale_factor: int = 1                      # Nivona 900 = 10
+    fluid_scale_factor: int = 1                      # raw quantity units per mL
     brew_command_mode: int = 0x0B                    # 0x04 for Nivona 8000
+    brew_water_amount_max: int = 240                # native mL control
+    recipe_amount_unit: str | None = None           # verified display unit
+    # Known firmware/selector pairs that cannot start a temporary recipe.
+    saved_recipe_only_selectors: tuple[int, ...] = ()
+    saved_recipe_only_firmwares: tuple[str, ...] = ()
+    # Fixed recipe fields needed when starting a temporary recipe.
+    required_brew_overrides: tuple[tuple[int, str, int], ...] = ()
+    # Recipe-specific restrictions on the legacy raw temperature preset.
+    # Unlisted recipes retain the entity's 0..2 input domain.
+    brew_temperature_max: tuple[tuple[int, int], ...] = ()
     recipe_text_encoding: str = "legacy_1byte"       # vs "utf16_le"
-    # Manipulation flags that should NOT block a new brew. Some Nivona
-    # models leave MOVE_CUP_TO_FROTHER set after a completed brew until
-    # the next status frame; gating brew on it would falsely block the
-    # user. Set per-family (default empty = strict).
+    status_profile_key: str | None = None           # model-refined HX semantics
+    # Canonical manipulation flags tolerated by legacy brew gates.
+    # These are not raw message codes; explicit decoder blockers always
+    # take precedence. Default empty = strict.
     tolerated_brew_manipulations: tuple[int, ...] = ()
 
     # Tables (filled at construction time per family)
@@ -306,9 +328,9 @@ class MachineCapabilities:
     # shifted on at least the Nivona 700 family). ``None`` means every
     # process code is verified for this family (Melitta — hardware-
     # verified); a tuple lists the ONLY verified process ids, everything
-    # else is unverified and the action catalog serves those entries
-    # ``available: false``. All Nivona families ship ``()`` until the
-    # #36 TX-byte button matrix populates per-family tuples.
+    # else is unverified: action catalog and native buttons are unavailable,
+    # and the client refuses to send the generic command. All Nivona families
+    # ship ``()`` until model-specific outgoing commands are validated.
     verified_maintenance_processes: tuple[int, ...] | None = None
 
 
@@ -355,7 +377,10 @@ class BrandProfile(Protocol):
         """Return the capability bag for the given family. Raises KeyError
         if the key is not in ``families``."""
 
-    def parse_status(self, family_key: str | None, data: bytes):  # noqa: ANN201
+    def parse_status(
+        self, family_key: str | None, data: bytes,
+        *, status_profile_key: str | None = None,
+    ) -> MachineStatus:
         """Parse an HX payload into a ``MachineStatus`` with brand/family-
         specific process-code semantics.
 
@@ -363,7 +388,14 @@ class BrandProfile(Protocol):
         Melitta uses 2=READY/4=PRODUCT, NIVO 8000 uses 3=READY/4=PRODUCT,
         other Nivona families use 8=READY/11=PRODUCT. Implementations
         translate raw codes to the abstract ``MachineProcess`` enum.
+        ``status_profile_key`` refines decoding when models sharing one
+        capability family have different incoming status semantics.
         """
+
+    def can_confirm_prompt(
+        self, status: MachineStatus | None, caps: MachineCapabilities | None,
+    ) -> bool:
+        """Whether the current decoded status permits sending HY."""
 
     # ----------------------------------------------------------------- #
     # Recipe write-path contract (introduced v0.79.0 — see PR-32).
@@ -392,7 +424,7 @@ class BrandProfile(Protocol):
     def fluid_write_scale(self, family_key: str) -> int:
         """Per-family fluid-amount scaling factor for write paths.
         Returns 1 for brands that use ml directly, 10 for families
-        like Nivona 900 that historically wrote ml × 10."""
+        whose quantity registers use tenths of a milliliter."""
 
     def mycoffee_layout(self, family_key: str) -> RecipeFieldLayout | None:
         """RecipeFieldLayout describing per-slot MyCoffee parameter
@@ -405,9 +437,17 @@ class BrandProfile(Protocol):
         contiguous MyCoffee register block."""
 
     def is_chilled_selector(self, selector: int) -> bool:
-        """True if ``selector`` requires the chilled-brew flag byte
-        when building the HE payload. False for brands without chilled
-        recipes."""
+        """Classify a number from the brand's chilled-selector catalog.
+
+        Selectors are model-specific. Preparation mode must also use the
+        current machine capabilities and firmware.
+        """
+
+    def validate_recipe_param(
+        self, caps: MachineCapabilities, context: str, selector: int,
+        field: str, value: object,
+    ) -> int:
+        """Validate a recipe input in its register context before transmission."""
 
 
 # ---------------------------------------------------------------------------
@@ -417,6 +457,16 @@ class BrandProfile(Protocol):
 def supports_extension(profile: BrandProfile, opcode: str) -> bool:
     """Sugar: whether the brand's command-set includes a given opcode."""
     return opcode in profile.supported_extensions
+
+
+def is_maintenance_process_verified(
+    capabilities: MachineCapabilities | None, process: MachineProcess,
+) -> bool:
+    """Allow generic maintenance starts only after resolving a verified family."""
+    if capabilities is None:
+        return False
+    verified = capabilities.verified_maintenance_processes
+    return verified is None or int(process) in verified
 
 
 class FeatureNotSupported(Exception):

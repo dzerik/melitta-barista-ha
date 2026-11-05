@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from bleak.exc import BleakError
 
 from .brands.base import FeatureNotSupported
+from .coffee_platform.domain import is_maintenance_process_verified
 
 if TYPE_CHECKING:
     from ._ble_typing import BleClientProtocol
@@ -186,8 +187,11 @@ class BleCommandsMixin(_MixinBase):
         is a RecipeFieldLayout field name (e.g. ``"strength"``,
         ``"coffee_amount"``, ``"temperature"``, ``"two_cups"``). When set,
         each override is written via HW to the per-family temporary-recipe
-        register BEFORE the HE start_process is issued — this matches the
-        SendTemporaryRecipe flow in the Android app.
+        register before the HE start_process is issued. The legacy temperature
+        preset retains raw levels 0..2 and targets the selected recipe's
+        primary process; unsupported temperatures raise ValueError before
+        any command is sent. All explicit inputs are preflighted before the
+        first HW. Quantities use mL; choices use raw zero-based values.
 
         Nivona machines don't have recipe read/write (HC/HJ) — they use
         HE with byte[3]=selector instead.
@@ -204,6 +208,56 @@ class BleCommandsMixin(_MixinBase):
         caps = getattr(self, "_capabilities", None)
         brew_mode = caps.brew_command_mode if caps else 0x0B
         family_key = caps.family_key if caps else None
+
+        if not isinstance(recipe_selector, int) or not 0 <= recipe_selector <= 255:
+            raise ValueError("recipe selector must be an integer between 0 and 255")
+
+        if overrides and family_key:
+            temperature = overrides.get("temperature")
+            if temperature is not None:
+                register = self._brand.temp_recipe_register(
+                    family_key, recipe_selector, "temperature",
+                )
+                maximum = dict(caps.brew_temperature_max).get(recipe_selector, 2)
+                if register is None:
+                    raise ValueError(
+                        f"temperature is unsupported for recipe {recipe_selector} on {family_key}"
+                    )
+                if (
+                    not isinstance(temperature, (int, float))
+                    or not 0 <= temperature <= maximum
+                    or temperature != int(temperature)
+                ):
+                    raise ValueError(
+                        f"temperature must be a raw preset from 0 to {maximum} "
+                        f"for recipe {recipe_selector} on {family_key}"
+                    )
+
+        saved_recipe_fallback = bool(
+            caps and recipe_selector in caps.saved_recipe_only_selectors
+            and self._firmware in caps.saved_recipe_only_firmwares
+            and any(r.recipe_id == recipe_selector for r in caps.recipes)
+        )
+        if overrides and saved_recipe_fallback:
+            raise ValueError(
+                "Temporary recipe overrides are unsupported for this recipe "
+                f"on firmware {self._firmware}; reset overrides to use the saved recipe"
+            )
+        if overrides:
+            if caps is None:
+                raise ValueError("Recipe overrides require resolved machine capabilities")
+            overrides = {
+                field: self._brand.validate_recipe_param(
+                    caps, "temporary", recipe_selector, field, value,
+                )
+                for field, value in overrides.items() if value is not None
+            }
+        if overrides and caps and not saved_recipe_fallback:
+            overrides = dict(overrides)
+            for selector, field, value in caps.required_brew_overrides:
+                if selector == recipe_selector:
+                    overrides.pop(field, None)
+                    overrides[field] = value
 
         async with self._brew_lock:
             self._stop_polling()
@@ -267,15 +321,19 @@ class BleCommandsMixin(_MixinBase):
                             )
                         await asyncio.sleep(0.08)
 
-                wrote_temp = bool(overrides and family_key)
-                is_chilled = bool(
-                    hasattr(self._brand, "is_chilled_selector")
-                    and self._brand.is_chilled_selector(recipe_selector)
+                wrote_temp = bool(
+                    overrides and family_key and type_register is not None
+                    and any(
+                        value is not None and self._brand.temp_recipe_register(
+                            family_key, recipe_selector, field,
+                        ) is not None
+                        for field, value in overrides.items()
+                    )
                 )
                 ok = await self._protocol.start_process_nivona(
                     self._write_ble, recipe_selector, brew_mode,
                     use_temp_recipe=wrote_temp,
-                    chilled=is_chilled,
+                    chilled=saved_recipe_fallback,
                 )
                 if ok:
                     # This path brews from a selector plus temp-register
@@ -580,7 +638,11 @@ class BleCommandsMixin(_MixinBase):
             )
             return False
 
-    async def confirm_prompt(self) -> bool:
+    def _can_confirm_prompt(self) -> bool:
+        status = self._status if self._status_connection is self._client else None
+        return self.connected and self._brand.can_confirm_prompt(status, self._capabilities)
+
+    async def confirm_prompt(self, *, auto: bool = False) -> bool:
         """Send HY to confirm the current machine prompt (move cup, flush, ...).
 
         The real machine treats HY as fire-and-forget — it always ACKs
@@ -589,10 +651,28 @@ class BleCommandsMixin(_MixinBase):
         The returned bool only reflects the ACK/NACK of the write
         itself; the caller should not interpret False as "the prompt
         is still showing". A subsequent status poll is authoritative.
+        Eligibility is rechecked under the protocol lock on each attempt;
+        automatic calls also honor changes to the auto-confirm option.
         """
-        if not self.connected:
+        if not self._can_confirm_prompt():
             return False
-        return await self._protocol.confirm_prompt(self._write_ble)
+        generation = self._prompt_generation
+        auto_generation = self._auto_confirm_generation
+        connection = self._client
+
+        def eligible() -> bool:
+            return (
+                self.connected and self._client is connection
+                and self._prompt_generation == generation
+                and self._can_confirm_prompt()
+                and (not auto or self._auto_confirm_prompts)
+                and (not auto or self._auto_confirm_generation == auto_generation)
+            )
+
+        async def write_current_prompt(data: bytes) -> None:
+            await self._write_ble(data, send_guard=eligible)
+
+        return await self._protocol.confirm_prompt(write_current_prompt, send_guard=eligible)
 
     # ── Nivona experimental recipe-write primitives (v0.43.0+) ──────
     #
@@ -614,11 +694,12 @@ class BleCommandsMixin(_MixinBase):
     async def write_standard_recipe_param(
         self, selector: int, param_key: str, value: int,
     ) -> bool:
-        """Write a single byte of a standard recipe slot via HW.
+        """Write one numeric standard-recipe parameter via HW.
 
-        Returns False (no exception) when the active brand does not
-        expose recipe layouts, the family is unknown, or the param_key
-        is not supported by this family.
+        Quantities are mL and choices retain their raw numeric domain.
+        Invalid or unsupported explicit parameters raise ValueError before
+        transmission. Returns False when the brand has no recipe layout,
+        capabilities are unresolved, or the client is disconnected.
         """
         if not self.connected:
             return False
@@ -631,6 +712,7 @@ class BleCommandsMixin(_MixinBase):
         layout = layout_fn(caps.family_key)
         if layout is None:
             return False
+        value = self._brand.validate_recipe_param(caps, "standard", selector, param_key, value)
         return await self._write_param_via_layout(
             layout, selector, param_key, value,
             base_register_fn=self._brand.standard_recipe_register,
@@ -639,7 +721,12 @@ class BleCommandsMixin(_MixinBase):
     async def write_mycoffee_param(
         self, slot: int, param_key: str, value: int,
     ) -> bool:
-        """Write a single byte of a MyCoffee slot via HW."""
+        """Write a numeric MyCoffee parameter, validating its own slot domain.
+
+        Quantities use mL and choices retain raw values. Invalid or unsupported
+        fields raise ValueError before HW; disconnected/out-of-range slots
+        and brands without a layout return False.
+        """
         if not self.connected:
             return False
         layout_fn = getattr(self._brand, "mycoffee_layout", None)
@@ -652,6 +739,7 @@ class BleCommandsMixin(_MixinBase):
         layout = layout_fn(caps.family_key)
         if layout is None:
             return False
+        value = self._brand.validate_recipe_param(caps, "mycoffee", slot, param_key, value)
         return await self._write_param_via_layout(
             layout, slot, param_key, value, base_register_fn=register_fn,
         )
@@ -664,7 +752,7 @@ class BleCommandsMixin(_MixinBase):
         offset = getattr(layout, offset_attr, None)
         if offset is None:
             return False
-        # Fluid amounts on 900 family are written as ml×10 per upstream.
+        # Quantity conversion follows the selected layout, never a model label.
         if layout.fluid_write_scale_10 and param_key.endswith("_amount"):
             value = value * 10
         register = base_register_fn(slot_or_selector, offset)
@@ -674,50 +762,47 @@ class BleCommandsMixin(_MixinBase):
 
     # Maintenance operations
 
-    async def start_easy_clean(self) -> bool:
+    async def _start_verified_maintenance(self, process: MachineProcess) -> bool:
+        """Apply the family's verification gate before emitting any HE command."""
         if not self.connected:
             return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.EASY_CLEAN)
+        caps = self._capabilities or self._resolve_capabilities() or self._fallback_capabilities()
+        if not is_maintenance_process_verified(caps, process):
+            _LOGGER.warning(
+                "Maintenance %s is not verified for %s; command not sent",
+                process.name, caps.family_key if caps else "unknown family",
+            )
+            return False
+        return await self._protocol.start_process(self._write_ble, process)
+
+    async def start_easy_clean(self) -> bool:
+        """Request start easy clean only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.EASY_CLEAN)
 
     async def start_intensive_clean(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.INTENSIVE_CLEAN)
+        """Request start intensive clean only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.INTENSIVE_CLEAN)
 
     async def start_descaling(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.DESCALING)
+        """Request start descaling only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.DESCALING)
 
     async def start_filter_insert(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.FILTER_INSERT)
+        """Request start filter insert only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.FILTER_INSERT)
 
     async def start_filter_replace(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.FILTER_REPLACE)
+        """Request start filter replace only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.FILTER_REPLACE)
 
     async def start_filter_remove(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.FILTER_REMOVE)
+        """Request start filter remove only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.FILTER_REMOVE)
 
     async def start_evaporating(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.EVAPORATING)
+        """Request start evaporating only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.EVAPORATING)
 
     async def switch_off(self) -> bool:
-        if not self.connected:
-            return False
-        return await self._protocol.start_process(
-            self._write_ble, MachineProcess.SWITCH_OFF)
+        """Request switch off only for a verified family."""
+        return await self._start_verified_maintenance(MachineProcess.SWITCH_OFF)

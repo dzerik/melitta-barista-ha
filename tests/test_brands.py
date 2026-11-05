@@ -14,7 +14,6 @@ from custom_components.melitta_barista.brands import (
 )
 from custom_components.melitta_barista.brands.base import (
     FeatureNotSupported,
-    MachineCapabilities,
 )
 
 
@@ -212,7 +211,8 @@ def test_nivona_capabilities_per_family():
     assert f8000.brew_command_mode == 0x04   # NIVO8000 quirk
 
     f900 = np_.capabilities_for("900")
-    assert f900.fluid_scale_factor == 10    # 900 writes ml×10
+    assert f900.fluid_scale_factor == 1
+    assert np_.capabilities_for("900-light").fluid_scale_factor == 10
 
 
 def test_nivona_900_tolerates_stale_frother_flag():
@@ -340,24 +340,13 @@ def test_stats_1030_apk_alignment():
     assert "experimental" in by_id[224].title.lower()
 
 
-def test_nivona_first_mycoffee_selector_is_20():
-    """Every Nivona family advertises MyCoffee brew-selector base 20.
-
-    The vendor protocol uses 20 as the MyCoffee selector base for
-    every Nivona model — NIVO 8000 family and all NICR 6xx / 7xx /
-    79x / 9xx / 10xx variants. MyCoffee slot N maps to
-    HE.payload[3] = 20 + N when brewing.
-    """
-    np_ = NivonaProfile()
-    for fk in (
-        "600", "700", "79x", "900", "900-light",
-        "1030", "1040", "8000",
-    ):
-        caps = np_.capabilities_for(fk)
-        assert caps.first_mycoffee_selector == 20, (
-            f"Family {fk} must use base 20 for MyCoffee brew selectors; "
-            f"got {caps.first_mycoffee_selector}"
-        )
+@pytest.mark.parametrize("family,base", [
+    ("600", 20), ("700", 20), ("79x", 20), ("900", 20),
+    ("900-light", 8), ("1030", 10), ("1040", 10), ("8000", 20),
+])
+def test_nivona_first_mycoffee_selector_matches_family(family, base):
+    """MyCoffee selector ranges belong to each family's recipe catalog."""
+    assert NivonaProfile().capabilities_for(family).first_mycoffee_selector == base
 
 
 def test_nivona_per_model_capabilities_overrides():

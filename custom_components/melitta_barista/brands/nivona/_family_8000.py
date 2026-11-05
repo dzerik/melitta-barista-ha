@@ -8,11 +8,11 @@ extended counters 211 (grinding count), 212 (reserve count), 602
 (descale state machine), 630 (frother-rinse needed) on top of the
 universal beverage/maintenance set.
 
-NICR 8107 additionally exposes chilled-brew selectors 8/9/10. These
-recipes are sent with a distinct HE flags byte (byte[5]=0, not 0x01) —
-see ``start_process_nivona``. The chilled-brew selector set is
-exposed via ``CHILLED_SELECTORS`` and applied by
-``NivonaProfile.capabilities_for_model`` when the prefix matches 8107.
+NICR 8107 additionally exposes chilled-brew selectors 8/9/10. Firmware
+1040A015G15, 1040A016G16 and 1040A017G17 use their saved recipes (HE byte[5]=0).
+Unlisted firmware follows the temporary-recipe path with the required raw
+temperature marker 99. Model-specific preparation metadata is applied
+by ``NivonaProfile.capabilities_for_model`` for prefix 8107.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ RECIPES_8000_CHILLED: tuple[RecipeDescriptor, ...] = RECIPES_8000 + (
                      name_key="chilled_americano"),
 )
 
-# Selectors that require the chilled-brew flag byte when sent as HE.
+# Chilled selector numbers in the NICR 8107 catalog.
 CHILLED_SELECTORS: frozenset[int] = frozenset({8, 9, 10})
 
 

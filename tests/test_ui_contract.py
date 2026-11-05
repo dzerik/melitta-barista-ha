@@ -532,7 +532,7 @@ def test_icon_spec_coffee_darkness_scale():
 
 
 def test_icon_spec_milk_froth_dominant():
-    """§4.4: sole milk component at high temperature -> foam_ratio 0.50."""
+    """§4.4: a sole frothed-milk component uses a symbolic foam ratio of 0.50."""
     spec = build_icon_spec([{
         "process": "milk", "intensity": "medium", "aroma": "standard",
         "temperature": "high", "shots": "none", "portion_ml": 100,
@@ -544,12 +544,12 @@ def test_icon_spec_milk_froth_dominant():
 
 
 def test_icon_spec_milk_foam_minimum_10ml():
-    spec = build_icon_spec([{
+    spec = build_icon_spec([ESPRESSO_C1, {
         "process": "milk", "intensity": "medium", "aroma": "standard",
         "temperature": "normal", "shots": "none", "portion_ml": 30,
     }])
     assert spec["foam"]["ml"] == 10  # max(round5(6), 10)
-    assert spec["total_ml"] == 30
+    assert spec["total_ml"] == 70
 
 
 def test_icon_spec_water_only_no_steam():

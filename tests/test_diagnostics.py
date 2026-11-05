@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import struct
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
@@ -10,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.melitta_barista.const import DOMAIN
+from custom_components.melitta_barista.brands import get_profile
 from custom_components.melitta_barista.diagnostics import (
     async_get_config_entry_diagnostics,
 )
@@ -70,6 +73,25 @@ def _make_entry(
     )
     entry.runtime_data = runtime_data
     return entry
+
+
+async def test_nivona_diagnostics_preserve_blocking_raw_message(hass: HomeAssistant):
+    """An unmapped canonical manipulation must retain its actual error in diagnostics."""
+    status = get_profile("nivona").parse_status(
+        "900-light", struct.pack(">hhhh", 8, 0, 11, 0),
+    )
+    entry = _make_entry(runtime_data=_make_mock_client(status=status))
+    entry.add_to_hass(hass)
+    diagnostic = (await async_get_config_entry_diagnostics(hass, entry))["status"]
+    assert diagnostic["raw_process"] == 8
+    assert diagnostic["raw_sub_process"] == 0
+    assert diagnostic["raw_message"] == 11
+    assert diagnostic["message_key"] == "recipe_not_valid"
+    assert diagnostic["status_profile_key"] == "ef698"
+    assert diagnostic["brew_blocked"] is True
+    assert diagnostic["prompt_confirmable"] is False
+    assert diagnostic["is_ready"] is False
+    assert json.loads(json.dumps(diagnostic)) == diagnostic
 
 
 # ---------------------------------------------------------------------------

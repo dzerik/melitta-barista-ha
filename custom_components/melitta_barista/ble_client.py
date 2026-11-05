@@ -58,7 +58,7 @@ from .const import (
     detect_machine_type_from_name,
 )
 from .bond_state import BondState, BondStateMachine
-from .protocol import MachineRecipe, MachineStatus, MelittaProtocol
+from .protocol import CommandAborted, MachineRecipe, MachineStatus, MelittaProtocol
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -401,6 +401,7 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._write_lock = asyncio.Lock()
         self._brew_lock = asyncio.Lock()
         self._status: MachineStatus | None = None
+        self._status_connection = None
         self._firmware: str | None = None
         self._serial: str | None = None
         self._features: FeatureFlags | None = None
@@ -410,6 +411,8 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._family_override: str | None = (family_override or None)
         self._auto_confirm_prompts: bool = auto_confirm_prompts
         self._last_auto_confirmed: Manipulation = Manipulation.NONE
+        self._prompt_generation = 0
+        self._auto_confirm_generation = 0
         self._status_callbacks: list[Callable[[MachineStatus], None]] = []
         self._connection_callbacks: list[Callable[[bool], None]] = []
         self._poll_task: asyncio.Task | None = None
@@ -551,8 +554,11 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         return self._auto_confirm_prompts
 
     def set_auto_confirm_prompts(self, value: bool) -> None:
-        """Update the auto-confirm flag (used by Options Flow listener)."""
-        self._auto_confirm_prompts = bool(value)
+        """Update the option and invalidate queued automatic confirmations."""
+        value = bool(value)
+        if value != self._auto_confirm_prompts:
+            self._auto_confirm_generation += 1
+        self._auto_confirm_prompts = value
         if not value:
             self._last_auto_confirmed = Manipulation.NONE
 
@@ -959,7 +965,14 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
 
     def _on_status(self, status: MachineStatus) -> None:
         prev = self._status
+        if (
+            self._status_connection is not self._client
+            or prev is None or prev.prompt_key != status.prompt_key
+        ):
+            self._prompt_generation += 1
+            self._last_auto_confirmed = Manipulation.NONE
         self._status = status
+        self._status_connection = self._client
         # Refresh cup counters when brew finishes (PRODUCT → READY)
         if (
             prev is not None
@@ -986,7 +999,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         if not self._auto_confirm_prompts:
             return
         manip = status.manipulation
-        if manip not in SOFT_AUTO_CONFIRM_MANIPULATIONS:
+        if (
+            manip not in SOFT_AUTO_CONFIRM_MANIPULATIONS
+            or not self._brand.can_confirm_prompt(status, self._capabilities)
+        ):
             # Reset debounce when the prompt clears or switches to a non-soft one
             self._last_auto_confirmed = Manipulation.NONE
             return
@@ -994,12 +1010,22 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             return
         self._last_auto_confirmed = manip
         _LOGGER.info("Auto-confirming prompt %s", manip.name)
-        task = asyncio.create_task(self._auto_confirm_task(manip))
+        task = asyncio.create_task(self._auto_confirm_task(
+            manip, self._prompt_generation, self._auto_confirm_generation,
+        ))
         task.add_done_callback(self._on_auto_confirm_done)
 
-    async def _auto_confirm_task(self, manip: Manipulation) -> None:
+    async def _auto_confirm_task(
+        self, manip: Manipulation, generation: int | None = None,
+        auto_generation: int | None = None,
+    ) -> None:
+        if generation is not None and (
+            generation != self._prompt_generation or not self._auto_confirm_prompts
+            or auto_generation != self._auto_confirm_generation
+        ):
+            return
         try:
-            success = await self.confirm_prompt()
+            success = await self.confirm_prompt(auto=generation is not None)
             if not success:
                 _LOGGER.warning(
                     "Auto-confirm %s: NACK or timeout", manip.name,
@@ -1073,8 +1099,12 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
             "message": message,
         })
 
-    async def _write_ble(self, data: bytes) -> None:
+    async def _write_ble(
+        self, data: bytes, *, send_guard: Callable[[], bool] | None = None,
+    ) -> None:
         async with self._write_lock:
+            if send_guard is not None and not send_guard():
+                raise CommandAborted("Write is no longer eligible")
             client = self._client
             if not client or not client.is_connected:
                 raise BleakError("Not connected")
@@ -1812,7 +1842,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 )
                 # Tell the protocol about the family so brand-specific
                 # HX parsing (process-code tables) picks the right map.
-                self._protocol.set_family(self._capabilities.family_key)
+                self._protocol.set_family(
+                    self._capabilities.family_key,
+                    status_profile_key=self._capabilities.status_profile_key,
+                )
 
             # Read feature capability bits (HI — optional, may time out)
             self._features = await self._protocol.read_features(self._write_ble)
@@ -1844,7 +1877,9 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
                 fallback = self._fallback_capabilities()
                 if fallback is not None:
                     self._capabilities = fallback
-                    self._protocol.set_family(fallback.family_key)
+                    self._protocol.set_family(
+                        fallback.family_key, status_profile_key=fallback.status_profile_key,
+                    )
                     _LOGGER.info(
                         "Capabilities resolved via machine-type fallback: "
                         "%s (family=%s)",

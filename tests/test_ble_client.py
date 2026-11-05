@@ -1836,7 +1836,10 @@ class TestHighLevelAPI:
 
         result = await client.confirm_prompt()
         assert result is True
-        client._protocol.confirm_prompt.assert_awaited_once_with(client._write_ble)
+        guard = client._protocol.confirm_prompt.await_args.kwargs["send_guard"]
+        assert guard()
+        client._connected = False
+        assert not guard()
 
     async def test_confirm_prompt_not_connected(self):
         """Returns False when disconnected."""

@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.exceptions import ServiceValidationError
 
 from homeassistant.const import CONF_ADDRESS
 
@@ -158,7 +159,8 @@ async def async_setup_entry(
     ):
         entities.append(NivonaBrewOverrideNumber(
             client, entry, name, "strength", "Brew Strength",
-            "mdi:gauge", 1, 5, 1, default=3,
+            "mdi:gauge", 1, caps_for_overrides.strength_levels, 1,
+            default=(caps_for_overrides.strength_levels + 1) // 2,
         ))
         entities.append(NivonaBrewOverrideNumber(
             client, entry, name, "coffee_amount", "Brew Coffee Amount",
@@ -166,7 +168,8 @@ async def async_setup_entry(
         ))
         entities.append(NivonaBrewOverrideNumber(
             client, entry, name, "water_amount", "Brew Water Amount",
-            "mdi:water", 0, 240, 5, default=100, unit="mL",
+            "mdi:water", 0, caps_for_overrides.brew_water_amount_max, 5,
+            default=100, unit="mL",
         ))
         entities.append(NivonaBrewOverrideNumber(
             client, entry, name, "temperature", "Brew Temperature Preset",
@@ -470,17 +473,58 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
     def extra_state_attributes(self) -> dict:
         return {"user_set": self._user_set}
 
+    @property
+    def native_max_value(self) -> float:
+        """Use live model limits after serial identification refines the family."""
+        caps = self._client.capabilities
+        if caps is not None:
+            if self._field == "strength":
+                return caps.strength_levels
+            if self._field == "water_amount":
+                return caps.brew_water_amount_max
+        return self._attr_native_max_value
+
+    def _model_default(self) -> float:
+        if self._field == "strength" and self.native_max_value != self._attr_native_max_value:
+            return (self.native_max_value + 1) // 2
+        return self._default
+
+    @property
+    def native_value(self) -> float:
+        """Keep untouched defaults consistent with refined model capabilities."""
+        if not self._user_set and self._attr_native_value == self._default:
+            return self._model_default()
+        return self._attr_native_value
+
+    @property
+    def available(self) -> bool:
+        """Keep unsupported controls registered without offering an inert input."""
+        caps = self._client.capabilities
+        return caps is not None and self._client.brand.temp_recipe_register(
+            caps.family_key, 0, self._field,
+        ) is not None
+
+    def _valid_value(self, value: object) -> bool:
+        try:
+            self._validate_value(value)
+        except ServiceValidationError:
+            return False
+        return True
+
     async def async_added_to_hass(self) -> None:
         """Restore the override and listen for its length-safe reset event."""
         await super().async_added_to_hass()
         last = await self.async_get_last_state()
         if last and last.state not in (None, "unknown", "unavailable"):
             try:
-                self._attr_native_value = float(last.state)
+                restored = float(last.state)
             except ValueError:
                 pass
-            if last.attributes.get("user_set"):
-                self._user_set = True
+            else:
+                unresolved = self._client.capabilities is None
+                if (unresolved and restored.is_integer()) or self._valid_value(restored):
+                    self._attr_native_value = restored
+                    self._user_set = bool(last.attributes.get("user_set"))
         # Listen for the per-slider reset event fired by
         # NivonaResetOverridesButton — clears user_set and restores default.
         self.async_on_remove(
@@ -489,15 +533,48 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
                 self._handle_reset_event,
             )
         )
+        self._client.add_connection_callback(self._on_connection_change)
+        self.async_on_remove(
+            lambda: self._client.remove_connection_callback(self._on_connection_change)
+        )
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        if self._client.capabilities is not None and not self._valid_value(self._attr_native_value):
+            self._user_set = False
+            self._attr_native_value = self._model_default()
+        self.async_write_ha_state()
 
     @callback
     def _handle_reset_event(self, event) -> None:
         """Clear the user_set flag and restore the default on reset."""
         self._user_set = False
-        self._attr_native_value = self._default
+        self._attr_native_value = self._model_default()
         self.async_write_ha_state()
 
+    def _validate_value(self, value: object) -> None:
+        if (
+            not isinstance(value, (int, float))
+            or not self.native_min_value <= value <= self.native_max_value
+            or value != int(value)
+        ):
+            raise ServiceValidationError(
+                f"{self._field} must be an integer between "
+                f"{self.native_min_value} and {self.native_max_value}"
+            )
+        if not self.available:
+            raise ServiceValidationError(f"{self._field} is unsupported on this machine")
+        caps = self._client.capabilities
+        if caps is not None:
+            raw = int(value) - 1 if self._field == "strength" else int(value)
+            try:
+                self._client.brand.validate_recipe_param(caps, "temporary", 0, self._field, raw)
+            except ValueError as err:
+                raise ServiceValidationError(str(err)) from err
+
     async def async_set_native_value(self, value: float) -> None:
+        """Accept finite integral input within this model's displayed limits."""
+        self._validate_value(value)
         self._attr_native_value = value
         self._user_set = True
         self.async_write_ha_state()

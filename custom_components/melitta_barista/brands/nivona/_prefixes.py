@@ -29,7 +29,11 @@ _MODEL_OVERRIDES: dict[str, dict] = {
     # family baseline (same NIVO line, brew opcode 0x04) pending live
     # confirmation from real hardware — requested on the HA community
     # forum. Slot/strength values mirror the 8xxx baseline.
-    "9101": {"my_coffee_slots": 9, "strength_levels": 5},
+    "9101": {
+        "my_coffee_slots": 9, "strength_levels": 5,
+        "status_profile_key": "unverified-9101",
+        "recipe_amount_unit": None, "brew_water_amount_max": 240,
+    },
     # NICR 600 — all 5 strength levels; MyCoffee slot count varies.
     "660": {"my_coffee_slots": 1, "strength_levels": 5},
     "670": {"my_coffee_slots": 5, "strength_levels": 5},

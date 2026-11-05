@@ -516,7 +516,7 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_native_unit_of_measurement = None  # raw byte value; vendor-specific scale
+    _attr_native_unit_of_measurement = None  # fallback for unresolved quantity units
 
     # Human-readable suffix per param + an icon hint.
     _LABELS = {
@@ -573,11 +573,34 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
         )
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> int | float | None:
+        """Display quantities in mL while leaving the client cache unchanged."""
         slots = self._client.my_coffee_slots
         if slots is None or self._slot >= len(slots):
             return None
-        return slots[self._slot].get(self._param_key)
+        raw = slots[self._slot].get(self._param_key)
+        caps = self._client.capabilities
+        if raw is None or caps is None:
+            return raw
+        layout = self._client.brand.mycoffee_layout(caps.family_key)
+        if layout is not None and layout.fluid_write_scale_10:
+            return raw / 10
+        return raw
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Report mL for models with a resolved quantity profile."""
+        caps = self._client.capabilities
+        return caps.recipe_amount_unit if caps is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Retain the raw register value alongside the displayed quantity."""
+        slots = self._client.my_coffee_slots
+        raw = None
+        if slots is not None and self._slot < len(slots):
+            raw = slots[self._slot].get(self._param_key)
+        return {"raw_value": raw}
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

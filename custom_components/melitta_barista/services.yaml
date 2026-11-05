@@ -465,10 +465,9 @@ confirm_prompt:
 nivona_write_recipe_param:
   name: Nivona — Write standard-recipe param (experimental)
   description: >
-    EXPERIMENTAL. Write a single byte of a Nivona standard recipe slot.
-    Writes persist on the machine. Offsets are based on upstream
-    reverse-engineering and have not been validated by this project on
-    real Nivona hardware. Use at your own risk. Nivona only.
+    EXPERIMENTAL. Write a numeric parameter of a Nivona standard recipe.
+    Writes persist on the machine. Quantities use mL; choices use raw
+    numeric values. Known parameter domains are validated before writing.
   fields:
     entity_id:
       name: Entity
@@ -516,7 +515,7 @@ nivona_write_recipe_param:
             - icon
     value:
       name: Value
-      description: Numeric value to write. Fluid amounts are in ml.
+      description: Quantities in mL; choices retain raw values, including zero-based strength.
       required: true
       selector:
         number:
@@ -527,10 +526,9 @@ nivona_write_recipe_param:
 nivona_write_mycoffee_param:
   name: Nivona — Write MyCoffee slot param (experimental)
   description: >
-    EXPERIMENTAL. Write a single byte of a Nivona MyCoffee user slot.
-    Writes persist on the machine. Offsets are based on upstream
-    reverse-engineering and have not been validated by this project on
-    real Nivona hardware. Use at your own risk. Nivona only.
+    EXPERIMENTAL. Write a numeric parameter of a Nivona MyCoffee user slot.
+    Writes persist on the machine. Quantities use mL; choices use raw
+    numeric values. Known slot domains are validated before writing.
   fields:
     entity_id:
       name: Entity
