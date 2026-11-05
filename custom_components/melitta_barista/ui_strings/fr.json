@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Arrêt automatique",
   "settings.auto_off_after.description": "Minutes avant l'arrêt automatique",
   "settings.auto_off_after.label": "Arrêt auto après",
-  "settings.auto_on_deactivated.label": "Démarrage automatique désactivé",
+  "settings.auto_on_deactivated.label": "Mise en marche automatique",
   "settings.auto_on_hours.label": "Heures du démarrage automatique",
   "settings.auto_on_minutes.label": "Minutes du démarrage automatique",
   "settings.brew_temperature.description": "Température de l'eau d'infusion",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Étape {n} sur {m}",
   "wizard.title": "Guide de préparation",
   "values.milk_mode.warm_milk": "Lait chaud",
-  "values.milk_mode.milk_froth": "Mousse de lait"
+  "values.milk_mode.milk_froth": "Mousse de lait",
+  "settings.easy_clean_after_minutes.label": "Intervalle EasyClean",
+  "settings.extreme_mode.label": "Mode extrême",
+  "settings.big_picture_mode.label": "Grandes images",
+  "settings.quick_select.label": "Sélection rapide",
+  "settings.flying_picture.label": "Image animée",
+  "settings.brew_unit_wash_interval.label": "Intervalle de rinçage du groupe café",
+  "settings.filter_inserted.label": "Filtre installé"
 }

@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Auto-off",
   "settings.auto_off_after.description": "Minutes until automatic shutdown",
   "settings.auto_off_after.label": "Auto Off After",
-  "settings.auto_on_deactivated.label": "Auto-on deactivated",
+  "settings.auto_on_deactivated.label": "Automatic switch-on",
   "settings.auto_on_hours.label": "Auto-on hours",
   "settings.auto_on_minutes.label": "Auto-on minutes",
   "settings.brew_temperature.description": "Brewing water temperature",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Step {n} of {m}",
   "wizard.title": "Brew guide",
   "values.milk_mode.warm_milk": "Warm Milk",
-  "values.milk_mode.milk_froth": "Milk Froth"
+  "values.milk_mode.milk_froth": "Milk Froth",
+  "settings.easy_clean_after_minutes.label": "EasyClean interval",
+  "settings.extreme_mode.label": "Extreme mode",
+  "settings.big_picture_mode.label": "Large pictures",
+  "settings.quick_select.label": "Quick select",
+  "settings.flying_picture.label": "Flying picture",
+  "settings.brew_unit_wash_interval.label": "Brew unit wash interval",
+  "settings.filter_inserted.label": "Filter inserted"
 }

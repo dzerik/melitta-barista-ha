@@ -24,7 +24,7 @@ def settings_for_family(family: str, settings: tuple[SettingDescriptor, ...]) ->
 def can_read_setting(caps: MachineCapabilities | None, setting_id: int) -> bool:
     """Keep generic registers separate from the model-specific setting namespace."""
     if setting_id < 100:
-        return setting_id != 15
+        return setting_id != 15 and (caps is None or setting_id not in caps.unsupported_generic_setting_ids)
     return caps is not None and any(
         s.setting_id == setting_id and s.is_verified for s in caps.settings
     )

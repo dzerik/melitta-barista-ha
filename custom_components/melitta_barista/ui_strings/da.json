@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Auto-sluk",
   "settings.auto_off_after.description": "Minutter til automatisk slukning",
   "settings.auto_off_after.label": "Auto sluk efter",
-  "settings.auto_on_deactivated.label": "Auto-tænd deaktiveret",
+  "settings.auto_on_deactivated.label": "Automatisk tænding",
   "settings.auto_on_hours.label": "Auto-tænd timer",
   "settings.auto_on_minutes.label": "Auto-tænd minutter",
   "settings.brew_temperature.description": "Vandtemperatur ved brygning",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Trin {n} af {m}",
   "wizard.title": "Brygguide",
   "values.milk_mode.warm_milk": "Varm mælk",
-  "values.milk_mode.milk_froth": "Mælkeskum"
+  "values.milk_mode.milk_froth": "Mælkeskum",
+  "settings.easy_clean_after_minutes.label": "EasyClean-interval",
+  "settings.extreme_mode.label": "Ekstremtilstand",
+  "settings.big_picture_mode.label": "Store billeder",
+  "settings.quick_select.label": "Hurtigt valg",
+  "settings.flying_picture.label": "Bevægeligt billede",
+  "settings.brew_unit_wash_interval.label": "Interval for skylning af bryggeenhed",
+  "settings.filter_inserted.label": "Filter indsat"
 }

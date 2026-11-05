@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Oprire automată",
   "settings.auto_off_after.description": "Minute până la oprirea automată",
   "settings.auto_off_after.label": "Oprire automată după",
-  "settings.auto_on_deactivated.label": "Pornire automată dezactivată",
+  "settings.auto_on_deactivated.label": "Pornire automată",
   "settings.auto_on_hours.label": "Ora pornirii automate",
   "settings.auto_on_minutes.label": "Minutul pornirii automate",
   "settings.brew_temperature.description": "Temperatura apei la preparare",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Pasul {n} din {m}",
   "wizard.title": "Asistent de preparare",
   "values.milk_mode.warm_milk": "Lapte cald",
-  "values.milk_mode.milk_froth": "Spumă de lapte"
+  "values.milk_mode.milk_froth": "Spumă de lapte",
+  "settings.easy_clean_after_minutes.label": "Interval EasyClean",
+  "settings.extreme_mode.label": "Mod extrem",
+  "settings.big_picture_mode.label": "Imagini mari",
+  "settings.quick_select.label": "Selecție rapidă",
+  "settings.flying_picture.label": "Imagine animată",
+  "settings.brew_unit_wash_interval.label": "Interval de clătire a unității de preparare",
+  "settings.filter_inserted.label": "Filtru introdus"
 }

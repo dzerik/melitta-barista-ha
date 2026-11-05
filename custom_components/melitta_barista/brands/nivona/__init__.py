@@ -52,6 +52,7 @@ from . import (
     _family_900,
     _family_1030,
     _family_8000,
+    _family_9101,
 )
 
 
@@ -67,18 +68,11 @@ _LOGGER = logging.getLogger("melitta_barista")
 # merged result into per-aspect dispatch tables removes ~40 lines of
 # mechanical per-family aliasing.
 #
-# Family notes (preserved from the pre-loop version):
-#   - 8000 (NICR 8101/8103/8107) uses brew_command_mode 0x04, all others 0x0B.
-#   - 900 (NICR 920/930) writes fluid amounts as ml × 10.
-#   - 79x has hasAromaBalance=True; others False.
-#   - 600 has only 1 MyCoffee slot; 700/79x/900/8000 have 4.
-#   - Maintenance stat gauges (600/601/610/611/620/621/640/641) are
-#     universal; only the "filter dependency" id varies per family
-#     (642 on 8000, 101 on 900/1000, 105 on 700/79X/600).
+# Each family module owns its recipe, setting, quantity and process metadata.
 # ---------------------------------------------------------------------------
 
 _FAMILY_DATA: dict[str, dict] = {}
-for _mod in (_family_600, _family_700, _family_900, _family_1030, _family_8000):
+for _mod in (_family_600, _family_700, _family_900, _family_1030, _family_8000, _family_9101):
     _FAMILY_DATA.update(_mod.EXPORTS)
 del _mod
 
@@ -276,29 +270,26 @@ class NivonaProfile:
         return mycoffee_layout(family_key)
 
     @staticmethod
-    def standard_recipe_register(
-        selector: int, offset: int, *, family_key: str | None = None,
-    ) -> int | None:
-        """Resolve persistent storage without conflating its base with HE selectors.
-
-        The bare two-argument helper retains its historical arithmetic for
-        callers that do not yet supply a family. Actual writes pass a family.
-        """
+    def standard_recipe_register(selector: int, offset: int, *, family_key: str | None = None) -> int | None:
+        """Resolve storage independently from the outgoing recipe selector."""
+        if family_key == "9101":
+            if offset not in _family_9101.STANDARD_OFFSETS.get(selector, ()):
+                return None
+            return _family_9101.STANDARD_BASES[selector] + offset
         if family_key is None:
             return standard_recipe_register(selector, offset)
         return _storage.standard_recipe_register(family_key, selector, offset)
 
     @staticmethod
-    def temp_recipe_register(
-        family_key: str, recipe_id: int, field: str,
-    ) -> int | None:
-        """Return the temporary HW register for a recipe override.
-
-        The fixed temporary slot is selector-independent, but the legacy
-        temperature preset resolves to the selected recipe's primary
-        process. Unsupported recipe temperatures return None.
-        Explicit layout field names retain their existing register mapping.
-        """
+    def temp_recipe_register(family_key: str, recipe_id: int, field: str) -> int | None:
+        """Resolve the independent remote layout and legacy temperature alias."""
+        if family_key == "9101":
+            if recipe_id not in _family_9101.STANDARD_BASES:
+                return None
+            if field == "temperature":
+                field = "coffee_temperature" if recipe_id in range(8) else "milk_temperature" if recipe_id == 8 else "unsupported"
+            offset = getattr(_family_9101.REMOTE_LAYOUT, f"{field}_offset", None)
+            return None if offset is None else 9000 + offset
         layout = _STANDARD_RECIPE_LAYOUTS.get(family_key)
         if layout is None:
             return None
@@ -307,14 +298,11 @@ class NivonaProfile:
                 return None
             field = "temperature"
         elif field == "temperature":
-            temperature = _temperature_override(family_key, recipe_id)
-            if temperature is None:
+            field = _temperature_override(family_key, recipe_id)
+            if field is None:
                 return None
-            field = temperature
         offset = getattr(layout, f"{field}_offset", None)
-        if offset is None:
-            return None
-        return TEMP_RECIPE_BASE_REGISTER + offset
+        return None if offset is None else TEMP_RECIPE_BASE_REGISTER + offset
 
 
     @staticmethod
@@ -330,6 +318,8 @@ class NivonaProfile:
         field: str, value: object,
     ) -> int:
         """Check explicit fields using their own temporary or persistent domain."""
+        if caps.family_key == "9101":
+            return _family_9101.validate_field(context, selector, field, value)
         if context == "temporary":
             register = self.temp_recipe_register(caps.family_key, selector, field)
         else:

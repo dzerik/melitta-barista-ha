@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automatikus kikapcsolás",
   "settings.auto_off_after.description": "Percek az automatikus kikapcsolásig",
   "settings.auto_off_after.label": "Auto kikapcsolás után",
-  "settings.auto_on_deactivated.label": "Automatikus bekapcsolás kikapcsolva",
+  "settings.auto_on_deactivated.label": "Automatikus bekapcsolás",
   "settings.auto_on_hours.label": "Automatikus bekapcsolás órája",
   "settings.auto_on_minutes.label": "Automatikus bekapcsolás perce",
   "settings.brew_temperature.description": "A főzővíz hőmérséklete",
@@ -296,5 +296,12 @@
   "wizard.step_of": "{n}. lépés / {m}",
   "wizard.title": "Főzési útmutató",
   "values.milk_mode.warm_milk": "Meleg tej",
-  "values.milk_mode.milk_froth": "Tejhab"
+  "values.milk_mode.milk_froth": "Tejhab",
+  "settings.easy_clean_after_minutes.label": "EasyClean időköz",
+  "settings.extreme_mode.label": "Extrém mód",
+  "settings.big_picture_mode.label": "Nagy képek",
+  "settings.quick_select.label": "Gyorsválasztás",
+  "settings.flying_picture.label": "Mozgó kép",
+  "settings.brew_unit_wash_interval.label": "Főzőegység öblítési időköze",
+  "settings.filter_inserted.label": "Szűrő behelyezve"
 }

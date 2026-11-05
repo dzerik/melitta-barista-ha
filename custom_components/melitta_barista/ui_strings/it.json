@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Spegnimento automatico",
   "settings.auto_off_after.description": "Minuti prima dello spegnimento automatico",
   "settings.auto_off_after.label": "Spegnimento auto dopo",
-  "settings.auto_on_deactivated.label": "Accensione automatica disattivata",
+  "settings.auto_on_deactivated.label": "Accensione automatica",
   "settings.auto_on_hours.label": "Ore di accensione automatica",
   "settings.auto_on_minutes.label": "Minuti di accensione automatica",
   "settings.brew_temperature.description": "Temperatura dell'acqua di erogazione",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Passaggio {n} di {m}",
   "wizard.title": "Guida alla preparazione",
   "values.milk_mode.warm_milk": "Latte caldo",
-  "values.milk_mode.milk_froth": "Schiuma di latte"
+  "values.milk_mode.milk_froth": "Schiuma di latte",
+  "settings.easy_clean_after_minutes.label": "Intervallo EasyClean",
+  "settings.extreme_mode.label": "Modalità estrema",
+  "settings.big_picture_mode.label": "Immagini grandi",
+  "settings.quick_select.label": "Selezione rapida",
+  "settings.flying_picture.label": "Immagine animata",
+  "settings.brew_unit_wash_interval.label": "Intervallo di risciacquo del gruppo infusore",
+  "settings.filter_inserted.label": "Filtro inserito"
 }

@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Otomatik kapanma",
   "settings.auto_off_after.description": "Otomatik kapanmaya kalan dakika",
   "settings.auto_off_after.label": "Otomatik kapanma süresi",
-  "settings.auto_on_deactivated.label": "Otomatik açılma kapalı",
+  "settings.auto_on_deactivated.label": "Otomatik açılma",
   "settings.auto_on_hours.label": "Otomatik açılma saati",
   "settings.auto_on_minutes.label": "Otomatik açılma dakikası",
   "settings.brew_temperature.description": "Demleme suyu sıcaklığı",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Adım {n} / {m}",
   "wizard.title": "Demleme rehberi",
   "values.milk_mode.warm_milk": "Ilık süt",
-  "values.milk_mode.milk_froth": "Süt köpüğü"
+  "values.milk_mode.milk_froth": "Süt köpüğü",
+  "settings.easy_clean_after_minutes.label": "EasyClean aralığı",
+  "settings.extreme_mode.label": "Ekstrem mod",
+  "settings.big_picture_mode.label": "Büyük resimler",
+  "settings.quick_select.label": "Hızlı seçim",
+  "settings.flying_picture.label": "Hareketli resim",
+  "settings.brew_unit_wash_interval.label": "Demleme ünitesi durulama aralığı",
+  "settings.filter_inserted.label": "Filtre takılı"
 }

@@ -81,7 +81,7 @@ def can_confirm_prompt(self, status, caps) -> bool:
 Different brands use different raw numbers for the same logical state.
 Examples observed in production:
 - Melitta: `READY = 2`, `PRODUCT = 4`
-- Nivona NIVO 8000: `READY = 3`, `PRODUCT = 4`
+- Nivona NIVO 8000/9101: `READY = 3`, `PRODUCT = 4`
 - Nivona 600/700/79x/900/1030/1040: `READY = 8`, `PRODUCT = 11`
 
 `parse_status` translates raw integers to the brand-agnostic
@@ -100,7 +100,8 @@ status profile, after receiving HX on the current connection. Physical actions
 such as filling water or replacing trays are visible but are not remotely
 acknowledgeable. Incomplete message profiles use conservative decoding:
 nonzero messages block brewing and cannot be confirmed. The experimental 9101
-does not inherit the 810x message/phase table. This does not enable any outgoing
+uses a separate Ef1109 decoder (ready3/home−1, product4) and does not inherit
+the 810x message/phase table. This does not enable any outgoing
 maintenance process codes. Melitta retains its canonical decoder and existing
 confirmation policy.
 
@@ -365,3 +366,26 @@ Forward-looking — not blocking new brands today, but worth flagging:
 
 When/if these become bottlenecks (community-driven 3rd brand, external
 plugin requests), revisit. Until then the contract above is sufficient.
+
+### NIVO 9101 recipe preparation
+
+9101 has an independent family: standard selectors0..12, explicit storage bases
+(Lungo10100, Espresso10000), MyCoffee selectors13..28 and16 slots. Quantities
+are in mL. Unresolved or unsupported recipe fields fail before transmission.
+Its remote Type register is9000, strength9001, and remote HE uses selector0.
+The remote template is filled completely from verified defaults and current
+saved fields before explicit overrides; missing reads or rejected writes abort
+the start. This prevents parameters from an earlier temporary recipe leaking
+into a later one. Chilled recipes require profile5, without an8107 temperature99
+requirement or firmware fallback.
+
+Recipe starts and numeric recipe/setting writes use the capability's optional
+`recipe_write_precondition` under one shared operation lock: a current ready/home
+status, then one HE98 ACK, then dependent writes/start. A negative ACK or timeout
+aborts; no inferred home polling or preparation retry is added. Maintenance
+commands remain unavailable. AutoOn schedules and recipe reordering are withheld
+until their conflicting domains are resolved.
+
+Model settings use verified/writable descriptors. Unsupported controls are
+disabled in the entity registry without removing custom names. The legacy
+AutoOn key/ID remains stable while its label describes automatic switch-on.

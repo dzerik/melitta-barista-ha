@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Αυτόματη απενεργοποίηση",
   "settings.auto_off_after.description": "Λεπτά έως την αυτόματη απενεργοποίηση",
   "settings.auto_off_after.label": "Αυτόματη απενεργοποίηση μετά",
-  "settings.auto_on_deactivated.label": "Αυτόματη ενεργοποίηση απενεργοποιημένη",
+  "settings.auto_on_deactivated.label": "Αυτόματη ενεργοποίηση",
   "settings.auto_on_hours.label": "Ώρα αυτόματης ενεργοποίησης",
   "settings.auto_on_minutes.label": "Λεπτά αυτόματης ενεργοποίησης",
   "settings.brew_temperature.description": "Θερμοκρασία νερού κατά την παρασκευή",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Βήμα {n} από {m}",
   "wizard.title": "Οδηγός παρασκευής",
   "values.milk_mode.warm_milk": "Ζεστό γάλα",
-  "values.milk_mode.milk_froth": "Αφρόγαλα"
+  "values.milk_mode.milk_froth": "Αφρόγαλα",
+  "settings.easy_clean_after_minutes.label": "Διάστημα EasyClean",
+  "settings.extreme_mode.label": "Ακραία λειτουργία",
+  "settings.big_picture_mode.label": "Μεγάλες εικόνες",
+  "settings.quick_select.label": "Γρήγορη επιλογή",
+  "settings.flying_picture.label": "Κινούμενη εικόνα",
+  "settings.brew_unit_wash_interval.label": "Διάστημα έκπλυσης μονάδας παρασκευής",
+  "settings.filter_inserted.label": "Τοποθετημένο φίλτρο"
 }

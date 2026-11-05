@@ -8,13 +8,15 @@ from ...coffee_platform.domain import MachineProcess, MachineStatus, Manipulatio
 FAMILY_STATUS_PROFILES = {
     "600": "legacy", "700": "ef573", "79x": "ef253",
     "900": "legacy", "900-light": "ef698",
-    "1030": "ef568", "1040": "ef568", "8000": "ef1040",
+    "1030": "ef568", "1040": "ef568", "8000": "ef1040", "9101": "ef1109",
 }
 
 _COMMON_MESSAGES = {
     1: "bu_removed", 2: "trays_missing", 3: "empty_trays", 4: "fill_water",
 }
 _MESSAGES = {
+    "ef1109": {**_COMMON_MESSAGES, 5:"close_powder_lid", 6:"fill_beans",
+               7:"fill_powder", 8:"wait", 9:"other", 254:"process_aborted", 255:"recipe_not_valid"},
     "ef573": {
         **_COMMON_MESSAGES,
         **dict.fromkeys((5, 6, 8, 9, 10, 11, 12, 13, 14), "other"),
@@ -48,6 +50,8 @@ _LEGACY_SUBPROCESS = {
     3: SubProcess.STEAM, 4: SubProcess.WATER,
 }
 _SUBPROCESSES = {
+    "ef1109": {2:SubProcess.GRINDING, 5:SubProcess.COFFEE, 7:SubProcess.STEAM,
+               8:SubProcess.STEAM, 9:SubProcess.WATER},
     "ef573": _LEGACY_SUBPROCESS, "ef698": _LEGACY_SUBPROCESS,
     "ef568": _LEGACY_SUBPROCESS,
     "ef1040": {
@@ -64,7 +68,6 @@ def parse_status(
 
     Families with incomplete message coverage retain basic ready/product
     decoding. Their nonzero messages remain unknown and block preparation.
-    The experimental 9101 profile intentionally uses this conservative path.
     """
     profile = status_profile_key or FAMILY_STATUS_PROFILES.get(family_key or "", "unknown")
     if len(data) < 8:
@@ -72,12 +75,14 @@ def parse_status(
             status_profile_key=profile, brew_blocked=True, prompt_confirmable=False,
         )
     raw_process, raw_sub, message, progress = struct.unpack(">hhhh", data[:8])
-    ready, product = (3, 4) if family_key == "8000" else (8, 11)
+    ready, product = (3, 4) if family_key in ("8000", "9101") else (8, 11)
     # Only normalize established states here. Other raw processes remain
     # available diagnostically and cannot accidentally become READY.
     process = None
     if family_key in FAMILY_STATUS_PROFILES:
         process = {ready: MachineProcess.READY, product: MachineProcess.PRODUCT}.get(raw_process)
+    if family_key == "9101" and raw_process == -1:
+        process = MachineProcess.READY
     key = "none" if message == 0 else _MESSAGES.get(profile, {}).get(message, "unknown")
     return MachineStatus(
         process=process,

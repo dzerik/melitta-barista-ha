@@ -32,10 +32,15 @@ class BleSettingsMixin(_MixinBase):
         return await self._protocol.read_numerical(self._write_ble, setting_id)
 
     async def write_setting(self, setting_id: int, value: int) -> bool:
-        """Validate the raw setting code before sending HW."""
+        """Validate setting codes and serialize any preparation with the write."""
         if not self.connected:
             return False
         value = self._brand.validate_setting(self._capabilities, setting_id, value)
+        if self._capabilities and self._capabilities.recipe_write_precondition is not None:
+            async with self._brew_lock:
+                if not await self._prepare_recipe_write():
+                    return False
+                return await self._protocol.write_numerical(self._write_ble, setting_id, value)
         return await self._protocol.write_numerical(self._write_ble, setting_id, value)
 
     # Alphanumeric operations

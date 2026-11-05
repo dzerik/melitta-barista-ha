@@ -886,6 +886,14 @@ class EugsterProtocol:
         payload = _build_he_command_payload(command_id)
         return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
 
+    async def prepare_write(self, write_func, process_code: int) -> bool:
+        """Await one preparation ACK without retrying a physical operation."""
+        payload = bytearray(18)
+        payload[1] = process_code
+        return await self.send_and_wait_ack(
+            CMD_START_PROCESS, bytes(payload), write_func, retries=1,
+        )
+
     async def cancel_process(self, write_func, process_value: int) -> bool:
         payload = struct.pack(">h", process_value) + b"\x00\x00"
         return await self.send_and_wait_ack(CMD_CANCEL_PROCESS, payload, write_func)

@@ -260,6 +260,8 @@ async def test_brew_mycoffee_slot_records_only_the_slot():
     """The slot's recipe lives on the machine and is never read — say so."""
     client = _client()
     client._capabilities = MagicMock(
+        recipe_write_precondition=None, temporary_recipe_defaults=(),
+        temporary_recipe_type_register=None, temporary_recipe_selector=None,
         my_coffee_slots=4, first_mycoffee_selector=40, brew_command_mode=0x0B,
     )
 
@@ -282,6 +284,8 @@ async def test_brew_nivona_records_the_descriptor_but_never_invents_components()
 
     client = _client()
     client._capabilities = MagicMock(
+        recipe_write_precondition=None, temporary_recipe_defaults=(),
+        temporary_recipe_type_register=None, temporary_recipe_selector=None,
         brew_command_mode=0x0B,
         family_key="700",
         recipes=(RecipeDescriptor(recipe_id=7, name="Cappuccino", name_key="cappuccino"),),
@@ -301,6 +305,8 @@ async def test_brew_nivona_records_the_descriptor_but_never_invents_components()
 async def test_brew_nivona_of_an_unknown_selector_records_only_the_source():
     client = _client()
     client._capabilities = MagicMock(
+        recipe_write_precondition=None, temporary_recipe_defaults=(),
+        temporary_recipe_type_register=None, temporary_recipe_selector=None,
         brew_command_mode=0x0B, family_key="700", recipes=(),
     )
 
@@ -322,6 +328,8 @@ async def test_brew_nivona_omits_an_unauthored_name_key():
 
     client = _client()
     client._capabilities = MagicMock(
+        recipe_write_precondition=None, temporary_recipe_defaults=(),
+        temporary_recipe_type_register=None, temporary_recipe_selector=None,
         brew_command_mode=0x0B, family_key="700",
         recipes=(RecipeDescriptor(recipe_id=3, name="Kaffee Crema", name_key=""),),
     )

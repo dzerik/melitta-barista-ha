@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Auto-Aus",
   "settings.auto_off_after.description": "Minuten bis zur automatischen Abschaltung",
   "settings.auto_off_after.label": "Auto-Aus nach",
-  "settings.auto_on_deactivated.label": "Auto-Ein deaktiviert",
+  "settings.auto_on_deactivated.label": "Automatisches Einschalten",
   "settings.auto_on_hours.label": "Auto-Ein Stunden",
   "settings.auto_on_minutes.label": "Auto-Ein Minuten",
   "settings.brew_temperature.description": "Wassertemperatur beim Brühen",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Schritt {n} von {m}",
   "wizard.title": "Brüh-Assistent",
   "values.milk_mode.warm_milk": "Warme Milch",
-  "values.milk_mode.milk_froth": "Milchschaum"
+  "values.milk_mode.milk_froth": "Milchschaum",
+  "settings.easy_clean_after_minutes.label": "EasyClean-Intervall",
+  "settings.extreme_mode.label": "Extremmodus",
+  "settings.big_picture_mode.label": "Große Bilder",
+  "settings.quick_select.label": "Schnellauswahl",
+  "settings.flying_picture.label": "Bewegtes Bild",
+  "settings.brew_unit_wash_interval.label": "Spülintervall der Brüheinheit",
+  "settings.filter_inserted.label": "Filter eingesetzt"
 }

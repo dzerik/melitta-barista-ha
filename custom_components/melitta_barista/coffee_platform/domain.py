@@ -228,6 +228,9 @@ class RecipeFieldLayout:
     milk_foam_amount_offset: int | None = None
     # Misc
     preparation_offset: int | None = None
+    milk_type_offset: int | None = None
+    froth_type_offset: int | None = None
+    milk_temp_control_offset: int | None = None
     # MyCoffee-only fields
     enabled_offset: int | None = None
     icon_offset: int | None = None
@@ -267,6 +270,10 @@ class MachineCapabilities:
     # Protocol quirks
     fluid_scale_factor: int = 1                      # raw quantity units per mL
     brew_command_mode: int = 0x0B                    # 0x04 for Nivona 8000
+    recipe_write_precondition: int | None = None
+    temporary_recipe_type_register: int | None = None
+    temporary_recipe_selector: int | None = None
+    temporary_recipe_defaults: tuple[tuple[str, int], ...] = ()
     brew_water_amount_max: int = 240                # native mL control
     recipe_amount_unit: str | None = None           # verified display unit
     # Known firmware/selector pairs that cannot start a temporary recipe.

@@ -207,9 +207,9 @@ async def test_melitta_confirmation_and_decoding_remain_compatible():
 async def test_9101_does_not_inherit_810x_message_or_subprocess_map():
     client, packets = _client("9101", auto=True)
     status = _hx(client, 3, message=5, sub=4)
-    assert status.manipulation == Manipulation.NONE
+    assert status.manipulation == Manipulation.CLOSE_POWDER_LID
     assert status.sub_process is None
-    assert not status.is_ready
+    assert not status.is_ready_for_brew()
     assert not await client.confirm_prompt()
     assert packets == []
 

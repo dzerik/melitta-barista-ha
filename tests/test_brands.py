@@ -185,9 +185,9 @@ def test_nivona_detect_family_from_serial():
     assert np_.detect_family("NIVONA-7565730710-----") == "700"
     # NIVO 8101 → family 8000 (via 4-char prefix "8101")
     assert np_.detect_family("NIVONA-8101000000-----") == "8000"
-    # NIVO 9101 (2025 9000 series) → alpha-mapped to the 8000 family
-    assert np_.detect_family("NIVONA-9101000000-----") == "8000"
-    assert np_.detect_family("910125400000000") == "8000"  # bare serial form
+    # NIVO 9101 uses the independent Ef1109 family
+    assert np_.detect_family("NIVONA-9101000000-----") == "9101"
+    assert np_.detect_family("910125400000000") == "9101"  # bare serial form
     # 81xx serial with an unknown 4-char prefix returns None: we only
     # accept the confirmed model codes (8101 / 8103 / 8107) for the
     # 8000 family, so a hypothetical 8108 serial falls through to
@@ -362,7 +362,7 @@ def test_nivona_per_model_capabilities_overrides():
         ("030", 18, 5, "1030"),
         ("040", 18, 5, "1040"),
         ("8101", 9, 5, "8000"),  # NIVO 8101
-        ("9101", 9, 5, "8000"),  # NIVO 9101 (2025) — alpha, 8000 baseline
+        ("9101", 16, 5, "9101"),  # independent Ef1109 family
         # 600-family: all 5 strength bands (v0.49.0 correction)
         ("670", 5, 5, "600"),
         ("660", 1, 5, "600"),

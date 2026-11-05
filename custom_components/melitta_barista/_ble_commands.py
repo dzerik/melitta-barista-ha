@@ -73,6 +73,52 @@ class BleCommandsMixin(_MixinBase):
         tolerated = caps.tolerated_brew_manipulations if caps else ()
         return self._status.is_ready_for_brew(tolerated)
 
+    async def _prepare_recipe_write(self) -> bool:
+        """Check a model's current state and await its optional write prerequisite."""
+        caps = self._capabilities
+        if caps is None or caps.recipe_write_precondition is None:
+            return True
+        status = await self._protocol.read_status(self._write_ble)
+        if (
+            status is None or status.status_profile_key != caps.status_profile_key
+            or not status.is_ready_for_brew()
+        ):
+            return False
+        return await self._protocol.prepare_write(
+            self._write_ble, caps.recipe_write_precondition,
+        )
+
+    async def _seed_temporary_recipe(self, caps, selector: int, overrides: dict) -> dict | None:
+        """Map saved fields into a complete independent temporary template."""
+        fields = dict(caps.temporary_recipe_defaults)
+        layout = self._brand.standard_recipe_layout(caps.family_key)
+        for field in fields:
+            offset = getattr(layout, f"{field}_offset", None)
+            if offset is None:
+                continue
+            register = self._brand.standard_recipe_register(
+                selector, offset, family_key=caps.family_key,
+            )
+            if register is None:
+                continue
+            value = await self._protocol.read_numerical(self._write_ble, register)
+            if value is None:
+                return None
+            fields[field] = self._brand.validate_recipe_param(
+                caps, "temporary", selector, field, value,
+            )
+        # Normalize the legacy alias before merging so an earlier explicit
+        # field is never overwritten later by a seeded template field.
+        if "temperature" in overrides:
+            register = self._brand.temp_recipe_register(caps.family_key, selector, "temperature")
+            target = next(field for field in fields if self._brand.temp_recipe_register(
+                caps.family_key, selector, field,
+            ) == register)
+            overrides = dict(overrides)
+            overrides[target] = overrides.pop("temperature")
+        fields.update(overrides)
+        return fields
+
     def _record_brew_intent(
         self,
         *,
@@ -211,6 +257,10 @@ class BleCommandsMixin(_MixinBase):
 
         if not isinstance(recipe_selector, int) or not 0 <= recipe_selector <= 255:
             raise ValueError("recipe selector must be an integer between 0 and 255")
+        if caps and caps.temporary_recipe_defaults and not any(
+            recipe.recipe_id == recipe_selector for recipe in caps.recipes
+        ):
+            raise ValueError("Recipe selector is unsupported for this machine")
 
         if overrides and family_key:
             temperature = overrides.get("temperature")
@@ -262,6 +312,12 @@ class BleCommandsMixin(_MixinBase):
         async with self._brew_lock:
             self._stop_polling()
             try:
+                if not await self._prepare_recipe_write():
+                    return False
+                if overrides and caps.temporary_recipe_defaults:
+                    overrides = await self._seed_temporary_recipe(caps, recipe_selector, overrides)
+                    if overrides is None:
+                        return False
                 # Pre-write temp-recipe overrides via HW. The machine
                 # exposes a single fixed temp slot shared across all
                 # selectors:
@@ -274,7 +330,11 @@ class BleCommandsMixin(_MixinBase):
                 # (the PERSISTENT standard-recipe slot) and silently
                 # corrupted the machine's default recipe definitions.
                 # Fixed in v0.49.0 after audit Finding 10.
-                type_register = self._brand.temp_recipe_type_register
+                type_register = (
+                    caps.temporary_recipe_type_register
+                    if caps and caps.temporary_recipe_type_register is not None
+                    else self._brand.temp_recipe_type_register
+                )
                 if overrides and family_key and type_register is not None:
                     scale = self._brand.fluid_write_scale(family_key)
 
@@ -292,6 +352,8 @@ class BleCommandsMixin(_MixinBase):
                             "Temp-recipe type announce at reg %d failed",
                             type_register,
                         )
+                        if caps.temporary_recipe_defaults:
+                            return False
                     await asyncio.sleep(0.08)
 
                     # Step 2 — per-field overrides at 9001 + offset.
@@ -319,6 +381,8 @@ class BleCommandsMixin(_MixinBase):
                                 "HW write failed for %s=%d (reg=%d)",
                                 field, scaled, reg,
                             )
+                            if caps.temporary_recipe_defaults:
+                                return False
                         await asyncio.sleep(0.08)
 
                 wrote_temp = bool(
@@ -331,7 +395,11 @@ class BleCommandsMixin(_MixinBase):
                     )
                 )
                 ok = await self._protocol.start_process_nivona(
-                    self._write_ble, recipe_selector, brew_mode,
+                    self._write_ble, (
+                        caps.temporary_recipe_selector
+                        if wrote_temp and caps.temporary_recipe_selector is not None
+                        else recipe_selector
+                    ), brew_mode,
                     use_temp_recipe=wrote_temp,
                     chilled=saved_recipe_fallback,
                 )
@@ -383,6 +451,8 @@ class BleCommandsMixin(_MixinBase):
         async with self._brew_lock:
             self._stop_polling()
             try:
+                if not await self._prepare_recipe_write():
+                    return False
                 ok = await self._protocol.start_process_nivona(
                     self._write_ble, selector, brew_mode,
                     use_temp_recipe=False,
@@ -750,6 +820,7 @@ class BleCommandsMixin(_MixinBase):
         self, layout, slot_or_selector: int, param_key: str, value: int,
         *, base_register_fn,
     ) -> bool:
+        """Write a validated layout field under any model-specific preparation lock."""
         offset_attr = f"{param_key}_offset"
         offset = getattr(layout, offset_attr, None)
         if offset is None:
@@ -760,9 +831,12 @@ class BleCommandsMixin(_MixinBase):
         register = base_register_fn(slot_or_selector, offset)
         if register is None:
             return False
-        return await self._protocol.write_numerical(
-            self._write_ble, register, value,
-        )
+        if self._capabilities.recipe_write_precondition is not None:
+            async with self._brew_lock:
+                if not await self._prepare_recipe_write():
+                    return False
+                return await self._protocol.write_numerical(self._write_ble, register, value)
+        return await self._protocol.write_numerical(self._write_ble, register, value)
 
     # Maintenance operations
 
