@@ -503,20 +503,19 @@ class BrandStatSensor(_MelittaSensorBase):
 
 
 class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
-    """Per-(slot, param) MyCoffee amount sensor for Nivona (read-only).
+    """Read-only MyCoffee fluid amounts, flags and levels for Nivona.
 
     Reads from the client's ``my_coffee_slots`` cache, which is filled
     once per connect by ``BleRecipesMixin.read_mycoffee_slots``. Stays
     ``unavailable`` until that first read completes.
 
-    Currently exposes the four "amount" params per slot
-    (coffee / water / milk / milk_foam) — only those whose offset is
-    defined in the family's MyCoffee layout. Future PRs will add
-    strength / temperature / enabled flag and write support.
+    Exposes fluid amounts, strength, temperature and the enabled flag
+    when the family's MyCoffee layout defines their register offsets.
+    Only fluid amounts receive quantity units and scaling.
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_native_unit_of_measurement = None  # raw byte value; vendor-specific scale
+    _attr_native_unit_of_measurement = None  # fallback for unresolved quantity units
 
     # Human-readable suffix per param + an icon hint.
     _LABELS = {
@@ -573,11 +572,38 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
         )
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> int | float | None:
+        """Convert fluid amounts to mL while preserving flags and level values."""
         slots = self._client.my_coffee_slots
         if slots is None or self._slot >= len(slots):
             return None
-        return slots[self._slot].get(self._param_key)
+        raw = slots[self._slot].get(self._param_key)
+        caps = self._client.capabilities
+        if raw is None or caps is None or self.native_unit_of_measurement is None:
+            return raw
+        layout = self._client.brand.mycoffee_layout(caps.family_key)
+        if layout is not None and layout.fluid_write_scale_10:
+            return raw / 10
+        return raw
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Report quantity units only for fluid amounts, never flags or levels."""
+        if self._param_key not in {
+            "coffee_amount", "water_amount", "milk_amount", "milk_foam_amount",
+        }:
+            return None
+        caps = self._client.capabilities
+        return caps.recipe_amount_unit if caps is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Retain the raw register value alongside the displayed quantity."""
+        slots = self._client.my_coffee_slots
+        raw = None
+        if slots is not None and self._slot < len(slots):
+            raw = slots[self._slot].get(self._param_key)
+        return {"raw_value": raw}
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

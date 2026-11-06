@@ -2,6 +2,78 @@
 
 All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
+## [Unreleased]
+
+## [0.96.0b11] — 2026-11-06 (beta)
+
+### Fixed
+- Restore capability-driven Nivona statistics and care counters through a dedicated read path, without relaxing setting access restrictions.
+- Add model-specific settings and brew inputs after an offline Home Assistant startup; avoid duplicate entities on reconnect and load current setting values when entities are added to a connected machine.
+- Keep MyCoffee flags and levels unscaled and unitless; apply mL conversion only to fluid amounts.
+- Send Nivona brew starts once and confirm an unacknowledged start only when fresh PRODUCT status is observed on the same connection. Preserve HA attribution when PRODUCT arrives before the acknowledgment.
+- Abort Nivona brewing if any required temporary-recipe write fails.
+
+## [0.96.0b10] — 2026-11-05 (beta)
+
+### Added
+- Give NIVO 9101 an independent experimental family with its own recipes, settings, statistics and 16 MyCoffee slots.
+
+### Fixed
+- Resolve 9101 recipe storage separately from brew selectors and use its independent temporary register layout.
+- Require a successful model-specific preparation acknowledgment before dependent recipe or setting writes; abort partial temporary recipes instead of starting them.
+- Enforce the saved Americano water limit and retire unsupported generic controls without losing registry customizations.
+- Seed complete 9101 temporary recipes from current saved fields and verified defaults, with distinct chilled behavior.
+- Keep automatic switch-on labels consistent across the panel and native entities while retaining existing entity identities.
+
+This beta also includes the recipe-address, machine-setting, quantity, status and recipe-editor fixes recorded in the development checkpoints below. Maintenance commands remain unavailable for unverified Nivona process codes. Nivona hardware validation is still required.
+
+## [0.96.0b8] — 2026-11-05 (development checkpoint)
+
+### Fixed
+- Bind Nivona machine settings to the physical model, including tank-light colors and auto-off durations.
+- Reject unsupported or ambiguous setting values before transmission and preserve customized registry entries when retiring unsupported controls.
+- Correct the automatic switch-on label while preserving existing entity identities.
+
+## [0.96.0b7] — 2026-11-05 (development checkpoint)
+
+### Fixed
+
+- Resolve persistent Nivona recipe addresses by family instead of equating
+  storage slots with brew selectors. Correct 600-family storage and the
+  1040 milk-froth slot while preserving existing brew-selector identities.
+  Reject unresolved pure-milk storage and unknown standard recipes before HW.
+
+## [0.96.0b6] — 2026-11-05 (development checkpoint)
+
+### Fixed
+
+- Use the correct quantity units for Nivona 960/965/970 across temporary,
+  standard and MyCoffee recipe writes. Display verified MyCoffee amounts
+  in mL while retaining raw register values for diagnostics.
+- Validate explicit recipe parameters before writing, using separate numeric
+  domains for temporary, standard and MyCoffee registers. Native brew inputs
+  honor model limits, map human strength levels to zero-based wire choices,
+  refine after model identification and discard invalid restored overrides.
+- Decode Nivona status messages and preparation phases by model family.
+  Errors, waiting states and unknown messages block brewing instead of
+  becoming generic cup/flush prompts. Preserve raw status codes in diagnostics.
+  Limit HY to recognized confirmable Nivona prompts, rechecking eligibility
+  after queueing and before retries; discard stale automatic confirmations.
+- Enforce maintenance verification in native HA buttons and the client command
+  methods (#68). Unverified Nivona power-off and maintenance operations no
+  longer bypass the action catalog's availability restrictions. Verified
+  Melitta commands retain their existing payloads.
+- Use model-specific Nivona MyCoffee selector bases and recipe-specific
+  temperature registers. Reject unsupported temperature choices before
+  sending commands instead of silently dropping them.
+- Apply Nivona temporary milk recipes without misclassifying them as Chilled.
+  Preserve required Chilled presets, and restrict the saved-recipe firmware
+  workaround to its mapped model and firmware. Explicit overrides that the
+  workaround cannot apply now return an error before brewing.
+- Render milk-recipe icons using the actual warm-milk or milk-froth mode,
+  independently of temperature. Preserve the visual fallback for descriptions
+  without a known preparation mode.
+
 ## [0.96.0b5] — 2026-11-04 (beta)
 
 ### Added

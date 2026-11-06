@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automatsko isključenje",
   "settings.auto_off_after.description": "Minute do automatskog isključenja",
   "settings.auto_off_after.label": "Automatsko isključenje nakon",
-  "settings.auto_on_deactivated.label": "Automatsko uključenje isključeno",
+  "settings.auto_on_deactivated.label": "Automatsko uključivanje",
   "settings.auto_on_hours.label": "Sati automatskog uključenja",
   "settings.auto_on_minutes.label": "Minute automatskog uključenja",
   "settings.brew_temperature.description": "Temperatura vode pri pripremi",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Korak {n} od {m}",
   "wizard.title": "Vodič za pripremu",
   "values.milk_mode.warm_milk": "Toplo mlijeko",
-  "values.milk_mode.milk_froth": "Mliječna pjena"
+  "values.milk_mode.milk_froth": "Mliječna pjena",
+  "settings.easy_clean_after_minutes.label": "Interval EasyClean",
+  "settings.extreme_mode.label": "Ekstremni režim",
+  "settings.big_picture_mode.label": "Velike slike",
+  "settings.quick_select.label": "Brzi izbor",
+  "settings.flying_picture.label": "Pokretna slika",
+  "settings.brew_unit_wash_interval.label": "Interval ispiranja jedinice za kuhanje",
+  "settings.filter_inserted.label": "Filter umetnut"
 }

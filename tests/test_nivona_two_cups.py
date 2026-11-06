@@ -89,9 +89,10 @@ async def test_native_two_cup_choice_reaches_unscaled_temp_register_before_brew(
     commands = [(c.args[0], c.args[1]) for c in client._protocol.send_and_wait_ack.call_args_list]
     assert commands == [
         ("HW", struct.pack(">hi", 9001, 1)),
-        ("HW", struct.pack(">hi", 9002, 3)),
+        ("HW", struct.pack(">hi", 9002, 2)),
         ("HW", struct.pack(">hi", 9010, amounts[0])),
         ("HW", struct.pack(">hi", 9011, amounts[1])),
+        ("HW", struct.pack(">hi", 9006, 1)),
         ("HW", struct.pack(">hi", 9012, amounts[2])),
         ("HW", struct.pack(">hi", 9005, value)),
         ("HE", bytes.fromhex("000b00010001000000000000000000000000")),
@@ -122,10 +123,11 @@ async def test_other_override_keeps_complete_recipe_including_single_cup(hass):
     commands = [(c.args[0], c.args[1]) for c in client._protocol.send_and_wait_ack.call_args_list]
     assert commands == [
         ("HW", struct.pack(">hi", 9001, 1)),
-        ("HW", struct.pack(">hi", 9002, 5)),
-        ("HW", struct.pack(">hi", 9010, 40)),
-        ("HW", struct.pack(">hi", 9011, 100)),
-        ("HW", struct.pack(">hi", 9012, 80)),
+        ("HW", struct.pack(">hi", 9002, 4)),
+        ("HW", struct.pack(">hi", 9010, 400)),
+        ("HW", struct.pack(">hi", 9011, 1000)),
+        ("HW", struct.pack(">hi", 9006, 1)),
+        ("HW", struct.pack(">hi", 9012, 800)),
         ("HW", struct.pack(">hi", 9005, 0)),
         ("HE", bytes.fromhex("000b00010001000000000000000000000000")),
     ]

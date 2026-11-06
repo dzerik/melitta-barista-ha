@@ -174,8 +174,7 @@ _NIVONA_700_SETTINGS = [
                  {"value": 5, "token": None, "label": "6 h"},
                  {"value": 6, "token": None, "label": "8 h"},
                  {"value": 7, "token": None, "label": "10 h"},
-                 {"value": 8, "token": None, "label": "12 h"},
-                 {"value": 9, "token": None, "label": "off"}]},
+                 {"value": 8, "token": None, "label": "12 h"}]},
 ]
 
 
@@ -217,7 +216,7 @@ def test_758_model_drops_profile():
 
 def test_language_absent_on_every_nivona_family_present_on_melitta():
     for family_key in NIVONA.families:
-        assert "language" not in tokens_of(nivona_block(family_key)), family_key
+        assert ("language" in tokens_of(nivona_block(family_key))) == (family_key == "9101"), family_key
     assert "language" in tokens_of(melitta_block())
 
 
@@ -338,7 +337,10 @@ def test_anchored_nivona_names_slug_equal_across_all_29_locales():
         for domain, key in anchored:
             name = entity.get(domain, {}).get(key, {}).get("name")
             assert name is not None, (path.name, domain, key)
-            assert slugify(name) == key, (path.name, domain, key, name)
+            if key != "auto_on_deactivated":
+                assert slugify(name) == key, (path.name, domain, key, name)
+            # AutoOn has an explicitly pinned suggested_object_id; its label
+            # can describe the actual enable flag without renaming entities.
 
 
 def test_token_keyspace_distinction_brew_temperature_vs_temperature():

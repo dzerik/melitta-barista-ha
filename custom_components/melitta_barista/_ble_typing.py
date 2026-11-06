@@ -22,6 +22,10 @@ class BleClientProtocol(Protocol):
     _connected: bool
     _client: object | None
     _status: MachineStatus | None
+    _status_connection: object | None
+    _prompt_generation: int
+    _auto_confirm_prompts: bool
+    _auto_confirm_generation: int
     _brew_lock: asyncio.Lock
     _write_lock: asyncio.Lock
     _poll_task: asyncio.Task | None
@@ -47,7 +51,9 @@ class BleClientProtocol(Protocol):
 
     @property
     def connected(self) -> bool: ...
-    async def _write_ble(self, data: bytes) -> None: ...
+    async def _write_ble(
+        self, data: bytes, *, send_guard: Callable[[], bool] | None = None,
+    ) -> None: ...
     def _stop_polling(self) -> None: ...
     def start_polling(self, interval: float = ...) -> None: ...
     def _notify_profile_callbacks(self) -> None: ...

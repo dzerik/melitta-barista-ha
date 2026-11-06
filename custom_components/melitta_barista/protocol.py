@@ -210,6 +210,10 @@ class AlphanumericValue:
         return cls(vid, val)
 
 
+class CommandAborted(Exception):
+    """A queued write no longer satisfies its transmission precondition."""
+
+
 class EugsterProtocol:
     """Generic Eugster/EFLibrary protocol handler shared across brands.
 
@@ -242,6 +246,7 @@ class EugsterProtocol:
             brand = get_profile("melitta")
         self._brand: BrandProfile = brand
         self._family: str | None = None
+        self._status_profile_key: str | None = None
 
         self._rc4_key: bytes | None = None
         self._key_prefix: bytes | None = None
@@ -270,9 +275,12 @@ class EugsterProtocol:
     def brand(self) -> "BrandProfile":
         return self._brand
 
-    def set_family(self, family_key: str | None) -> None:
-        """Set the detected machine family — enables brand-aware HX parsing."""
+    def set_family(
+        self, family_key: str | None, *, status_profile_key: str | None = None,
+    ) -> None:
+        """Set the capability family and optional model-refined HX profile."""
         self._family = family_key
+        self._status_profile_key = status_profile_key
 
     def _init_encryption(self) -> None:
         """Initialise RC4 key from the active brand profile."""
@@ -502,7 +510,9 @@ class EugsterProtocol:
             return
 
         if command == CMD_READ_STATUS:
-            status = self._brand.parse_status(self._family, payload)
+            status = self._brand.parse_status(
+                self._family, payload, status_profile_key=self._status_profile_key,
+            )
             if self._on_status:
                 self._on_status(status)
 
@@ -618,24 +628,30 @@ class EugsterProtocol:
         payload: bytes | None,
         write_func: Callable[[bytes], Awaitable[None]],
         retries: int = 2,
+        *, send_guard: Callable[[], bool] | None = None,
     ) -> bool:
-        """Send a write command and wait for ACK, with retry on timeout."""
+        """Send a write command, checking any guard inside the lock on every attempt."""
         frame = self.build_frame(command, payload)
         chunks = self.chunk_for_ble(frame)
 
         for attempt in range(retries):
             async with self._lock:
+                if send_guard is not None and not send_guard():
+                    return False
                 loop = asyncio.get_running_loop()
                 self._ack_future = loop.create_future()
 
-                for chunk in chunks:
-                    await write_func(chunk)
-
                 try:
+                    for chunk in chunks:
+                        await write_func(chunk)
                     return await asyncio.wait_for(self._ack_future, timeout=self._frame_timeout)
+                except CommandAborted:
+                    return False
                 except asyncio.TimeoutError:
                     pass
                 finally:
+                    if self._ack_future is not None and not self._ack_future.done():
+                        self._ack_future.cancel()
                     self._ack_future = None
 
             if attempt < retries - 1:
@@ -686,9 +702,12 @@ class EugsterProtocol:
     # High-level API
 
     async def read_status(self, write_func) -> MachineStatus | None:
+        """Read HX with the current model's decoding profile."""
         data = await self.send_and_wait_response(CMD_READ_STATUS, None, write_func)
         if data:
-            return self._brand.parse_status(self._family, data)
+            return self._brand.parse_status(
+                self._family, data, status_profile_key=self._status_profile_key,
+            )
         return None
 
     async def read_version(self, write_func) -> str | None:
@@ -849,7 +868,10 @@ class EugsterProtocol:
         payload[1] = brew_mode & 0xFF
         payload[3] = recipe_selector & 0xFF
         payload[5] = 0x00 if chilled or not use_temp_recipe else 0x01
-        return await self.send_and_wait_ack(CMD_START_PROCESS, bytes(payload), write_func)
+        # Starting a drink is not idempotent: a lost ACK must not brew twice.
+        return await self.send_and_wait_ack(
+            CMD_START_PROCESS, bytes(payload), write_func, retries=1,
+        )
 
     async def execute_command(self, write_func, command_id: int) -> bool:
         """Send an HE-with-commandId action (factory reset etc.).
@@ -867,6 +889,14 @@ class EugsterProtocol:
         payload = _build_he_command_payload(command_id)
         return await self.send_and_wait_ack(CMD_START_PROCESS, payload, write_func)
 
+    async def prepare_write(self, write_func, process_code: int) -> bool:
+        """Await one preparation ACK without retrying a physical operation."""
+        payload = bytearray(18)
+        payload[1] = process_code
+        return await self.send_and_wait_ack(
+            CMD_START_PROCESS, bytes(payload), write_func, retries=1,
+        )
+
     async def cancel_process(self, write_func, process_value: int) -> bool:
         payload = struct.pack(">h", process_value) + b"\x00\x00"
         return await self.send_and_wait_ack(CMD_CANCEL_PROCESS, payload, write_func)
@@ -880,15 +910,20 @@ class EugsterProtocol:
         payload = struct.pack(">h", value_id)
         return await self.send_and_wait_ack(CMD_RESET_DEFAULT, payload, write_func)
 
-    async def confirm_prompt(self, write_func) -> bool:
+    async def confirm_prompt(
+        self, write_func: Callable[[bytes], Awaitable[None]],
+        *, send_guard: Callable[[], bool] | None = None,
+    ) -> bool:
         """Send HY command to confirm an active machine prompt.
 
         Payload: 4 zero bytes. Machine responds ``A``/``N``. Used to
         acknowledge prompts like "move cup to frother" or "flush
         required" so the brew flow can proceed.
+        The client supplies a guard for the current prompt and connection.
         """
         return await self.send_and_wait_ack(
             CMD_CONFIRM_PROMPT, b"\x00\x00\x00\x00", write_func,
+            send_guard=send_guard,
         )
 
 

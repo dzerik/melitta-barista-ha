@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automatické vypnutí",
   "settings.auto_off_after.description": "Minuty do automatického vypnutí",
   "settings.auto_off_after.label": "Automatické vypnutí po",
-  "settings.auto_on_deactivated.label": "Automatické zapnutí vypnuto",
+  "settings.auto_on_deactivated.label": "Automatické zapnutí",
   "settings.auto_on_hours.label": "Hodiny automatického zapnutí",
   "settings.auto_on_minutes.label": "Minuty automatického zapnutí",
   "settings.brew_temperature.description": "Teplota vody při přípravě",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Krok {n} z {m}",
   "wizard.title": "Průvodce přípravou",
   "values.milk_mode.warm_milk": "Teplé mléko",
-  "values.milk_mode.milk_froth": "Mléčná pěna"
+  "values.milk_mode.milk_froth": "Mléčná pěna",
+  "settings.easy_clean_after_minutes.label": "Interval EasyClean",
+  "settings.extreme_mode.label": "Extrémní režim",
+  "settings.big_picture_mode.label": "Velké obrázky",
+  "settings.quick_select.label": "Rychlý výběr",
+  "settings.flying_picture.label": "Pohyblivý obrázek",
+  "settings.brew_unit_wash_interval.label": "Interval proplachu spařovací jednotky",
+  "settings.filter_inserted.label": "Filtr vložen"
 }

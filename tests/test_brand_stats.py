@@ -15,7 +15,7 @@ from tests.test_sensor import _mock_client
 @pytest.fixture
 async def stats(hass):
     client = _mock_client(MachineStatus(process=MachineProcess.READY))
-    client.read_setting = AsyncMock(return_value=100)
+    client.read_statistic = AsyncMock(return_value=100)
     statuses, connections = [], []
     client.add_status_callback.side_effect = statuses.append
     client.add_connection_callback.side_effect = connections.append
@@ -30,12 +30,12 @@ async def test_concurrent_requests_join_one_read_and_queue_one_follow_up(hass, s
     coordinator, client, statuses, _ = stats
     started, release = asyncio.Event(), asyncio.Event()
     async def read(_):
-        if client.read_setting.await_count == 1:
+        if client.read_statistic.await_count == 1:
             started.set()
             await release.wait()
             return 100
         return 101
-    client.read_setting.side_effect = read
+    client.read_statistic.side_effect = read
     first = coordinator.request_refresh()
     await started.wait()
     for _ in range(10):
@@ -46,7 +46,7 @@ async def test_concurrent_requests_join_one_read_and_queue_one_follow_up(hass, s
             callback(client.status)
     release.set()
     await hass.async_block_till_done()
-    assert client.read_setting.await_count == 2
+    assert client.read_statistic.await_count == 2
     assert coordinator.values == {213: 101}
 
 
@@ -54,11 +54,11 @@ async def test_disconnect_then_immediate_reconnect_restarts_read(hass, stats):
     coordinator, client, _, connections = stats
     started = asyncio.Event()
     async def read(_):
-        if client.read_setting.await_count == 1:
+        if client.read_statistic.await_count == 1:
             started.set()
             await asyncio.Event().wait()
         return 101
-    client.read_setting.side_effect = read
+    client.read_statistic.side_effect = read
     old = coordinator.request_refresh()
     await started.wait()
     for connected in (False, True):
@@ -68,7 +68,7 @@ async def test_disconnect_then_immediate_reconnect_restarts_read(hass, stats):
     await hass.async_block_till_done()
     assert old.cancelled()
     assert coordinator.values == {213: 101}
-    assert client.read_setting.await_count == 2
+    assert client.read_statistic.await_count == 2
 
 
 async def test_unload_cancels_read_and_does_not_publish_partial_values(hass, stats):
@@ -77,7 +77,7 @@ async def test_unload_cancels_read_and_does_not_publish_partial_values(hass, sta
     async def read(_):
         started.set()
         await asyncio.Event().wait()
-    client.read_setting.side_effect = read
+    client.read_statistic.side_effect = read
     notifications = []
     coordinator.subscribe(lambda: notifications.append(True))
     task = coordinator.request_refresh()
@@ -97,12 +97,12 @@ async def test_busy_machine_defers_reads_until_ready(hass, stats):
     for callback in connections:
         callback(True)
     coordinator.request_initial_refresh()
-    client.read_setting.assert_not_awaited()
+    client.read_statistic.assert_not_awaited()
     client.status = MachineStatus(process=MachineProcess.READY)
     for callback in statuses:
         callback(client.status)
     await hass.async_block_till_done()
-    client.read_setting.assert_awaited_once_with(213)
+    client.read_statistic.assert_awaited_once_with(213)
 
 
 async def test_exception_retains_cache_and_other_registers_still_refresh(hass, stats):
@@ -112,7 +112,7 @@ async def test_exception_retains_cache_and_other_registers_still_refresh(hass, s
         StatDescriptor(214, 'cleaning', 'Cleaning', unit='count'),
     ))
     coordinator.values = {213: 100, 214: 6}
-    client.read_setting.side_effect = [OSError('link error'), 7]
+    client.read_statistic.side_effect = [OSError('link error'), 7]
     coordinator.request_refresh()
     await hass.async_block_till_done()
     assert coordinator.values == {213: 100, 214: 7}
@@ -121,9 +121,11 @@ async def test_exception_retains_cache_and_other_registers_still_refresh(hass, s
 async def test_explicit_client_disconnect_cancels_in_flight_statistics(hass, mock_bleak_client):
     """An intentional disconnect must notify subscribers, just like link loss."""
     from custom_components.melitta_barista.ble_client import MelittaBleClient
+    from custom_components.melitta_barista.brands.nivona import NivonaProfile
     from tests import MOCK_ADDRESS
 
-    client = MelittaBleClient(MOCK_ADDRESS)
+    client = MelittaBleClient(MOCK_ADDRESS, brand=NivonaProfile())
+    client._capabilities = client.brand.capabilities_for("79x")
     client._client = mock_bleak_client
     client._connected = True
     started = asyncio.Event()

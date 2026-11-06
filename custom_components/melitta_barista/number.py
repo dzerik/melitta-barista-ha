@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.exceptions import ServiceValidationError
 
 from homeassistant.const import CONF_ADDRESS
 
@@ -20,6 +21,7 @@ from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
 from .brands.nivona._options import nivona_number_range
 from .coffee_platform.contract import CoffeeMachineClient
+from .coffee_platform.domain import MachineCapabilities
 from .const import DOMAIN, MELITTA_SETTING_TABLES
 from .entity import MelittaDeviceMixin
 
@@ -87,9 +89,9 @@ async def async_setup_entry(
 
     Generic Eugster settings are filtered through the family's
     ``unsupported_generic_setting_ids`` capability (issue #10: the LANGUAGE
-    register is not implemented by any Nivona family — the entity was
+    register is not implemented by legacy Nivona families — the entity was
     permanently dead on a live NICR 790). Stale registry entries for
-    excluded settings are removed so they don't linger as unavailable.
+    excluded settings are disabled so they don't linger as unavailable.
     """
     client: CoffeeMachineClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
@@ -102,101 +104,122 @@ async def async_setup_entry(
         hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
         entry.options.get(CONF_FAMILY_OVERRIDE),
     )
-    excluded_ids: frozenset[int] = (
-        caps_resolved.unsupported_generic_setting_ids
-        if caps_resolved is not None else frozenset()
-    )
+    added_ids: set[str] = set()
 
-    # Settings (HR/HW) — generic Eugster, minus family-declared holes.
-    entities: list = [
-        MelittaSettingNumber(client, entry, name, defn)
-        for defn in SETTING_DEFINITIONS
-        if int(defn["id"]) not in excluded_ids
-    ]
+    def capability_entities(resolved: MachineCapabilities | None) -> list:
+        """Build only missing controls for the latest resolved model."""
+        excluded_ids: frozenset[int] = (
+            resolved.unsupported_generic_setting_ids
+            if resolved is not None else frozenset()
+        )
 
-    # Drop stale registry entries for settings this family can't serve —
-    # otherwise an entity created before the exclusion (or before caps
-    # were resolvable) survives forever as unavailable.
-    if excluded_ids:
-        ent_reg = er.async_get(hass)
-        for setting_id in excluded_ids:
-            stale = ent_reg.async_get_entity_id(
-                "number", DOMAIN, f"{client.address}_setting_{setting_id}",
-            )
-            if stale:
-                _LOGGER.debug(
-                    "Removing stale number entity %s (setting %d unsupported "
-                    "by family %s)",
-                    stale, setting_id, caps_resolved.family_key,
+        # Settings (HR/HW) — generic Eugster, minus family-declared holes.
+        entities: list = [
+            MelittaSettingNumber(client, entry, name, defn)
+            for defn in SETTING_DEFINITIONS
+            if int(defn["id"]) not in excluded_ids
+        ]
+
+        # Disable stale registry entries for settings this family can't serve —
+        # otherwise an entity created before the exclusion (or before caps
+        # were resolvable) survives forever as unavailable.
+        if excluded_ids:
+            ent_reg = er.async_get(hass)
+            for setting_id in excluded_ids:
+                stale = ent_reg.async_get_entity_id(
+                    "number", DOMAIN, f"{client.address}_setting_{setting_id}",
                 )
-                ent_reg.async_remove(stale)
-    # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
-    # hours/minutes and any future options-less setting descriptor).
-    # Options-bearing descriptors become selects in select.py; here we
-    # handle only the raw-number ones.
-    caps = client.capabilities
-    # Generic capability-driven setting numbers — register for brands
-    # whose families publish a non-empty settings tuple (Nivona). Melitta
-    # has its own hand-tailored MachineSettingNumber entities below and
-    # leaves `caps.settings = ()`, so this block naturally skips it.
-    if caps is not None and caps.settings:
-        for descriptor in caps.settings:
-            if descriptor.options:
-                continue
-            entities.append(
-                BrandSettingNumber(client, entry, name, descriptor),
-            )
+                if stale and (old := ent_reg.async_get(stale)) is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
+                    _LOGGER.debug(
+                        "Disabling stale number entity %s (setting %d unsupported "
+                        "by family %s)",
+                        stale, setting_id, resolved.family_key,
+                    )
+                    ent_reg.async_update_entity(stale, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+        # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
+        # hours/minutes and any future options-less setting descriptor).
+        # Options-bearing descriptors become selects in select.py; here we
+        # handle only the raw-number ones.
+        caps = resolved
+        # Generic capability-driven setting numbers — register for brands
+        # whose families publish a non-empty settings tuple (Nivona). Melitta
+        # has its own hand-tailored MachineSettingNumber entities below and
+        # leaves `caps.settings = ()`, so this block naturally skips it.
+        if caps is not None and caps.settings:
+            for descriptor in caps.settings:
+                if descriptor.options:
+                    continue
+                entities.append(
+                    BrandSettingNumber(client, entry, name, descriptor),
+                )
 
-    # Brew-override inputs — register for families that support per-brew
-    # temp-recipe overrides (currently every Nivona family; Melitta uses
-    # its own HC/HJ write path). Falls back to scanner-cached caps when
-    # `client.capabilities` is None at platform-setup time.
-    caps_for_overrides = caps_resolved
-    if (
-        caps_for_overrides is not None
-        and caps_for_overrides.supports_brew_overrides
-    ):
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "strength", "Brew Strength",
-            "mdi:gauge", 1, 5, 1, default=3,
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "coffee_amount", "Brew Coffee Amount",
-            "mdi:cup-water", 20, 240, 5, default=40, unit="mL",
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "water_amount", "Brew Water Amount",
-            "mdi:water", 0, 240, 5, default=100, unit="mL",
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "temperature", "Brew Temperature Preset",
-            "mdi:thermometer", 0, 2, 1, default=1,
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "milk_amount", "Brew Milk Amount",
-            "mdi:cup", 0, 240, 5, default=80, unit="mL",
-        ))
-        if any(
-            client.brand.temp_recipe_register(
-                caps_for_overrides.family_key, recipe.recipe_id, "two_cups",
-            ) is not None
-            for recipe in caps_for_overrides.recipes
+        # Brew-override inputs — register for families that support per-brew
+        # temp-recipe overrides (currently every Nivona family; Melitta uses
+        # its own HC/HJ write path). Falls back to scanner-cached caps when
+        # `client.capabilities` is None at platform-setup time.
+        caps_for_overrides = resolved
+        if (
+            caps_for_overrides is not None
+            and caps_for_overrides.supports_brew_overrides
         ):
             entities.append(NivonaBrewOverrideNumber(
-                client, entry, name, "two_cups", "Brew Two Cups",
-                "mdi:coffee", 0, 1, 1, default=0,
+                client, entry, name, "strength", "Brew Strength",
+                "mdi:gauge", 1, caps_for_overrides.strength_levels, 1,
+                default=(caps_for_overrides.strength_levels + 1) // 2,
             ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "coffee_amount", "Brew Coffee Amount",
+                "mdi:cup-water", 20, 240, 5, default=40, unit="mL",
+            ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "water_amount", "Brew Water Amount",
+                "mdi:water", 0, caps_for_overrides.brew_water_amount_max, 5,
+                default=100, unit="mL",
+            ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "temperature", "Brew Temperature Preset",
+                "mdi:thermometer", 0, 2, 1, default=1,
+            ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "milk_amount", "Brew Milk Amount",
+                "mdi:cup", 0, 240, 5, default=80, unit="mL",
+            ))
+            if any(
+                client.brand.temp_recipe_register(
+                    caps_for_overrides.family_key, recipe.recipe_id, "two_cups",
+                ) is not None
+                for recipe in caps_for_overrides.recipes
+            ):
+                entities.append(NivonaBrewOverrideNumber(
+                    client, entry, name, "two_cups", "Brew Two Cups",
+                    "mdi:coffee", 0, 1, 1, default=0,
+                ))
 
-    # Freestyle portion entities require HJ recipe writes.
-    if "HJ" in client.brand.supported_extensions:
-        entities.append(MelittaFreestyleNumber(
-            client, entry, name, "portion_1", "Freestyle Portion 1",
-            "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
-        ))
-        entities.append(MelittaFreestyleNumber(
-            client, entry, name, "portion_2", "Freestyle Portion 2",
-            "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
-        ))
+        # Freestyle portion entities require HJ recipe writes.
+        if "HJ" in client.brand.supported_extensions:
+            entities.append(MelittaFreestyleNumber(
+                client, entry, name, "portion_1", "Freestyle Portion 1",
+                "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
+            ))
+            entities.append(MelittaFreestyleNumber(
+                client, entry, name, "portion_2", "Freestyle Portion 2",
+                "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
+            ))
+        missing = [entity for entity in entities if entity.unique_id not in added_ids]
+        added_ids.update(entity.unique_id for entity in missing)
+        return missing
+
+    entities = capability_entities(caps_resolved)
+
+    @callback
+    def on_connected(connected: bool) -> None:
+        """Register model controls when discovery completes after setup."""
+        if connected and client.capabilities is not None:
+            if missing := capability_entities(client.capabilities):
+                async_add_entities(missing)
+
+    client.add_connection_callback(on_connected)
+    entry.async_on_unload(lambda: client.remove_connection_callback(on_connected))
     async_add_entities(entities)
 
 
@@ -234,10 +257,16 @@ class MelittaSettingNumber(MelittaDeviceMixin, NumberEntity):
 
     @property
     def available(self) -> bool:
-        return self._client.connected
+        """Hide a generic control when the resolved model cannot serve its register."""
+        return self._client.connected and bool(self._client.brand.can_read_setting(
+            self._client.capabilities, self._setting_id,
+        ))
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to reconnects and load the current value if already connected."""
         self._client.add_connection_callback(self._on_connection_change)
+        if self._client.connected:
+            await self._async_read_value()
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)
@@ -316,10 +345,16 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
 
     @property
     def available(self) -> bool:
-        return self._client.connected
+        """Offer only settings whose meaning is verified for this model."""
+        return self._client.connected and bool(self._client.brand.can_read_setting(
+            self._client.capabilities, self._setting_id,
+        ))
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to reconnects and load the current value if already connected."""
         self._client.add_connection_callback(self._on_connection_change)
+        if self._client.connected:
+            await self._async_read_value()
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)
@@ -340,8 +375,17 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
             _LOGGER.debug("BrandSettingNumber read failed id=%d", self._setting_id)
 
     async def async_set_native_value(self, value: float) -> None:
+        """Validate integral numeric input before writing a machine setting."""
         if not self._desc.is_writable:
             return
+        if (
+            not self.native_min_value <= value <= self.native_max_value
+            or value != int(value)
+        ):
+            raise ServiceValidationError(
+                f"Setting {self._setting_id} must be an integer between "
+                f"{self.native_min_value} and {self.native_max_value}"
+            )
         if await self._client.write_setting(self._setting_id, int(value)):
             self._attr_native_value = value
             self.async_write_ha_state()
@@ -470,17 +514,58 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
     def extra_state_attributes(self) -> dict:
         return {"user_set": self._user_set}
 
+    @property
+    def native_max_value(self) -> float:
+        """Use live model limits after serial identification refines the family."""
+        caps = self._client.capabilities
+        if caps is not None:
+            if self._field == "strength":
+                return caps.strength_levels
+            if self._field == "water_amount":
+                return caps.brew_water_amount_max
+        return self._attr_native_max_value
+
+    def _model_default(self) -> float:
+        if self._field == "strength" and self.native_max_value != self._attr_native_max_value:
+            return (self.native_max_value + 1) // 2
+        return self._default
+
+    @property
+    def native_value(self) -> float:
+        """Keep untouched defaults consistent with refined model capabilities."""
+        if not self._user_set and self._attr_native_value == self._default:
+            return self._model_default()
+        return self._attr_native_value
+
+    @property
+    def available(self) -> bool:
+        """Keep unsupported controls registered without offering an inert input."""
+        caps = self._client.capabilities
+        return caps is not None and self._client.brand.temp_recipe_register(
+            caps.family_key, 0, self._field,
+        ) is not None
+
+    def _valid_value(self, value: object) -> bool:
+        try:
+            self._validate_value(value)
+        except ServiceValidationError:
+            return False
+        return True
+
     async def async_added_to_hass(self) -> None:
         """Restore the override and listen for its length-safe reset event."""
         await super().async_added_to_hass()
         last = await self.async_get_last_state()
         if last and last.state not in (None, "unknown", "unavailable"):
             try:
-                self._attr_native_value = float(last.state)
+                restored = float(last.state)
             except ValueError:
                 pass
-            if last.attributes.get("user_set"):
-                self._user_set = True
+            else:
+                unresolved = self._client.capabilities is None
+                if (unresolved and restored.is_integer()) or self._valid_value(restored):
+                    self._attr_native_value = restored
+                    self._user_set = bool(last.attributes.get("user_set"))
         # Listen for the per-slider reset event fired by
         # NivonaResetOverridesButton — clears user_set and restores default.
         self.async_on_remove(
@@ -489,15 +574,48 @@ class NivonaBrewOverrideNumber(MelittaDeviceMixin, NumberEntity, RestoreEntity):
                 self._handle_reset_event,
             )
         )
+        self._client.add_connection_callback(self._on_connection_change)
+        self.async_on_remove(
+            lambda: self._client.remove_connection_callback(self._on_connection_change)
+        )
+
+    @callback
+    def _on_connection_change(self, connected: bool) -> None:
+        if self._client.capabilities is not None and not self._valid_value(self._attr_native_value):
+            self._user_set = False
+            self._attr_native_value = self._model_default()
+        self.async_write_ha_state()
 
     @callback
     def _handle_reset_event(self, event) -> None:
         """Clear the user_set flag and restore the default on reset."""
         self._user_set = False
-        self._attr_native_value = self._default
+        self._attr_native_value = self._model_default()
         self.async_write_ha_state()
 
+    def _validate_value(self, value: object) -> None:
+        if (
+            not isinstance(value, (int, float))
+            or not self.native_min_value <= value <= self.native_max_value
+            or value != int(value)
+        ):
+            raise ServiceValidationError(
+                f"{self._field} must be an integer between "
+                f"{self.native_min_value} and {self.native_max_value}"
+            )
+        if not self.available:
+            raise ServiceValidationError(f"{self._field} is unsupported on this machine")
+        caps = self._client.capabilities
+        if caps is not None:
+            raw = int(value) - 1 if self._field == "strength" else int(value)
+            try:
+                self._client.brand.validate_recipe_param(caps, "temporary", 0, self._field, raw)
+            except ValueError as err:
+                raise ServiceValidationError(str(err)) from err
+
     async def async_set_native_value(self, value: float) -> None:
+        """Accept finite integral input within this model's displayed limits."""
+        self._validate_value(value)
         self._attr_native_value = value
         self._user_set = True
         self.async_write_ha_state()

@@ -273,6 +273,13 @@ async def async_get_config_entry_diagnostics(
             "sub_process": str(client.status.sub_process) if client.status else None,
             "progress": client.status.progress if client.status else None,
             "is_ready": client.status.is_ready if client.status else None,
+            "raw_process": client.status.raw_process if client.status else None,
+            "raw_sub_process": client.status.raw_sub_process if client.status else None,
+            "raw_message": client.status.raw_message if client.status else None,
+            "message_key": client.status.message_key if client.status else None,
+            "status_profile_key": client.status.status_profile_key if client.status else None,
+            "brew_blocked": client.status.brew_blocked if client.status else None,
+            "prompt_confirmable": client.status.prompt_confirmable if client.status else None,
         },
         "counters": {
             "total_cups": client.total_cups,

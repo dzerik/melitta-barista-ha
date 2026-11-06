@@ -447,7 +447,7 @@
         "name": "Direct-start deactivated"
       },
       "auto_on_deactivated": {
-        "name": "Auto-on deactivated"
+        "name": "Автоматическое включение"
       },
       "power_on_rinse": {
         "name": "Power-on rinse"
@@ -466,6 +466,30 @@
           "warm_milk": "Тёплое молоко",
           "milk_froth": "Молочная пена"
         }
+      },
+      "easy_clean_after_minutes": {
+        "name": "easy clean after minutes"
+      },
+      "extreme_mode": {
+        "name": "extreme mode"
+      },
+      "big_picture_mode": {
+        "name": "big picture mode"
+      },
+      "quick_select": {
+        "name": "quick select"
+      },
+      "flying_picture": {
+        "name": "flying picture"
+      },
+      "brew_unit_wash_interval": {
+        "name": "brew unit wash interval"
+      },
+      "filter_inserted": {
+        "name": "filter inserted"
+      },
+      "language": {
+        "name": "language"
       }
     },
     "number": {

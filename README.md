@@ -96,7 +96,7 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 - **21 or 24 built-in recipes** (Melitta) — select from dropdown and brew with one tap (3 extra recipes on TS model)
 - **Freestyle recipes** (Melitta) — build custom drinks with two configurable components (coffee/milk/water), adjustable intensity, aroma, temperature, shots, and portion sizes
 - **Reset recipe to factory defaults** (Melitta, v0.33.0+) — HD opcode button with auto-refresh of cached recipe attributes
-- **Confirm machine prompts** (v0.34.0+) — dedicated `Confirm Prompt` button + `awaiting_confirmation` binary sensor + optional **global auto-confirm** for soft prompts (move cup, flush); hardware-blocking prompts (fill water, empty trays) remain manual
+- **Confirm machine prompts** (v0.34.0+) — dedicated `Confirm Prompt` button + `awaiting_confirmation` binary sensor + optional **global auto-confirm** for soft prompts (move cup, flush). Nivona permits remote confirmation only for recognized family-specific rinse prompts; physical interventions, errors, waits and unknown messages cannot send HY. Raw status codes remain available in diagnostics.
 - **Maintenance operations** — easy clean, intensive clean, descaling, filter insert/replace/remove, evaporating, power off
 - **Cancel in-flight brew** — HZ opcode, one-click cancel during any running process
 - **Machine settings control** — water hardness, brew temperature, auto-off timer, energy saving, auto-bean-select (TS)
@@ -452,14 +452,19 @@ Once configured, the integration creates a device with all available entities fi
 | Brew Freestyle | Melitta | Brew the custom freestyle recipe using current freestyle parameters. |
 | Reset Brew Overrides | Nivona | Clear explicit brew override markers so the next untouched Brew uses the machine's saved recipe. |
 | Cancel | both | Cancel the currently running operation (HZ). |
-| Confirm Prompt | both | Acknowledge an active machine prompt (move cup, flush, fill water, etc.) via HY. Available only when `awaiting_confirmation` binary sensor is on. |
+| Confirm Prompt | both | Acknowledge an eligible machine prompt via HY. Nivona permits recognized family-specific rinse confirmations; physical interventions require action on the machine. Available only when `awaiting_confirmation` binary sensor is on. |
 | Reset Recipe | Melitta | Reset the currently selected recipe to factory defaults (HD). Available when machine is Ready and a recipe is selected. Recipe cache auto-refreshes. |
-| Easy Clean | both | Start the easy clean cycle (configuration). |
-| Intensive Clean | both | Start the intensive clean cycle (configuration). |
-| Descaling | both | Start the descaling process (configuration). |
-| Filter Insert / Replace / Remove | both | Water filter operations (configuration). |
-| Evaporating | both | Steam evaporating cycle (configuration). |
-| Switch Off | both | Power off the machine (configuration). |
+| Easy Clean | T, TS | Start the easy clean cycle (configuration). |
+| Intensive Clean | T, TS | Start the intensive clean cycle (configuration). |
+| Descaling | T, TS | Start the descaling process (configuration). |
+| Filter Insert / Replace / Remove | T, TS | Water filter operations (configuration). |
+| Evaporating | T, TS | Steam evaporating cycle (configuration). |
+| Switch Off | T, TS | Power off the machine (configuration). |
+
+Nivona maintenance and power-off buttons remain unavailable until their
+model-specific outgoing commands are verified. The client also blocks direct
+calls to these unverified operations; hiding controls in a dashboard is not
+required for the block to take effect. Recipe brewing remains available.
 
 ### Numbers
 
@@ -471,6 +476,24 @@ Once configured, the integration creates a device with all available entities fi
 | Freestyle Portion 1 | 5 -- 250 ml | Component 1 portion size in milliliters. |
 | Freestyle Portion 2 | 0 -- 250 ml | Component 2 portion size in milliliters (0 = disabled). |
 | Brew Two Cups | 0 -- 1 | Nivona: 0 = single cup, 1 = two cups. Created only for families with an existing mapped temporary-recipe flag. |
+| Brew Temperature Preset | 0 -- 2 | Nivona: raw per-brew temperature preset for the selected recipe's primary process. Available values depend on the recipe and model. |
+
+Nivona brew strength uses human levels 1–3 or 1–5 according to the model;
+the native button converts these to zero-based protocol values. Brew water
+amount supports up to 500 mL on models with verified quantity domains.
+Limits update after model identification. Unsupported controls remain
+registered with their existing IDs but are unavailable; invalid restored
+overrides return to the current model's default.
+
+Recipe quantity inputs use mL. For NICR 960/965/970, temporary, standard and
+MyCoffee writes convert mL to the machine's tenths-of-a-milliliter units.
+Verified MyCoffee amount sensors show mL and retain the register value in
+`raw_value`; the internal diagnostic cache remains raw. Other models keep
+their existing conversion. Low-level numeric recipe services retain raw
+choice values, including zero-based strength; they do not use human levels.
+Known domains are checked before writing. Temporary quantities may use zero
+to disable a component; their active ranges can differ from MyCoffee and
+standard recipes. Unresolved persistent domains retain integer wire limits.
 
 The Nivona two-cup control defaults to 0 and follows the native **Brew** button.
 An untouched default does not activate temporary-recipe overrides. As with the
@@ -478,6 +501,13 @@ other Nivona brew controls, explicitly changing an override sends the complete
 current override set before brewing. **Reset Brew Overrides** clears the
 explicit markers and returns to the machine's saved recipe. Two-cup values and
 their override markers survive reloads.
+
+Nivona temperature overrides target the recipe's mapped coffee, water, milk or
+milk-froth temperature field. Unsupported fields or levels produce an error
+before brewing; an untouched unsupported temperature control does not prevent
+other native overrides. Chilled recipes retain their required preparation
+preset. Firmware that supports only the saved Chilled recipe rejects explicit
+overrides; reset the overrides to brew that saved recipe.
 
 ### Switches
 

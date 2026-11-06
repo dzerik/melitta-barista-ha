@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automatisk avstängning",
   "settings.auto_off_after.description": "Minuter till automatisk avstängning",
   "settings.auto_off_after.label": "Auto av efter",
-  "settings.auto_on_deactivated.label": "Automatisk start avaktiverad",
+  "settings.auto_on_deactivated.label": "Automatisk start",
   "settings.auto_on_hours.label": "Timme för automatisk start",
   "settings.auto_on_minutes.label": "Minut för automatisk start",
   "settings.brew_temperature.description": "Vattentemperatur vid bryggning",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Steg {n} av {m}",
   "wizard.title": "Brygguide",
   "values.milk_mode.warm_milk": "Varm mjölk",
-  "values.milk_mode.milk_froth": "Mjölkskum"
+  "values.milk_mode.milk_froth": "Mjölkskum",
+  "settings.easy_clean_after_minutes.label": "EasyClean-intervall",
+  "settings.extreme_mode.label": "Extremläge",
+  "settings.big_picture_mode.label": "Stora bilder",
+  "settings.quick_select.label": "Snabbval",
+  "settings.flying_picture.label": "Rörlig bild",
+  "settings.brew_unit_wash_interval.label": "Sköljintervall för bryggenheten",
+  "settings.filter_inserted.label": "Filter insatt"
 }

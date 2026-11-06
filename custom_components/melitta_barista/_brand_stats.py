@@ -105,7 +105,7 @@ class BrandStatsCoordinator:
                     if not self._can_read:
                         break
                     try:
-                        value = await self._client.read_setting(descriptor.stat_id)
+                        value = await self._client.read_statistic(descriptor.stat_id)
                     except Exception:  # noqa: BLE001
                         _LOGGER.debug("Stat %s read failed", descriptor.key, exc_info=True)
                         continue

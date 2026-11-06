@@ -211,6 +211,7 @@ CAPABILITIES_1030 = MachineCapabilities(
     supports_factory_reset=True,
     supports_brew_overrides=True,
     my_coffee_slots=4,
+    first_mycoffee_selector=10,
     strength_levels=5,
     brew_command_mode=0x0B,
     # UI Contract §6.2.6: process start codes unverified (issue #36).
@@ -228,7 +229,9 @@ CAPABILITIES_1040 = MachineCapabilities(
     supports_stats=False,
     supports_factory_reset=True,
     supports_brew_overrides=True,
+    brew_temperature_max=((8, 1),),
     my_coffee_slots=4,
+    first_mycoffee_selector=10,
     strength_levels=5,
     brew_command_mode=0x0B,
     # UI Contract §6.2.6: process start codes unverified (issue #36).
