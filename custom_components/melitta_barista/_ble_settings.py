@@ -31,6 +31,15 @@ class BleSettingsMixin(_MixinBase):
             return None
         return await self._protocol.read_numerical(self._write_ble, setting_id)
 
+    async def read_statistic(self, stat_id: int) -> int | None:
+        """Read an unmodified HR value declared by the current model's statistics."""
+        caps = self._capabilities
+        if not self.connected or caps is None or not any(
+            descriptor.stat_id == stat_id for descriptor in caps.stats
+        ):
+            return None
+        return await self._protocol.read_numerical(self._write_ble, stat_id)
+
     async def write_setting(self, setting_id: int, value: int) -> bool:
         """Validate setting codes and serialize any preparation with the write."""
         if not self.connected:

@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger("melitta_barista")
 
+# Some machines begin brewing several seconds after returning NACK to HE.
+NIVONA_START_CONFIRM_TIMEOUT = 15.0
+
 
 def _directkey_name_key(category: DirectKeyCategory) -> str | None:
     """Authored ``recipes.name.*`` key for a DirectKey category, or None.
@@ -125,12 +128,12 @@ class BleCommandsMixin(_MixinBase):
         components: tuple[RecipeComponent | None, ...] | None = None,
         **facts: Any,
     ) -> None:
-        """Stage what HA knows about the brew the machine has just ACKed.
+        """Stage known brew facts for lifecycle events without failing a start.
 
-        Best-effort on purpose. The record only decorates a lifecycle event
-        that fires later; by the time this runs the machine has accepted the
-        start command, so nothing here may be allowed to surface as a brew
-        failure. ``components`` takes raw protocol components and is tokenised
+        Nivona stages immediately before HE to handle PRODUCT preceding the ACK;
+        its caller removes the record if neither ACK nor PRODUCT confirms it.
+        Other paths stage after acknowledgment. Bookkeeping is best-effort and
+        must never surface as a brew failure. ``components`` takes raw protocol components and is tokenised
         here, because the staged record must stay JSON-serialisable and must
         never carry the raw portion byte (units of 5 ml).
         """
@@ -222,6 +225,60 @@ class BleCommandsMixin(_MixinBase):
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
+
+    async def _start_nivona_brew(
+        self, selector: int, brew_mode: int, *,
+        use_temp_recipe: bool, chilled: bool, **intent_facts: Any,
+    ) -> bool:
+        """Send one start and resolve an uncertain ACK using fresh PRODUCT status.
+
+        Subscribe and stage the intent before HE so even a pushed PRODUCT that
+        precedes the ACK is attributed to HA. A NACK or missing ACK is only
+        overridden by PRODUCT on the same connection, never by cached status.
+        """
+        connection = self._client
+        observed_product = False
+        accepted = False
+
+        def observe(status) -> None:
+            nonlocal observed_product
+            if (
+                self.connected and self._client is connection
+                and status.process == MachineProcess.PRODUCT
+            ):
+                observed_product = True
+
+        self.add_status_callback(observe)
+        self._record_brew_intent(**intent_facts)
+        pending_intent = self.brew_intent
+        try:
+            accepted = await self._protocol.start_process_nivona(
+                self._write_ble, selector, brew_mode,
+                use_temp_recipe=use_temp_recipe, chilled=chilled,
+            )
+            if accepted:
+                return True
+            try:
+                async with asyncio.timeout(NIVONA_START_CONFIRM_TIMEOUT):
+                    while (
+                        not observed_product and self.connected
+                        and self._client is connection
+                    ):
+                        await self.poll_status()
+                        if not observed_product:
+                            await asyncio.sleep(0.5)
+            except (TimeoutError, BleakError, OSError):
+                _LOGGER.debug("Could not confirm Nivona start via HX", exc_info=True)
+            accepted = bool(
+                observed_product and self.connected and self._client is connection
+            )
+            if accepted:
+                _LOGGER.info("Nivona start confirmed by PRODUCT after unacknowledged HE")
+            return accepted
+        finally:
+            self.remove_status_callback(observe)
+            if not accepted and self.brew_intent is pending_intent:
+                self.take_brew_intent()
 
     async def brew_nivona(
         self, recipe_selector: int,
@@ -352,8 +409,7 @@ class BleCommandsMixin(_MixinBase):
                             "Temp-recipe type announce at reg %d failed",
                             type_register,
                         )
-                        if caps.temporary_recipe_defaults:
-                            return False
+                        return False
                     await asyncio.sleep(0.08)
 
                     # Step 2 — per-field overrides at 9001 + offset.
@@ -381,8 +437,7 @@ class BleCommandsMixin(_MixinBase):
                                 "HW write failed for %s=%d (reg=%d)",
                                 field, scaled, reg,
                             )
-                            if caps.temporary_recipe_defaults:
-                                return False
+                            return False
                         await asyncio.sleep(0.08)
 
                 wrote_temp = bool(
@@ -394,28 +449,20 @@ class BleCommandsMixin(_MixinBase):
                         for field, value in overrides.items()
                     )
                 )
-                ok = await self._protocol.start_process_nivona(
-                    self._write_ble, (
+                descriptor = _nivona_descriptor(caps, recipe_selector)
+                return await self._start_nivona_brew(
+                    (
                         caps.temporary_recipe_selector
                         if wrote_temp and caps.temporary_recipe_selector is not None
                         else recipe_selector
                     ), brew_mode,
                     use_temp_recipe=wrote_temp,
                     chilled=saved_recipe_fallback,
+                    recipe_source="nivona",
+                    recipe_key=(descriptor.name_key or None) if descriptor else None,
+                    recipe_name=(descriptor.name or None) if descriptor else None,
+                    two_cups=bool((overrides or {}).get("two_cups")),
                 )
-                if ok:
-                    # This path brews from a selector plus temp-register
-                    # overrides, never from RecipeComponents, so the record
-                    # carries no components and no volume — an honest gap
-                    # rather than a reconstructed guess.
-                    descriptor = _nivona_descriptor(caps, recipe_selector)
-                    self._record_brew_intent(
-                        recipe_source="nivona",
-                        recipe_key=(descriptor.name_key or None) if descriptor else None,
-                        recipe_name=(descriptor.name or None) if descriptor else None,
-                        two_cups=bool((overrides or {}).get("two_cups")),
-                    )
-                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)
@@ -453,17 +500,10 @@ class BleCommandsMixin(_MixinBase):
             try:
                 if not await self._prepare_recipe_write():
                     return False
-                ok = await self._protocol.start_process_nivona(
-                    self._write_ble, selector, brew_mode,
-                    use_temp_recipe=False,
-                    chilled=False,
+                return await self._start_nivona_brew(
+                    selector, brew_mode, use_temp_recipe=False, chilled=False,
+                    recipe_source="mycoffee", slot=slot,
                 )
-                if ok:
-                    # The slot's recipe lives on the machine and is never read
-                    # back here, so the slot number is genuinely all HA knows:
-                    # no name, no components, no volume.
-                    self._record_brew_intent(recipe_source="mycoffee", slot=slot)
-                return ok
             finally:
                 if self.connected:
                     self.start_polling(interval=self._poll_interval)

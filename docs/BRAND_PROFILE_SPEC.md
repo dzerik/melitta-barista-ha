@@ -18,6 +18,14 @@ methods and per-family `MachineCapabilities` flags.
 
 ## 1. Required `BrandProfile` surface
 
+Nivona HE brew starts are sent once. A missing or negative acknowledgment
+does not cause retransmission: the client instead polls HX for up to 15 seconds
+and accepts the start only if a fresh PRODUCT is observed on the original
+connection. READY, unknown processes and cached status do not confirm a start.
+The HA brew intent is staged before HE to cover status arriving before the ACK;
+an unconfirmed request is cleared. Required temporary recipe writes must all
+succeed before HE is sent.
+
 ### Identity
 
 ```python
@@ -246,6 +254,18 @@ connection, after a busy-to-ready transition and every five minutes while idle.
 Concurrent requests share a pass, failed reads keep cached values, and successful
 zeros or decreases remain valid. Disconnect/unload cancels active reads. None
 of these refreshes changes the persisted recipe or machine settings.
+
+The client reads these registers through `read_statistic(stat_id)`, authorized
+by membership in the currently resolved `caps.stats`. It returns the raw HR
+value; presentation applies descriptor masks. `read_setting` retains its
+independent settings allowlist. Statistics descriptors do not grant setting
+read or write access, and a stale descriptor cannot authorize a register on
+a newly resolved model.
+
+Native capability-driven settings and brew inputs must also be registered
+when capabilities become available after an offline platform setup. Reconnects
+must not duplicate unique IDs, subscriptions must be removed on entry unload,
+and newly added setting entities must read values if already connected.
 
 **Important:** Melitta leaves `settings = ()` even though it has
 settings entities — Melitta's settings are surfaced through the legacy

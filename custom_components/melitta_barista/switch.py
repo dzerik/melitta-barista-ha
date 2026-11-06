@@ -7,7 +7,7 @@ import logging
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
@@ -16,8 +16,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from bleak.exc import BleakError
 
+from .ble_client import resolve_caps_from_scanner
 from .coffee_platform.contract import CoffeeMachineClient
-from .const import DOMAIN, MELITTA_SETTING_TABLES, MachineType, get_user_profile_count
+from .coffee_platform.domain import MachineCapabilities
+from .const import CONF_FAMILY_OVERRIDE, DOMAIN, MELITTA_SETTING_TABLES, MachineType, get_user_profile_count
 from .entity import MelittaDeviceMixin
 
 
@@ -52,16 +54,34 @@ async def async_setup_entry(
     client: CoffeeMachineClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
 
-    caps = client.capabilities
-    excluded = caps.unsupported_generic_setting_ids if caps else frozenset()
-    registry = er.async_get(hass)
-    for setting_id in excluded:
-        entity_id = registry.async_get_entity_id(
-            "switch", DOMAIN, f"{client.address}_switch_{setting_id}",
-        )
-        old = registry.async_get(entity_id) if entity_id else None
-        if old is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
-            registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+    caps = client.capabilities or resolve_caps_from_scanner(
+        hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
+        entry.options.get(CONF_FAMILY_OVERRIDE),
+    )
+
+    def disable_unsupported(resolved: MachineCapabilities | None) -> frozenset[int]:
+        """Preserve stale IDs while disabling controls absent from this model."""
+        excluded = resolved.unsupported_generic_setting_ids if resolved else frozenset()
+        registry = er.async_get(hass)
+        for setting_id in excluded:
+            entity_id = registry.async_get_entity_id(
+                "switch", DOMAIN, f"{client.address}_switch_{setting_id}",
+            )
+            old = registry.async_get(entity_id) if entity_id else None
+            if old is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
+                registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+        return excluded
+
+    excluded = disable_unsupported(caps)
+
+    @callback
+    def on_connected(connected: bool) -> None:
+        """Apply model exclusions after a late capability resolution."""
+        if connected and client.capabilities is not None:
+            disable_unsupported(client.capabilities)
+
+    client.add_connection_callback(on_connected)
+    entry.async_on_unload(lambda: client.remove_connection_callback(on_connected))
 
     entities = [
         MelittaSettingSwitch(client, entry, name, defn)
@@ -115,7 +135,10 @@ class MelittaSettingSwitch(MelittaDeviceMixin, SwitchEntity):
         ))
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to reconnects and load the current value if already connected."""
         self._client.add_connection_callback(self._on_connection_change)
+        if self._client.connected:
+            await self._async_read_value()
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)

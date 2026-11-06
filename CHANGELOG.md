@@ -4,6 +4,15 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
+## [0.96.0b11] — 2026-11-06 (beta)
+
+### Fixed
+- Restore capability-driven Nivona statistics and care counters through a dedicated read path, without relaxing setting access restrictions.
+- Add model-specific settings and brew inputs after an offline Home Assistant startup; avoid duplicate entities on reconnect and load current setting values when entities are added to a connected machine.
+- Keep MyCoffee flags and levels unscaled and unitless; apply mL conversion only to fluid amounts.
+- Send Nivona brew starts once and confirm an unacknowledged start only when fresh PRODUCT status is observed on the same connection. Preserve HA attribution when PRODUCT arrives before the acknowledgment.
+- Abort Nivona brewing if any required temporary-recipe write fails.
+
 ## [0.96.0b10] — 2026-11-05 (beta)
 
 ### Added

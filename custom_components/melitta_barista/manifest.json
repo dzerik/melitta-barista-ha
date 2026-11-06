@@ -30,5 +30,5 @@
     "aiosqlite>=0.19.0",
     "pydantic>=2.0"
   ],
-  "version": "0.96.0b10"
+  "version": "0.96.0b11"
 }

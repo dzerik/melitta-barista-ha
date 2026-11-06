@@ -21,6 +21,7 @@ from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
 from .brands.nivona._options import nivona_number_range
 from .coffee_platform.contract import CoffeeMachineClient
+from .coffee_platform.domain import MachineCapabilities
 from .const import DOMAIN, MELITTA_SETTING_TABLES
 from .entity import MelittaDeviceMixin
 
@@ -90,7 +91,7 @@ async def async_setup_entry(
     ``unsupported_generic_setting_ids`` capability (issue #10: the LANGUAGE
     register is not implemented by legacy Nivona families — the entity was
     permanently dead on a live NICR 790). Stale registry entries for
-    excluded settings are removed so they don't linger as unavailable.
+    excluded settings are disabled so they don't linger as unavailable.
     """
     client: CoffeeMachineClient = entry.runtime_data
     name = entry.data.get(CONF_NAME) or f"{client.brand.brand_name} Coffee Machine"
@@ -103,103 +104,122 @@ async def async_setup_entry(
         hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
         entry.options.get(CONF_FAMILY_OVERRIDE),
     )
-    excluded_ids: frozenset[int] = (
-        caps_resolved.unsupported_generic_setting_ids
-        if caps_resolved is not None else frozenset()
-    )
+    added_ids: set[str] = set()
 
-    # Settings (HR/HW) — generic Eugster, minus family-declared holes.
-    entities: list = [
-        MelittaSettingNumber(client, entry, name, defn)
-        for defn in SETTING_DEFINITIONS
-        if int(defn["id"]) not in excluded_ids
-    ]
+    def capability_entities(resolved: MachineCapabilities | None) -> list:
+        """Build only missing controls for the latest resolved model."""
+        excluded_ids: frozenset[int] = (
+            resolved.unsupported_generic_setting_ids
+            if resolved is not None else frozenset()
+        )
 
-    # Drop stale registry entries for settings this family can't serve —
-    # otherwise an entity created before the exclusion (or before caps
-    # were resolvable) survives forever as unavailable.
-    if excluded_ids:
-        ent_reg = er.async_get(hass)
-        for setting_id in excluded_ids:
-            stale = ent_reg.async_get_entity_id(
-                "number", DOMAIN, f"{client.address}_setting_{setting_id}",
-            )
-            if stale and (old := ent_reg.async_get(stale)) is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
-                _LOGGER.debug(
-                    "Disabling stale number entity %s (setting %d unsupported "
-                    "by family %s)",
-                    stale, setting_id, caps_resolved.family_key,
+        # Settings (HR/HW) — generic Eugster, minus family-declared holes.
+        entities: list = [
+            MelittaSettingNumber(client, entry, name, defn)
+            for defn in SETTING_DEFINITIONS
+            if int(defn["id"]) not in excluded_ids
+        ]
+
+        # Disable stale registry entries for settings this family can't serve —
+        # otherwise an entity created before the exclusion (or before caps
+        # were resolvable) survives forever as unavailable.
+        if excluded_ids:
+            ent_reg = er.async_get(hass)
+            for setting_id in excluded_ids:
+                stale = ent_reg.async_get_entity_id(
+                    "number", DOMAIN, f"{client.address}_setting_{setting_id}",
                 )
-                ent_reg.async_update_entity(stale, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
-    # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
-    # hours/minutes and any future options-less setting descriptor).
-    # Options-bearing descriptors become selects in select.py; here we
-    # handle only the raw-number ones.
-    caps = client.capabilities
-    # Generic capability-driven setting numbers — register for brands
-    # whose families publish a non-empty settings tuple (Nivona). Melitta
-    # has its own hand-tailored MachineSettingNumber entities below and
-    # leaves `caps.settings = ()`, so this block naturally skips it.
-    if caps is not None and caps.settings:
-        for descriptor in caps.settings:
-            if descriptor.options:
-                continue
-            entities.append(
-                BrandSettingNumber(client, entry, name, descriptor),
-            )
+                if stale and (old := ent_reg.async_get(stale)) is not None and old.config_entry_id == entry.entry_id and old.disabled_by is None:
+                    _LOGGER.debug(
+                        "Disabling stale number entity %s (setting %d unsupported "
+                        "by family %s)",
+                        stale, setting_id, resolved.family_key,
+                    )
+                    ent_reg.async_update_entity(stale, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+        # Brand-capability-driven numeric settings (Nivona 111/112 AutoOn
+        # hours/minutes and any future options-less setting descriptor).
+        # Options-bearing descriptors become selects in select.py; here we
+        # handle only the raw-number ones.
+        caps = resolved
+        # Generic capability-driven setting numbers — register for brands
+        # whose families publish a non-empty settings tuple (Nivona). Melitta
+        # has its own hand-tailored MachineSettingNumber entities below and
+        # leaves `caps.settings = ()`, so this block naturally skips it.
+        if caps is not None and caps.settings:
+            for descriptor in caps.settings:
+                if descriptor.options:
+                    continue
+                entities.append(
+                    BrandSettingNumber(client, entry, name, descriptor),
+                )
 
-    # Brew-override inputs — register for families that support per-brew
-    # temp-recipe overrides (currently every Nivona family; Melitta uses
-    # its own HC/HJ write path). Falls back to scanner-cached caps when
-    # `client.capabilities` is None at platform-setup time.
-    caps_for_overrides = caps_resolved
-    if (
-        caps_for_overrides is not None
-        and caps_for_overrides.supports_brew_overrides
-    ):
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "strength", "Brew Strength",
-            "mdi:gauge", 1, caps_for_overrides.strength_levels, 1,
-            default=(caps_for_overrides.strength_levels + 1) // 2,
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "coffee_amount", "Brew Coffee Amount",
-            "mdi:cup-water", 20, 240, 5, default=40, unit="mL",
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "water_amount", "Brew Water Amount",
-            "mdi:water", 0, caps_for_overrides.brew_water_amount_max, 5,
-            default=100, unit="mL",
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "temperature", "Brew Temperature Preset",
-            "mdi:thermometer", 0, 2, 1, default=1,
-        ))
-        entities.append(NivonaBrewOverrideNumber(
-            client, entry, name, "milk_amount", "Brew Milk Amount",
-            "mdi:cup", 0, 240, 5, default=80, unit="mL",
-        ))
-        if any(
-            client.brand.temp_recipe_register(
-                caps_for_overrides.family_key, recipe.recipe_id, "two_cups",
-            ) is not None
-            for recipe in caps_for_overrides.recipes
+        # Brew-override inputs — register for families that support per-brew
+        # temp-recipe overrides (currently every Nivona family; Melitta uses
+        # its own HC/HJ write path). Falls back to scanner-cached caps when
+        # `client.capabilities` is None at platform-setup time.
+        caps_for_overrides = resolved
+        if (
+            caps_for_overrides is not None
+            and caps_for_overrides.supports_brew_overrides
         ):
             entities.append(NivonaBrewOverrideNumber(
-                client, entry, name, "two_cups", "Brew Two Cups",
-                "mdi:coffee", 0, 1, 1, default=0,
+                client, entry, name, "strength", "Brew Strength",
+                "mdi:gauge", 1, caps_for_overrides.strength_levels, 1,
+                default=(caps_for_overrides.strength_levels + 1) // 2,
             ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "coffee_amount", "Brew Coffee Amount",
+                "mdi:cup-water", 20, 240, 5, default=40, unit="mL",
+            ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "water_amount", "Brew Water Amount",
+                "mdi:water", 0, caps_for_overrides.brew_water_amount_max, 5,
+                default=100, unit="mL",
+            ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "temperature", "Brew Temperature Preset",
+                "mdi:thermometer", 0, 2, 1, default=1,
+            ))
+            entities.append(NivonaBrewOverrideNumber(
+                client, entry, name, "milk_amount", "Brew Milk Amount",
+                "mdi:cup", 0, 240, 5, default=80, unit="mL",
+            ))
+            if any(
+                client.brand.temp_recipe_register(
+                    caps_for_overrides.family_key, recipe.recipe_id, "two_cups",
+                ) is not None
+                for recipe in caps_for_overrides.recipes
+            ):
+                entities.append(NivonaBrewOverrideNumber(
+                    client, entry, name, "two_cups", "Brew Two Cups",
+                    "mdi:coffee", 0, 1, 1, default=0,
+                ))
 
-    # Freestyle portion entities require HJ recipe writes.
-    if "HJ" in client.brand.supported_extensions:
-        entities.append(MelittaFreestyleNumber(
-            client, entry, name, "portion_1", "Freestyle Portion 1",
-            "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
-        ))
-        entities.append(MelittaFreestyleNumber(
-            client, entry, name, "portion_2", "Freestyle Portion 2",
-            "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
-        ))
+        # Freestyle portion entities require HJ recipe writes.
+        if "HJ" in client.brand.supported_extensions:
+            entities.append(MelittaFreestyleNumber(
+                client, entry, name, "portion_1", "Freestyle Portion 1",
+                "mdi:cup-water", 5, 250, 5, "freestyle_portion1_ml",
+            ))
+            entities.append(MelittaFreestyleNumber(
+                client, entry, name, "portion_2", "Freestyle Portion 2",
+                "mdi:cup-water", 0, 250, 5, "freestyle_portion2_ml",
+            ))
+        missing = [entity for entity in entities if entity.unique_id not in added_ids]
+        added_ids.update(entity.unique_id for entity in missing)
+        return missing
+
+    entities = capability_entities(caps_resolved)
+
+    @callback
+    def on_connected(connected: bool) -> None:
+        """Register model controls when discovery completes after setup."""
+        if connected and client.capabilities is not None:
+            if missing := capability_entities(client.capabilities):
+                async_add_entities(missing)
+
+    client.add_connection_callback(on_connected)
+    entry.async_on_unload(lambda: client.remove_connection_callback(on_connected))
     async_add_entities(entities)
 
 
@@ -243,7 +263,10 @@ class MelittaSettingNumber(MelittaDeviceMixin, NumberEntity):
         ))
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to reconnects and load the current value if already connected."""
         self._client.add_connection_callback(self._on_connection_change)
+        if self._client.connected:
+            await self._async_read_value()
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)
@@ -328,7 +351,10 @@ class BrandSettingNumber(MelittaDeviceMixin, NumberEntity):
         ))
 
     async def async_added_to_hass(self) -> None:
+        """Subscribe to reconnects and load the current value if already connected."""
         self._client.add_connection_callback(self._on_connection_change)
+        if self._client.connected:
+            await self._async_read_value()
 
     async def async_will_remove_from_hass(self) -> None:
         self._client.remove_connection_callback(self._on_connection_change)

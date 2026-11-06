@@ -19,6 +19,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dis
 from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
+from .coffee_platform.domain import MachineCapabilities
 from .const import (
     DOMAIN,
     PROFILE_NAMES,
@@ -164,23 +165,44 @@ async def async_setup_entry(
         hass, entry.data.get(CONF_ADDRESS, ""), client.brand,
         entry.options.get(CONF_FAMILY_OVERRIDE),
     )
-    if caps is not None and caps.settings:
-        registry = er.async_get(hass)
-        for key in caps.unsupported_setting_keys:
-            entity_id = registry.async_get_entity_id("select", DOMAIN, f"{client.address}_setting_{key}")
-            entity = registry.async_get(entity_id) if entity_id else None
-            if entity is not None and entity.config_entry_id == entry.entry_id and entity.disabled_by is None:
-                registry.async_update_entity(entity.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
-        for descriptor in caps.settings:
-            # Only descriptors with a discrete options list become
-            # selects. Options-less descriptors (raw numeric settings
-            # like AutoOn hours/minutes) are surfaced as number
-            # entities in number.py instead.
-            if not descriptor.options:
-                continue
-            entities.append(
-                BrandSettingSelect(client, entry, name, descriptor)
-            )
+    added_ids: set[str] = set()
+
+    def capability_entities(resolved: MachineCapabilities | None) -> list:
+        """Build missing settings once model capabilities are available."""
+        entities: list = []
+        if resolved is not None:
+            registry = er.async_get(hass)
+            for key in resolved.unsupported_setting_keys:
+                entity_id = registry.async_get_entity_id("select", DOMAIN, f"{client.address}_setting_{key}")
+                entity = registry.async_get(entity_id) if entity_id else None
+                if entity is not None and entity.config_entry_id == entry.entry_id and entity.disabled_by is None:
+                    registry.async_update_entity(entity.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+            for descriptor in resolved.settings:
+                # Only descriptors with a discrete options list become
+                # selects. Options-less descriptors (raw numeric settings
+                # like AutoOn hours/minutes) are surfaced as number
+                # entities in number.py instead.
+                if not descriptor.options:
+                    continue
+                entities.append(
+                    BrandSettingSelect(client, entry, name, descriptor)
+                )
+        missing = [entity for entity in entities if entity.unique_id not in added_ids]
+        added_ids.update(entity.unique_id for entity in missing)
+        return missing
+
+    entities.extend(capability_entities(caps))
+
+    @callback
+    def on_connected(connected: bool) -> None:
+        """Add settings discovered after an offline startup."""
+        if connected and client.capabilities is not None:
+            if missing := capability_entities(client.capabilities):
+                async_add_entities(missing)
+
+    client.add_connection_callback(on_connected)
+    entry.async_on_unload(lambda: client.remove_connection_callback(on_connected))
+
     # HE-selector brew recipe select — for brands that brew via HE
     # selector instead of HC opcode. Recipe list is fetched from
     # capabilities at the time HA renders options (or dynamically on

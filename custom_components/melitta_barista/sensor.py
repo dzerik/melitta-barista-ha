@@ -503,16 +503,15 @@ class BrandStatSensor(_MelittaSensorBase):
 
 
 class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
-    """Per-(slot, param) MyCoffee amount sensor for Nivona (read-only).
+    """Read-only MyCoffee fluid amounts, flags and levels for Nivona.
 
     Reads from the client's ``my_coffee_slots`` cache, which is filled
     once per connect by ``BleRecipesMixin.read_mycoffee_slots``. Stays
     ``unavailable`` until that first read completes.
 
-    Currently exposes the four "amount" params per slot
-    (coffee / water / milk / milk_foam) — only those whose offset is
-    defined in the family's MyCoffee layout. Future PRs will add
-    strength / temperature / enabled flag and write support.
+    Exposes fluid amounts, strength, temperature and the enabled flag
+    when the family's MyCoffee layout defines their register offsets.
+    Only fluid amounts receive quantity units and scaling.
     """
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -574,13 +573,13 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
 
     @property
     def native_value(self) -> int | float | None:
-        """Display quantities in mL while leaving the client cache unchanged."""
+        """Convert fluid amounts to mL while preserving flags and level values."""
         slots = self._client.my_coffee_slots
         if slots is None or self._slot >= len(slots):
             return None
         raw = slots[self._slot].get(self._param_key)
         caps = self._client.capabilities
-        if raw is None or caps is None:
+        if raw is None or caps is None or self.native_unit_of_measurement is None:
             return raw
         layout = self._client.brand.mycoffee_layout(caps.family_key)
         if layout is not None and layout.fluid_write_scale_10:
@@ -589,7 +588,11 @@ class NivonaMyCoffeeAmountSensor(_MelittaSensorBase):
 
     @property
     def native_unit_of_measurement(self) -> str | None:
-        """Report mL for models with a resolved quantity profile."""
+        """Report quantity units only for fluid amounts, never flags or levels."""
+        if self._param_key not in {
+            "coffee_amount", "water_amount", "milk_amount", "milk_foam_amount",
+        }:
+            return None
         caps = self._client.capabilities
         return caps.recipe_amount_unit if caps is not None else None
 

@@ -830,11 +830,10 @@ class MelittaBleClient(BleCommandsMixin, BleRecipesMixin, BleSettingsMixin):
         self._brew_intent = self._brew_intent.annotated(**fields)
 
     def _note_brew_intent(self, intent: "BrewIntent") -> None:
-        """Stage the record for a brew the machine has just ACKed.
+        """Stage facts about the brew being requested or acknowledged.
 
-        Overwrites any previous record unconditionally: a still-staged one
-        belongs to a brew whose PRODUCT frame never arrived, and the drink
-        actually starting now is the truthful one.
+        Overwrite the previous record, whose PRODUCT frame never arrived.
+        Callers that stage before HE must remove an unconfirmed request.
         """
         self._brew_intent = intent
 

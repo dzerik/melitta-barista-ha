@@ -52,6 +52,11 @@ class CoffeeMachineClient(Protocol):
 
     # --- Settings ---
     async def read_setting(self, setting_id: int) -> int | None: ...
+
+    async def read_statistic(self, stat_id: int) -> int | None:
+        """Read a raw statistic declared by the currently resolved model."""
+        ...
+
     async def write_setting(self, setting_id: int, value: int) -> bool: ...
 
     # --- Maintenance ---

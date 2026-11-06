@@ -868,7 +868,10 @@ class EugsterProtocol:
         payload[1] = brew_mode & 0xFF
         payload[3] = recipe_selector & 0xFF
         payload[5] = 0x00 if chilled or not use_temp_recipe else 0x01
-        return await self.send_and_wait_ack(CMD_START_PROCESS, bytes(payload), write_func)
+        # Starting a drink is not idempotent: a lost ACK must not brew twice.
+        return await self.send_and_wait_ack(
+            CMD_START_PROCESS, bytes(payload), write_func, retries=1,
+        )
 
     async def execute_command(self, write_func, command_id: int) -> bool:
         """Send an HE-with-commandId action (factory reset etc.).
