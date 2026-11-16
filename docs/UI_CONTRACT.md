@@ -399,11 +399,19 @@ cards keep working. When available, `extra_state_attributes` gains:
   "manipulation_token": "NONE",          // NEW: null iff status is None; "NONE" for
                                          // no-manipulation AND for parsed-unknown codes
   "is_brewing": true,                    // NEW: process == PRODUCT (server-derived)
-  "awaiting_confirmation": false         // NEW: manipulation in PROMPT_MANIPULATIONS
+  "awaiting_confirmation": false         // NEW: a remotely confirmable canonical prompt
 }
 ```
 
 Rules:
+
+* **Confirmation eligibility is brand-aware.** `awaiting_confirmation` requires
+  a canonical prompt and no explicit decoding prohibition. Nivona physical
+  interventions, errors, waits and unknown messages cannot be confirmed via HY.
+  Errors and unknown messages may have `manipulation_token: "NONE"`; this does
+  not imply brew readiness. The backend enforces readiness separately and
+  diagnostics retain the raw code and decoded meaning. No enum tokens or
+  entity IDs are added or renamed by this decoding correction.
 
 * **Entity unavailable ⇒ offline.** When the machine is disconnected or has no
   status, the state sensor is `unavailable` and HA strips its attributes — that
@@ -885,23 +893,35 @@ whole spec (no layer, additive, or foam above it).
 
 ### 4.4 Milk layers and foam
 
-Each `milk` component (`process == "milk"`, the wire STEAM process) splits into a
-body layer and a foam contribution:
+Each `milk` component (`process == "milk"`, the wire STEAM process) has a
+preparation mode. A valid explicit `milk_mode` takes precedence; otherwise
+`shots == "none"` means froth and `one`/`two`/`three` mean warm milk.
+Warm milk has no foam contribution. Froth splits into a body layer and foam:
+
+For an unknown raw milk-preparation byte, the server retains the frozen
+`shots: "none"` normalization and adds `milk_mode: null`. This explicit null
+marks unknown preparation: use the legacy visual fallback instead of treating
+the normalized shots token as known froth. An absent key or unrecognized string
+still allows inference from known shots; a valid explicit mode takes priority.
 
 ```
-if it is the only component and temperature == "high":   # froth-dominant drink
-    foam_ratio = 0.50
-else:
-    foam_ratio = 0.20
-foam_ml  = max(round5(portion_ml * foam_ratio), 10)   # round5 = round to nearest 5
+if mode == "warm_milk":
+    foam_ml = 0
+elif mode == "milk_froth":
+    foam_ratio = 0.50 if it is the only component else 0.20
+    foam_ml = min(max(round5(portion_ml * foam_ratio), 10), portion_ml)
+else:  # incomplete legacy description: neither mode nor recognized shots
+    foam_ratio = 0.50 if it is the only component and temperature == "high" else 0.20
+    foam_ml = min(max(round5(portion_ml * foam_ratio), 10), portion_ml)
 body_ml  = portion_ml - foam_ml                        # may be 0, then no body layer
 ```
 
 * Body layer: `{role: "milk", ml: body_ml, intensity: 0.0}` at its dispense position.
 * Foam contributions from all milk components merge into one `foam` object,
-  rendered topmost. If no milk component exists, `foam: null`.
-* `temperature == "cold"` milk still foams (machine dispenses cold froth); steam
-  is governed solely by §4.7.
+  rendered topmost. If no froth contribution exists, `foam: null`.
+* Temperature does not select preparation mode. The ratios are symbolic visual
+  conventions, not measured foam yields; `cold` is a legacy token, not proof
+  that a machine dispenses cold milk. Steam remains governed by §4.7.
 
 ### 4.5 Water handling
 
@@ -1585,10 +1605,11 @@ bug, and this catalog is where it gets fixed as data:
   TX-byte button matrix lands and populates per-family tuples. This is
   explicit, intended b1 behaviour, and flipping a flag later is a
   catalog-content change delivered by the fingerprint (§5.1 amendment).
-* Button *entities* are unchanged in 0.92 (fixing their unconditional
-  registration is tracked separately); only the catalog carries the truth.
-  Clients that catalog-drive these groups therefore stop exposing the broken
-  buttons — the #36 hazard disappears for catalog-aware clients first.
+* The original0.92 change gated only the catalog. Native entities now retain
+  their IDs but also apply the same verification audit to availability. Client
+  command methods independently enforce it before sending HE, including when
+  called through a custom dashboard or direct native button callback (#68).
+  Unknown families fail closed; verified Melitta command layouts are unchanged.
 
 ### 6.3 Machine-domain i18n over WS
 

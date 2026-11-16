@@ -1,9 +1,9 @@
 """NICR 9xx + 9xx-light families — selectors, settings, stats, layouts, capabilities.
 
-900 / 900-light are sibling families. 900 adds the tank-lighting and
-touch-lock accents (settings 105-108); 900-light strips them. Both
-share recipes, the maintenance stat block, and the ``fluid_scale_factor=10``
-quirk noted on NICR 920/930.
+900 / 900-light are sibling families. Physical 960/965/970 (900-light)
+add tank-lighting and touch-lock controls; 920/930 use a minimal table. Both
+share recipes and the maintenance stat block. Quantities on 960/965/970
+(900-light) use tenths of a milliliter; 920/930 retain their existing scale.
 
 NICR 930 leaves MOVE_CUP_TO_FROTHER (Manipulation 11) set after a brew
 until the next status frame; both variants tolerate it so subsequent
@@ -20,7 +20,7 @@ from ..base import (
     StatDescriptor,
 )
 from ._options import (
-    _AUTO_OFF_STANDARD_OPTIONS,
+    _AUTO_OFF_9XX_OPTIONS,
     _HARDNESS_OPTIONS,
     _OFF_ON_OPTIONS,
     _TANK_LIGHT_BRIGHTNESS_900_OPTIONS,
@@ -44,9 +44,8 @@ RECIPES_900: tuple[RecipeDescriptor, ...] = (
 RECIPES_900_LIGHT: tuple[RecipeDescriptor, ...] = RECIPES_900
 
 
-# 900 family — 8 settings including tank-lighting accents and
-# AutoOn hours/minutes pair (111/112).
-SETTINGS_900: tuple[SettingDescriptor, ...] = (
+# Physical 960/965/970, including AutoOn hours/minutes.
+SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(103, "off_rinse", "Off-rinse", _OFF_ON_OPTIONS),
     SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
@@ -54,23 +53,23 @@ SETTINGS_900: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(106, "tank_light_color", "Tank light color", _TANK_LIGHT_COLOR_900_OPTIONS),
     SettingDescriptor(107, "tank_light_brightness", "Tank light brightness", _TANK_LIGHT_BRIGHTNESS_900_OPTIONS),
     SettingDescriptor(108, "touch_lock", "Touch lock", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_9XX_OPTIONS),
     SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
     # Hours / minutes for AutoOn time. No options list — numeric.
     SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
     SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
 )
 
-# 900-Light — strip the tank-lighting / touch-lock accents; keep
-# save-energy + AutoOn.
-SETTINGS_900_LIGHT: tuple[SettingDescriptor, ...] = (
+# Physical 920/930: save-energy and AutoOn without accent controls.
+SETTINGS_900: tuple[SettingDescriptor, ...] = (
     SettingDescriptor(102, "water_hardness", "Water hardness", _HARDNESS_OPTIONS),
     SettingDescriptor(104, "save_energy", "Save energy", _OFF_ON_OPTIONS),
-    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_STANDARD_OPTIONS),
+    SettingDescriptor(109, "auto_off", "Auto-off", _AUTO_OFF_9XX_OPTIONS),
     SettingDescriptor(110, "auto_on_deactivated", "Auto-on deactivated", _OFF_ON_OPTIONS),
     SettingDescriptor(111, "auto_on_hours", "Auto-on hours"),
     SettingDescriptor(112, "auto_on_minutes", "Auto-on minutes"),
 )
+
 
 
 # 900 / 900-Light family — 21 counters (recipe 200..208 + cumulative
@@ -114,10 +113,7 @@ STATS_900: tuple[StatDescriptor, ...] = (
 STATS_900_LIGHT: tuple[StatDescriptor, ...] = STATS_900
 
 
-# fluid_write_scale_10: previously set True here; the upstream RE flagged
-# it but the observed machine behaviour does not apply a ×10 scaling to
-# fluid amounts in HW writes. Reverted to default False until a live
-# trace confirms a family that actually needs it.
+# Keep 920/930 separate from the 960/965/970 quantity conversion below.
 STANDARD_LAYOUT_900 = RecipeFieldLayout(
     family_key="900",
     strength_offset=1, profile_offset=2, preparation_offset=3,
@@ -132,6 +128,7 @@ STANDARD_LAYOUT_900 = RecipeFieldLayout(
 
 STANDARD_LAYOUT_900_LIGHT = RecipeFieldLayout(
     family_key="900-light",
+    fluid_write_scale_10=True,
     strength_offset=1, profile_offset=2, preparation_offset=3,
     two_cups_offset=4,
     coffee_temperature_offset=5, water_temperature_offset=6,
@@ -157,6 +154,7 @@ MYCOFFEE_LAYOUT_900 = RecipeFieldLayout(
 
 MYCOFFEE_LAYOUT_900_LIGHT = RecipeFieldLayout(
     family_key="900-light",
+    fluid_write_scale_10=True,
     enabled_offset=0, icon_offset=1, name_offset=2, type_offset=3,
     strength_offset=4, profile_offset=5, preparation_offset=6,
     two_cups_offset=7,
@@ -180,7 +178,7 @@ CAPABILITIES_900 = MachineCapabilities(
     strength_levels=5,
     has_aroma_balance=False,
     brew_command_mode=0x0B,
-    fluid_scale_factor=10,
+    fluid_scale_factor=1,
     tolerated_brew_manipulations=(11,),
     # UI Contract §6.2.6: process start codes unverified (issue #36).
     verified_maintenance_processes=(),
@@ -190,6 +188,7 @@ CAPABILITIES_900 = MachineCapabilities(
 )
 
 CAPABILITIES_900_LIGHT = MachineCapabilities(
+    fluid_scale_factor=10,
     unsupported_generic_setting_ids=UNSUPPORTED_GENERIC_SETTINGS,
     family_key="900-light",
     model_name="Nivona NICR 9xx Light",
@@ -198,6 +197,7 @@ CAPABILITIES_900_LIGHT = MachineCapabilities(
     supports_factory_reset=True,
     supports_brew_overrides=True,
     my_coffee_slots=4,
+    first_mycoffee_selector=8,
     strength_levels=3,
     brew_command_mode=0x0B,
     tolerated_brew_manipulations=(11,),

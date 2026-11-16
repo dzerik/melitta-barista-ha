@@ -19,6 +19,9 @@ from custom_components.melitta_barista.number import NivonaBrewOverrideNumber
 
 def _make_override(field: str = "strength", default: float = 3) -> NivonaBrewOverrideNumber:
     client = MagicMock()
+    from custom_components.melitta_barista.brands import get_profile
+    client.brand = get_profile("nivona")
+    client.capabilities = client.brand.capabilities_for("79x")
     client.address = "AA:BB:CC:DD:EE:FF"
     entry = MagicMock()
     return NivonaBrewOverrideNumber(
@@ -133,7 +136,7 @@ class TestCollectUserOverrides:
         btn, reg = self._make_button(states)
         result = btn._collect_user_overrides(reg)
         assert result == {
-            "strength": 5, "coffee_amount": 120, "water_amount": 100,
+            "strength": 4, "coffee_amount": 120, "water_amount": 100,
             "temperature": 92, "milk_amount": 60,
         }
 
@@ -155,7 +158,8 @@ class TestCollectUserOverrides:
                 state="not_a_number", attributes={"user_set": True}),
         }
         btn, reg = self._make_button(states)
-        assert btn._collect_user_overrides(reg) == {}
+        with pytest.raises(ValueError, match="finite integer"):
+            btn._collect_user_overrides(reg)
 
 
 class TestResetOverridesButton:

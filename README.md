@@ -2,9 +2,9 @@
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dzerik&repository=melitta-barista-ha&category=integration)
 
-[![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha?style=flat-square&include_prereleases)](https://github.com/dzerik/melitta-barista-ha/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/dzerik/melitta-barista-ha?style=flat-square)](https://github.com/dzerik/melitta-barista-ha/releases)
 [![GitHub Downloads](https://img.shields.io/github/downloads/dzerik/melitta-barista-ha/total?style=flat-square&label=downloads&cacheSeconds=86400)](https://github.com/dzerik/melitta-barista-ha/releases)
-[![Tests](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=686%20tests)](https://github.com/dzerik/melitta-barista-ha/actions/workflows/tests.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=tests)](https://github.com/dzerik/melitta-barista-ha/actions/workflows/tests.yml)
 [![Validate](https://img.shields.io/github/actions/workflow/status/dzerik/melitta-barista-ha/tests.yml?style=flat-square&label=hassfest%2BHACS)](https://github.com/dzerik/melitta-barista-ha/actions)
 [![License](https://img.shields.io/github/license/dzerik/melitta-barista-ha?style=flat-square)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat-square)](https://hacs.xyz)
@@ -19,7 +19,7 @@ A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart
 
 > 📖 **Documentation site**: [dzerik.github.io/melitta-barista-ha](https://dzerik.github.io/melitta-barista-ha/) — BLE architecture, wire protocol, ADRs and changelog with navigation, search, and rendered Mermaid diagrams.
 
-> **⚠️ Nivona testers wanted.** Nivona support (v0.41.0) is shipped as **alpha** — cryptography and handshake are validated against upstream RE vectors, but the code path has not been live-tested on real Nivona hardware by the maintainer. If you own a **NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040** or **NIVO 8xxx / 9101** machine, please try this release and [open a GitHub issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with your results (handshake / status / brew / prompts). See [Nivona support](#nivona-alpha-testers-wanted) below for details.
+> **⚠️ Nivona testers wanted.** The integration has a stable release, while Nivona support remains **experimental** and model-dependent. Community reports confirm statistics and brew events on NICR 660 and identification, entity registration, counters and start confirmation on NICR 795. Unverified remote power-off and maintenance starts remain unavailable. See [Nivona support](#nivona-alpha-testers-wanted) for limits and testing guidance.
 
 ---
 
@@ -38,14 +38,14 @@ A custom Home Assistant integration for controlling **Melitta Barista T/TS Smart
 |---|---|---|---|---|
 | **600** | NICR 660 / 670 / 675 / 680 | 1 | 3 | — |
 | **700** | NICR 756 / 758 / 759 / 768 / 769 / 778 / 779 / 788 / 789 | 4 | 3 | aroma balance |
-| **79x** | NICR 790–797, 799 | 4 | 5 | aroma balance |
-| **900** | NICR 920 / 930 | 4 | 5 | fluid ml×10 quirk |
-| **900-light** | NICR 960 / 965 / 970 | 4 | 3 | — |
+| **79x** | NICR 790–797, 799 | 4; 5 on 795 | 5 | aroma balance |
+| **900** | NICR 920 / 930 | 4 | 5 | model-specific quantity conversion |
+| **900-light** | NICR 960 / 965 / 970 | 4 | 3 | model-specific quantity conversion |
 | **1030** / **1040** | NICR 1030 / 1040 | 4 | 5 | — |
 | **8000** | NIVO 8101 / 8103 / 8107 | 4 | 5 | different brew opcode |
-| **9000** (2025) | NIVO 9101 | 4 | 5 | alpha — mapped to the 8000 profile, untested |
+| **9101** | NIVO 9101 | 16 | 5 | experimental, independent recipe and settings contract |
 
-The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona, which advertises as either the legacy `NIVONA-NNNNNNNNNN-----` form, the bare `NNNNNNNNNN-----` form, or — on newer firmware like NICR 930 — a 15-digit serial without dashes such as `930254000000000`) and confirmed via the BLE protocol. Nivona firmware does not expose recipe-editing opcodes, so recipe/freestyle/profile entities are suppressed for Nivona entries.
+The brand and machine model are automatically detected from the BLE advertisement (Melitta prefixes `8xxx…` or Nivona, which advertises as either the legacy `NIVONA-NNNNNNNNNN-----` form, the bare `NNNNNNNNNN-----` form, or — on newer firmware like NICR 930 — a 15-digit serial without dashes such as `930254000000000`) and confirmed via the BLE protocol. Nivona uses model-specific saved recipes, MyCoffee slots and brew overrides; Melitta-style Freestyle and profile entities are not created for Nivona entries.
 
 Nivona identification also uses the HL serial when the advertisement and Device
 Information Service do not identify the model. NICR 795 exposes five MyCoffee
@@ -62,13 +62,13 @@ validation (see [#59](https://github.com/dzerik/melitta-barista-ha/issues/59)).
 
 ## Nivona (alpha) — testers wanted
 
-**Status**: the Nivona `BrandProfile` shipped in v0.41.0 is **code-complete and cryptographically validated** against the upstream protocol vectors published by [mpapierski/esp-coffee-bridge](https://github.com/mpapierski/esp-coffee-bridge), but the maintainer does **not own a Nivona machine** and cannot verify live BLE interop. The release is marked pre-release on GitHub.
+**Status**: Nivona remains experimental within the stable integration package. The maintainer does not own a Nivona machine; support is checked with automated tests and community hardware reports. NICR 660 statistics and brew events are [confirmed on b11](https://github.com/dzerik/melitta-barista-ha/issues/58#issuecomment-6690844248). A [NICR 795 report](https://github.com/dzerik/melitta-barista-ha/issues/59#issuecomment-6704577607) confirms entity registration, counters and start confirmation, but also records unresolved MyCoffee display/counter attribution, unknown rinse states, Activity reporting and repeated timeouts on some statistics reads. Support on one model does not establish support on every family or firmware.
 
 **What's validated in software**:
 
 - HU handshake verifier against the published vector `FA 48 D1 7B → 7E 6E` (upstream NICR 756)
 - RC4 runtime key `NIV_060616_V10_1*9#3!4$6+4res-?3` (the fixed per-brand runtime key, identical across the Nivona range)
-- 7 family capability entries with per-family brew opcode / strength levels / fluid scaling
+- Model-specific capability entries with per-family brew modes, strength levels, quantity conversion, recipe storage and settings domains
 - Serial-prefix tokenisation for all known model codes (4-char for NIVO 8xxx, 3-char for NICR 6xx/7xx/79x/9xx)
 
 **What live-testing should confirm**:
@@ -76,14 +76,15 @@ validation (see [#59](https://github.com/dzerik/melitta-barista-ha/issues/59)).
 - [ ] BLE pairing + D-Bus bonding completes
 - [ ] `HU` session setup succeeds on real hardware
 - [ ] `HX` status polling returns sensible `process`/`manipulation`/`progress` values
-- [ ] `HZ` cancel-brew works on an active brew
-- [ ] `HY` prompt confirmation works (flush / move cup)
-- [ ] `HD` register reset returns ACK
-- [ ] `HI` feature bits either return a payload or time out gracefully (both OK)
+- [ ] A normal saved drink uses the intended recipe and quantities
+- [ ] Brew events and counters update after preparation without an entry reload
+- [ ] Model-specific controls appear after HA starts with the machine off
+
+Unverified Nivona maintenance and power-off commands are blocked. Do not try alternative process numbers to identify them. Received maintenance status frames alone do not verify a remote start command.
 
 **How to help**:
 
-1. Enable HACS **Pre-releases** (in HACS settings), install this repo, update to **v0.41.0**.
+1. Install the latest stable integration through HACS and restart Home Assistant.
 2. Pair your Nivona via the normal config-flow — it should be auto-discovered.
 3. [Open an issue](https://github.com/dzerik/melitta-barista-ha/issues/new) with the model, firmware version, and a log snippet filtered on `melitta_barista`.
 
@@ -91,12 +92,12 @@ Crypto and handshake are identical in structure to Melitta; the risk is primaril
 
 ## Features
 
-- **Multi-brand, multi-model** — Melitta Barista T/TS Smart + Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040 + NIVO 8xxx (alpha, NICR 930 validated on real hardware) auto-detected from BLE advertisement; model-specific entity filtering per capability
+- **Multi-brand, multi-model** — Melitta Barista T/TS Smart + experimental Nivona NICR 6xx / 7xx / 79x / 9xx / 1030 / 1040 and NIVO 8xxx / 9101 support, with model-specific entity filtering; see the hardware-report limits above
 - **Real-time status monitoring** — machine state, brewing activity, progress percentage, required user actions, and machine prompts via BLE push notifications
 - **21 or 24 built-in recipes** (Melitta) — select from dropdown and brew with one tap (3 extra recipes on TS model)
 - **Freestyle recipes** (Melitta) — build custom drinks with two configurable components (coffee/milk/water), adjustable intensity, aroma, temperature, shots, and portion sizes
 - **Reset recipe to factory defaults** (Melitta, v0.33.0+) — HD opcode button with auto-refresh of cached recipe attributes
-- **Confirm machine prompts** (v0.34.0+) — dedicated `Confirm Prompt` button + `awaiting_confirmation` binary sensor + optional **global auto-confirm** for soft prompts (move cup, flush); hardware-blocking prompts (fill water, empty trays) remain manual
+- **Confirm machine prompts** (v0.34.0+) — dedicated `Confirm Prompt` button + `awaiting_confirmation` binary sensor + optional **global auto-confirm** for soft prompts (move cup, flush). Nivona permits remote confirmation only for recognized family-specific rinse prompts; physical interventions, errors, waits and unknown messages cannot send HY. Raw status codes remain available in diagnostics.
 - **Maintenance operations** — easy clean, intensive clean, descaling, filter insert/replace/remove, evaporating, power off
 - **Cancel in-flight brew** — HZ opcode, one-click cancel during any running process
 - **Machine settings control** — water hardness, brew temperature, auto-off timer, energy saving, auto-bean-select (TS)
@@ -452,14 +453,19 @@ Once configured, the integration creates a device with all available entities fi
 | Brew Freestyle | Melitta | Brew the custom freestyle recipe using current freestyle parameters. |
 | Reset Brew Overrides | Nivona | Clear explicit brew override markers so the next untouched Brew uses the machine's saved recipe. |
 | Cancel | both | Cancel the currently running operation (HZ). |
-| Confirm Prompt | both | Acknowledge an active machine prompt (move cup, flush, fill water, etc.) via HY. Available only when `awaiting_confirmation` binary sensor is on. |
+| Confirm Prompt | both | Acknowledge an eligible machine prompt via HY. Nivona permits recognized family-specific rinse confirmations; physical interventions require action on the machine. Available only when `awaiting_confirmation` binary sensor is on. |
 | Reset Recipe | Melitta | Reset the currently selected recipe to factory defaults (HD). Available when machine is Ready and a recipe is selected. Recipe cache auto-refreshes. |
-| Easy Clean | both | Start the easy clean cycle (configuration). |
-| Intensive Clean | both | Start the intensive clean cycle (configuration). |
-| Descaling | both | Start the descaling process (configuration). |
-| Filter Insert / Replace / Remove | both | Water filter operations (configuration). |
-| Evaporating | both | Steam evaporating cycle (configuration). |
-| Switch Off | both | Power off the machine (configuration). |
+| Easy Clean | T, TS | Start the easy clean cycle (configuration). |
+| Intensive Clean | T, TS | Start the intensive clean cycle (configuration). |
+| Descaling | T, TS | Start the descaling process (configuration). |
+| Filter Insert / Replace / Remove | T, TS | Water filter operations (configuration). |
+| Evaporating | T, TS | Steam evaporating cycle (configuration). |
+| Switch Off | T, TS | Power off the machine (configuration). |
+
+Nivona maintenance and power-off buttons remain unavailable until their
+model-specific outgoing commands are verified. The client also blocks direct
+calls to these unverified operations; hiding controls in a dashboard is not
+required for the block to take effect. Recipe brewing remains available.
 
 ### Numbers
 
@@ -471,6 +477,24 @@ Once configured, the integration creates a device with all available entities fi
 | Freestyle Portion 1 | 5 -- 250 ml | Component 1 portion size in milliliters. |
 | Freestyle Portion 2 | 0 -- 250 ml | Component 2 portion size in milliliters (0 = disabled). |
 | Brew Two Cups | 0 -- 1 | Nivona: 0 = single cup, 1 = two cups. Created only for families with an existing mapped temporary-recipe flag. |
+| Brew Temperature Preset | 0 -- 2 | Nivona: raw per-brew temperature preset for the selected recipe's primary process. Available values depend on the recipe and model. |
+
+Nivona brew strength uses human levels 1–3 or 1–5 according to the model;
+the native button converts these to zero-based protocol values. Brew water
+amount supports up to 500 mL on models with verified quantity domains.
+Limits update after model identification. Unsupported controls remain
+registered with their existing IDs but are unavailable; invalid restored
+overrides return to the current model's default.
+
+Recipe quantity inputs use mL. For NICR 960/965/970, temporary, standard and
+MyCoffee writes convert mL to the machine's tenths-of-a-milliliter units.
+Verified MyCoffee amount sensors show mL and retain the register value in
+`raw_value`; the internal diagnostic cache remains raw. Other models keep
+their existing conversion. Low-level numeric recipe services retain raw
+choice values, including zero-based strength; they do not use human levels.
+Known domains are checked before writing. Temporary quantities may use zero
+to disable a component; their active ranges can differ from MyCoffee and
+standard recipes. Unresolved persistent domains retain integer wire limits.
 
 The Nivona two-cup control defaults to 0 and follows the native **Brew** button.
 An untouched default does not activate temporary-recipe overrides. As with the
@@ -478,6 +502,13 @@ other Nivona brew controls, explicitly changing an override sends the complete
 current override set before brewing. **Reset Brew Overrides** clears the
 explicit markers and returns to the machine's saved recipe. Two-cup values and
 their override markers survive reloads.
+
+Nivona temperature overrides target the recipe's mapped coffee, water, milk or
+milk-froth temperature field. Unsupported fields or levels produce an error
+before brewing; an untouched unsupported temperature control does not prevent
+other native overrides. Chilled recipes retain their required preparation
+preset. Firmware that supports only the saved Chilled recipe rejects explicit
+overrides; reset the overrides to brew that saved recipe.
 
 ### Switches
 

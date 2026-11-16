@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automātiskā izslēgšana",
   "settings.auto_off_after.description": "Minūtes līdz automātiskai izslēgšanai",
   "settings.auto_off_after.label": "Auto izslēgšana pēc",
-  "settings.auto_on_deactivated.label": "Automātiskā ieslēgšana atspējota",
+  "settings.auto_on_deactivated.label": "Automātiska ieslēgšana",
   "settings.auto_on_hours.label": "Automātiskās ieslēgšanas stundas",
   "settings.auto_on_minutes.label": "Automātiskās ieslēgšanas minūtes",
   "settings.brew_temperature.description": "Ūdens temperatūra gatavošanas laikā",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Solis {n} no {m}",
   "wizard.title": "Pagatavošanas vednis",
   "values.milk_mode.warm_milk": "Silts piens",
-  "values.milk_mode.milk_froth": "Piena putas"
+  "values.milk_mode.milk_froth": "Piena putas",
+  "settings.easy_clean_after_minutes.label": "EasyClean intervāls",
+  "settings.extreme_mode.label": "Ekstrēmais režīms",
+  "settings.big_picture_mode.label": "Lieli attēli",
+  "settings.quick_select.label": "Ātrā izvēle",
+  "settings.flying_picture.label": "Kustīgs attēls",
+  "settings.brew_unit_wash_interval.label": "Pagatavošanas bloka skalošanas intervāls",
+  "settings.filter_inserted.label": "Filtrs ievietots"
 }

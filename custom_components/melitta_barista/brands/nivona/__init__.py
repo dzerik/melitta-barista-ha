@@ -24,6 +24,7 @@ from typing import ClassVar
 from dataclasses import replace
 
 from ..base import MachineCapabilities, RecipeFieldLayout
+from ...coffee_platform.domain import MachineStatus
 from ._crypto import _NIVONA_HU_TABLE, _NIVONA_RC4_KEY
 from ._prefixes import (
     _MODEL_OVERRIDES,
@@ -42,11 +43,16 @@ from ._registers import (
     standard_recipe_register,
 )
 from . import (
+    _settings,
+    _storage,
+    _recipe_fields,
+    _status,
     _family_600,
     _family_700,
     _family_900,
     _family_1030,
     _family_8000,
+    _family_9101,
 )
 
 
@@ -62,18 +68,11 @@ _LOGGER = logging.getLogger("melitta_barista")
 # merged result into per-aspect dispatch tables removes ~40 lines of
 # mechanical per-family aliasing.
 #
-# Family notes (preserved from the pre-loop version):
-#   - 8000 (NICR 8101/8103/8107) uses brew_command_mode 0x04, all others 0x0B.
-#   - 900 (NICR 920/930) writes fluid amounts as ml × 10.
-#   - 79x has hasAromaBalance=True; others False.
-#   - 600 has only 1 MyCoffee slot; 700/79x/900/8000 have 4.
-#   - Maintenance stat gauges (600/601/610/611/620/621/640/641) are
-#     universal; only the "filter dependency" id varies per family
-#     (642 on 8000, 101 on 900/1000, 105 on 700/79X/600).
+# Each family module owns its recipe, setting, quantity and process metadata.
 # ---------------------------------------------------------------------------
 
 _FAMILY_DATA: dict[str, dict] = {}
-for _mod in (_family_600, _family_700, _family_900, _family_1030, _family_8000):
+for _mod in (_family_600, _family_700, _family_900, _family_1030, _family_8000, _family_9101):
     _FAMILY_DATA.update(_mod.EXPORTS)
 del _mod
 
@@ -84,7 +83,16 @@ _MYCOFFEE_LAYOUTS: dict[str, RecipeFieldLayout] = {
     k: v["mycoffee_layout"] for k, v in _FAMILY_DATA.items()
 }
 _NIVONA_FAMILIES: dict[str, MachineCapabilities] = {
-    k: v["capabilities"] for k, v in _FAMILY_DATA.items()
+    k: replace(
+        v["capabilities"], status_profile_key=_status.FAMILY_STATUS_PROFILES[k],
+        brew_water_amount_max=240 if k in ("600", "900") else 500,
+        recipe_amount_unit=None if k in ("600", "900") else "mL",
+        settings=_settings.settings_for_family(k, v["capabilities"].settings),
+        unsupported_setting_keys=(
+            "off_rinse", "tank_light", "tank_light_color", "tank_light_brightness", "touch_lock",
+        ) if k == "900" else v["capabilities"].unsupported_setting_keys,
+    )
+    for k, v in _FAMILY_DATA.items()
 }
 
 
@@ -100,6 +108,29 @@ def mycoffee_layout(family_key: str) -> RecipeFieldLayout | None:
 # ---------------------------------------------------------------------------
 # NivonaProfile
 # ---------------------------------------------------------------------------
+
+def _temperature_override(family_key: str, recipe_id: int) -> str | None:
+    """Resolve the primary process for the legacy raw temperature preset."""
+    if family_key in ("900", "900-light", "1030", "1040"):
+        if 0 <= recipe_id <= 5:
+            return "coffee_temperature"
+        # Integration layout aliases are opposite to the vendor family names.
+        if family_key == "900":  # NICR 920/930
+            return "coffee_temperature" if recipe_id == 7 else None
+        if family_key == "900-light":  # NICR 960/965/970
+            return {6: "milk_temperature", 7: "water_temperature"}.get(recipe_id)
+        if recipe_id == 6:
+            return "water_temperature"
+        if family_key == "1040":
+            return {7: "milk_temperature", 8: "milk_foam_temperature"}.get(recipe_id)
+        return None
+    if family_key == "8000" and recipe_id in _family_8000.CHILLED_SELECTORS:
+        return None
+    layout = _STANDARD_RECIPE_LAYOUTS.get(family_key)
+    if layout and layout.temperature_offset is not None:
+        return "temperature"
+    return None
+
 
 class NivonaProfile:
     """Brand profile for Nivona NICR/NIVO machines (alpha — untested live)."""
@@ -199,72 +230,35 @@ class NivonaProfile:
     def capabilities_for(self, family_key: str) -> MachineCapabilities:
         return _NIVONA_FAMILIES[family_key]
 
-    def parse_status(self, family_key, data):
-        """Map Nivona HX payload to an abstract MachineStatus.
-
-        HX is 8 bytes of four big-endian int16 fields:
-            process, sub_process, message, progress.
-
-        Family-specific process codes:
-            NIVO 8000:  3 = READY, 4  = PRODUCT.
-            Other Nivona (600/700/79x/900/1030/1040):
-                        8 = READY, 11 = PRODUCT.
-
-        Message is a 16-bit "what does the machine want from the user"
-        field. Only values 0 (none), 11 (move cup to frother) and 20
-        (flush required) are surfaced today; the remaining Manipulation
-        enum values (1–6) are derived from the Melitta side and have
-        not been verified on real Nivona hardware — if a Nivona machine
-        reports a Message ≥ 256 we fall back to Manipulation.NONE
-        rather than silently splitting high and low bytes into
-        mis-assigned fields (what the old ``>hhBBh`` parser did).
-
-        Unknown process codes → process=None (status still returned so
-        sub_process / manipulation / progress remain usable).
-        """
-        import struct  # noqa: PLC0415
-        from ...const import (  # noqa: PLC0415
-            InfoMessage, MachineProcess, Manipulation, SubProcess,
-        )
-        from ...protocol import MachineStatus  # noqa: PLC0415
-
-        if len(data) < 8:
-            return MachineStatus()
-
-        process_val, sub_val, message, progress = (
-            struct.unpack(">hhhh", data[:8])
+    def parse_status(
+        self, family_key: str | None, data: bytes, *, status_profile_key: str | None = None,
+    ) -> MachineStatus:
+        """Decode HX using the model's incoming status profile."""
+        return _status.parse_status(
+            family_key, data, status_profile_key=status_profile_key,
         )
 
-        if family_key == "8000":
-            table = {3: MachineProcess.READY, 4: MachineProcess.PRODUCT}
-        else:
-            table = {8: MachineProcess.READY, 11: MachineProcess.PRODUCT}
-        process = table.get(process_val)
-
-        try:
-            sub_process = SubProcess(sub_val)
-        except ValueError:
-            sub_process = None
-
-        # Map Message → Manipulation when the value fits; high bytes
-        # above 0 only appear on firmware that extended the enum past
-        # 255 — we don't try to guess what that means for Nivona.
-        manipulation: Manipulation = Manipulation.NONE
-        if 0 <= message <= 0xFF:
-            try:
-                manipulation = Manipulation(message)
-            except ValueError:
-                manipulation = Manipulation.NONE
-
-        # ``info_messages`` is a Melitta-side info-flag bitmap that is
-        # NOT emitted by Nivona firmware — always zero for Nivona.
-        return MachineStatus(
-            process=process,
-            sub_process=sub_process,
-            info_messages=InfoMessage(0),
-            manipulation=manipulation,
-            progress=progress,
+    def can_confirm_prompt(
+        self, status: MachineStatus | None, caps: MachineCapabilities | None,
+    ) -> bool:
+        """Allow HY only for a recognized prompt from the resolved model."""
+        return bool(
+            caps is not None and status is not None
+            and status.status_profile_key == caps.status_profile_key
+            and status.prompt_confirmable is True
         )
+
+    @staticmethod
+    def can_read_setting(caps: MachineCapabilities | None, setting_id: int) -> bool:
+        """Return whether a model's setting mapping is unambiguous."""
+        return _settings.can_read_setting(caps, setting_id)
+
+    @staticmethod
+    def validate_setting(
+        caps: MachineCapabilities | None, setting_id: int, value: object,
+    ) -> int:
+        """Validate a setting without interpreting an ordinal as a duration."""
+        return _settings.validate_setting(caps, setting_id, value)
 
     # Recipe / MyCoffee write-path helpers (experimental — see mixin docs)
     @staticmethod
@@ -276,39 +270,40 @@ class NivonaProfile:
         return mycoffee_layout(family_key)
 
     @staticmethod
-    def standard_recipe_register(selector: int, offset: int) -> int:
-        return standard_recipe_register(selector, offset)
+    def standard_recipe_register(selector: int, offset: int, *, family_key: str | None = None) -> int | None:
+        """Resolve storage independently from the outgoing recipe selector."""
+        if family_key == "9101":
+            if offset not in _family_9101.STANDARD_OFFSETS.get(selector, ()):
+                return None
+            return _family_9101.STANDARD_BASES[selector] + offset
+        if family_key is None:
+            return standard_recipe_register(selector, offset)
+        return _storage.standard_recipe_register(family_key, selector, offset)
 
     @staticmethod
-    def temp_recipe_register(
-        family_key: str, recipe_id: int, field: str,
-    ) -> int | None:
-        """Return HW register ID for a **temporary-override** recipe field.
-
-        Per-brew overrides (strength / two_cups / fluid amounts /
-        temperatures) go into a single fixed temp slot, with the
-        family-specific field offset added. ``recipe_id`` is kept in
-        the signature for API compatibility but is IGNORED — the temp
-        slot is selector-independent.
-
-        ``field`` is one of the layout field names without the ``_offset``
-        suffix (``"strength"``, ``"coffee_amount"``, ``"temperature"``,
-        ``"two_cups"``, ``"milk_amount"``, …). Returns ``None`` if the
-        family does not expose that field.
-
-        **Bug history:** previous implementation returned
-        ``RECIPE_BASE_REGISTER + recipe_id*RECIPE_SLOT_STRIDE + offset``
-        — the persistent slot — which silently corrupted the standard
-        recipe definitions on real hardware. Fixed in v0.49.0.
-        """
-        del recipe_id  # explicitly ignored — see docstring.
+    def temp_recipe_register(family_key: str, recipe_id: int, field: str) -> int | None:
+        """Resolve the independent remote layout and legacy temperature alias."""
+        if family_key == "9101":
+            if recipe_id not in _family_9101.STANDARD_BASES:
+                return None
+            if field == "temperature":
+                field = "coffee_temperature" if recipe_id in range(8) else "milk_temperature" if recipe_id == 8 else "unsupported"
+            offset = getattr(_family_9101.REMOTE_LAYOUT, f"{field}_offset", None)
+            return None if offset is None else 9000 + offset
         layout = _STANDARD_RECIPE_LAYOUTS.get(family_key)
         if layout is None:
             return None
+        if field == "chilled_temperature":
+            if family_key != "8000" or recipe_id not in _family_8000.CHILLED_SELECTORS:
+                return None
+            field = "temperature"
+        elif field == "temperature":
+            field = _temperature_override(family_key, recipe_id)
+            if field is None:
+                return None
         offset = getattr(layout, f"{field}_offset", None)
-        if offset is None:
-            return None
-        return TEMP_RECIPE_BASE_REGISTER + offset
+        return None if offset is None else TEMP_RECIPE_BASE_REGISTER + offset
+
 
     @staticmethod
     def fluid_write_scale(family_key: str) -> int:
@@ -317,6 +312,33 @@ class NivonaProfile:
         if layout is None:
             return 1
         return 10 if getattr(layout, "fluid_write_scale_10", False) else 1
+
+    def validate_recipe_param(
+        self, caps: MachineCapabilities, context: str, selector: int,
+        field: str, value: object,
+    ) -> int:
+        """Check explicit fields using their own temporary or persistent domain."""
+        if caps.family_key == "9101":
+            return _family_9101.validate_field(context, selector, field, value)
+        if context == "temporary":
+            register = self.temp_recipe_register(caps.family_key, selector, field)
+        else:
+            layout = (
+                self.standard_recipe_layout(caps.family_key)
+                if context == "standard" else self.mycoffee_layout(caps.family_key)
+            )
+            offset = getattr(layout, f"{field}_offset", None)
+            register = None if offset is None else (
+                self.standard_recipe_register(selector, offset, family_key=caps.family_key)
+                if context == "standard" else self.mycoffee_register(selector, offset)
+            )
+            if context == "standard" and not any(
+                recipe.recipe_id == selector for recipe in caps.recipes
+            ):
+                register = None
+        return _recipe_fields.validate_recipe_param(
+            caps, context, selector, field, value, register=register,
+        )
 
     @staticmethod
     def mycoffee_register(slot: int, offset: int) -> int:
@@ -329,7 +351,8 @@ class NivonaProfile:
 
         Looks up the family first, then applies model-specific overrides
         (from MODEL_RULES upstream) — primarily ``my_coffee_slots`` and
-        ``strength_levels``, which vary per model within a family.
+        ``strength_levels``, which vary per model within a family. The 8107
+        also declares its chilled catalog and firmware preparation limits.
         Returns None if the family cannot be resolved.
         """
         family = self.detect_family(ble_name, dis)
@@ -360,7 +383,16 @@ class NivonaProfile:
         # chilled-brew recipe selectors (8/9/10). Swap in the extended
         # recipe table so NivonaRecipeSelect lists them.
         if model_prefix == "8107":
-            caps = replace(caps, recipes=_family_8000.RECIPES_8000_CHILLED)
+            caps = replace(
+                caps, recipes=_family_8000.RECIPES_8000_CHILLED,
+                saved_recipe_only_selectors=(8, 9, 10),
+                saved_recipe_only_firmwares=(
+                    "1040A015G15", "1040A016G16", "1040A017G17",
+                ),
+                required_brew_overrides=tuple(
+                    (selector, "chilled_temperature", 99) for selector in (8, 9, 10)
+                ),
+            )
 
         if override is None:
             return caps
@@ -368,7 +400,9 @@ class NivonaProfile:
 
     @staticmethod
     def is_chilled_selector(selector: int) -> bool:
-        """True if `selector` requires the chilled-brew flag byte (0x00)
-        instead of the normal-brew flag (0x01) when building the HE
-        payload. Only relevant on NICR 8107."""
+        """Classify selector numbers from the NIVO 8107 chilled catalog.
+
+        This number-only helper does not select the HE recipe mode. The
+        machine's model capabilities and firmware determine that mode.
+        """
         return selector in _family_8000.CHILLED_SELECTORS

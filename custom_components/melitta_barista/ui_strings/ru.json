@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Автоотключение",
   "settings.auto_off_after.description": "Минуты до автоотключения",
   "settings.auto_off_after.label": "Автоотключение через",
-  "settings.auto_on_deactivated.label": "Автовключение отключено",
+  "settings.auto_on_deactivated.label": "Автоматическое включение",
   "settings.auto_on_hours.label": "Часы автовключения",
   "settings.auto_on_minutes.label": "Минуты автовключения",
   "settings.brew_temperature.description": "Температура воды при заваривании",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Шаг {n} из {m}",
   "wizard.title": "Гид по приготовлению",
   "values.milk_mode.warm_milk": "Тёплое молоко",
-  "values.milk_mode.milk_froth": "Молочная пена"
+  "values.milk_mode.milk_froth": "Молочная пена",
+  "settings.easy_clean_after_minutes.label": "Интервал EasyClean",
+  "settings.extreme_mode.label": "Экстремальный режим",
+  "settings.big_picture_mode.label": "Крупные изображения",
+  "settings.quick_select.label": "Быстрый выбор",
+  "settings.flying_picture.label": "Подвижное изображение",
+  "settings.brew_unit_wash_interval.label": "Интервал промывки заварочного блока",
+  "settings.filter_inserted.label": "Фильтр установлен"
 }

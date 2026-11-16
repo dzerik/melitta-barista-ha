@@ -1836,7 +1836,10 @@ class TestHighLevelAPI:
 
         result = await client.confirm_prompt()
         assert result is True
-        client._protocol.confirm_prompt.assert_awaited_once_with(client._write_ble)
+        guard = client._protocol.confirm_prompt.await_args.kwargs["send_guard"]
+        assert guard()
+        client._connected = False
+        assert not guard()
 
     async def test_confirm_prompt_not_connected(self):
         """Returns False when disconnected."""
@@ -1851,11 +1854,7 @@ class TestHighLevelAPI:
 
         client = _make_connected_client(mock_bleak_client, brand=get_profile("nivona"))
         client._protocol.write_numerical = AsyncMock(return_value=True)
-        client._capabilities = MachineCapabilities(
-            family_key="700", model_name="NICR 756",
-            supports_recipe_writes=False, supports_stats=True,
-            my_coffee_slots=1, strength_levels=3,
-        )
+        client._capabilities = client.brand.capabilities_for_model("756000000000000")
 
         # 700-family Cappuccino (selector=4), strength (offset=1)
         result = await client.write_standard_recipe_param(4, "strength", 2)

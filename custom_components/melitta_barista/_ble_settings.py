@@ -26,13 +26,30 @@ class BleSettingsMixin(_MixinBase):
     # Numerical settings
 
     async def read_setting(self, setting_id: int) -> int | None:
-        if not self.connected:
+        """Read a setting only when its model-specific meaning is known."""
+        if not self.connected or not self._brand.can_read_setting(self._capabilities, setting_id):
             return None
         return await self._protocol.read_numerical(self._write_ble, setting_id)
 
+    async def read_statistic(self, stat_id: int) -> int | None:
+        """Read an unmodified HR value declared by the current model's statistics."""
+        caps = self._capabilities
+        if not self.connected or caps is None or not any(
+            descriptor.stat_id == stat_id for descriptor in caps.stats
+        ):
+            return None
+        return await self._protocol.read_numerical(self._write_ble, stat_id)
+
     async def write_setting(self, setting_id: int, value: int) -> bool:
+        """Validate setting codes and serialize any preparation with the write."""
         if not self.connected:
             return False
+        value = self._brand.validate_setting(self._capabilities, setting_id, value)
+        if self._capabilities and self._capabilities.recipe_write_precondition is not None:
+            async with self._brew_lock:
+                if not await self._prepare_recipe_write():
+                    return False
+                return await self._protocol.write_numerical(self._write_ble, setting_id, value)
         return await self._protocol.write_numerical(self._write_ble, setting_id, value)
 
     # Alphanumeric operations

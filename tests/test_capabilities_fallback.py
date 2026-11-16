@@ -75,7 +75,7 @@ class TestConnectWiring:
             assert await client._connect_impl() is True
         assert client.capabilities is not None
         assert client.capabilities.family_key == "barista_ts"
-        proto.set_family.assert_called_with("barista_ts")
+        proto.set_family.assert_called_with("barista_ts", status_profile_key=None)
         assert compute_contract_fingerprint(client) is not None
 
     async def test_connect_prefers_name_detection_over_fallback(self):

@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Автоизключване",
   "settings.auto_off_after.description": "Минути до автоматичното изключване",
   "settings.auto_off_after.label": "Автоизключване след",
-  "settings.auto_on_deactivated.label": "Автовключването е изключено",
+  "settings.auto_on_deactivated.label": "Автоматично включване",
   "settings.auto_on_hours.label": "Часове за автовключване",
   "settings.auto_on_minutes.label": "Минути за автовключване",
   "settings.brew_temperature.description": "Температура на водата при приготвяне",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Стъпка {n} от {m}",
   "wizard.title": "Ръководство за приготвяне",
   "values.milk_mode.warm_milk": "Топло мляко",
-  "values.milk_mode.milk_froth": "Млечна пяна"
+  "values.milk_mode.milk_froth": "Млечна пяна",
+  "settings.easy_clean_after_minutes.label": "Интервал EasyClean",
+  "settings.extreme_mode.label": "Екстремен режим",
+  "settings.big_picture_mode.label": "Големи изображения",
+  "settings.quick_select.label": "Бърз избор",
+  "settings.flying_picture.label": "Движещо се изображение",
+  "settings.brew_unit_wash_interval.label": "Интервал за изплакване на варящия блок",
+  "settings.filter_inserted.label": "Поставен филтър"
 }

@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Desligar automático",
   "settings.auto_off_after.description": "Minutos até ao desligar automático",
   "settings.auto_off_after.label": "Desligar auto após",
-  "settings.auto_on_deactivated.label": "Ligar automático desativado",
+  "settings.auto_on_deactivated.label": "Ligação automática",
   "settings.auto_on_hours.label": "Hora de ligar automático",
   "settings.auto_on_minutes.label": "Minutos de ligar automático",
   "settings.brew_temperature.description": "Temperatura da água na preparação",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Passo {n} de {m}",
   "wizard.title": "Assistente de preparação",
   "values.milk_mode.warm_milk": "Leite morno",
-  "values.milk_mode.milk_froth": "Espuma de leite"
+  "values.milk_mode.milk_froth": "Espuma de leite",
+  "settings.easy_clean_after_minutes.label": "Intervalo EasyClean",
+  "settings.extreme_mode.label": "Modo extremo",
+  "settings.big_picture_mode.label": "Imagens grandes",
+  "settings.quick_select.label": "Seleção rápida",
+  "settings.flying_picture.label": "Imagem animada",
+  "settings.brew_unit_wash_interval.label": "Intervalo de enxaguamento da unidade de infusão",
+  "settings.filter_inserted.label": "Filtro inserido"
 }

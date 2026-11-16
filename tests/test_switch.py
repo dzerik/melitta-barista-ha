@@ -272,6 +272,7 @@ class TestSettingSwitchReadValue:
         client = _mock_client()
         client.read_setting = AsyncMock(return_value=1)
         await _setup_integration(hass, mock_entry, client)
+        client.read_setting.reset_mock()
 
         callbacks = [
             call.args[0]

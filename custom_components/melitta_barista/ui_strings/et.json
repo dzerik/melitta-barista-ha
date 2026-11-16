@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automaatne väljalülitus",
   "settings.auto_off_after.description": "Minutid automaatse väljalülitumiseni",
   "settings.auto_off_after.label": "Automaatne väljalülitus pärast",
-  "settings.auto_on_deactivated.label": "Automaatne sisselülitus keelatud",
+  "settings.auto_on_deactivated.label": "Automaatne sisselülitamine",
   "settings.auto_on_hours.label": "Automaatse sisselülituse tunnid",
   "settings.auto_on_minutes.label": "Automaatse sisselülituse minutid",
   "settings.brew_temperature.description": "Valmistusvee temperatuur",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Samm {n} / {m}",
   "wizard.title": "Valmistusjuhend",
   "values.milk_mode.warm_milk": "Soe piim",
-  "values.milk_mode.milk_froth": "Piimavaht"
+  "values.milk_mode.milk_froth": "Piimavaht",
+  "settings.easy_clean_after_minutes.label": "EasyCleani intervall",
+  "settings.extreme_mode.label": "Äärmusrežiim",
+  "settings.big_picture_mode.label": "Suured pildid",
+  "settings.quick_select.label": "Kiirvalik",
+  "settings.flying_picture.label": "Liikuv pilt",
+  "settings.brew_unit_wash_interval.label": "Tõmbamisseadme loputusintervall",
+  "settings.filter_inserted.label": "Filter paigaldatud"
 }

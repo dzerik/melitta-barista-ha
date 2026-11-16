@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Автовимкнення",
   "settings.auto_off_after.description": "Хвилини до автоматичного вимкнення",
   "settings.auto_off_after.label": "Автовимкнення через",
-  "settings.auto_on_deactivated.label": "Автоувімкнення вимкнено",
+  "settings.auto_on_deactivated.label": "Автоматичне ввімкнення",
   "settings.auto_on_hours.label": "Години автоувімкнення",
   "settings.auto_on_minutes.label": "Хвилини автоувімкнення",
   "settings.brew_temperature.description": "Температура води під час заварювання",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Крок {n} з {m}",
   "wizard.title": "Гід із приготування",
   "values.milk_mode.warm_milk": "Тепле молоко",
-  "values.milk_mode.milk_froth": "Молочна піна"
+  "values.milk_mode.milk_froth": "Молочна піна",
+  "settings.easy_clean_after_minutes.label": "Інтервал EasyClean",
+  "settings.extreme_mode.label": "Екстремальний режим",
+  "settings.big_picture_mode.label": "Великі зображення",
+  "settings.quick_select.label": "Швидкий вибір",
+  "settings.flying_picture.label": "Рухоме зображення",
+  "settings.brew_unit_wash_interval.label": "Інтервал промивання заварювального блока",
+  "settings.filter_inserted.label": "Фільтр установлено"
 }

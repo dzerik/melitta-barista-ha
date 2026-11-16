@@ -14,7 +14,6 @@ from custom_components.melitta_barista.brands import (
 )
 from custom_components.melitta_barista.brands.base import (
     FeatureNotSupported,
-    MachineCapabilities,
 )
 
 
@@ -186,9 +185,9 @@ def test_nivona_detect_family_from_serial():
     assert np_.detect_family("NIVONA-7565730710-----") == "700"
     # NIVO 8101 → family 8000 (via 4-char prefix "8101")
     assert np_.detect_family("NIVONA-8101000000-----") == "8000"
-    # NIVO 9101 (2025 9000 series) → alpha-mapped to the 8000 family
-    assert np_.detect_family("NIVONA-9101000000-----") == "8000"
-    assert np_.detect_family("910125400000000") == "8000"  # bare serial form
+    # NIVO 9101 uses the independent Ef1109 family
+    assert np_.detect_family("NIVONA-9101000000-----") == "9101"
+    assert np_.detect_family("910125400000000") == "9101"  # bare serial form
     # 81xx serial with an unknown 4-char prefix returns None: we only
     # accept the confirmed model codes (8101 / 8103 / 8107) for the
     # 8000 family, so a hypothetical 8108 serial falls through to
@@ -212,7 +211,8 @@ def test_nivona_capabilities_per_family():
     assert f8000.brew_command_mode == 0x04   # NIVO8000 quirk
 
     f900 = np_.capabilities_for("900")
-    assert f900.fluid_scale_factor == 10    # 900 writes ml×10
+    assert f900.fluid_scale_factor == 1
+    assert np_.capabilities_for("900-light").fluid_scale_factor == 10
 
 
 def test_nivona_900_tolerates_stale_frother_flag():
@@ -259,8 +259,8 @@ def test_nivona_settings_per_family():
         "600": 5,       # 101/102/103/104/106
         "700": 5,       # same as 600
         "79x": 4,       # 700 minus 103 (off-rinse absent on 79X)
-        "900": 11,      # tank-light accents + AutoOn pair
-        "900-light": 6, # strip lights, keep save_energy + AutoOn
+        "900": 6,       # physical920/930 minimal settings
+        "900-light": 11,# physical960/965/970 accent settings
         "1030": 14,     # 1000-family with cup_heater + AutoOn +
                         # profile/temps
         "1040": 17,     # 1030 + frother-temp + power-on extras
@@ -340,24 +340,13 @@ def test_stats_1030_apk_alignment():
     assert "experimental" in by_id[224].title.lower()
 
 
-def test_nivona_first_mycoffee_selector_is_20():
-    """Every Nivona family advertises MyCoffee brew-selector base 20.
-
-    The vendor protocol uses 20 as the MyCoffee selector base for
-    every Nivona model — NIVO 8000 family and all NICR 6xx / 7xx /
-    79x / 9xx / 10xx variants. MyCoffee slot N maps to
-    HE.payload[3] = 20 + N when brewing.
-    """
-    np_ = NivonaProfile()
-    for fk in (
-        "600", "700", "79x", "900", "900-light",
-        "1030", "1040", "8000",
-    ):
-        caps = np_.capabilities_for(fk)
-        assert caps.first_mycoffee_selector == 20, (
-            f"Family {fk} must use base 20 for MyCoffee brew selectors; "
-            f"got {caps.first_mycoffee_selector}"
-        )
+@pytest.mark.parametrize("family,base", [
+    ("600", 20), ("700", 20), ("79x", 20), ("900", 20),
+    ("900-light", 8), ("1030", 10), ("1040", 10), ("8000", 20),
+])
+def test_nivona_first_mycoffee_selector_matches_family(family, base):
+    """MyCoffee selector ranges belong to each family's recipe catalog."""
+    assert NivonaProfile().capabilities_for(family).first_mycoffee_selector == base
 
 
 def test_nivona_per_model_capabilities_overrides():
@@ -373,7 +362,7 @@ def test_nivona_per_model_capabilities_overrides():
         ("030", 18, 5, "1030"),
         ("040", 18, 5, "1040"),
         ("8101", 9, 5, "8000"),  # NIVO 8101
-        ("9101", 9, 5, "8000"),  # NIVO 9101 (2025) — alpha, 8000 baseline
+        ("9101", 16, 5, "9101"),  # independent Ef1109 family
         # 600-family: all 5 strength bands (v0.49.0 correction)
         ("670", 5, 5, "600"),
         ("660", 1, 5, "600"),

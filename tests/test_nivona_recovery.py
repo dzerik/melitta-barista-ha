@@ -63,7 +63,8 @@ async def _setup_795(hass, read):
     client.brand = get_profile("nivona")
     client.capabilities = client.brand.capabilities_for_model("795000000000000")
     client.write_setting = AsyncMock(return_value=True)
-    client.read_setting = AsyncMock(side_effect=read)
+    client.read_setting = AsyncMock(return_value=None)
+    client.read_statistic = AsyncMock(side_effect=read)
     callbacks = []
     client.add_status_callback.side_effect = callbacks.append
     entry = MockConfigEntry(domain=DOMAIN, data={**MOCK_CONFIG_DATA, "brand": "nivona"}, version=3)
@@ -110,6 +111,7 @@ async def test_late_model_resolution_creates_mycoffee_buttons(hass):
     client.capabilities = None
     client.write_setting = AsyncMock(return_value=True)
     client.read_setting = AsyncMock(return_value=None)
+    client.read_statistic = AsyncMock(return_value=None)
     connected_callbacks = []
     client.add_connection_callback.side_effect = connected_callbacks.append
     entry = MockConfigEntry(domain=DOMAIN, data={**MOCK_CONFIG_DATA, "brand": "nivona"}, version=3)
@@ -201,6 +203,7 @@ async def test_refined_capabilities_add_entities_once(hass, initial_family_known
     client.capabilities = client.brand.capabilities_for('79x') if initial_family_known else None
     client.write_setting = AsyncMock(return_value=True)
     client.read_setting = AsyncMock(return_value=0)
+    client.read_statistic = AsyncMock(return_value=0)
     callbacks = []
     client.add_connection_callback.side_effect = callbacks.append
     entry = MockConfigEntry(domain=DOMAIN, data={**MOCK_CONFIG_DATA, 'brand': 'nivona'}, version=3)
@@ -258,16 +261,18 @@ async def test_failed_reads_keep_last_value_but_real_resets_are_accepted(hass):
 
 
 async def test_status_polls_do_not_reread_all_stats(hass):
+    """Idle status frames must not trigger extra HR statistic reads."""
     client, callbacks = await _setup_795(hass, lambda _: 0)
     stat_ids = {d.stat_id for d in client.capabilities.stats}
-    assert sum(call.args[0] in stat_ids for call in client.read_setting.await_args_list) == len(stat_ids)
-    client.read_setting.reset_mock()
+    assert {call.args[0] for call in client.read_statistic.await_args_list} == stat_ids
+    assert client.read_statistic.await_count == len(stat_ids)
+    client.read_statistic.reset_mock()
     for _ in range(10):
         client.status = MachineStatus(process=MachineProcess.READY)
         for callback in callbacks:
             callback(client.status)
     await hass.async_block_till_done()
-    assert not any(call.args[0] in stat_ids for call in client.read_setting.await_args_list)
+    client.read_statistic.assert_not_awaited()
 
 
 async def test_statistics_refresh_periodically(hass):

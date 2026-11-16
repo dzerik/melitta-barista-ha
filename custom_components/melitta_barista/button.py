@@ -10,6 +10,7 @@ from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -17,6 +18,7 @@ from homeassistant.const import CONF_ADDRESS
 from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
+from .coffee_platform.domain import is_maintenance_process_verified
 from .const import (
     FREESTYLE_RECIPE_TYPE, HE_CMD_FACTORY_RESET_RECIPES,
     HE_CMD_FACTORY_RESET_SETTINGS, PROMPT_MANIPULATIONS, RECIPE_NAMES,
@@ -445,14 +447,19 @@ class MelittaConfirmPromptButton(_MelittaButtonBase):
 
     @property
     def available(self) -> bool:
+        """Expose only prompts eligible for remote confirmation."""
         if not self._client.connected or not self._client.status:
             return False
-        return self._client.status.manipulation in PROMPT_MANIPULATIONS
+        return (
+            self._client.status.manipulation in PROMPT_MANIPULATIONS
+            and self._client.status.prompt_confirmable is not False
+        )
 
     async def async_press(self) -> None:
+        """Confirm an eligible prompt through the client's final send guard."""
         status = self._client.status
         manip = status.manipulation if status else None
-        if manip is None or manip not in PROMPT_MANIPULATIONS:
+        if not self.available:
             _LOGGER.debug("No active prompt to confirm")
             return
         _LOGGER.info("Confirming prompt: %s", manip.name)
@@ -482,7 +489,7 @@ class NivonaBrewButton(_MelittaButtonBase):
     def unique_id(self) -> str:
         return f"{self._client.address}_nivona_brew"
 
-    def _collect_user_overrides(self, registry) -> dict:
+    def _collect_user_overrides(self, registry, recipe_id: int | None = None) -> dict:
         """Collect overrides from NivonaBrewOverrideNumber entities.
 
         Temp-recipe writes are all-or-nothing: if ANY override slider has
@@ -503,16 +510,31 @@ class NivonaBrewButton(_MelittaButtonBase):
                 st = self.hass.states.get(eid)
                 if not st or st.state in (None, "unknown", "unavailable"):
                     break
-                try:
-                    field_states[field] = int(float(st.state))
-                except ValueError:
+                if (
+                    recipe_id is not None
+                    and self._client.brand.temp_recipe_register(
+                        self._client.capabilities.family_key, recipe_id, field,
+                    ) is None
+                ):
+                    if st.attributes.get("user_set"):
+                        raise ValueError(f"{field} is unsupported for recipe {recipe_id}")
                     break
+                try:
+                    numeric = float(st.state)
+                except ValueError:
+                    if st.attributes.get("user_set"):
+                        raise ValueError(f"{field} must be a finite integer") from None
+                    break
+                if not numeric.is_integer():
+                    raise ValueError(f"{field} must be a finite integer")
+                field_states[field] = int(numeric) - (1 if field == "strength" else 0)
                 if st.attributes.get("user_set"):
                     has_user_set = True
                 break
         return field_states if has_user_set else {}
 
     async def async_press(self) -> None:
+        """Brew the selected recipe and report invalid temperature choices."""
         # Locate the recipe select entity in HA's state machine
         from homeassistant.helpers import entity_registry as er
         registry = er.async_get(self.hass)
@@ -543,11 +565,13 @@ class NivonaBrewButton(_MelittaButtonBase):
             _LOGGER.warning("recipe %s not matched", state.state)
             return
 
-        overrides = self._collect_user_overrides(registry)
         try:
+            overrides = self._collect_user_overrides(registry, recipe_id)
             success = await self._client.brew_nivona(recipe_id, overrides or None)
             if not success:
                 _LOGGER.error("Nivona brew failed for recipe_id=%d", recipe_id)
+        except ValueError as err:
+            raise ServiceValidationError(str(err)) from err
         except (BleakError, OSError, asyncio.TimeoutError):
             _LOGGER.exception("BLE error during Nivona brew")
 
@@ -610,9 +634,10 @@ class MelittaMaintenanceButton(_MelittaButtonBase):
 
     @property
     def available(self) -> bool:
-        # Power-off is valid whenever we have a live BLE connection. Unlike
-        # cleaning/descaling/filter operations it does not require the machine
-        # to be in the generic "ready" state.
+        """Expose verified maintenance actions with the required live state."""
+        if not is_maintenance_process_verified(self._client.capabilities, self._process):
+            return False
+        # Verified power-off does not require the generic ready state.
         if self._process is MachineProcess.SWITCH_OFF:
             return self._client.connected
 

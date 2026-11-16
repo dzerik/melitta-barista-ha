@@ -315,7 +315,8 @@ def build_status_tokens(status: Any, connected: bool) -> dict[str, Any]:
     attributes anyway (the §3.4 server-side clarification) — every token
     is null and the booleans are False. On the wire `manipulation_token`
     is null iff status is None; "NONE" covers both the no-manipulation
-    case and parsed-unknown manipulation codes.
+    case and parsed-unknown manipulation codes. Confirmation also requires
+    that the brand decoder has not explicitly forbidden HY for the message.
     """
     if status is None or not connected:
         return {
@@ -338,7 +339,10 @@ def build_status_tokens(status: Any, connected: bool) -> dict[str, Any]:
         "sub_process_token": sub_process.name if sub_process is not None else None,
         "manipulation_token": manipulation.name,
         "is_brewing": process == MachineProcess.PRODUCT,
-        "awaiting_confirmation": manipulation in PROMPT_MANIPULATIONS,
+        "awaiting_confirmation": (
+            manipulation in PROMPT_MANIPULATIONS
+            and status.prompt_confirmable is not False
+        ),
     }
 
 
@@ -1166,6 +1170,8 @@ def component_to_tokens(recipe_component: Any) -> dict[str, Any]:
     to the component's wire defaults. The `blend` key is OMITTED for wire
     byte 0 (Blend.BARISTA_T, machine-default hopper) and for any unknown
     byte — clients treat an absent blend as "machine default hopper".
+    Unknown milk preparation bytes carry `milk_mode: None` so their frozen
+    shots default cannot be mistaken for a known froth choice by renderers.
     """
     tokens: dict[str, Any] = {
         "process": _PROCESS_NAMES.get(recipe_component.process, "none"),
@@ -1178,6 +1184,8 @@ def component_to_tokens(recipe_component: Any) -> dict[str, Any]:
     blend = _BLEND_NAMES.get(recipe_component.blend)
     if blend is not None:
         tokens["blend"] = blend
+    if tokens["process"] == "milk" and recipe_component.shots not in _SHOTS_NAMES:
+        tokens["milk_mode"] = None
     return tokens
 
 
@@ -1208,9 +1216,11 @@ def build_icon_spec(
 
     Pure and deterministic: same inputs yield a dict-equal output. Each
     component dict carries token fields (`process`, `intensity`, `aroma`,
-    `temperature`, `shots`) plus integer `portion_ml`; each additive is
+    `temperature`, `shots`, optional `milk_mode`) plus integer `portion_ml`; each additive is
     `{name, ml | None, color_hint | None}`. Returns None for an empty
     composition (client renders its generic default icon).
+    Known milk preparation modes determine foam independently of temperature;
+    incomplete descriptions retain the legacy visual fallback.
     """
     survivors: list[tuple[str, int, Mapping[str, Any]]] = []
     for component in components:
@@ -1251,12 +1261,22 @@ def build_icon_spec(
                 "intensity": _coffee_darkness(component),
             })
         elif process == "milk":
-            if sole_component and component.get("temperature") == "high":
-                foam_ratio = 0.50  # froth-dominant drink
+            mode = component.get("milk_mode")
+            unknown_mode = "milk_mode" in component and mode is None
+            if not unknown_mode and mode not in ("warm_milk", "milk_froth"):
+                shots = component.get("shots")
+                if shots == "none":
+                    mode = "milk_froth"
+                elif shots in ("one", "two", "three"):
+                    mode = "warm_milk"
+            if mode == "warm_milk":
+                foam = 0
             else:
-                foam_ratio = 0.20
-            foam = max(_round5(portion * foam_ratio), 10)
-            foam = min(foam, portion)
+                froth_dominant = sole_component and (
+                    mode == "milk_froth" or component.get("temperature") == "high"
+                )
+                foam_ratio = 0.50 if froth_dominant else 0.20
+                foam = min(max(_round5(portion * foam_ratio), 10), portion)
             foam_ml += foam
             body = portion - foam
             if body > 0:

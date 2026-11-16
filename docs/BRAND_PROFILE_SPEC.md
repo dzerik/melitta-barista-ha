@@ -18,6 +18,14 @@ methods and per-family `MachineCapabilities` flags.
 
 ## 1. Required `BrandProfile` surface
 
+Nivona HE brew starts are sent once. A missing or negative acknowledgment
+does not cause retransmission: the client instead polls HX for up to 15 seconds
+and accepts the start only if a fresh PRODUCT is observed on the original
+connection. READY, unknown processes and cached status do not confirm a start.
+The HA brew intent is staged before HE to cover status arriving before the ACK;
+an unconfirmed request is cleared. Required temporary recipe writes must all
+succeed before HE is sent.
+
 ### Identity
 
 ```python
@@ -70,18 +78,47 @@ def detect_family(self, ble_name: str, dis: dict[str, str] | None) -> str | None
 def capabilities_for(self, family_key: str) -> MachineCapabilities:
     """Return capability bag for the family. Raises KeyError if unknown."""
 
-def parse_status(self, family_key: str | None, data: bytes):
+def parse_status(self, family_key: str | None, data: bytes,
+                 *, status_profile_key: str | None = None):
     """Map an HX status payload to MachineStatus with brand-specific process codes."""
+
+def can_confirm_prompt(self, status, caps) -> bool:
+    """Whether the decoded status permits HY for this resolved model."""
 ```
 
 Different brands use different raw numbers for the same logical state.
 Examples observed in production:
 - Melitta: `READY = 2`, `PRODUCT = 4`
-- Nivona NIVO 8000: `READY = 3`, `PRODUCT = 4`
+- Nivona NIVO 8000/9101: `READY = 3`, `PRODUCT = 4`
 - Nivona 600/700/79x/900/1030/1040: `READY = 8`, `PRODUCT = 11`
 
 `parse_status` translates raw integers to the brand-agnostic
 `MachineProcess` enum.
+
+`MachineCapabilities.status_profile_key` optionally refines the incoming
+decoder for individual models sharing a capability family. The protocol passes
+it through both pushed and requested HX responses; profiles remain stateless.
+Nivona keeps raw process/subprocess/message codes and a diagnostic `message_key`
+separate from canonical enums. Any nonzero message blocks brewing, including
+errors and unknown messages that have no canonical manipulation token. This
+explicit blocker takes precedence over `tolerated_brew_manipulations`.
+
+Nivona permits HY only for recognized rinse confirmations in the resolved
+status profile, after receiving HX on the current connection. Physical actions
+such as filling water or replacing trays are visible but are not remotely
+acknowledgeable. Incomplete message profiles use conservative decoding:
+nonzero messages block brewing and cannot be confirmed. The experimental 9101
+uses a separate Ef1109 decoder (ready3/home−1, product4) and does not inherit
+the 810x message/phase table. This does not enable any outgoing
+maintenance process codes. Melitta retains its canonical decoder and existing
+confirmation policy.
+
+Shared commands check confirmation eligibility at invocation, inside the
+protocol lock on every attempt, and under the BLE write lock immediately
+before GATT transmission. A queued action belongs to one prompt
+appearance and connection; clearing/replacing the prompt invalidates it.
+Identical repeated HX frames and progress-only changes do not create a new
+appearance. Automatic confirmations remain opt-in and also recheck the option.
 
 ### Recipe write-path contract (v0.79.0+)
 
@@ -98,6 +135,7 @@ def fluid_write_scale(self, family_key) -> int: ...      # 1 by default, 10 for 
 def mycoffee_layout(self, family_key) -> RecipeFieldLayout | None: ...
 def mycoffee_register(self, slot, offset) -> int | None: ...
 def is_chilled_selector(self, selector) -> bool: ...
+def validate_recipe_param(self, caps, context, selector, field, value) -> int: ...
 ```
 
 | Method | Returns when not supported |
@@ -108,6 +146,38 @@ def is_chilled_selector(self, selector) -> bool: ...
 | `mycoffee_layout` | `None` |
 | `mycoffee_register` | `None` |
 | `is_chilled_selector` | `False` |
+
+`validate_recipe_param` normalizes integral input and raises `ValueError` for
+unsupported fields or invalid known domains. Context is `temporary`,
+`standard` or `mycoffee`; a domain must not be copied between these contexts.
+Shared commands preflight the whole explicit override set before the first
+HW. Persistent numeric services translate validation errors into HA service
+validation errors. Choice values retain their raw numeric meaning.
+
+Persistent storage resolution is family-aware. Call
+`standard_recipe_register(selector, offset, family_key=caps.family_key)` for
+both validation and transmission; a nullable result means the mapping is
+unsupported. The two-argument arithmetic helper is retained for compatibility
+and must not be used to choose actual write addresses. Storage bases do not
+renumber the released HE drink catalog. Conflicting pure-milk mappings and
+unknown standard selectors are rejected before any HW write.
+
+For Nivona 960/965/970 (integration family `900-light`), both standard and
+MyCoffee layouts declare `fluid_write_scale_10=True`: all quantity writes
+use mL ×10; other recipe choices are unscaled. The `900` family (920/930)
+retains its existing identity conversion. MyCoffee cache entries remain raw;
+amount sensors convert at presentation time and expose `raw_value` separately.
+`recipe_amount_unit` permits a verified display unit without guessing from
+brand/family names in shared entities.
+
+Nivona numeric domains use separate context tables. Standard quantity/choice
+limits bind an absolute register address and semantic field; unresolved or
+conflicting mappings retain the integer wire domain rather than inheriting
+another recipe's limits. Zero remote quantities remain valid disable/default
+sentinels alongside model-specific nonzero ranges. Native strength levels
+1–N map to raw0–N−1 only at the native button boundary; the numeric API is
+already raw and is not shifted. Native inputs use live model capabilities,
+revalidate restored values and retain unsupported entity IDs as unavailable.
 
 ---
 
@@ -133,17 +203,34 @@ uses_legacy_total_cups_sensor: bool = False  # Melitta-only hand-tailored sensor
 my_coffee_slots: int = 0
 strength_levels: int = 5
 has_aroma_balance: bool = False
-first_mycoffee_selector: int = 20       # MyCoffee HE selector base (20 for Nivona)
+first_mycoffee_selector: int = 20       # family-specific MyCoffee HE base: 8, 10 or 20
 ```
 
 ### Protocol quirks
 
 ```python
-fluid_scale_factor: int = 1             # ml × N when writing fluid amounts (Nivona 900 = 10)
+fluid_scale_factor: int = 1             # raw quantity units per mL
+brew_water_amount_max: int = 240        # native mL control, refined per model
+recipe_amount_unit: str | None = None   # verified display unit
 brew_command_mode: int = 0x0B           # HE byte; 0x04 for NIVO 8000
 recipe_text_encoding: str = "legacy_1byte"   # vs "utf16_le"
+status_profile_key: str | None = None       # model-refined incoming HX profile
 tolerated_brew_manipulations: tuple[int, ...] = ()  # Manipulation flags that don't block brew
+saved_recipe_only_selectors: tuple[int, ...] = ()
+saved_recipe_only_firmwares: tuple[str, ...] = ()
+required_brew_overrides: tuple[tuple[int, str, int], ...] = ()
+brew_temperature_max: tuple[tuple[int, int], ...] = ()
 ```
+
+The saved-recipe workaround applies only when both the selector and exact
+firmware match; explicit temporary overrides are rejected before any write.
+`required_brew_overrides` contains `(selector, field, raw_value)` triples that
+must be applied after user overrides when starting a temporary recipe. This
+keeps fixed preparation presets from being overwritten by generic controls.
+`brew_temperature_max` narrows the existing raw0–2 input domain per selector.
+The brand's `temp_recipe_register` resolves the legacy `temperature` alias to
+the recipe's actual process field, returning `None` when unsupported. Shared
+commands consume this metadata without inferring behavior from family names.
 
 ### Tables (filled per family)
 
@@ -167,6 +254,18 @@ connection, after a busy-to-ready transition and every five minutes while idle.
 Concurrent requests share a pass, failed reads keep cached values, and successful
 zeros or decreases remain valid. Disconnect/unload cancels active reads. None
 of these refreshes changes the persisted recipe or machine settings.
+
+The client reads these registers through `read_statistic(stat_id)`, authorized
+by membership in the currently resolved `caps.stats`. It returns the raw HR
+value; presentation applies descriptor masks. `read_setting` retains its
+independent settings allowlist. Statistics descriptors do not grant setting
+read or write access, and a stale descriptor cannot authorize a register on
+a newly resolved model.
+
+Native capability-driven settings and brew inputs must also be registered
+when capabilities become available after an offline platform setup. Reconnects
+must not duplicate unique IDs, subscriptions must be removed on entry unload,
+and newly added setting entities must read values if already connected.
 
 **Important:** Melitta leaves `settings = ()` even though it has
 settings entities — Melitta's settings are surfaced through the legacy
@@ -219,12 +318,14 @@ class YourProfile:
     # Family resolution + status parsing — required
     def detect_family(self, ble_name, dis=None) -> str | None: ...
     def capabilities_for(self, family_key) -> MachineCapabilities: ...
-    def parse_status(self, family_key, data): ...
+    def parse_status(self, family_key, data, *, status_profile_key=None): ...
+    def can_confirm_prompt(self, status, caps): ...
 
     # Recipe write-path — implement or use stub returns
     temp_recipe_type_register: ClassVar[int | None] = None
     def temp_recipe_register(self, *a) -> int | None: return None
     def fluid_write_scale(self, family_key) -> int: return 1
+    def validate_recipe_param(self, caps, context, selector, field, value) -> int: ...
     def mycoffee_layout(self, family_key) -> RecipeFieldLayout | None: return None
     def mycoffee_register(self, slot, offset) -> int | None: return None
     def is_chilled_selector(self, selector) -> bool: return False
@@ -285,3 +386,26 @@ Forward-looking — not blocking new brands today, but worth flagging:
 
 When/if these become bottlenecks (community-driven 3rd brand, external
 plugin requests), revisit. Until then the contract above is sufficient.
+
+### NIVO 9101 recipe preparation
+
+9101 has an independent family: standard selectors0..12, explicit storage bases
+(Lungo10100, Espresso10000), MyCoffee selectors13..28 and16 slots. Quantities
+are in mL. Unresolved or unsupported recipe fields fail before transmission.
+Its remote Type register is9000, strength9001, and remote HE uses selector0.
+The remote template is filled completely from verified defaults and current
+saved fields before explicit overrides; missing reads or rejected writes abort
+the start. This prevents parameters from an earlier temporary recipe leaking
+into a later one. Chilled recipes require profile5, without an8107 temperature99
+requirement or firmware fallback.
+
+Recipe starts and numeric recipe/setting writes use the capability's optional
+`recipe_write_precondition` under one shared operation lock: a current ready/home
+status, then one HE98 ACK, then dependent writes/start. A negative ACK or timeout
+aborts; no inferred home polling or preparation retry is added. Maintenance
+commands remain unavailable. AutoOn schedules and recipe reordering are withheld
+until their conflicting domains are resolved.
+
+Model settings use verified/writable descriptors. Unsupported controls are
+disabled in the entity registry without removing custom names. The legacy
+AutoOn key/ID remains stable while its label describes automatic switch-on.

@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Auto-uit",
   "settings.auto_off_after.description": "Minuten tot automatisch uitschakelen",
   "settings.auto_off_after.label": "Auto uit na",
-  "settings.auto_on_deactivated.label": "Auto-aan uitgeschakeld",
+  "settings.auto_on_deactivated.label": "Automatisch inschakelen",
   "settings.auto_on_hours.label": "Auto-aan uren",
   "settings.auto_on_minutes.label": "Auto-aan minuten",
   "settings.brew_temperature.description": "Watertemperatuur tijdens het zetten",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Stap {n} van {m}",
   "wizard.title": "Zetassistent",
   "values.milk_mode.warm_milk": "Warme melk",
-  "values.milk_mode.milk_froth": "Melkschuim"
+  "values.milk_mode.milk_froth": "Melkschuim",
+  "settings.easy_clean_after_minutes.label": "EasyClean-interval",
+  "settings.extreme_mode.label": "Extreme modus",
+  "settings.big_picture_mode.label": "Grote afbeeldingen",
+  "settings.quick_select.label": "Snelle selectie",
+  "settings.flying_picture.label": "Bewegende afbeelding",
+  "settings.brew_unit_wash_interval.label": "Spoelinterval van de zetgroep",
+  "settings.filter_inserted.label": "Filter geplaatst"
 }

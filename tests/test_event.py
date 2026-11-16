@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import struct
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -25,7 +26,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.melitta_barista import PLATFORMS, narration, panel_api
 from custom_components.melitta_barista.ble_client import MelittaBleClient
-from custom_components.melitta_barista.brands import MelittaProfile
+from custom_components.melitta_barista.brands import MelittaProfile, get_profile
 from custom_components.melitta_barista.coffee_platform.domain import InfoMessage
 from custom_components.melitta_barista.const import (
     DOMAIN,
@@ -392,6 +393,32 @@ async def test_brew_finished_fires_the_bus_event_with_device_id(
     assert fired[0].data["entity_id"] == hass.states.async_all("event")[0].entity_id
     assert fired[1].data["source"] == "machine"
     assert isinstance(fired[1].data["duration_s"], int)
+
+
+async def test_nicr660_raw_status_cycle_reaches_entity_and_bus(hass, mock_entry):
+    """Family600 raw HX8→11→8 must emit both machine-originated brew events."""
+    client = MelittaBleClient(MOCK_ADDRESS, brand=get_profile("nivona"))
+    client._capabilities = client.brand.capabilities_for_model("660000000000000")
+    caps = client.capabilities
+    client._protocol.set_family(caps.family_key, status_profile_key=caps.status_profile_key)
+    client._protocol.set_status_callback(client._on_status)
+    mock_entry.add_to_hass(hass)
+    entity = _standalone(hass, client, mock_entry)
+    entity._resolve_device_id = MagicMock(return_value="nicr660-device")
+    entity._trigger_event = MagicMock()
+    client.add_status_callback(entity._on_status)
+    fired = _bus_recorder(hass)
+
+    for raw_process in (8, 11, 8):
+        client._protocol._dispatch_frame("HX", struct.pack(">hhhh", raw_process, 0, 0, 0))
+    await hass.async_block_till_done()
+
+    assert [call.args[0] for call in entity._trigger_event.call_args_list] == [
+        "brew_started", "brew_finished",
+    ]
+    assert [event.data["type"] for event in fired] == ["brew_started", "brew_finished"]
+    assert all(event.data["source"] == "machine" for event in fired)
+    assert all(event.data["cancel_detection"] is False for event in fired if event.data["type"] == "brew_finished")
 
 
 async def test_state_is_written_before_the_bus_event_is_fired(

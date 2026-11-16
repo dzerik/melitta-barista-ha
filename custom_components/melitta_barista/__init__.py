@@ -2163,9 +2163,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="device_not_found",
             )
-        success = await client.write_standard_recipe_param(
-            call.data["selector"], call.data["param_key"], call.data["value"],
-        )
+        try:
+            success = await client.write_standard_recipe_param(
+                call.data["selector"], call.data["param_key"], call.data["value"],
+            )
+        except ValueError as err:
+            raise ServiceValidationError(str(err)) from err
         if not success:
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="write_failed",
@@ -2181,9 +2184,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="device_not_found",
             )
-        success = await client.write_mycoffee_param(
-            call.data["slot"], call.data["param_key"], call.data["value"],
-        )
+        try:
+            success = await client.write_mycoffee_param(
+                call.data["slot"], call.data["param_key"], call.data["value"],
+            )
+        except ValueError as err:
+            raise ServiceValidationError(str(err)) from err
         if not success:
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="write_failed",

@@ -562,6 +562,7 @@ def test_document_actions_match_builder_output():
 # ---------------------------------------------------------------------------
 
 _NIVONA_NAME_KEYS = {
+    "9101": {0:"coffee",1:"espresso",2:"americano",3:"caffe_latte",4:"cappuccino",5:"espresso_macchiato",6:"flat_white",7:"latte_macchiato",8:"hot_milk",9:"hot_water",10:"chilled_lungo",11:"chilled_espresso",12:"chilled_americano"},
     "600": {0: "espresso", 1: "coffee", 2: "americano", 3: "cappuccino",
             4: "frothy_milk", 5: "hot_water"},
     "700": {0: "espresso", 1: "cream", 2: "lungo", 3: "americano",

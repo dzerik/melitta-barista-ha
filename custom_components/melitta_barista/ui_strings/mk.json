@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Автоматско исклучување",
   "settings.auto_off_after.description": "Минути до автоматско исклучување",
   "settings.auto_off_after.label": "Автоматско исклучување по",
-  "settings.auto_on_deactivated.label": "Автоматско вклучување исклучено",
+  "settings.auto_on_deactivated.label": "Автоматско вклучување",
   "settings.auto_on_hours.label": "Часови за автоматско вклучување",
   "settings.auto_on_minutes.label": "Минути за автоматско вклучување",
   "settings.brew_temperature.description": "Температура на водата при подготовка",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Чекор {n} од {m}",
   "wizard.title": "Волшебник за подготовка",
   "values.milk_mode.warm_milk": "Топло млеко",
-  "values.milk_mode.milk_froth": "Млечна пена"
+  "values.milk_mode.milk_froth": "Млечна пена",
+  "settings.easy_clean_after_minutes.label": "Интервал EasyClean",
+  "settings.extreme_mode.label": "Екстремен режим",
+  "settings.big_picture_mode.label": "Големи слики",
+  "settings.quick_select.label": "Брз избор",
+  "settings.flying_picture.label": "Подвижна слика",
+  "settings.brew_unit_wash_interval.label": "Интервал за плакнење на единицата за варење",
+  "settings.filter_inserted.label": "Вметнат филтер"
 }

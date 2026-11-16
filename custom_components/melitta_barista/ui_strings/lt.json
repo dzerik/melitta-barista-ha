@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automatinis išjungimas",
   "settings.auto_off_after.description": "Minutės iki automatinio išjungimo",
   "settings.auto_off_after.label": "Auto išjungimas po",
-  "settings.auto_on_deactivated.label": "Automatinis įjungimas išjungtas",
+  "settings.auto_on_deactivated.label": "Automatinis įjungimas",
   "settings.auto_on_hours.label": "Automatinio įjungimo valandos",
   "settings.auto_on_minutes.label": "Automatinio įjungimo minutės",
   "settings.brew_temperature.description": "Ruošimo vandens temperatūra",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Žingsnis {n} iš {m}",
   "wizard.title": "Ruošimo vadovas",
   "values.milk_mode.warm_milk": "Šiltas pienas",
-  "values.milk_mode.milk_froth": "Pieno puta"
+  "values.milk_mode.milk_froth": "Pieno puta",
+  "settings.easy_clean_after_minutes.label": "EasyClean intervalas",
+  "settings.extreme_mode.label": "Ekstremalus režimas",
+  "settings.big_picture_mode.label": "Dideli vaizdai",
+  "settings.quick_select.label": "Greitas pasirinkimas",
+  "settings.flying_picture.label": "Judantis vaizdas",
+  "settings.brew_unit_wash_interval.label": "Plikymo bloko skalavimo intervalas",
+  "settings.filter_inserted.label": "Filtras įdėtas"
 }

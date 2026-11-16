@@ -78,7 +78,7 @@
   "settings.auto_off.label": "Automatyczne wyłączanie",
   "settings.auto_off_after.description": "Minuty do automatycznego wyłączenia",
   "settings.auto_off_after.label": "Automatyczne wyłączenie po",
-  "settings.auto_on_deactivated.label": "Automatyczne włączanie wyłączone",
+  "settings.auto_on_deactivated.label": "Automatyczne włączanie",
   "settings.auto_on_hours.label": "Godzina automatycznego włączenia",
   "settings.auto_on_minutes.label": "Minuta automatycznego włączenia",
   "settings.brew_temperature.description": "Temperatura wody podczas parzenia",
@@ -296,5 +296,12 @@
   "wizard.step_of": "Krok {n} z {m}",
   "wizard.title": "Kreator parzenia",
   "values.milk_mode.warm_milk": "Ciepłe mleko",
-  "values.milk_mode.milk_froth": "Pianka mleczna"
+  "values.milk_mode.milk_froth": "Pianka mleczna",
+  "settings.easy_clean_after_minutes.label": "Odstęp EasyClean",
+  "settings.extreme_mode.label": "Tryb ekstremalny",
+  "settings.big_picture_mode.label": "Duże obrazy",
+  "settings.quick_select.label": "Szybki wybór",
+  "settings.flying_picture.label": "Ruchomy obraz",
+  "settings.brew_unit_wash_interval.label": "Odstęp płukania bloku zaparzającego",
+  "settings.filter_inserted.label": "Filtr włożony"
 }
