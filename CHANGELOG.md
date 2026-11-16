@@ -4,6 +4,28 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
+## [0.96.0] — 2026-11-16
+
+### Added
+- Choose warm milk or milk froth independently for either Melitta milk component in Freestyle, native controls and recipe editors (#60).
+- Show configured DirectKey drink names while preserving the saved slot and profile used by brew and edit commands (#61).
+- Expose Nivona Brew Two Cups and Reset Brew Overrides where the model supports them (#57).
+- Give NIVO 9101 its own experimental model contract with separate recipes, settings, statistics and 16 MyCoffee slots.
+
+### Fixed
+- Preserve saved Melitta bean-hopper settings and retain cached profile recipes after failed reads; add recipe refresh and recovery without restarting HA (#54, #55).
+- Identify Nivona models from their serial, register model-specific entities after an offline HA startup, and avoid duplicates on reconnect.
+- Restore Nivona statistics reads and refresh them after preparation and while idle; decode packed 79x counters and apply units only to fluid amounts (#58, #59).
+- Use model-specific saved-recipe addresses, quantity conversion, settings and parameter limits; reject unsupported or partially written recipes before starting preparation.
+- Confirm an unacknowledged Nivona start only after fresh PRODUCT status on the same connection, without resending the start command; retain HA attribution in brew events.
+- Keep open recipe editors bound to their original profile and render foam according to preparation mode rather than temperature.
+
+### Upgrade notes and limitations
+- This stable package includes the fixes tested in 0.96.0b1–b11. Nivona support remains experimental and model-dependent; community reports confirm statistics/events on NICR 660 and identification, entity registration, counters and start confirmation on NICR 795.
+- Unverified Nivona power-off and maintenance starts are intentionally unavailable, including through native buttons and direct backend calls (#68). No new maintenance command codes are enabled.
+- NICR 795 MyCoffee display/counter attribution, some maintenance states, Activity reporting and unsupported reads remain under investigation (#59). This release does not claim to resolve those observations.
+- Existing entity identities and recorder history are preserved. Previously overwritten hopper choices or incorrect recorded values are not reconstructed automatically.
+
 ## [0.96.0b11] — 2026-11-06 (beta)
 
 ### Fixed
