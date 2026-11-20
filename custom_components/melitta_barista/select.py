@@ -10,11 +10,13 @@ from bleak.exc import BleakError
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .ble_client import resolve_caps_from_scanner
 from .const import CONF_FAMILY_OVERRIDE
@@ -168,7 +170,7 @@ async def async_setup_entry(
     added_ids: set[str] = set()
 
     def capability_entities(resolved: MachineCapabilities | None) -> list:
-        """Build missing settings once model capabilities are available."""
+        """Build missing controls once model capabilities are available."""
         entities: list = []
         if resolved is not None:
             registry = er.async_get(hass)
@@ -186,6 +188,10 @@ async def async_setup_entry(
                     continue
                 entities.append(
                     BrandSettingSelect(client, entry, name, descriptor)
+                )
+            if resolved.supports_brew_overrides and resolved.brew_profile_recipe_ids:
+                entities.append(
+                    NivonaBrewProfileSelect(client, entry, name, resolved.brew_profile_options),
                 )
         missing = [entity for entity in entities if entity.unique_id not in added_ids]
         added_ids.update(entity.unique_id for entity in missing)
@@ -761,3 +767,77 @@ class NivonaRecipeSelect(MelittaDeviceMixin, SelectEntity):
             if r.name == self._attr_current_option:
                 return r.recipe_id
         return None
+
+
+
+class NivonaBrewProfileSelect(MelittaDeviceMixin, RestoreEntity, SelectEntity):
+    """Choose the flow profile for temporary coffee recipes."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "brew_aroma_profile"
+    _attr_icon = "mdi:scent"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_should_poll = False
+    _attr_current_option = "default"
+
+    def __init__(
+        self,
+        client: CoffeeMachineClient,
+        entry: ConfigEntry,
+        machine_name: str,
+        initial_options: tuple[tuple[int, str], ...],
+    ) -> None:
+        self._client = client
+        self._entry = entry
+        self._machine_name = machine_name
+        self._initial_options = initial_options
+        self._attr_unique_id = f"{client.address}_brew_profile"
+
+    @property
+    def available(self) -> bool:
+        """Expose the control while the resolved model supports flow profiles."""
+        caps = self._client.capabilities
+        return bool(caps and caps.supports_brew_overrides and caps.brew_profile_recipe_ids)
+
+    @property
+    def options(self) -> list[str]:
+        """Return the model's profile tokens and the default selection."""
+        caps = self._client.capabilities
+        options = caps.brew_profile_options if caps is not None else self._initial_options
+        return ["default", *(option for _, option in options)]
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the local profile and listen for override resets."""
+        from .number import _override_reset_event_type  # noqa: PLC0415
+
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state in self.options:
+            self._attr_current_option = last.state
+        self.async_on_remove(
+            self.hass.bus.async_listen(
+                _override_reset_event_type(self._attr_unique_id), self._reset,
+            ),
+        )
+        self._client.add_connection_callback(self._on_connection_change)
+        self.async_on_remove(
+            lambda: self._client.remove_connection_callback(self._on_connection_change),
+        )
+
+    @callback
+    def _reset(self, _event: Event) -> None:
+        self._attr_current_option = "default"
+        self.async_write_ha_state()
+
+    @callback
+    def _on_connection_change(self, _connected: bool) -> None:
+        if self._attr_current_option not in self.options:
+            self._attr_current_option = "default"
+        self.async_write_ha_state()
+
+    async def async_select_option(self, option: str) -> None:
+        """Save the chosen profile locally for the next brew."""
+        if not self.available or option not in self.options:
+            raise ServiceValidationError("Unsupported brew aroma profile")
+        self._attr_current_option = option
+        self.async_write_ha_state()

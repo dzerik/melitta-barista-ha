@@ -20,6 +20,7 @@ from .const import CONF_FAMILY_OVERRIDE
 from .coffee_platform.contract import CoffeeMachineClient
 from .coffee_platform.domain import is_maintenance_process_verified
 from .const import (
+    DOMAIN,
     FREESTYLE_RECIPE_TYPE, HE_CMD_FACTORY_RESET_RECIPES,
     HE_CMD_FACTORY_RESET_SETTINGS, PROMPT_MANIPULATIONS, RECIPE_NAMES,
     MachineProcess,
@@ -490,15 +491,15 @@ class NivonaBrewButton(_MelittaButtonBase):
         return f"{self._client.address}_nivona_brew"
 
     def _collect_user_overrides(self, registry, recipe_id: int | None = None) -> dict:
-        """Collect overrides from NivonaBrewOverrideNumber entities.
+        """Collect local number and aroma profile overrides for the recipe.
 
         Temp-recipe writes are all-or-nothing: if ANY override slider has
         ``user_set=True`` we send the *complete* set of current slider values,
         not just the changed ones. The firmware fills any field omitted from a
         temp recipe with its hardware default rather than the saved-recipe
         value, so a partial write would silently brew wrong amounts for the
-        untouched fields. If no slider was set, return ``{}`` so the machine
-        uses its own saved recipe untouched.
+        untouched fields. If neither a slider nor a profile was set, return
+        ``{}`` so the machine uses its saved recipe.
         """
         field_states: dict[str, int] = {}
         has_user_set = False
@@ -531,6 +532,17 @@ class NivonaBrewButton(_MelittaButtonBase):
                 if st.attributes.get("user_set"):
                     has_user_set = True
                 break
+        caps = self._client.capabilities
+        if caps and caps.supports_brew_overrides and recipe_id in caps.brew_profile_recipe_ids:
+            entity_id = registry.async_get_entity_id(
+                "select", DOMAIN, f"{self._client.address}_brew_profile",
+            )
+            state = self.hass.states.get(entity_id) if entity_id is not None else None
+            if state is not None:
+                profile_value = {option: value for value, option in caps.brew_profile_options}.get(state.state)
+                if profile_value is not None:
+                    field_states["profile"] = profile_value
+                    has_user_set = True
         return field_states if has_user_set else {}
 
     async def async_press(self) -> None:
@@ -577,13 +589,10 @@ class NivonaBrewButton(_MelittaButtonBase):
 
 
 class NivonaResetOverridesButton(_MelittaButtonBase):
-    """Reset all Nivona brew-override sliders to their defaults.
+    """Reset the local Nivona brew overrides to their defaults.
 
-    Clears the ``user_set`` flag on every NivonaBrewOverrideNumber so the
-    next brew falls back to the machine's saved recipe instead of a
-    temp-recipe override. Implemented via a bus event per slider (each
-    slider uses the same length-safe event name as this button) so the
-    button needs no direct handle on the entity objects.
+    A reset clears numeric and flow-profile choices, returning the next brew
+    to the saved recipe. Each control listens for its own length-safe event.
     """
 
     _attr_name = "Reset Brew Overrides"
@@ -609,7 +618,10 @@ class NivonaResetOverridesButton(_MelittaButtonBase):
         for field in self._OVERRIDE_FIELDS:
             uid = f"{self._client.address}_brew_{field}"
             self.hass.bus.async_fire(_override_reset_event_type(uid))
-        _LOGGER.info("Brew overrides reset — user_set cleared on all sliders")
+        caps = self._client.capabilities
+        if caps and caps.brew_profile_recipe_ids:
+            self.hass.bus.async_fire(_override_reset_event_type(f"{self._client.address}_brew_profile"))
+        _LOGGER.info("Brew overrides reset to their defaults")
 
 
 class MelittaMaintenanceButton(_MelittaButtonBase):

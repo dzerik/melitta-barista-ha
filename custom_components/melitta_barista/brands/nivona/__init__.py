@@ -45,6 +45,7 @@ from ._registers import (
 from . import (
     _settings,
     _storage,
+    _recipe_choices,
     _recipe_fields,
     _status,
     _family_600,
@@ -57,6 +58,7 @@ from . import (
 
 
 _LOGGER = logging.getLogger("melitta_barista")
+_SERIAL_IDENTITY = re.compile(r"^(?:NIVONA-)?[0-9]{10,}-*$")
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +111,25 @@ def mycoffee_layout(family_key: str) -> RecipeFieldLayout | None:
 # NivonaProfile
 # ---------------------------------------------------------------------------
 
+def _dis_model_prefix(dis: dict[str, str]) -> str | None:
+    model = re.fullmatch(
+        r"(?:NICR|NIVO)[ -]+([0-9]{3,4})", dis.get("model", "").strip(), re.I,
+    )
+    return model[1] if model and model[1] in _PREFIX_TO_FAMILY else None
+
+
+def _model_prefix(ble_name: str, dis: dict[str, str] | None) -> str | None:
+    """Match a complete DIS model name or a known numeric serial prefix."""
+    if dis and (prefix := _dis_model_prefix(dis)):
+        return prefix
+    if _SERIAL_IDENTITY.fullmatch(ble_name):
+        serial = ble_name.removeprefix("NIVONA-")
+        for length in (4, 3):
+            if serial[:length] in _PREFIX_TO_FAMILY:
+                return serial[:length]
+    return None
+
+
 def _temperature_override(family_key: str, recipe_id: int) -> str | None:
     """Resolve the primary process for the legacy raw temperature preset."""
     if family_key in ("900", "900-light", "1030", "1040"):
@@ -154,9 +175,7 @@ class NivonaProfile:
     # optional dashes) that doesn't match Melitta falls through to
     # Nivona. Family/model identification happens separately via
     # `detect_family()` against `_PREFIX_TO_FAMILY`.
-    ble_name_regex: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(?:NIVONA-)?\d{10,}-*$"
-    )
+    ble_name_regex: ClassVar[re.Pattern[str]] = _SERIAL_IDENTITY
 
     # Nivona machines do not expose recipe read/write commands.
     supported_extensions: ClassVar[frozenset[str]] = frozenset()
@@ -200,23 +219,13 @@ class NivonaProfile:
     def detect_family(
         self, ble_name: str, dis: dict[str, str] | None = None,
     ) -> str | None:
-        """Identify Nivona family from serial-prefix tokenisation.
+        """Identify Nivona family from the serial or DIS identity.
 
-        Tries a 4-character serial prefix first (matches NIVO 8xxx
-        serials), then a 3-character prefix (NICR series). If neither
-        succeeds and DIS data is available, falls back to substring
-        search on serial / model / ad06 fields.
+        Prefers the exact DIS model name, then a four- or three-digit
+        serial prefix. Looser DIS hints are a family-only fallback.
         """
-        # Strip the "NIVONA-" prefix if present (advertisement form),
-        # or use the serial directly (DIS form).
-        serial = ble_name
-        if ble_name.startswith("NIVONA-"):
-            serial = ble_name[len("NIVONA-"):]
-        # The first token is the model code; the rest is factory ID.
-        if len(serial) >= 4 and (key := _PREFIX_TO_FAMILY.get(serial[:4])):
-            return key
-        if len(serial) >= 3 and (key := _PREFIX_TO_FAMILY.get(serial[:3])):
-            return key
+        if prefix := _model_prefix(ble_name, dis):
+            return _PREFIX_TO_FAMILY[prefix]
         # DIS-based fallback
         if dis:
             haystack = " ".join(filter(None, [
@@ -320,6 +329,11 @@ class NivonaProfile:
         """Check explicit fields using their own temporary or persistent domain."""
         if caps.family_key == "9101":
             return _family_9101.validate_field(context, selector, field, value)
+        if (
+            field == "profile" and context in ("temporary", "standard")
+            and caps.brew_profile_options and selector not in caps.brew_profile_recipe_ids
+        ):
+            raise ValueError(f"profile is unsupported for recipe {selector} on {caps.family_key}")
         if context == "temporary":
             register = self.temp_recipe_register(caps.family_key, selector, field)
         else:
@@ -349,39 +363,21 @@ class NivonaProfile:
     ) -> MachineCapabilities | None:
         """Return model-refined capabilities for a specific serial/advert.
 
-        Looks up the family first, then applies model-specific overrides
-        (from MODEL_RULES upstream) — primarily ``my_coffee_slots`` and
-        ``strength_levels``, which vary per model within a family. The 8107
-        also declares its chilled catalog and firmware preparation limits.
-        Returns None if the family cannot be resolved.
+        A recognized serial prefix or exact DIS model name enables model
+        overrides. Looser family hints use the family defaults.
         """
-        family = self.detect_family(ble_name, dis)
+        model_prefix = _model_prefix(ble_name, dis)
+        family = _PREFIX_TO_FAMILY[model_prefix] if model_prefix else self.detect_family(ble_name, dis)
         if family is None:
             return None
         caps = _NIVONA_FAMILIES[family]
-        # Look up model override by the same prefix cascade used in detect_family
-        serial = ble_name[len("NIVONA-"):] if ble_name.startswith("NIVONA-") else ble_name
-        model_prefix: str | None = None
-        override: dict | None = None
-        if len(serial) >= 4:
-            model_prefix = serial[:4]
-            override = _MODEL_OVERRIDES.get(model_prefix)
-        if override is None and len(serial) >= 3:
-            model_prefix = serial[:3]
-            override = _MODEL_OVERRIDES.get(model_prefix)
-
-        # Per-model settings filter — e.g. NICR758 lacks id 106 (profile).
-        # Apply by building a new tuple without the excluded ids.
+        override = _MODEL_OVERRIDES.get(model_prefix or "")
         excluded = _MODEL_SETTINGS_EXCLUDE.get(model_prefix or "", frozenset())
         if excluded:
-            filtered = tuple(
-                s for s in caps.settings if s.setting_id not in excluded
-            )
+            filtered = tuple(s for s in caps.settings if s.setting_id not in excluded)
             caps = replace(caps, settings=filtered)
 
-        # NICR 8107 — the only 8000-family model that exposes
-        # chilled-brew recipe selectors (8/9/10). Swap in the extended
-        # recipe table so NivonaRecipeSelect lists them.
+        # NICR 8107 is the sole 8000-family model with chilled-brew selectors.
         if model_prefix == "8107":
             caps = replace(
                 caps, recipes=_family_8000.RECIPES_8000_CHILLED,
@@ -396,7 +392,24 @@ class NivonaProfile:
 
         if override is None:
             return caps
-        return replace(caps, **override)
+        caps = replace(caps, **override)
+        offset = _STANDARD_RECIPE_LAYOUTS[family].profile_offset
+        if not caps.brew_profile_options or offset is None:
+            return caps
+        recipe_ids = []
+        for recipe in caps.recipes:
+            register = self.standard_recipe_register(recipe.recipe_id, offset, family_key=family)
+            if register is not None and _recipe_choices.choice_values(
+                family, "standard", register, "profile",
+            ) is not None:
+                recipe_ids.append(recipe.recipe_id)
+        return replace(caps, brew_profile_recipe_ids=tuple(recipe_ids))
+
+    def capabilities_for_dis_model(self, dis: dict[str, str]) -> MachineCapabilities | None:
+        """Resolve model capabilities only from a complete Device Information model name."""
+        if _dis_model_prefix(dis) is None:
+            return None
+        return self.capabilities_for_model("", dis)
 
     @staticmethod
     def is_chilled_selector(selector: int) -> bool:

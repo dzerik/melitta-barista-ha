@@ -36,7 +36,7 @@ def short_confirmation(monkeypatch):
 
 
 @pytest.mark.parametrize("path", ["recipe", "mycoffee"])
-async def test_product_after_nack_confirms_one_start_and_preserves_ha_attribution(path):
+async def test_product_after_nack_confirms_one_start_and_preserves_ha_attribution(path, caplog):
     client = _client()
     detector = LifecycleDetector()
     detector.feed(client.status)
@@ -61,6 +61,7 @@ async def test_product_after_nack_confirms_one_start_and_preserves_ha_attributio
     assert events[0].payload["source"] == "ha"
     assert events[0].payload["recipe_source"] == ("nivona" if path == "recipe" else "mycoffee")
     assert client.brew_intent is None  # consumed once, never re-staged after HX
+    assert "Nivona start was not confirmed" not in caplog.text
 
 
 async def test_product_can_arrive_before_ack():
@@ -82,7 +83,7 @@ async def test_product_can_arrive_before_ack():
 
 
 @pytest.mark.parametrize("process", [MachineProcess.READY, None])
-async def test_nack_without_fresh_product_is_failure_and_drops_pending_intent(process):
+async def test_nack_without_fresh_product_is_failure_and_drops_pending_intent(process, caplog):
     client = _client()
 
     async def poll():
@@ -95,6 +96,11 @@ async def test_nack_without_fresh_product_is_failure_and_drops_pending_intent(pr
     client._protocol.start_process_nivona.assert_awaited_once()
     assert client._status_callbacks == []
     assert not client._brew_lock.locked()
+    assert "Nivona start was not confirmed" in caplog.text
+    assert "Check the machine display, beans and water" in caplog.text
+    assert "BLE status may omit the reason" in caplog.text
+    assert "not been resent" in caplog.text
+    assert "fill_beans" not in caplog.text
 
 
 async def test_disconnect_or_replacement_cannot_confirm_start():

@@ -490,6 +490,15 @@
       },
       "language": {
         "name": "language"
+      },
+      "brew_aroma_profile": {
+        "name": "Профиль аромата напитка",
+        "state": {
+          "default": "Без переопределения",
+          "dynamic": "Динамический",
+          "constant": "Постоянный",
+          "intense": "Интенсивный"
+        }
       }
     },
     "number": {

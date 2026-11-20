@@ -10,7 +10,17 @@ from custom_components.melitta_barista.ble_client import MelittaBleClient
 from custom_components.melitta_barista.brands import get_profile
 from custom_components.melitta_barista.button import MelittaConfirmPromptButton
 from custom_components.melitta_barista.binary_sensor import MelittaAwaitingConfirmationBinarySensor
-from custom_components.melitta_barista.const import Manipulation, SubProcess
+from custom_components.melitta_barista.const import MachineProcess, Manipulation, SubProcess
+from custom_components.melitta_barista.lifecycle import (
+    EVENT_MAINTENANCE_FINISHED,
+    LifecycleDetector,
+)
+from custom_components.melitta_barista.sensor import (
+    MelittaActionRequiredSensor,
+    MelittaActivitySensor,
+    MelittaProgressSensor,
+    MelittaStateSensor,
+)
 from custom_components.melitta_barista.ui_contract import build_status_tokens
 from tests import MOCK_ADDRESS
 
@@ -305,3 +315,140 @@ def test_unknown_family_cannot_infer_ready_from_a_numeric_coincidence(family):
     status = get_profile("nivona").parse_status(family, struct.pack(">hhhh", 8, 0, 0, 0))
     assert not status.is_ready
     assert status.process is None
+
+
+@pytest.mark.parametrize(("message", "manipulation", "key", "label"), [
+    (2, Manipulation.TRAYS_MISSING, "trays_missing", "Trays Missing"),
+    (4, Manipulation.FILL_WATER, "fill_water", "Fill Water"),
+])
+async def test_nicr660_physical_prompt_updates_action_required(message, manipulation, key, label):
+    client, packets = _client("660", auto=True)
+    sensor = MelittaActionRequiredSensor(client, MagicMock(), "Nivona")
+
+    status = _hx(client, message=message)
+
+    assert sensor.native_value == label
+    assert status.raw_process == 8
+    assert status.raw_message == message
+    assert status.message_key == key
+    assert status.manipulation == manipulation
+    assert status.brew_blocked
+    assert not status.is_ready_for_brew((manipulation.value,))
+    assert not build_status_tokens(status, True)["awaiting_confirmation"]
+    assert not await client.confirm_prompt()
+    await asyncio.sleep(0)
+    assert packets == []
+
+    _hx(client)
+    assert sensor.native_value == "None"
+
+
+@pytest.mark.parametrize(("model", "message"), [("660", 1), ("660", 3), ("930", 2), ("930", 4)])
+def test_nicr660_prompt_codes_do_not_guess_unverified_meanings(model, message):
+    client, _ = _client(model)
+
+    status = _hx(client, message=message)
+
+    assert status.raw_message == message
+    assert status.message_key == "unknown"
+    assert status.manipulation == Manipulation.NONE
+    assert status.brew_blocked
+
+
+def test_ef698_americano_water_phase_preserves_whole_drink_progress():
+    client, _ = _client("960")
+    sensor = MelittaProgressSensor(client, MagicMock(), "Nivona")
+
+    for sub, progress, expected in (
+        (1, 0, SubProcess.GRINDING),
+        (2, 48, SubProcess.COFFEE),
+        (8, 49, SubProcess.WATER),
+        (8, 100, SubProcess.WATER),
+    ):
+        status = _hx(client, process=11, sub=sub, progress=progress)
+        assert status.process == MachineProcess.PRODUCT
+        assert status.sub_process == expected
+        assert status.raw_sub_process == sub
+        assert status.progress == status.raw_progress == progress == sensor.native_value
+
+    other_client, _ = _client("756")
+    assert _hx(other_client, process=11, sub=8).sub_process is None
+
+
+async def test_nicr795_reports_frother_rinse_and_observed_completion():
+    client, packets = _client("795", auto=True)
+    state_sensor = MelittaStateSensor(client, MagicMock(), "Nivona")
+    activity_sensor = MelittaActivitySensor(client, MagicMock(), "Nivona")
+    progress_sensor = MelittaProgressSensor(client, MagicMock(), "Nivona")
+    detector = LifecycleDetector()
+
+    assert not detector.feed(_hx(client), now=0)
+    for now, progress in ((5, 0), (10, 98), (55, 1000)):
+        status = _hx(client, process=13, progress=progress)
+        assert status.process == MachineProcess.EASY_CLEAN
+        assert status.raw_process == 13
+        assert status.raw_progress == progress
+        assert status.progress == progress // 10
+        assert state_sensor.native_value == "Easy Clean"
+        assert activity_sensor.native_value == "Easy Clean"
+        assert progress_sensor.native_value == progress // 10
+        assert not status.is_ready_for_brew()
+        assert not status.is_brewing
+        assert not detector.feed(status, now=now)
+
+    events = detector.feed(_hx(client), now=60)
+    assert len(events) == 1
+    assert events[0].type == EVENT_MAINTENANCE_FINISHED
+    assert events[0].payload == {"process": "EASY_CLEAN", "duration_s": 55}
+    assert not detector.feed(_hx(client), now=65)
+    assert not await client.confirm_prompt()
+    await asyncio.sleep(0)
+    assert packets == []
+
+
+@pytest.mark.parametrize(("initial_ready", "frames", "disconnect", "final_message"), [
+    (True, [(13, 500, 0)], False, 0),
+    (True, [(13, 0, 0), (13, 1001, 0)], False, 0),
+    (True, [(13, 0, 0), (13, 1000, 40)], False, 0),
+    (True, [(13, 0, 0), (13, 1000, 0), (13, 1000, 40)], False, 0),
+    (True, [(13, 0, 0), (13, 1000, 0), (99, 0, 0)], False, 0),
+    (True, [(13, 0, 0), (13, 1000, 0), (13, 500, 0)], False, 0),
+    (True, [(13, 503, 0), (13, 502, 0), (13, 1000, 0)], False, 0),
+    (True, [(13, 0, 0), (13, 1000, 0)], False, 20),
+    (True, [(13, 0, 0), (13, 1000, 0)], True, 0),
+    (True, [(13, 1000, 0)], False, 0),
+    (True, [(99, 0, 0), (13, 500, 0), (13, 1000, 0)], False, 0),
+    (True, [(8, 0, 40), (13, 500, 0), (13, 1000, 0)], False, 0),
+    (False, [(13, 0, 0), (13, 900, 0), (13, 1000, 0)], False, 0),
+])
+def test_nicr795_does_not_report_unobserved_rinse_completion(
+    initial_ready, frames, disconnect, final_message,
+):
+    client, _ = _client("795")
+    detector = LifecycleDetector()
+    if initial_ready:
+        assert not detector.feed(_hx(client), now=0)
+
+    for now, (process, progress, message) in enumerate(frames, start=1):
+        status = _hx(client, process=process, progress=progress, message=message)
+        assert all(
+            event.type != EVENT_MAINTENANCE_FINISHED
+            for event in detector.feed(status, now=now)
+        )
+    if disconnect:
+        detector.reset()
+    assert all(
+        event.type != EVENT_MAINTENANCE_FINISHED
+        for event in detector.feed(_hx(client, message=final_message), now=10)
+    )
+
+
+@pytest.mark.parametrize("model", ["660", "756", "796", "960", "930"])
+def test_nicr795_frother_rinse_mapping_does_not_spread_to_other_models(model):
+    client, _ = _client(model)
+
+    status = _hx(client, process=13, progress=1000)
+
+    assert status.process is None
+    assert status.raw_process == 13
+    assert status.progress == 1000

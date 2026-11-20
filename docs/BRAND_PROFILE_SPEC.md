@@ -113,6 +113,22 @@ the 810x message/phase table. This does not enable any outgoing
 maintenance process codes. Melitta retains its canonical decoder and existing
 confirmation policy.
 
+Incoming mappings can be narrower than a capability family. The NICR 600
+status profile recognizes the confirmed tray-missing (2) and fill-water (4)
+messages without assigning those codes to the incomplete 900 profile. The
+Ef698 profile recognizes PRODUCT sub-process 8 as water while retaining the
+machine's whole-drink progress. The NICR 795 refinement recognizes process 13
+as a locally started frother rinse (`EASY_CLEAN`); this is passive observation
+and does not authorize a maintenance start command.
+
+`MachineStatus.progress` normalizes known scales to a percentage;
+`raw_progress` retains the received value. A decoder may set
+`maintenance_raw_progress_max` to require observed maintenance progression
+before a completion event. For the NICR 795 rinse, a clear READY must precede
+an incomplete rinse, progress must reach the raw maximum without interruption,
+and clear READY must follow. Missing or interrupted evidence produces no
+completion event.
+
 Shared commands check confirmation eligibility at invocation, inside the
 protocol lock on every attempt, and under the BLE write lock immediately
 before GATT transmission. A queued action belongs to one prompt
@@ -220,6 +236,8 @@ saved_recipe_only_selectors: tuple[int, ...] = ()
 saved_recipe_only_firmwares: tuple[str, ...] = ()
 required_brew_overrides: tuple[tuple[int, str, int], ...] = ()
 brew_temperature_max: tuple[tuple[int, int], ...] = ()
+brew_profile_options: tuple[tuple[int, str], ...] = ()  # raw value / native option
+brew_profile_recipe_ids: tuple[int, ...] = ()          # eligible coffee selectors
 ```
 
 The saved-recipe workaround applies only when both the selector and exact
@@ -231,6 +249,9 @@ keeps fixed preparation presets from being overwritten by generic controls.
 The brand's `temp_recipe_register` resolves the legacy `temperature` alias to
 the recipe's actual process field, returning `None` when unsupported. Shared
 commands consume this metadata without inferring behavior from family names.
+`brew_profile_options` and `brew_profile_recipe_ids` expose a separate native
+flow-profile override only for confirmed models. Empty tuples disable it;
+this does not change the legacy `has_aroma_balance` meaning.
 
 ### Tables (filled per family)
 

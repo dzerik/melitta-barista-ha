@@ -4,6 +4,27 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
+## [0.96.1b2] — 2026-11-20 (beta)
+
+### Added
+- Expose a native Brew Aroma Profile select for NICR 960 coffee recipes, with independent Dynamic, Constant and Intense choices and local override reset (#72).
+
+### Fixed
+- Restore the confirmed tray-missing and fill-water prompts on the NICR 660 without expanding incomplete status maps for other families (#58).
+- Recognize the Ef698 Americano bypass-water phase while preserving whole-drink progress (#72).
+- Recognize locally started NICR 795 frother rinses, normalize their progress, retain raw diagnostic values, and report completion only after an observed uninterrupted rinse reaches its maximum and returns to clear READY (#59).
+- Retain model-specific capabilities when an exact structured device model is available without a serial number (#70, #72).
+- Seed the saved NICR 960 coffee profile when other temporary overrides are used without an explicit profile; abort preparation if that value cannot be read or validated.
+- Explain an unconfirmed Nivona start in the logs without inventing a specific cause or resending the command (#59).
+
+### Changed
+- Refresh the integration brand icons and logos for light and dark themes, including high-resolution variants.
+
+### Beta testing and limitations
+- Nivona behavior remains model-dependent and needs hardware confirmation. Please report the model, firmware, integration version and relevant diagnostics/debug logs for regressions.
+- The new NICR 960 aroma-profile control is a native HA entity; the existing card and PWA parameter catalogs are unchanged.
+- Passive rinse detection does not enable any new maintenance start or power command. Unverified commands remain unavailable.
+
 ## [0.96.0] — 2026-11-16
 
 ### Added

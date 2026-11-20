@@ -239,7 +239,7 @@ class MelittaStateSensor(_MelittaSensorBase):
 
 
 class MelittaActivitySensor(_MelittaSensorBase):
-    """Current sub-activity (Grinding, Extracting, Steaming, etc.)."""
+    """Current preparation phase or verified maintenance activity."""
 
     _attr_name = "Activity"
     _attr_icon = "mdi:coffee"
@@ -254,10 +254,15 @@ class MelittaActivitySensor(_MelittaSensorBase):
 
     @property
     def native_value(self) -> str | None:
+        """Show the current activity using decoded phase or maintenance status."""
         status = self._client.status
-        if status is None or status.sub_process is None:
+        if status is None:
             return "Idle"
-        return SUBPROCESS_LABELS.get(status.sub_process, status.sub_process.name)
+        if status.sub_process is not None:
+            return SUBPROCESS_LABELS.get(status.sub_process, status.sub_process.name)
+        if status.maintenance_raw_progress_max is not None and status.process is not None:
+            return PROCESS_LABELS.get(status.process, status.process.name)
+        return "Idle"
 
 
 class MelittaProgressSensor(_MelittaSensorBase):
