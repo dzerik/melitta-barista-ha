@@ -34,6 +34,8 @@ def _writes(client):
 async def test_40_ml_has_model_correct_wire_units_in_each_context(model, raw, context, register):
     client = _client(model)
     if context == "temporary":
+        if model == "960":
+            client._protocol.send_and_wait_response = AsyncMock(return_value=struct.pack(">hi", 10002, 1))
         assert await client.brew_nivona(0, {"coffee_amount":40})
     elif context == "standard":
         assert await client.write_standard_recipe_param(0,"coffee_amount",40)

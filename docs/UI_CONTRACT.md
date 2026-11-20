@@ -1368,6 +1368,15 @@ from an explicit choice when seeding local editing state. Restore data retains
 that optional value, including null. An explicit legacy shots-select edit clears
 its component's mode override; local sibling controls refresh without BLE reads.
 
+The NICR 960 native HA `brew_aroma_profile` select is a separate, model-gated
+brew override with `default`, `dynamic`, `constant` and `intense` states. The
+three explicit choices map to raw profile values 0, 1 and 2 for coffee recipes;
+`default` removes the explicit local override. When other temporary overrides
+remain, the current saved coffee profile is read and seeded before brewing; a
+failed or invalid read prevents a partial preparation. It does not use Melitta's
+`aroma` tokens or advertise an additional parameter family or action field.
+Existing card and PWA controls continue to use the published catalog.
+
 #### 6.1.4 Example payloads (pinned verbatim in tests)
 
 Melitta Barista TS (extends the §3.7 document):

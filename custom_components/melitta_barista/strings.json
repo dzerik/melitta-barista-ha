@@ -538,6 +538,15 @@
       },
       "language": {
         "name": "language"
+      },
+      "brew_aroma_profile": {
+        "name": "Brew Aroma Profile",
+        "state": {
+          "default": "No override",
+          "dynamic": "Dynamic",
+          "constant": "Constant",
+          "intense": "Intense"
+        }
       }
     },
     "number": {

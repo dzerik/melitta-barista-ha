@@ -7,7 +7,7 @@ from ._recipe_choices import choice_values
 
 
 _AMOUNT_FIELDS = ("coffee_amount", "water_amount", "milk_amount", "milk_foam_amount")
-_VERIFIED_PROFILES = frozenset(("ef573", "ef253", "ef698", "ef568", "ef1040"))
+_VERIFIED_PROFILES = frozenset(("ef573", "ef253", "ef253-795", "ef698", "ef568", "ef1040"))
 _CHILLED_STANDARD_AMOUNTS = {
     (10805, "coffee_amount"): (20, 240),
     (10905, "coffee_amount"): (20, 240),

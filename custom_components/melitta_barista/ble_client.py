@@ -197,6 +197,11 @@ def _capabilities_from_identity(
 ) -> MachineCapabilities | None:
     """Refine a family from identity without overriding the user's family choice."""
     override = family_override if family_override in brand.families else None
+    dis_model_lookup = getattr(brand, "capabilities_for_dis_model", None)
+    if dis and dis_model_lookup is not None and (caps := dis_model_lookup(dis)) is not None:
+        if override is not None and caps.family_key != override:
+            return brand.capabilities_for(override)
+        return caps
     model_lookup = getattr(brand, "capabilities_for_model", None)
     if model_lookup is not None:
         for candidate in candidates:

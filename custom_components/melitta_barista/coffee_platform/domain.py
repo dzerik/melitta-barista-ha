@@ -75,7 +75,13 @@ class Manipulation(IntEnum):
 
 @dataclass
 class MachineStatus:
-    """Machine status parsed from HX response."""
+    """Machine status parsed from an HX response.
+
+    Known progress scales are presented as a percentage in ``progress``.
+    ``raw_progress`` carries the original value when supplied by the decoder.
+    A ``maintenance_raw_progress_max`` requires observed progression to that
+    raw value before the lifecycle detector can report completion.
+    """
     process: MachineProcess | None = None
     sub_process: SubProcess | None = None
     info_messages: InfoMessage = InfoMessage(0)
@@ -90,6 +96,8 @@ class MachineStatus:
     brew_blocked: bool = False
     # None preserves legacy prompt handling; explicit False forbids HY.
     prompt_confirmable: bool | None = None
+    raw_progress: int | None = None
+    maintenance_raw_progress_max: int | None = None
 
     @property
     def is_ready(self) -> bool:
@@ -341,6 +349,10 @@ class MachineCapabilities:
     # and the client refuses to send the generic command. All Nivona families
     # ship ``()`` until model-specific outgoing commands are validated.
     verified_maintenance_processes: tuple[int, ...] | None = None
+
+    # Model-confirmed flow profiles for native brew overrides (raw value, option).
+    brew_profile_options: tuple[tuple[int, str], ...] = ()
+    brew_profile_recipe_ids: tuple[int, ...] = ()
 
 
 # ---------------------------------------------------------------------------

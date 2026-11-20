@@ -53,35 +53,17 @@ only possible after the machine has reported PRODUCT, which is precisely the
 frame that empties the stage. The caller pops the client's flag and hands it in;
 the detector latches it for the brew in flight and drops it when there is none.
 
-Brand reality — what Nivona structurally cannot produce
-------------------------------------------------------
-Nivona's `parse_status` maps exactly two process codes (READY and PRODUCT, per
-family; every other code parses to `process=None`) and hard-zeroes
-`info_messages`. Consequently, on Nivona:
+Nivona status coverage
+----------------------
+Nivona supplies READY and PRODUCT and selectively decodes other verified
+processes. Frother rinse completion on the NICR 795 requires a progression from
+READY through the rinse's maximum progress to READY again. Its HX decoder
+leaves ``info_messages`` empty, so terminal brew events report
+``cancel_detection: False``. An unmapped process can leave a brew latch open
+until a later READY, which makes the max-brew-age guard (R8) necessary.
 
-* `maintenance_finished` **can never fire** — no CLEANING/DESCALING/EASY_CLEAN/…
-  code ever reaches the detector;
-* `cancel_source: "power_off"` **can never occur** — there is no SWITCH_OFF code;
-* `cancel_source: "machine"` **can never occur** — `InfoMessage` is always 0,
-  which is also why terminal events carry `cancel_detection: False` there.
-
-These are structural facts about the firmware's process table, not bugs. A
-Nivona user reporting "the maintenance trigger never fires" is describing
-expected behaviour.
-
-`sub_process` is the one brew fact that does *not* depend on that process table:
-Nivona's `parse_status` reads it out of the HX frame and maps it through
-`SubProcess` on every family, exactly as Melitta does. The `shape` token on
-`brew_finished` (see `classify_brew_shape`) therefore works on both brands —
-which matters most on Nivona, where an unmapped code can leave the brew latch to
-be closed by a later READY and `shape` is then the only thing describing what was
-actually made.
-
-That same two-code table is why the max-brew-age guard (R8) is mandatory: a brew
-whose end is reported with an unmapped code parses to `process=None`, which is
-not a transition, so without the guard the brew latch would survive for the
-whole connected session and the next READY would narrate yesterday's drink with
-a duration measured in days.
+The ``shape`` token on ``brew_finished`` derives from known sub-processes on
+both brands.
 """
 
 from __future__ import annotations
@@ -328,6 +310,8 @@ class LifecycleDetector:
         self._prompt_started_at: float | None = None
         self._maintenance: MachineProcess | None = None
         self._maintenance_started_at: float | None = None
+        self._maintenance_progress: tuple[int, int] | None = None
+        self._maintenance_previous_ready = False
         self.reset()
 
     # -- lifecycle -----------------------------------------------------------
@@ -354,6 +338,8 @@ class LifecycleDetector:
         self._prompt_started_at = None
         self._maintenance = None
         self._maintenance_started_at = None
+        self._maintenance_progress = None
+        self._maintenance_previous_ready = False
 
     def consumed_intent(self) -> bool:
         """True when the last `feed()` took the staged intent — pop it now.
@@ -418,6 +404,7 @@ class LifecycleDetector:
         self._expire_stale_brew(now)
         self._latch_cancel(status)
         self._latch_ha_cancel(ha_cancelled)
+        self._feed_maintenance(status, now=now, events=events)
         if status.process is not None:
             self._feed_process(status.process, intent=intent, now=now,
                                cancel_detection=cancel_detection, events=events)
@@ -488,27 +475,14 @@ class LifecycleDetector:
     ) -> None:
         """Evaluate the process-derived edges for a frame with a known process.
 
-        Only reached for `process is not None` (R0): an unrecognised code —
-        every non-READY, non-PRODUCT code on Nivona — is not a transition and
-        must leave `_prev_process` and the brew latch exactly as they were.
+        Only recognized processes (R0) can change `_prev_process` or the
+        brew latch.
         """
         prev = self._prev_process
         if prev is None:
             # R1 — the first frame after a reset records, never emits.
             self._prev_process = process
             return
-
-        # R7 — leaving maintenance for any known non-maintenance process.
-        if self._maintenance is not None and process not in MAINTENANCE_PROCESSES:
-            events.append(LifecycleEvent(
-                EVENT_MAINTENANCE_FINISHED,
-                {
-                    "process": self._maintenance.name,
-                    "duration_s": _duration_s(self._maintenance_started_at, now),
-                },
-            ))
-            self._maintenance = None
-            self._maintenance_started_at = None
 
         # R4 — brew terminal. Looser than the cup-counter rule in ble_client
         # (which requires literally READY), because BUSY and SWITCH_OFF can sit
@@ -530,14 +504,58 @@ class LifecycleDetector:
                 EVENT_BREW_STARTED, self._intent_payload(self._intent),
             ))
 
-        # R7 — entering maintenance. The first code of an episode is the one
-        # reported; a machine that walks through several maintenance codes in a
-        # row is one procedure from the user's point of view.
-        if process in MAINTENANCE_PROCESSES and self._maintenance is None:
-            self._maintenance = process
-            self._maintenance_started_at = now
-
         self._prev_process = process
+
+
+    def _feed_maintenance(
+        self, status: MachineStatus, *, now: float, events: list[LifecycleEvent],
+    ) -> None:
+        """Track maintenance and require progress evidence when the decoder supplies a scale."""
+        previous_ready = self._maintenance_previous_ready
+        self._maintenance_previous_ready = status.is_ready
+        process = status.process
+        max_progress = status.maintenance_raw_progress_max
+        raw_progress = status.raw_progress
+        sample = None
+        if (
+            max_progress is not None and raw_progress is not None
+            and 0 <= raw_progress <= max_progress and not status.brew_blocked
+        ):
+            sample = (raw_progress, max_progress)
+        if self._maintenance is not None:
+            finished = True
+            if self._maintenance_progress is not None:
+                previous, maximum = self._maintenance_progress
+                if (
+                    process == self._maintenance and sample is not None
+                    and sample[1] == maximum and sample[0] >= previous
+                ):
+                    self._maintenance_progress = sample
+                    return
+                finished = status.is_ready and previous == maximum
+            elif process is None or process in MAINTENANCE_PROCESSES:
+                return
+
+            if finished:
+                events.append(LifecycleEvent(
+                    EVENT_MAINTENANCE_FINISHED,
+                    {
+                        "process": self._maintenance.name,
+                        "duration_s": _duration_s(self._maintenance_started_at, now),
+                    },
+                ))
+            self._maintenance = None
+            self._maintenance_started_at = None
+            self._maintenance_progress = None
+
+        if self._prev_process is None or process not in MAINTENANCE_PROCESSES:
+            return
+        if max_progress is not None:
+            if not previous_ready or sample is None or sample[0] == sample[1]:
+                return
+            self._maintenance_progress = sample
+        self._maintenance = process
+        self._maintenance_started_at = now
 
     def _take_intent(self, intent: BrewIntent | None, now: float) -> BrewIntent | None:
         """Consume the staged intent at a brew-start edge, honouring the TTL."""

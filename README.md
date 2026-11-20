@@ -611,10 +611,12 @@ are always present live, and deliberately absent from the database.
   language** (`hass.config.language`), not per user. `description_language`
   tells you which language it actually came out in — it falls back to English
   as a whole sentence when a locale is incomplete, never half-and-half.
-- **On Nivona**, `maintenance_finished` never fires and `cancel_source:
-  "power_off"` never occurs: that firmware reports only two process codes
-  (ready / preparing) to this integration. `cancel_detection` is `false` there,
-  so a cancelled Nivona brew is reported as `brew_finished`.
+- **On Nivona**, `maintenance_finished` is supported for the confirmed NICR 795
+  frother-rinse sequence only: observed clear READY, uninterrupted progress to
+  its maximum, then clear READY again. Other unverified maintenance processes
+  remain unmapped. `cancel_source: "power_off"` is not detected and
+  `cancel_detection` is `false`, so a cancelled Nivona brew may be reported as
+  `brew_finished`.
 - A prompt that is replaced by a different prompt emits `prompt_cleared` and
   then `prompt_raised`, in that order — one event per prompt.
 - A brew shorter than the 5 s status poll interval can be missed entirely.

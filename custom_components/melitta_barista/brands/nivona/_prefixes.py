@@ -18,6 +18,8 @@ share the leading digits with ``NICR 8xxx``-class hypothetical models).
 
 from __future__ import annotations
 
+from ._options import _PROFILE_STANDARD_OPTIONS
+
 # Per-model overrides applied on top of the family default.
 # Key: 3- or 4-char serial prefix; value: ``{field: override_value}``.
 _MODEL_OVERRIDES: dict[str, dict] = {
@@ -49,14 +51,17 @@ _MODEL_OVERRIDES: dict[str, dict] = {
     "792": {"my_coffee_slots": 5, "strength_levels": 5},
     "793": {"my_coffee_slots": 5, "strength_levels": 5},
     "794": {"my_coffee_slots": 5, "strength_levels": 5},
-    "795": {"my_coffee_slots": 5, "strength_levels": 5},
+    "795": {"my_coffee_slots": 5, "strength_levels": 5, "status_profile_key": "ef253-795"},
     "796": {"my_coffee_slots": 5, "strength_levels": 5},
     "797": {"my_coffee_slots": 5, "strength_levels": 5},
     "799": {"my_coffee_slots": 5, "strength_levels": 5},
     # NICR 900 / 900-light
     "920": {"my_coffee_slots": 9, "strength_levels": 5},
     "930": {"my_coffee_slots": 9, "strength_levels": 5},
-    "960": {"my_coffee_slots": 9, "strength_levels": 5},
+    "960": {
+        "my_coffee_slots": 9, "strength_levels": 5,
+        "brew_profile_options": _PROFILE_STANDARD_OPTIONS[:3],
+    },
     "965": {"my_coffee_slots": 9, "strength_levels": 5},
     "970": {"my_coffee_slots": 9, "strength_levels": 5},
     # NICR 1030 / 1040

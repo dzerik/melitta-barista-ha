@@ -26,6 +26,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from .protocol import RecipeComponent
+    from .coffee_platform.domain import MachineCapabilities
 
 _LOGGER = logging.getLogger("melitta_barista")
 
@@ -121,6 +122,23 @@ class BleCommandsMixin(_MixinBase):
             overrides[target] = overrides.pop("temperature")
         fields.update(overrides)
         return fields
+
+    async def _read_saved_brew_profile(self, caps: MachineCapabilities, selector: int) -> int | None:
+        """Read the saved flow profile before writing a temporary recipe."""
+        layout = self._brand.standard_recipe_layout(caps.family_key)
+        offset = getattr(layout, "profile_offset", None)
+        register = None if offset is None else self._brand.standard_recipe_register(
+            selector, offset, family_key=caps.family_key,
+        )
+        value = None if register is None else await self._protocol.read_numerical(self._write_ble, register)
+        if value is not None:
+            try:
+                return self._brand.validate_recipe_param(caps, "temporary", selector, "profile", value)
+            except ValueError as err:
+                _LOGGER.warning("Invalid saved brew profile: %s", err)
+                return None
+        _LOGGER.warning("Could not read the saved brew profile for recipe %d", selector)
+        return None
 
     def _record_brew_intent(
         self,
@@ -274,6 +292,14 @@ class BleCommandsMixin(_MixinBase):
             )
             if accepted:
                 _LOGGER.info("Nivona start confirmed by PRODUCT after unacknowledged HE")
+            else:
+                _LOGGER.warning(
+                    "Nivona start was not confirmed. Check the machine display, "
+                    "beans and water, and the Bluetooth connection. BLE status "
+                    "may omit the reason for a rejected start. The start command "
+                    "has not been resent; check whether preparation began before "
+                    "trying again"
+                )
             return accepted
         finally:
             self.remove_status_callback(observe)
@@ -295,6 +321,8 @@ class BleCommandsMixin(_MixinBase):
         primary process; unsupported temperatures raise ValueError before
         any command is sent. All explicit inputs are preflighted before the
         first HW. Quantities use mL; choices use raw zero-based values.
+        Models with a verified flow profile preserve the selected drink's
+        saved profile when another override requires a temporary recipe.
 
         Nivona machines don't have recipe read/write (HC/HJ) — they use
         HE with byte[3]=selector instead.
@@ -375,6 +403,14 @@ class BleCommandsMixin(_MixinBase):
                     overrides = await self._seed_temporary_recipe(caps, recipe_selector, overrides)
                     if overrides is None:
                         return False
+                if (
+                    overrides and recipe_selector in caps.brew_profile_recipe_ids
+                    and "profile" not in overrides
+                ):
+                    profile = await self._read_saved_brew_profile(caps, recipe_selector)
+                    if profile is None:
+                        return False
+                    overrides["profile"] = profile
                 # Pre-write temp-recipe overrides via HW. The machine
                 # exposes a single fixed temp slot shared across all
                 # selectors:

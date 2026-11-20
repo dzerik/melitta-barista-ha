@@ -6,7 +6,6 @@ import json
 import struct
 from unittest.mock import MagicMock, PropertyMock
 
-import pytest
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -92,6 +91,23 @@ async def test_nivona_diagnostics_preserve_blocking_raw_message(hass: HomeAssist
     assert diagnostic["prompt_confirmable"] is False
     assert diagnostic["is_ready"] is False
     assert json.loads(json.dumps(diagnostic)) == diagnostic
+
+
+async def test_nivona_diagnostics_preserve_raw_frother_rinse_progress(hass: HomeAssistant):
+    profile = get_profile("nivona")
+    caps = profile.capabilities_for_model("795000000000000")
+    status = profile.parse_status(
+        caps.family_key, struct.pack(">hhhh", 13, 0, 0, 629),
+        status_profile_key=caps.status_profile_key,
+    )
+    entry = _make_entry(runtime_data=_make_mock_client(status=status))
+    entry.add_to_hass(hass)
+
+    diagnostic = (await async_get_config_entry_diagnostics(hass, entry))["status"]
+
+    assert diagnostic["raw_process"] == 13
+    assert diagnostic["raw_progress"] == 629
+    assert diagnostic["progress"] == 62
 
 
 # ---------------------------------------------------------------------------
