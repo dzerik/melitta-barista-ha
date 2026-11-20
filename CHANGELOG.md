@@ -4,7 +4,7 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 
 ## [Unreleased]
 
-## [0.96.1b1] — 2026-11-20 (beta)
+## [0.96.1b2] — 2026-11-20 (beta)
 
 ### Added
 - Expose a native Brew Aroma Profile select for NICR 960 coffee recipes, with independent Dynamic, Constant and Intense choices and local override reset (#72).
@@ -16,6 +16,9 @@ All notable changes to the Melitta Barista Smart & Nivona HA Integration.
 - Retain model-specific capabilities when an exact structured device model is available without a serial number (#70, #72).
 - Seed the saved NICR 960 coffee profile when other temporary overrides are used without an explicit profile; abort preparation if that value cannot be read or validated.
 - Explain an unconfirmed Nivona start in the logs without inventing a specific cause or resending the command (#59).
+
+### Changed
+- Refresh the integration brand icons and logos for light and dark themes, including high-resolution variants.
 
 ### Beta testing and limitations
 - Nivona behavior remains model-dependent and needs hardware confirmation. Please report the model, firmware, integration version and relevant diagnostics/debug logs for regressions.
